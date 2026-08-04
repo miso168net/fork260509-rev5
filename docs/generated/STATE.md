@@ -3,7 +3,7 @@
 
 ## git
 - default branch：rev5-admin-root
-- pins：base-web=未定（index 無該 gitlink 條目（純外層 repo 或該 submodule 未登記））｜rust-api=未定（index 無該 gitlink 條目（純外層 repo 或該 submodule 未登記））
+- pins：base-web=0fee6c0｜rust-api=69561c4
 
 ## constitution
 - 版本：1.0.0

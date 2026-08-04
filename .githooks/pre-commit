@@ -77,7 +77,14 @@ fi
 # index/constraint 歸 gate1、default 不驗（entity 面無此資訊）。兩條件取聯集只跑一次（判定
 # 冪等）；有漂移／結構異常＝擋（補救見工具輸出）。
 if echo "$staged" | grep -qxF -e 'rust-api' -e 'docs/ops/reference-src/schema-snapshot.json'; then
-  python3 tools/entity-drift-gate.py check || exit 1
+  # ★Day-1 具名跳過（創世期、schema 基線刀前）：快照檔缺席＝工具 rc=2 環境不可用、會擋
+  #   pin 首記 commit。解除＝schema 刀 refresh 產快照後本分支自動恢復實跑；同 fork-delta
+  #   Day-1 跳過模式（ADR 0001 決定 4）。快照存在而 drift＝照擋（真故障面不受影響）。
+  if [ -f "$HOOK_DIR/../docs/ops/reference-src/schema-snapshot.json" ]; then
+    python3 tools/entity-drift-gate.py check || exit 1
+  else
+    echo "[pre-commit] ⤳ entity-drift-gate 跳過：schema 快照缺席（schema 基線刀前）——快照就位後自動恢復實跑"
+  fi
 fi
 
 # ── 全鏈耗時評估（僅在全部閘通過後執行；任一閘失敗時上方已 exit）──────────────

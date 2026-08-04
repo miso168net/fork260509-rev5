@@ -2926,10 +2926,8 @@ DAY1_EXEMPTIONS = {
         "rust 路由表於後端首刀前無實碼",
         (ROUTER_SOURCE,),                                # 解除＝B12
         "2026-08-04"),
-    "gen.screens": (
-        "前端 route 表於 worktree 掛載前不存在",
-        (ELEGANT_SOURCE,),                               # ★解除＝B9 當步（該檔 example 基線就有）
-        "2026-08-04"),
+    # gen.screens：2026-08-04 B9 worktree 掛載、routes.ts 到位、解除謂詞成立——依「到期即紅」
+    # 下架（原豁免＝前端 route 表於 worktree 掛載前不存在；screens 真表自此恢復重算）。
     "gen.msg_dict": (
         "★射程＝MSG_DICT_LOCALES 兩支（compute_msg_dict_rows 兩支皆讀、cmd_generate 守衛在 "
         "B9 前兩支皆缺）——zh-tw.ts 是 fork 側新增檔、example 基線沒有（僅 en-us／zh-cn），"
@@ -2962,8 +2960,6 @@ DAY1_EXEMPT_SCOPE = {
                        f"{GENERATED_DIR}/reference/accounts.md")),
     "gen.router":    ((ROUTER_SOURCE,),
                       (f"{GENERATED_DIR}/reference/routes.md",)),
-    "gen.screens":   ((ELEGANT_SOURCE,),
-                      (f"{GENERATED_DIR}/reference/screens.md",)),
     "gen.msg_dict":  (tuple(rel for _lang, rel in MSG_DICT_LOCALES),
                       (MSG_DICT_MD, MSG_DICT_PANEL)),
     # 消費點在 lint_i18n_contract 的 early-return（乙③），不涉 generate 面
@@ -8662,6 +8658,17 @@ class TestGateWiring(unittest.TestCase):
             self._run(["rust-api", "docs/ops/reference-src/schema-snapshot.json"]),
             (0, self.BASE + gate))
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
+
+    def test_dry_run_entity_drift_day1_skip_when_snapshot_absent(self):
+        """★Day-1 具名跳過（B9 hook 裁製、ADR 0001 決定 4 同模式第二例）：schema 快照
+        缺席時 entity-drift-gate 不實跑（工具 rc=2 環境不可用、會擋 pin 首記）且 hook 放行。
+        與 trigger_conditions 案成對＝快照在必跑、缺席必跳（兩向紅綠、防閘門被拆或反向寫死）。"""
+        snap = os.path.join(self.d, "docs/ops/reference-src/schema-snapshot.json")
+        os.rename(snap, snap + ".away")
+        try:
+            self.assertEqual(self._run(["rust-api"]), (0, self.BASE))
+        finally:
+            os.rename(snap + ".away", snap)
 
     def test_dry_run_non_zero_action_fails_the_hook(self):
         """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
