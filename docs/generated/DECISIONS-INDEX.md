@@ -7,3 +7,4 @@
 | 0002 | accepted | 2026-08-04 | 預算白名單反轉延後——列創世後首批治理調整（顯式延後立案） | — | — | — |
 | 0003 | accepted | 2026-08-04 | 值比對層佔位字面白名單——佔位值非機密（secret-value-guard 射程釐清） | — | — | — |
 | 0004 | accepted | 2026-08-05 | host 埠配號 2xxxx 世代制——翻案啟動書 5xxxx 錯開表（避開 macOS ephemeral 範圍） | — | — | — |
+| 0005 | accepted | 2026-08-05 | 憲法 §I.2 demo menu 條例外與釋義——toggle-auth 示範鏈三角色初始勾選＋hideInMenu 射程 | — | — | — |

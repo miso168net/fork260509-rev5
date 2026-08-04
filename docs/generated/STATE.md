@@ -6,10 +6,10 @@
 - pins：base-web=0fee6c0｜rust-api=69561c4
 
 ## constitution
-- 版本：1.0.0
+- 版本：1.1.0
 
 ## 帳面統計
-- ADR：4（accepted 4）
+- ADR：5（accepted 5）
 - BACKLOG 待辦：5（next：B-006）｜滯後：0
 - LESSONS：0 筆（next：L-003）
 - events：2 筆（misc 2）
