@@ -1179,7 +1179,7 @@ class ComposePortsError(Exception):
 
 
 # 窄假設唯一合法項形：引號短語法＋127.0.0.1 綁定前綴＋純數字 port（本 repo 實際使用的形；
-# 配號紀律歸 ADR 0019）。其他寫法（無引號、0.0.0.0、port 範圍、長語法…）一律 fail-loud。
+# 配號紀律歸 ADR 0004）。其他寫法（無引號、0.0.0.0、port 範圍、長語法…）一律 fail-loud。
 RE_PORTS_ITEM = re.compile(r'^"(127\.0\.0\.1):(\d{1,5}):(\d{1,5})"$')
 RE_COMPOSE_SERVICE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9_.-]*):$")
 
@@ -1251,11 +1251,11 @@ def compute_ports_rows(root):
 def gen_reference_ports(rows):
     """reference/ports ← compose 三檔 ports: 段全量表。
 
-    只列 compose 實際存在的映射（留號決策語意歸 ADR 0019、不入表）；
+    只列 compose 實際存在的映射（留號決策語意歸 ADR 0004、不入表）；
     列序確定性＝來源檔→服務名→host port。
     """
     head = (f"{GEN_HEADER}\n# reference/ports — 全量正典表\n\n"
-            f"來源＝{'＋'.join(COMPOSE_FILES)} 的 ports: 段（generate 重算；配號紀律歸 ADR 0019）。\n\n")
+            f"來源＝{'＋'.join(COMPOSE_FILES)} 的 ports: 段（generate 重算；配號紀律歸 ADR 0004）。\n\n")
     if not rows:
         return head + "（compose 無任何 host port 映射）\n"
     lines = "\n".join(

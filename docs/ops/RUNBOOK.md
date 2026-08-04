@@ -112,8 +112,8 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 ## 14. 埠與帳號
 
 - 真相源：埠全表→`docs/generated/reference/ports.md`（機器生成）；帳號／角色→
-  `docs/generated/reference/accounts.md`。本檔命令帶字面埠（52080/52443/52079/53000/53100/
-  55432/56379/59090/59091）純為可複製執行；動埠的刀照 errata 紀律
+  `docs/generated/reference/accounts.md`。本檔命令帶字面埠（22080/22443/22079/23000/23100/
+  25432/26379/29090/29091）純為可複製執行；動埠的刀照 errata 紀律
   （`python3 tools/docs-sync.py errata <埠>`）機器枚舉全 repo 同步、含本檔。
 
 ## 15. SOPS 機密營運（密文入版控 × age 私鑰）
