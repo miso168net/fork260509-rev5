@@ -12,6 +12,23 @@
 > 方法沿定稿制（欄序親排＋更名開放＋seed 全量過目、「定稿即基線」）。同刀就位三閘驗證與
 > Day-1 受管演進帳契約、entity 對應層與漂移防線、參考真表首算。
 
+## Clarifications
+
+### Session 2026-08-05
+
+- Q: rev5 seed 基線（m002）是否將「每次重放都不同的值」（password argon2 PHC、created_at 時戳）
+  全部寫死成定稿字面，使重放結果能與凍結 fixtures 逐列全等？ → A: 甲——**全面定稿字面**：
+  m002 寫死 argon2 PHC 常數（三帳共用一 hash、採重放萃取值）＋`created_at` 寫死定稿時戳；
+  重放完全決定性、比對器零豁免洞（新增 FR-016；定稿值載於 seed-review.md 定稿節）。
+- Q: seed 中簡體字串轉繁體的轉換深度——純逐字、逐字＋語意陷阱修正、或台灣慣用語在地化？
+  → A: B——**逐字簡→繁＋語意陷阱與台灣用語修正**（`登录`→`登入` 1 筆；`菜单`→`選單` 3 筆、
+  user 補充裁定）：改值 22 筆（role_name×3＋buttons desc×19）、同形免改 2 筆載錄備查；
+  全庫簡體殘留掃描零命中（機器斷言）。
+- Q: seed 內容逐表過目裁定（14 表淨效果 266 列）？ → A: **全表照收 rev4 淨效果原樣**，
+  唯簡體字串依 Q2 轉繁——「簡體轉繁體、其它照 rev4 搬」（機器定稿檔＝seed-decision.json、
+  帶素材 sha256 血緣；素材原樣＝seed-net-effect.json）。**user 總簽核 2026-08-05：確認定稿**
+  （FR-005 之工作坊已完成、SC-004 之簽核紀錄在案）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 基線結構定稿落地 (Priority: P1)
@@ -157,8 +174,14 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 **seed 定稿制**
 
 - **FR-005**: seed 內容 MUST 採定稿制：機器萃取 rev4 終態 seed 淨效果成逐表清單檔，於 SDD
-  clarify 步由 user 親自全量過目調整（id 重編／刪列／改值、連動同步）後定稿；定稿前本 spec
-  以「seed＝定稿制、內容於 clarify 工作坊定稿」占位，MUST NOT 以未定稿內容施工 seed 基線。
+  clarify 步由 user 親自全量過目調整（id 重編／刪列／改值、連動同步）後定稿；MUST NOT 以
+  未定稿內容施工 seed 基線。（工作坊已完成、user 總簽核 2026-08-05；定稿＝seed-review.md
+  定稿節＋機器定稿檔 seed-decision.json，m002 施工以此為準。）
+- **FR-016**: seed 基線（m002）MUST 完全決定性（Clarify Q1 拍板）：非決定值一律寫死定稿字面
+  ——password 為 argon2 PHC 常數（三帳共用一 hash、採重放萃取值定稿）、`created_at` 為定稿
+  時戳字面；重放結果 MUST 與凍結 fixtures 逐列全等，比對器 MUST NOT 為任何欄開豁免洞
+  （定稿值載於 seed-review.md 定稿節；PHC 字面若遭 secrets 掃描誤報，依 ADR 0003 佔位字面
+  白名單處置）。
 
 **對賬鏈**
 
@@ -219,7 +242,8 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 ### Measurable Outcomes
 
 - **SC-001**: 對 pristine 重放 rev5 基線後，結構與 seed 與定稿 fixtures 未排序逐列 diff＝
-  **零差異**（含 id 欄與 sequence 落值）。
+  **零差異**（含 id 欄與 sequence 落值；亦含 password／created_at——非決定值已依 Q1 全面
+  定稿字面化、零豁免欄）。
 - **SC-002**: 比對器自證通過：注入假漂移（結構、欄序、seed 值、sequence 落值各至少 1 例）
   全數必紅、零漏報。
 - **SC-003**: 14 親排表欄序與定稿逐欄一致（158＋11＝169 欄）、rename map 4 組映射比對通過、
@@ -239,8 +263,8 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 - 容器化資料庫可起一次性 pristine 實例；rust 建置／測試一律容器內、全程 serial（host 無
   toolchain）。
 - 欄序定稿權威現為 brainstorm §5；SDD 轉錄 data-model 凍結後權威移轉、brainstorm 轉史料。
-- seed 內容於 clarify 工作坊定稿（拍板甲）；本 spec 對 seed 內容不預斷、僅凍結「定稿制」
-  程序本身。
+- seed 內容已於 clarify 工作坊全量過目定稿（拍板甲兌現、user 總簽核 2026-08-05）：
+  定稿紀錄＝seed-review.md 定稿節、機器定稿檔＝seed-decision.json（帶素材 sha256 血緣）。
 - rev5 新結構差異＝零支（純壓平；§5 定稿差異屬定稿制射程、非新能力面）。
 - 本刀非一次性遷移（pristine 建庫、無既有資料搬移），Risk／Guard／Rollback 三欄表免附
   （CLAUDE.md §2 該條射程＝改名／搬移／基線前進／拓樸調整）。
