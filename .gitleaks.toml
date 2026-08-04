@@ -1,0 +1,51 @@
+# .gitleaks.toml — rev5 三 repo 共用機密掃描設定（承 rev4@2b8a101 工件、B2 裁製；血緣＝rev4:019 U1）
+#
+# ★僅用 gitleaks 子集欄位（[extend]／[[rules]]／[[rules.allowlists]]／頂層 [[allowlists]]
+#   的 targetRules）——禁 Betterleaks 專屬 CEL 欄位（validate／filter／tokenEfficiency），
+#   保 Betterleaks 與 gitleaks 雙向可攜（rev4:research R1：Betterleaks 依序找 .betterleaks.toml
+#   → fallback 本檔名）。
+# ★[extend] useDefault：自訂 config 會「取代」內建規則庫——必須以 extend 機制保留預設
+#   規則，否則 KEY=value 廣譜偵測全滅＝防線自廢。
+# ★allowlist 紀律（rev4:research R5）：逐條 condition = "AND"＋paths×regexes 並用＋顯式
+#   regexTarget；嚴禁整檔放行——condition 預設 OR、漏寫即退化為過寬放行且不報錯
+#   （本 schema 最大靜默失效點）。
+# rev5 誤報基線（啟動書 §3.2 條 9；rev4 三條 allowlist 已清、由 rev5 自建首批兩條）：
+#   ①events.jsonl 簿記三欄 40-hex commit SHA——承襲 rev4 已驗證形（rev4 基線來自
+#     493 commits 全歷史重建、21 findings 全數誤報，其中 pins.api 佔 20 筆）。
+#   ②啟動書（docs/brainstorms/000-doc-architecture.md）內嵌 events 範例列——2026-08-03
+#     補完素材後實測命中 generic-api-key（鍵名 api＋40 位高熵十六進位 pin SHA）；
+#     已雙向突變實證：加豁免→全樹 no leaks rc=0、拔豁免→回到命中 1 筆。
+
+[extend]
+useDefault = true
+
+# ── 自訂規則：DSN 帳密 URL（rev4:research R6；同棧適用故保留、rule id 換世代）──
+# 本專案 3 支 composite（database_url／redis_url／reaper_database_url）正是此形、落在
+# 預設規則庫盲區。密碼段首字元排除 $／<／{ ——`${VAR}`、`$(cmd)`、`<pw>`、`{name}` 屬
+# 結構性佔位、必非真值（文件例句免逐檔放行）；user 段可空（redis://:pw@host 形）。
+[[rules]]
+id = "rev5-dsn-credential-url"
+description = "DSN 帳密 URL（postgres(ql)/redis/mysql 的 user:password@ 形連線字串）"
+regex = '''(?i)\b(?:postgres(?:ql)?|redis|mysql)://[^:@/\s'"]*:[^$<{@\s'"][^@\s'"]*@'''
+keywords = ["postgres://", "postgresql://", "redis://", "mysql://"]
+
+# ── rev5 誤報基線（啟動書 §3.2 條 9 逐字）──────────────────────────────────
+# ①事件帳簿記三欄的 40-hex commit SHA（承襲 rev4 已驗證形）
+[[allowlists]]
+description = "events.jsonl 簿記三欄（merge/pins.web/pins.api）之 40-hex commit SHA"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''^docs/ops/events\.jsonl$''']
+regexes = ['''(?:merge|web|api)"\s*:\s*"[0-9a-f]{40}"''']
+
+# ②啟動書自身內嵌的 events 範例列——不加這條，B7 落第一個 commit 時 pre-commit 會
+#   擋下啟動書本身、且訊息不會指出真正原因。本檔自 B2 起即住 docs/brainstorms/ 路徑
+#   （第二個 path），第一個 path 涵蓋移入前於 repo 根被掃到的情境——兩路徑都留。
+[[allowlists]]
+description = "啟動書內嵌 events 範例的 40-hex commit SHA"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''^INTEGRATION-rev5-arc42\.md$''', '''^docs/brainstorms/000-doc-architecture\.md$''']
+regexes = ['''(?:merge|web|api)"\s*:\s*"[0-9a-f]{40}"''']

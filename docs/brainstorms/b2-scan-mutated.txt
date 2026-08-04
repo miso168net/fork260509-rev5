@@ -1,0 +1,10 @@
+# cmd: betterleaks dir . --config <拔除誤報基線第②條之副本> --redact --exit-code 2 --report-format json --report-path docs/brainstorms/b2-scan-mutated.json
+# cwd: /Users/testc1aw/x_Project/fork260509-rev5
+
+ + ○
+   ▾
+ betterleaks 1.7.3
+
+[90m5:23AM[0m [32mINF[0m [1mscanned ~1620701 bytes (1.62 MB) in 155ms[0m
+[90m5:23AM[0m [33mWRN[0m [1mleaks found: 1[0m
+rc=2

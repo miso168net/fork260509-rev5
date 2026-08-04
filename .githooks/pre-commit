@@ -1,0 +1,92 @@
+#!/bin/sh
+# rev5 pre-commit：機密掃描（019 三層防線；scan-gates §S1／§S2）→ docs-sync check（Lint01 生成
+# 一致）＋lint（Lint03～Lint24）。被擋時：錯誤訊息附去處；同回合修復後重試。
+#
+# ★兩種語意（019 scan-gates；註解即契約）：
+#   事件型（機密掃描＋值比對）：--no-verify 繞過＝機密「真進 git 歷史」、不可逆——僅剩
+#     pre-push 第二層同套規則補攔；被誤擋一律修 .gitleaks.toml allowlist、絕不養成
+#     --no-verify 慣性（慣性＝事件型檢查永久失效）。
+#   狀態型（docs-sync check/lint 與工具自測）：--no-verify 只延後、下次 commit 檢查不消失。
+#
+# 樣式掃描（S1、事件型）：★--redact 不可省（預設 0＝明文噴進終端與 scrollback）；★一律 git
+# 子命令（禁 protect/detect——兩專案皆已隱藏、無文件保證）；★原生二進位、禁容器形式（容器
+# 不帶 GIT_INDEX_FILE → `git commit -a` 掃 0 bytes 靜默漏報）；exit code 分流＝2 機密命中／
+# 其餘非零＝掃描器本身異常（含 127 缺 binary）。
+# ★`--config` **顯式帶、不靠自動探索**（019 final review 實證）：自動探索找不到 `.gitleaks.toml`
+#   時 betterleaks **靜默降級為內建規則庫並回 rc=0**——自訂 DSN 規則與兩條 allowlist 一併下線，
+#   而 hook 只看 rc 故一路綠（實測：同一 DSN fixture 無 config 時 rc=0、放回後 rc=2）。顯式帶則
+#   config 缺席即 rc=1 落入「掃描器本身異常」分支＝吵鬧失敗。此前源倉 hook 因需跨 repo 定位而
+#   本就顯式帶、外層卻靠探索＝兩者失敗語意不對稱，本行消除該不對稱。
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# ── 全鏈時間門檻（rev5 新增；Q7 拍板 2026-08-04／§0.3 準則 5）─────────────────
+# rev4 自 46.4s 劣化至 104.6s（2.2 倍）全程**零警報**，事後 O(1) 化才修回 15.7s；
+# 每收一條 BACKLOG 永久增約 7s 的慢路徑，形成「治理紀律越好、閘越慢」的 --no-verify
+# 反誘因。兩級分離「察覺」與「硬擋」：20s 警示劣化趨勢但放行（不因一次環境抖動卡住
+# 工作流）、45s 硬擋（rev4 的劣化**起點** 46.4s 恰被擋下，不會再漂到 104.6s 才靠人感覺）。
+# ★須容兩平台：同一份工具 drvfs 實測 lint 約 19s、APFS 約 1.27s（差一個量級）；45s 對
+#   rev4 在 WSL2 的健康值 15.7s 有 3 倍餘裕。
+# ★門檻調整走 ADR（§0.3 準則 5 慣例），不得就地改數字了事。
+PRECOMMIT_WARN_SEC=20
+PRECOMMIT_FAIL_SEC=45
+PRECOMMIT_T0=$(date +%s)
+betterleaks git --config "$HOOK_DIR/../.gitleaks.toml" --pre-commit --staged --redact --verbose --exit-code 2
+scan_rc=$?
+if [ "$scan_rc" -eq 2 ]; then
+  echo "[pre-commit] ✗ 機密樣式命中（上方輸出含 rule id 與檔案行、值已遮蔽）——自 staged 移除後重試；誤報→修 .gitleaks.toml allowlist（AND＋paths×regexes 圈定）、絕不 --no-verify" >&2
+  exit 1
+elif [ "$scan_rc" -ne 0 ]; then
+  echo "[pre-commit] ✗ 掃描器本身異常（exit ${scan_rc}）、非機密命中——跑 bash tools/bootstrap.sh 檢修（安裝／版本斷言）" >&2
+  exit 1
+fi
+# 值比對層（S2、事件型、僅外層）：機密現值 × staged 新增行；現值缺席＝skip（fail-open）；
+# 紅綠 self-test 每次連帶跑（防恆綠）。
+python3 tools/secret-value-guard.py check || exit 1
+python3 tools/docs-sync.py check || exit 1
+python3 tools/docs-sync.py lint || exit 1
+# 守門工具自測條件觸發（FR-015／data-model §8）：staged 含某工具本體才跑該支、平時零開銷。
+staged=$(git diff --cached --name-only)
+for t in docs-sync schema-gate wire-schema secret-value-guard entity-drift-gate; do
+  if echo "$staged" | grep -qxF "tools/$t.py"; then
+    python3 "tools/$t.py" test || exit 1
+  fi
+done
+# fork-delta 原行 紀律（憲法 §III L114）：base-web gitlink 變動（pin bump）時機器比對 base-web vs
+# example 上游、修改型缺 `原行:` 即擋——不靠人工 review（fork 源倉須在 example 分支＝lint 首步
+# 斷言）；工具本體 staged 時亦直跑一次（無 test 介面、self-test 內建）。★兩條件取聯集只跑一次
+# ——判定冪等結果必同，drvfs 下單跑約 9s、重跑純付 I/O 稅（018 U4 實測）。
+if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/fork-delta-lint.py'; then
+  # ★Day-1 具名跳過（創世期、B9 前）：基線源倉缺席＝工具首步斷言必 die（rc=2）、擋創世
+  #   一鍋 commit。解除＝B9 bootstrap 建源倉後本分支自動恢復實跑；新機 clone 後的空窗由
+  #   CLAUDE.md §6「掃描防線就位前不落 commit」＋bootstrap 承接（ADR 0001 決定 4 在案）。
+  if [ -d "$HOOK_DIR/../fork260509-soybean-admin-base" ]; then
+    python3 tools/fork-delta-lint.py || exit 1
+  else
+    echo "[pre-commit] ⤳ fork-delta-lint 跳過：基線源倉 fork260509-soybean-admin-base/ 缺席（B9 前）——源倉就位後自動恢復實跑"
+  fi
+fi
+# wire-schema 快照 drift 閘（B-128）：base-web gitlink 變動（pin bump）時重抽 typings 與快照
+# byte 比對——sh 只做粗判（gitlink staged 與否）、typings 零變動之細判在 python 內
+# （--staged-gate 收窄、省 npx 秒數）；stack 未起＝警告放行（fail-open）；容器可用但重抽
+# 失敗／不一致＝擋（fail-loud；補救命令見工具輸出）。
+if echo "$staged" | grep -qxF 'base-web'; then
+  python3 tools/wire-schema.py check --staged-gate || exit 1
+fi
+# entity 漂移閘（B-110 階段 0）：rust-api gitlink 變動（pin bump）或 schema 快照本身 staged 時，
+# 比對 entity（rust-api/entity/src）vs 已 commit 快照（docs/ops/reference-src/schema-snapshot.json）
+# ——零 docker、秒級；casbin_rule 雙向豁免（ADR 0015）；欄序歸 gate2（ADR 0021）、
+# index/constraint 歸 gate1、default 不驗（entity 面無此資訊）。兩條件取聯集只跑一次（判定
+# 冪等）；有漂移／結構異常＝擋（補救見工具輸出）。
+if echo "$staged" | grep -qxF -e 'rust-api' -e 'docs/ops/reference-src/schema-snapshot.json'; then
+  python3 tools/entity-drift-gate.py check || exit 1
+fi
+
+# ── 全鏈耗時評估（僅在全部閘通過後執行；任一閘失敗時上方已 exit）──────────────
+PRECOMMIT_ELAPSED=$(( $(date +%s) - PRECOMMIT_T0 ))
+if [ "$PRECOMMIT_ELAPSED" -gt "$PRECOMMIT_FAIL_SEC" ]; then
+  echo "[pre-commit] ✗ 全鏈耗時 ${PRECOMMIT_ELAPSED}s 超出硬上限 ${PRECOMMIT_FAIL_SEC}s——所有檢查本身已通過，擋下的是**效能劣化**。" >&2
+  echo "[pre-commit]   兩條出路：①優化慢路徑（先量哪一段吃掉時間，勿憑猜——rev4 的 B-113 三個病因候選經實測全數證偽）②立 ADR 調門檻並記錄劣化理由。" >&2
+  echo "[pre-commit]   ★本項屬狀態型檢查：--no-verify 只延後、下次 commit 仍會提醒（用於解開「調門檻的 commit 也被自己擋住」的死結）。" >&2
+  exit 1
+elif [ "$PRECOMMIT_ELAPSED" -gt "$PRECOMMIT_WARN_SEC" ]; then
+  echo "[pre-commit] ⚠ 全鏈耗時 ${PRECOMMIT_ELAPSED}s 超出警戒線 ${PRECOMMIT_WARN_SEC}s（硬上限 ${PRECOMMIT_FAIL_SEC}s）——劣化趨勢訊號，放行不擋。" >&2
+fi

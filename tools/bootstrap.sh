@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+# tools/bootstrap.sh — rev5 workspace 新機器重建／舊機體檢（幂等、fail-loud）
+#
+# 用途：clone 外層 repo 後一鍵補齊 gitignored 源倉（fork260509-*）＋雙 worktree＋hooks，
+#       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與
+#       pin 一致性；舊機重跑＝純體檢。任何斷言失敗→exit 2＋指名處置；分歧類問題只警告
+#       （⚠）不自動 reset、絕不半套。
+# 不含：機密實值（僅體檢 SECRETS_DIR 下缺檔；★019 起實值不再人對人交接——重建走
+#       ./deploy/decrypt-secrets.sh〔8 支〕＋ ./deploy/generate-secrets.sh --compose-only〔3 composite〕，
+#       見 deploy/secrets/README.md）；
+#       dev stack 起法（見 specs/001 quickstart）。
+# 測試掛點：RV5_BASEWEB_SRC_URL／RV5_RUSTAPI_SRC_URL 可覆寫 clone 來源（file:// 亦可）。
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BASEWEB_SRC="$ROOT/fork260509-soybean-admin-base"
+RUSTAPI_SRC="$ROOT/fork260509-rev2-anew-rust-api"
+BASEWEB_URL="${RV5_BASEWEB_SRC_URL:-https://github.com/miso168net/fork260509-soybean-admin-base.git}"
+RUSTAPI_URL="${RV5_RUSTAPI_SRC_URL:-https://github.com/miso168net/fork260509-rev2-anew-rust-api.git}"
+UPSTREAM_URL="https://github.com/soybeanjs/soybean-admin.git"
+BASELINE="example"
+WARNS=0
+
+ok()   { echo "[bootstrap] ✓ $*"; }
+warn() { echo "[bootstrap] ⚠ $*"; WARNS=$((WARNS + 1)); }
+die()  { echo "[bootstrap] ✗ $*" >&2; exit 2; }
+
+# ── 0. 外層 repo 身分斷言 ─────────────────────────────────────────────
+git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT 不是 git repo"
+origin_url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || echo '')"
+case "$origin_url" in
+  *fork260509-rev5*) ok "外層 repo 身分（origin＝${origin_url}）" ;;
+  *) die "外層 origin（${origin_url}）不含 fork260509-rev5——請在 rev5 傘狀 repo 根下跑" ;;
+esac
+
+# ── 1. hooks ─────────────────────────────────────────────────────────
+git -C "$ROOT" config core.hooksPath .githooks
+ok "core.hooksPath=.githooks"
+
+# 掃描器斷言（019 scan-gates §S4；★die 級——缺席時 hook 會以 exit 127 擋掉每次 commit
+# 且訊息難解，體檢須先 fail-loud；版本釘定值＝RUNBOOK §12 拍板、升版先改拍板再改此值）
+BETTERLEAKS_VER="1.7.3"
+case "$(uname -s)-$(uname -m)" in                 # ★雙平台（rev5：macOS arm64 與 WSL2 x86-64 皆為工作環境）
+  Linux-x86_64)  BL_ASSET="linux_x64";  BL_SUMCMD="sha256sum -c checksums.txt --ignore-missing" ;;
+  Darwin-arm64)  BL_ASSET="darwin_arm64"; BL_SUMCMD="shasum -a 256 -c checksums.txt --ignore-missing" ;;
+  *) die "未支援平台 $(uname -s)-$(uname -m)——請對照官方 release 資產名補 case 分支" ;;
+esac
+BETTERLEAKS_GET="處置：下載 https://github.com/betterleaks/betterleaks/releases/download/v${BETTERLEAKS_VER}/betterleaks_${BETTERLEAKS_VER}_${BL_ASSET}.tar.gz 與同頁 checksums.txt（檔名不含版號）→ ${BL_SUMCMD} 驗證 → 解壓 betterleaks 至 ~/.local/bin"
+command -v betterleaks >/dev/null 2>&1 \
+  || die "betterleaks 缺席（三層掃描防線之樣式層）——${BETTERLEAKS_GET}"
+bl_ver="$(betterleaks version 2>/dev/null || true)"
+[ "$bl_ver" = "$BETTERLEAKS_VER" ] \
+  || die "betterleaks 版本（${bl_ver:-讀不到}）≠ 釘定 ${BETTERLEAKS_VER}——${BETTERLEAKS_GET}"
+ok "betterleaks ${BETTERLEAKS_VER} 就緒（釘版斷言過）"
+
+# ── 2. 源倉（缺才 clone、幂等）────────────────────────────────────────
+ensure_src() { # $1=目錄 $2=URL $3=名
+  if [ -d "$1/.git" ]; then
+    ok "$3 源倉已存在"
+  else
+    echo "[bootstrap] … clone $3 源倉（$2）"
+    git clone "$2" "$1" || die "$3 源倉 clone 失敗（$2）"
+    ok "$3 源倉 clone 完成"
+  fi
+}
+ensure_src "$BASEWEB_SRC" "$BASEWEB_URL" "base-web"
+ensure_src "$RUSTAPI_SRC" "$RUSTAPI_URL" "rust-api"
+
+# base-web 源倉＝最原始源基線：恆切 example；upstream remote＋no_push（CLAUDE.md §1/§3）
+cur="$(git -C "$BASEWEB_SRC" branch --show-current || echo '')"
+if [ "$cur" != "$BASELINE" ]; then
+  [ -z "$(git -C "$BASEWEB_SRC" status --porcelain)" ] \
+    || die "最原始源不在 $BASELINE 且工作區不淨（現：${cur:-detached}）——手動處理後重跑"
+  git -C "$BASEWEB_SRC" checkout "$BASELINE" \
+    || die "最原始源 checkout $BASELINE 失敗（origin/$BASELINE 不存在？）"
+fi
+ok "最原始源基線＝${BASELINE}（$(git -C "$BASEWEB_SRC" rev-parse --short "$BASELINE")）"
+if ! git -C "$BASEWEB_SRC" remote get-url upstream >/dev/null 2>&1; then
+  git -C "$BASEWEB_SRC" remote add upstream "$UPSTREAM_URL"
+fi
+git -C "$BASEWEB_SRC" remote set-url --push upstream no_push
+ok "upstream remote 就緒（push=no_push）"
+# 基線同步語意：example 各機自行向 upstream pull（CLAUDE.md §3、不 push）；跨機基線不合
+# 由下方 fork-delta-lint 實掃紅喊（原行≠基線行）、無獨立同步警告（浮動基線無機器可判真值）。
+
+# ── 3. worktree（缺才掛、斷裂指名）────────────────────────────────────
+ensure_worktree() { # $1=源倉 $2=目錄名 $3=分支
+  local src="$1" tgt="$ROOT/$2" br="$3"
+  if [ -f "$tgt/.git" ]; then
+    local gitdir; gitdir="$(sed -n 's/^gitdir: //p' "$tgt/.git")"
+    [ -d "$gitdir" ] || die "$2 worktree 斷裂（gitdir 不存在）——處置：git -C $src worktree prune、備份移除 $2/ 後重跑"
+    ok "$2 worktree 就緒（$(git -C "$tgt" rev-parse --short HEAD)）"
+    return
+  fi
+  [ -d "$tgt/.git" ] && die "$2/.git 是目錄＝submodule 模式（唯讀捷徑、不可開發）——要開發：確認無未收改動後移除 $2/、重跑本腳本"
+  if [ -d "$tgt" ]; then
+    rmdir "$tgt" 2>/dev/null || die "$2/ 非空且非 worktree——手動檢視後重跑"
+  fi
+  # 防呆：目標分支若被源倉本體占用、先 detach 源倉
+  [ "$(git -C "$src" branch --show-current || true)" = "$br" ] && git -C "$src" checkout --detach
+  if git -C "$src" show-ref --verify -q "refs/heads/$br"; then
+    git -C "$src" worktree add "$tgt" "$br"
+  else
+    git -C "$src" worktree add --track -b "$br" "$tgt" "origin/$br" \
+      || die "$2 worktree 掛載失敗（origin/$br 不存在？）"
+  fi
+  ok "$2 worktree 掛載（${br}）"
+}
+ensure_worktree "$BASEWEB_SRC" "base-web" "rev5-admin-base-web"
+ensure_worktree "$RUSTAPI_SRC" "rust-api" "rev5-admin-rust-api"
+
+# 兩源倉 hooksPath 佈署＋讀值斷言（019 scan-gates §S5；per-machine git config、源倉工作樹
+# 零改動）：★絕對路徑指向外層 .githooks-submodule（相對路徑會相對於源倉根、必錯）；
+# 冪等（重跑＝再設同值）。他機 clone 未跑 bootstrap＝源倉無防線，由本斷言在體檢時暴露。
+for wt in base-web rust-api; do
+  git -C "$ROOT/$wt" config core.hooksPath "$ROOT/.githooks-submodule"
+  hp="$(git -C "$ROOT/$wt" config core.hooksPath || echo '')"
+  [ "$hp" = "$ROOT/.githooks-submodule" ] \
+    || die "$wt core.hooksPath 讀值（${hp:-未設}）≠ 預期——自癒：git -C $ROOT/$wt config core.hooksPath $ROOT/.githooks-submodule"
+done
+ok "兩源倉 core.hooksPath＝外層 .githooks-submodule（樣式掃描防線就位）"
+
+# hooks 標的檔內容指紋斷言（B-124：simple-git-hooks 類若覆寫標的檔、hooksPath 指標值不變
+# 仍印 ok＝防線靜默失效）。法＝逐檔 git hash-object（相對路徑、走 filter＝git add 同口徑）
+# 對 git rev-parse HEAD:路徑 比對——逐 byte 級 blob 指紋、失敗可逐檔指名；缺檔獨立分支指名。
+for hf in .githooks-submodule/pre-commit .githooks-submodule/pre-push; do
+  [ -f "$ROOT/$hf" ] \
+    || die "$hf 缺檔——hooks 防線標的不存在；疑遭覆寫／誤刪：git checkout -- $hf 還原並追查來源"
+  head_blob="$(git -C "$ROOT" rev-parse "HEAD:$hf" 2>/dev/null || echo '')"
+  [ -n "$head_blob" ] \
+    || die "$hf 不在外層 HEAD——hooks 標的無版控基準；確認內容後 commit 該檔再重跑"
+  wt_blob="$(git -C "$ROOT" hash-object "$hf")"
+  [ "$wt_blob" = "$head_blob" ] \
+    || die "$hf 工作樹內容 ≠ HEAD 版本——a) 非本人改動＝疑遭覆寫（simple-git-hooks 類）：先 git diff HEAD -- $hf 查看內容、確認後 git checkout -- $hf 還原並追查覆寫源；b) 本人正在改 hooks（未 commit）：commit 後重跑本腳本即綠"
+done
+ok "hooks 標的檔內容＝HEAD 版本（pre-commit／pre-push 指紋一致）"
+
+# ── 4. pin 一致性（分歧只警告；判讀＝回外層更新 pin 方向、CLAUDE.md §3）──
+check_pin() { # $1=目錄名
+  local pin head
+  pin="$(git -C "$ROOT" rev-parse "HEAD:$1" 2>/dev/null || echo 'none')"
+  head="$(git -C "$ROOT/$1" rev-parse HEAD)"
+  [ "$pin" = "$head" ] && ok "$1 pin＝worktree HEAD（${head:0:7}）" \
+    || warn "$1 pin（${pin:0:7}）≠ worktree HEAD（${head:0:7}）——健檢判讀：一律回外層更新 pin 方向"
+}
+check_pin "base-web"
+check_pin "rust-api"
+
+# ── 5. 守門工具自測（FR-015：體檢無條件全跑；pre-commit 則條件觸發）＋fork-delta 全掃 ──
+run_tool_test() { # $1=工具名（不含 .py）；失敗才吐明細，成功保持體檢輸出乾淨
+  local out
+  if ! out="$(python3 "$ROOT/tools/$1.py" test 2>&1)"; then
+    echo "$out" >&2
+    die "$1.py 自測未過——見上方明細"
+  fi
+  ok "$1.py 自測綠"
+}
+run_tool_test docs-sync
+run_tool_test schema-gate
+run_tool_test wire-schema
+run_tool_test secret-value-guard
+run_tool_test entity-drift-gate
+python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
+ok "fork-delta-lint 全綠（self-test＋實掃）"
+# entity 漂移閘實跑（B-110；worktree 已於上方重建、entity 檔必在——零 docker、秒級）
+python3 "$ROOT/tools/entity-drift-gate.py" check || die "entity-drift-gate 未過——見上方指名"
+ok "entity-drift-gate 全綠（self-test＋實比對）"
+
+# ── 5b. 條款數斷言（rev5 新增；§4.2 B4 丁／§0.3 準則 1 的機器驗法）───────────
+# ★三處同數：①創世 misc 事件 notes 的 lint-roster 前綴 ②lint 摘要第四段 ③本斷言。
+# ★期望值取自 derive_lint_codes 掃源現算，**不落字面**——落字面就變成第四份名冊，
+#   條款被靜默拆掉時它照舊報舊數（正是準則 1 要防的「名冊與實作不同源」）。
+# ★注意：條款「數」與條款碼「上界」在 rev5 刻意不同——Q8 拍甲案（拆 Lint23 留洞、
+#   Lint24 保號），故集合為 {01..22, 24}：數＝23、上界＝24。此處斷言的是**數**。
+LINT_CLAUSE_COUNT=$(python3 - "$ROOT/tools/docs-sync.py" <<'PY'
+import re, sys
+src = open(sys.argv[1], encoding="utf-8-sig").read()
+print(len({m.group(1) for m in
+           re.finditer(r'finding\(\s*(?:ERROR|WARN|SKIP)\s*,\s*"Lint(\d+)"', src)}))
+PY
+) || die "條款數推導失敗——derive_lint_codes 錨形與掃源不同步？"
+[ "${LINT_CLAUSE_COUNT:-0}" -gt 0 ] \
+  || die "條款數推導得 0——掃源錨形失效，整條驗收面已恆綠（fail-closed）"
+# ★真正的獨立源＝創世 misc 事件 notes 的 `lint-roster:` 前綴（§3.4 補記）——那是**人寫**
+#   的名冊。只比對「掃源推導」與「lint 摘要」是套套邏輯：兩者同源，條款被靜默拆掉時
+#   雙雙縮水、永遠對得上（實證：把某條款的 finding 碼全改掉，兩處同步變 22 而斷言照過）。
+EVENTS_FILE="$ROOT/docs/ops/events.jsonl"
+if [ -f "$EVENTS_FILE" ]; then
+  roster_count=$(python3 - "$EVENTS_FILE" <<'PY'
+import json, re, sys
+n = ""
+for line in open(sys.argv[1], encoding="utf-8"):
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        e = json.loads(line)
+    except ValueError:
+        continue
+    m = re.search(r"lint-roster:\s*([^\s\"]+)", str(e.get("notes", "")))
+    if m:
+        n = str(len({c for c in m.group(1).split(",") if c.strip()}))
+        break
+print(n)
+PY
+  ) || die "創世事件 lint-roster 解析失敗"
+  [ -n "$roster_count" ] \
+    || die "events.jsonl 存在但查無創世事件的 lint-roster 行——條款名冊落點缺失（§3.4 補記）"
+  [ "$roster_count" = "$LINT_CLAUSE_COUNT" ] \
+    || die "條款數不同源：創世事件 lint-roster 記 $roster_count 條、掃源推導 $LINT_CLAUSE_COUNT 條"
+  ok "條款數斷言過（創世事件名冊＝掃源推導＝$LINT_CLAUSE_COUNT 條）"
+else
+  warn "events.jsonl 未建（B7 前）——條款數對賬僅能驗掃源側 $LINT_CLAUSE_COUNT 條，"\
+"創世事件名冊那一源待 B7 落地後才生效"
+fi
+
+# ── 6. .env 單一事實來源（019 T024／T029、contracts P5.4 三級口徑）────────
+# 口徑：.env 缺失→代勞產生（自癒、不中止）；已存在→不覆寫、只讀值斷言（形制不合＝warn
+# ＋自癒指引，不 die——上機前 fail-loud 由 preflight 承載、bootstrap 不重複把關）。
+# ★SECRETS_DIR 必須寫「絕對路徑字面」：compose 讀 .env 不做 shell 展開（$HOME 字面無效），
+#   故由本腳本於 shell 側展開後寫入；產檔約束全文見 .env.example。
+ENV_FILE="$ROOT/.env"
+SECRETS_DIR_DEFAULT="$HOME/.cache/fork260509-rev5/secrets"
+if [ ! -f "$ENV_FILE" ]; then
+  printf 'SECRETS_DIR=%s\n' "$SECRETS_DIR_DEFAULT" > "$ENV_FILE"
+  ok ".env 缺失→已代勞產生（SECRETS_DIR=${SECRETS_DIR_DEFAULT}）"
+fi
+SECRETS_DIR="$ROOT/deploy/secrets"   # 讀值失敗時的體檢回退（＝compose 未設變數之回退口徑）
+# ★偵測寬、取值窄（019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env 解析器接受
+#   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的
+#   窄樣式對這五形一律漏認（實測 compose v5.3.1 五形皆解析為新落點）——體檢會據此以舊落點
+#   進行、並印出與實情相反的「compose 將回退」診斷，把 operator 導離真因。
+env_line="$(sed -e "1s/^$(printf '\357\273\277')//" -e 's/\r$//' "$ENV_FILE" \
+            | grep -E '^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=' | tail -n 1 || true)"
+if [ -z "$env_line" ]; then
+  warn ".env 已存在但無 SECRETS_DIR 行——compose 將回退 ./deploy/secrets（保護失效）；自癒：echo SECRETS_DIR=$SECRETS_DIR_DEFAULT 附加進 .env"
+else
+  env_val="$(printf '%s\n' "$env_line" \
+             | sed -E 's/^[[:space:]]*(export[[:space:]]+)?SECRETS_DIR[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')"
+  case "$env_val" in
+    *[!A-Za-z0-9_/.-]*|"")
+      warn ".env 之 SECRETS_DIR 為空或含空白／shell 元字元（產檔約束見 .env.example）——體檢以 deploy/secrets 回退進行" ;;
+    /*)
+      SECRETS_DIR="$env_val"
+      ok ".env SECRETS_DIR=${env_val}（絕對路徑字面、形制合格）" ;;
+    *)
+      warn ".env 之 SECRETS_DIR 非絕對路徑字面（compose 不做 shell 展開）——體檢以 deploy/secrets 回退進行" ;;
+  esac
+fi
+
+# ── 7. secrets 體檢（僅檢缺檔、不碰實值；名冊＝repo 內 .example、落點隨 SECRETS_DIR）──
+missing=""
+for ex in "$ROOT"/deploy/secrets/*.example; do
+  [ -e "$ex" ] || continue
+  real_base="$(basename "${ex%.example}")"
+  [ -f "$SECRETS_DIR/$real_base" ] || missing="$missing $real_base"
+done
+if [ -n "$missing" ]; then
+  warn "SECRETS_DIR（${SECRETS_DIR}）缺實值檔：$missing —— 重建：./deploy/decrypt-secrets.sh（8 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）；上機前把關＝preflight"
+else
+  ok "SECRETS_DIR（${SECRETS_DIR}）實值檔齊"
+fi
+
+# ── 摘要 ─────────────────────────────────────────────────────────────
+echo "[bootstrap] ── 完成：源倉×2／worktree×2／基線 $BASELINE@$(git -C "$BASEWEB_SRC" rev-parse --short "$BASELINE")／hooks／lint 全綠；警告 $WARNS 項$([ "$WARNS" -gt 0 ] && echo '（見上方 ⚠）' || echo '')"

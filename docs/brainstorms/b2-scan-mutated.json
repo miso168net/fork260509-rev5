@@ -1,0 +1,26 @@
+[
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 335,
+  "EndLine": 335,
+  "StartColumn": 217,
+  "EndColumn": 263,
+  "Match": "api\":\"REDACTED\"",
+  "Secret": "REDACTED",
+  "Attributes": {
+   "path": "docs/brainstorms/000-doc-architecture.md",
+   "resource": "fs.content"
+  },
+  "Tags": [],
+  "Fingerprint": "docs/brainstorms/000-doc-architecture.md:generic-api-key:335",
+  "File": "docs/brainstorms/000-doc-architecture.md",
+  "SymlinkFile": "",
+  "Commit": "",
+  "Entropy": 3.7807095,
+  "Author": "",
+  "Email": "",
+  "Date": "",
+  "Message": ""
+ }
+]

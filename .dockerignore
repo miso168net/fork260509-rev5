@@ -1,0 +1,41 @@
+# repo 根 .dockerignore（build context＝repo 根；001-compose-stack）
+# Dockerfile.rust-api 不 COPY 原始碼（compose bind-mount），context 只需瘦身＋防滲。
+# 沒這檔 Docker 會把整個 workspace（fork 源倉／worktree／.git）串進 build daemon，數 GB 等級慢。
+
+# 機密與私鑰——絕不得進 build daemon（compose secrets 走 host file bind、不經 context）
+# 019-secrets-sops 後：明文主落點已移出 repo（`$SECRETS_DIR`＝repo 根 `.env` 之絕對路徑），
+# 此目錄常態只留 README 與 13 支 `.txt.example`——但 `SECRETS_DIR` 未設時 compose 與各腳本
+# 一律回退此處寫入明文（docker-compose.yml 頂層 secrets 之 `${SECRETS_DIR:-./deploy/secrets}`），
+# 故本行**不得因「目錄現在看起來沒機密」而刪**：它守的正是回退落點。
+deploy/secrets/
+deploy/dev-certs/
+
+# fork 源倉（worktree 源頭，本機必留但 image 不需要）
+fork260509-*/
+
+# 前端 worktree（rust-api build 不需要）
+base-web/
+
+# Git internals
+.git
+**/.git
+
+# 編譯產物與依賴
+**/target
+**/node_modules/
+
+# 文件／spec／knowledge graph（不會 COPY 進 image，加速 tar）
+docs/
+specs/
+graphify-out/
+
+# Claude / spec-kit / IDE state
+.claude/
+.specify/
+.vscode/
+.idea/
+
+# Logs / caches
+**/*.log
+**/.cache/
+**/__pycache__/
