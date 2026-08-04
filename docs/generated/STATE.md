@@ -10,7 +10,7 @@
 
 ## 帳面統計
 - ADR：3（accepted 3）
-- BACKLOG 待辦：1（next：B-002）｜滯後：0
+- BACKLOG 待辦：2（next：B-003）｜滯後：0
 - LESSONS：0 筆（next：L-002）
 - events：1 筆（misc 1）
 
