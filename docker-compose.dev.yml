@@ -4,8 +4,8 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 #
 # 特性:
-#   - 全部 host port 綁 127.0.0.1 loopback（配號＝ADR 0019）
-#   - front-nginx：HTTP :52080 + HTTPS :52443（dev-certs bind-mount + dev.conf）
+#   - 全部 host port 綁 127.0.0.1 loopback（配號＝ADR 0004）
+#   - front-nginx：HTTP :22080 + HTTPS :22443（dev-certs bind-mount + dev.conf）
 #   - base-web：node 裸映像 vite 熱重載（bind-mount source + named volume mask）
 #   - rust-api：watchexec dev target（bind-mount source + cargo registry／target 卷 mask）
 #   - postgres/redis：直連 debug port
@@ -13,8 +13,8 @@
 services:
   front-nginx:
     ports:
-      - "127.0.0.1:52080:80"
-      - "127.0.0.1:52443:443"
+      - "127.0.0.1:22080:80"
+      - "127.0.0.1:22443:443"
     volumes:
       - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/nginx/conf.d/_locations.inc:/etc/nginx/conf.d/_locations.inc:ro
@@ -45,7 +45,7 @@ services:
       - base_web_node_modules:/app/node_modules
       - base_web_pnpm_store:/pnpm-store
     ports:
-      - "127.0.0.1:52081:80"
+      - "127.0.0.1:22081:80"
     command:
       - sh
       - -c
@@ -89,7 +89,7 @@ services:
       - rust_api_cargo_cache:/usr/local/cargo/registry
       - rust_api_target:/app/target
     ports:
-      - "127.0.0.1:52079:8080"
+      - "127.0.0.1:22079:8080"
     healthcheck:
       # dev 映像無 curl/wget → bash TCP 探針；120s start_period＝cargo 冷編實測磨合值
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
@@ -114,17 +114,17 @@ services:
 
   # ═══ 020-email-verify dev 收信件（mailpit、dev-only——prod compose 零 mailpit 痕跡＝SC-008）═══
   # SMTP 1025 內網（rust-api 經服務名 mailpit:1025 直達、免 host 埠）；UI＋REST API 綁
-  # 127.0.0.1:58025（★host 配號照 ADR 0019 infra 群「4＋well-known」制＝4＋8025；容器內側
-  # 8025＝官方預設值照 0019 規則不動；ADR 0087 配號歸位——SDD 原字面 8025 為 0019 對照疏漏；
+  # 127.0.0.1:28025（★host 配號照 ADR 0004 infra 群「2＋well-known」制＝2＋8025；容器內側
+  # 8025＝官方預設值照 0004 規則不動；rev4:0087 配號歸位（前代判例）——SDD 原字面 8025 為 rev4:0019 對照疏漏；
   # ★IPv4 字面、絕不 localhost）；E2E 斷言走 /api/v1/search?query=to:… 撈信抽碼（research R2）。
   mailpit:
     image: axllent/mailpit:v1.30.6
     expose:
       - "1025"
     ports:
-      - "127.0.0.1:58025:8025"
+      - "127.0.0.1:28025:8025"
     healthcheck:
-      # CMD 形直呼容器內建 readyz 子命令（與 host 側 curl http://127.0.0.1:58025/readyz 同口徑）
+      # CMD 形直呼容器內建 readyz 子命令（與 host 側 curl http://127.0.0.1:28025/readyz 同口徑）
       test: ["CMD", "/mailpit", "readyz"]
       interval: 10s
       timeout: 5s
@@ -135,19 +135,19 @@ services:
 
   postgres:
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:25432:5432"
 
   redis:
     ports:
-      - "127.0.0.1:56379:6379"
+      - "127.0.0.1:26379:6379"
 
-  # ═══ 016-observability T009 dev override（host port 綁 127.0.0.1、配號＝ADR 0019；config
+  # ═══ 016-observability T009 dev override（host port 綁 127.0.0.1、配號＝ADR 0004；config
   #     bind-mount 沿 rev3 姿態住 dev 層）═══
   #   networks／profiles／mem_limit 繼承 base（不重列）；alloy／socket-proxy／兩 exporter
   #   零 host port（FR-008 僅四件配號）。
   loki:
     ports:
-      - "127.0.0.1:53100:3100"
+      - "127.0.0.1:23100:3100"
     volumes:
       - ./deploy/loki-config.yml:/etc/loki/loki-config.yml:ro
 
@@ -157,19 +157,19 @@ services:
 
   grafana:
     ports:
-      - "127.0.0.1:53000:3000"
+      - "127.0.0.1:23000:3000"
     volumes:
       - ./deploy/grafana-provisioning:/etc/grafana/provisioning:ro
 
   prometheus:
     ports:
-      - "127.0.0.1:59090:9090"
+      - "127.0.0.1:29090:9090"
     volumes:
       - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   pushgateway:
     ports:
-      - "127.0.0.1:59091:9091"
+      - "127.0.0.1:29091:9091"
 
   # ═══ 016-observability T025 reaper dev override（比照 migrate：target＋共用 mask 卷＋
   #     entrypoint 整段 override——dev 映像 ENTRYPOINT＝watchexec、只改 command 會被當
