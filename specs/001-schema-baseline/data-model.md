@@ -9,6 +9,9 @@
 > **機器轉錄**：§2／§6／§7 表體由工具自 rev4 快照＋定稿欄序生成（斷言：逐表欄集合全等、
 > 總欄數 169、`operator_` 字樣零殘留）——非手工抄錄；生成器＝scratchpad
 > `gen-data-model.py`（一次性、隨 session 消滅，重生成可自本檔規則重建）。
+> **追補拍板（2026-08-05、user 親決）**：real_ip 全庫一律 NN＋created_at／archived_at
+> 預設統一 `now()`＋DB UTC+0——已入 §4 授權偏離集、§2／§6 對應列同步；重建規則＝
+> 生成器變換＋§4 清單疊加。
 
 ## 1. archetype 歸屬（15 表；憲法 §I.6 四變體）
 
@@ -49,7 +52,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_user_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | updated_at | timestamp with time zone | 可空 | —— |  |
 | 5 | updated_by | bigint | 可空 | —— |  |
@@ -73,7 +76,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_role_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | updated_at | timestamp with time zone | 可空 | —— |  |
 | 5 | updated_by | bigint | 可空 | —— |  |
@@ -93,7 +96,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_menu_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | updated_at | timestamp with time zone | 可空 | —— |  |
 | 5 | updated_by | bigint | 可空 | —— |  |
@@ -129,7 +132,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_ip_rule_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | updated_at | timestamp with time zone | 可空 | —— |  |
 | 5 | updated_by | bigint | 可空 | —— |  |
@@ -147,7 +150,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | setting_key | character varying(64) | NN | —— |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | updated_at | timestamp with time zone | 可空 | —— |  |
 | 5 | updated_by | bigint | 可空 | —— |  |
@@ -164,7 +167,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_access_log_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | NN | —— |  |
 | 4 | http_status | integer | NN | —— |  |
 | 5 | http_method | text | NN | —— |  |
@@ -183,7 +186,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_login_attempt_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | success | boolean | NN | —— |  |
 | 5 | attempted_user_name | text | NN | —— |  |
@@ -201,7 +204,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_token_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | NN | —— |  |
 | 4 | status | character varying(20) | NN | —— |  |
 | 5 | token_hash | character varying(64) | NN | —— |  |
@@ -226,7 +229,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('session_event_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | user_id | bigint | NN | —— |  |
 | 5 | sid | character varying(36) | NN | —— |  |
@@ -241,14 +244,14 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | # | 欄 | 型別 | NULL | default | 註 |
 |---|---|---|---|---|---|
 | 1 | id | bigint | NN | nextval('sys_operation_log_id_seq'::regclass) |  |
-| 2 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 2 | created_at | timestamp with time zone | NN | now() |  |
 | 3 | created_by | bigint | 可空 | —— |  |
 | 4 | operation | character varying(20) | NN | —— |  |
 | 5 | entity_table | character varying(64) | NN | —— |  |
 | 6 | entity_id | bigint | 可空 | —— |  |
 | 7 | payload_before | jsonb | 可空 | —— |  |
 | 8 | payload_after | jsonb | 可空 | —— |  |
-| 9 | real_ip | inet | 可空 | —— | 改名（原 operator_real_ip） |
+| 9 | real_ip | inet | NN | —— | 改名（原 operator_real_ip）；★可空→NN（定稿差異：real_ip 全庫一律 NN） |
 | 10 | peer_ip | inet | 可空 | —— | 改名（原 operator_peer_ip） |
 | 11 | x_forwarded_for | text | 可空 | —— | 改名（原 operator_x_forwarded_for） |
 | 12 | ip_confidence | text | 可空 | —— | 改名（原 operator_ip_confidence） |
@@ -287,7 +290,7 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | 2 | role_id | bigint | 可空 | —— |  |
 | 3 | created_at | timestamp with time zone | 可空 | —— |  |
 | 4 | created_by | bigint | 可空 | —— |  |
-| 5 | archived_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |  |
+| 5 | archived_at | timestamp with time zone | NN | now() |  |
 | 6 | archived_by | bigint | 可空 | —— |  |
 | 7 | archive_reason | character varying(32) | NN | —— |  |
 | 8 | ptype | character varying(18) | NN | —— |  |
@@ -322,8 +325,16 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 | sys_operation_log.trace_id 型別 | varchar(64) → text | 對齊 sys_access_log 家族形 |
 | 欄序重排 5 表 | session_event／sys_operation_log／sys_pwd_custody／sys_user_email_verify／sys_casbin_policy_archive | user 親排定稿（§2 各表註記差異；語意不變） |
 | 表欄更名 4 組 | §3 rename map | 去 operator_ 前綴（B 型家族欄名對齊） |
+| sys_operation_log.real_ip 可空→NN | inet NN（連動 §6 新增 `sys_operation_log_real_ip_not_null` 約束） | **real_ip 全庫一律 NN**（user 拍板 2026-08-05）；對齊 access／login 兩表。前瞻註：日後 retention 類系統程序寫本表（無 HTTP 情境）時，real_ip 取值屬該刀拍板（sentinel 或另議）、不回改本欄 |
+| created_at／archived_at 預設統一 `now()` | 帶時戳預設共 14 欄：rev4 混用 `CURRENT_TIMESTAMP`×12／`now()`×2——改形 12 欄 | 預設形一致化（user 拍板 2026-08-05）；兩形語意等價、僅 deparse 字面異 |
 
-以上即全部偏離；此外 rev5 新結構差異＝零支（純壓平、無新能力面）。
+以上即全部偏離（＝血緣核對之**授權偏離集**：rename map 4 組＋region 新增＋trace_id 改
+text＋real_ip NN＋預設統一 now()——T006／T012 對 rev4 快照比對時逐項 normalize、除此
+之外全等）；此外 rev5 新結構差異＝零支（純壓平、無新能力面）。
+
+**時區拍板**（user 2026-08-05）：DB 以 **UTC+0** 運行——postgres 容器預設 `Etc/UTC`、
+不另設定；timestamptz 內部恆 UTC 儲存、seed 定稿時戳為 `+00:00` 字面；migration 與閘
+不得依賴 session timezone（quickstart 前置含 `SHOW timezone` 斷言）。
 
 ## 5. memo 欄家族語意（凍結）
 
@@ -337,7 +348,8 @@ UI 兌現不在本刀（BACKLOG B-003 承載；活書資料慣例節同刀加一
 > 前置：`CREATE EXTENSION IF NOT EXISTS pg_trgm`（GIN trigram 索引相依、承 rev4:m009
 > 淨效果、隨 m001）。NOT NULL 逐欄約束為 pg_constraint 實報形（PG18）、隨建表自動生成。
 
-總計：索引 38 支、約束 100 條（含 NOT NULL 逐欄形）。
+總計：索引 38 支、約束 101 條（含 NOT NULL 逐欄形；101＝rev4 快照 100＋§4 定稿差異
+real_ip NN 之新增約束 1）。
 
 ### casbin_rule
 
@@ -483,6 +495,7 @@ UI 兌現不在本刀（BACKLOG B-003 承載；活書資料慣例節同刀加一
 - `sys_operation_log_entity_table_not_null`：`NOT NULL entity_table`
 - `sys_operation_log_id_not_null`：`NOT NULL id`
 - `sys_operation_log_operation_not_null`：`NOT NULL operation`
+- `sys_operation_log_real_ip_not_null`：`NOT NULL real_ip`（★§4 定稿差異新增、rev4 無）
 - `sys_operation_log_pkey`：`PRIMARY KEY (id)`
 
 ### sys_pwd_custody
@@ -616,7 +629,7 @@ entity-drift 比對豁免本表。
 | 7 | v4 | character varying(125) | NN | —— |
 | 8 | v5 | character varying(125) | NN | —— |
 | 9 | protected | boolean | NN | false |
-| 10 | created_at | timestamp with time zone | NN | CURRENT_TIMESTAMP |
+| 10 | created_at | timestamp with time zone | NN | now() |
 | 11 | created_by | bigint | 可空 | —— |
 
 ## 8. seed 定稿（m002 唯一來源）

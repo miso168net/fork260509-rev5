@@ -39,7 +39,8 @@
   漂移與真差異）。seed 演進（seed_add／seed_update／seed_delete 登記）同樣合成後才比對。
 - **rename 血緣對照**：內建 data-model §3 rename map，僅用於「vs rev4 快照」對賬場景——
   該場景＝fixtures 產製之一次性三驗（T012、紀錄留 provenance.md），非三閘常態比對面；
-  rev5 自家比對一律新欄名、不走映射。
+  對照面＝data-model §4 授權偏離集全項 normalize（rename／region／trace_id／real_ip NN／
+  預設 now()）、除此之外全等；rev5 自家比對一律新欄名、不走映射。
 
 ## 3. audit archetype 閘（15 表歸屬逐表驗）
 

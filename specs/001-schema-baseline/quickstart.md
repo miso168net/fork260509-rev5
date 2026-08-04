@@ -6,6 +6,8 @@
 ## 前置
 
 - `bash tools/bootstrap.sh` 綠（掃描防線就位）；docker 可用。
+- DB 時區斷言（UTC+0 拍板、data-model §4）：對目標庫 `SHOW timezone` ＝ `Etc/UTC`
+  （postgres 容器預設、不另設定）。
 - 映像：`postgres:18.4-alpine`（本機已有）；`rev5-admin-rust-api:dev`
   （`docker compose -f docker-compose.yml -f docker-compose.dev.yml build rust-api` 自
   `deploy/Dockerfile.rust-api` dev stage 建——dev override 才有 target 與該 image tag）。

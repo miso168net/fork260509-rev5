@@ -18,7 +18,8 @@
 1. 一次性 pristine `postgres:18.4-alpine`（獨立 network、零 host 埠）重放 rev5
    m001＋m002。
 2. 先驗後凍：實庫 vs `seed-decision.json` 逐列比對零差異＋vs data-model §2 欄序全等＋
-   （血緣核對）結構三節經 rename map 映射 vs rev4 快照全等——三驗全綠才照相落檔。
+   （血緣核對）結構三節經 data-model §4 授權偏離集 normalize（rename／region／trace_id／
+   real_ip NN／預設 now()）後 vs rev4 快照全等——三驗全綠才照相落檔。
 3. 照相＋dump→normalize→落 fixtures/ 五件→同 commit 凍結。
 
 ## 3. provenance.md 必載欄目

@@ -60,8 +60,9 @@ pg_trgm＋casbin 委派建表，pristine 重放與定稿全等。
 ### 驗證先行（US1）
 
 - [ ] T006 [US1] 結構驗證腳本（scratchpad `check-m001.py`）：照相三查詢（refresh 同構
-      SQL）＋vs data-model §2 欄序比對＋rename 映射 vs rev4 快照（`../fork260509-rev4`
-      已入版件）全等比對；對空庫跑＝紅（15 表缺席逐項指名）——先紅為證
+      SQL）＋vs data-model §2 欄序比對＋血緣核對（data-model §4 授權偏離集 normalize
+      〔rename／region／trace_id／real_ip NN／預設 now()〕後 vs rev4 快照
+      `../fork260509-rev4` 已入版件全等）；對空庫跑＝紅（15 表缺席逐項指名）——先紅為證
 
 ### 實作（US1）
 

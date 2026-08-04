@@ -34,15 +34,16 @@
 ### User Story 1 - 基線結構定稿落地 (Priority: P1)
 
 作為 workspace 維護者，我要 rev5 資料庫結構基線＝rev4 終態 15 表壓平、且欄序／欄名／型別依親排
-定稿（brainstorm §5，含 rename map 4 組與定稿差異 2 項），使後續一切功能刀都建立在單一權威
+定稿（brainstorm §5，含 rename map 4 組與定稿差異——授權偏離集詳 data-model §4），使後續一切功能刀都建立在單一權威
 schema 起點上；rev4 的後續 delta（m003～m015）不搬（淨效果已含於終態），rev5 第一支 delta 自
 m003 起編。
 
 **Why this priority**: 沒有結構基線，rust-api 首批程式工件與一切後續刀都無地基；定稿制（而非
 盲目壓平）是 rev4 已驗證的方法且 user 已三題拍板。
 
-**Independent Test**: 對一次性 pristine 資料庫重放結構遷移，機器比對實庫結構與定稿是否全等——
-不需 seed、不需任何後續刀即可獨立驗證並交付價值。
+**Independent Test**: 對一次性 pristine 資料庫重放結構遷移，機器比對實庫結構與定稿是否全等
+（血緣核對＝經 data-model §4 授權偏離集 normalize 後 vs rev4 快照三節全等）——不需 seed、
+不需任何後續刀即可獨立驗證並交付價值。
 
 **Acceptance Scenarios**:
 
@@ -50,8 +51,9 @@ m003 起編。
    （型別／nullable／default／約束／索引）與定稿全等；14 親排表欄序逐欄一致（158 欄＋
    casbin_rule 11 欄＝169 欄）。
 2. **Given** data-model 已轉錄凍結，**When** 與 brainstorm §5 定稿逐表對照，**Then** 欄序、
-   rename map 4 組（sys_operation_log 去 operator_ 前綴）、定稿差異 2 項（region 新增 text 可空；
-   trace_id 改 text）逐筆記明、零漏轉。
+   rename map 4 組（sys_operation_log 去 operator_ 前綴）、定稿差異（region 新增、trace_id
+   改 text、real_ip 一律 NN、時戳預設統一 now()——授權偏離集＝data-model §4）逐筆記明、
+   零漏轉。
 3. archetype 歸屬之機器驗證歸 US3（audit 閘、其場景 5）——US1 範圍內僅要求歸屬已凍結於
    data-model §1（FR-014 之左源）、不設獨立驗收。
 4. **Given** casbin_rule 沿委派建表（基底 8 欄＋同檔 ALTER 補 3 治理欄），**When** 建表完成，
@@ -163,9 +165,9 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
   （m002）兩支；rev4 的 m003～m015 delta 不搬；rev5 第一支後續 delta 自 m003 起編
   （migration 短編號紀律）。
 - **FR-002**: 14 親排表之欄序／欄名／型別 MUST 逐欄轉錄 brainstorm §5 定稿至 data-model 凍結，
-  含 rename map 節（4 組、全在 sys_operation_log）與定稿差異節（region 新增 text 可空、
-  trace_id 改 text）；轉錄完成後 data-model 為唯一權威。結構語意除定稿差異載明者外 MUST 忠實
-  rev4 終態快照。
+  含 rename map 節（4 組、全在 sys_operation_log）與定稿差異節（授權偏離集：region 新增、
+  trace_id 改 text、real_ip 一律 NN、時戳預設統一 now()）；轉錄完成後 data-model 為唯一
+  權威。結構語意除定稿差異載明者外 MUST 忠實 rev4 終態快照。
 - **FR-003**: casbin_rule MUST 沿 rev4 委派建表模式（基底 8 欄＋同檔 ALTER 補 3 治理欄），
   欄序不入親排；其授權政策 seed MUST 併入基線同批定稿。
 - **FR-004**: memo 欄家族語意（user_memo／role_memo／menu_memo／wbip_memo：R_SUPER 備註、
