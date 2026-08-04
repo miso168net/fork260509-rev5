@@ -1,7 +1,9 @@
-<!-- next: L-002 -->
+<!-- next: L-003 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
 rev5 自空白起家、只記親歷坑；前代教訓為候選承襲清單（docs/brainstorms/000-doc-architecture.md §5 K3）、撞到對應域時挑選引用、不整批搬入。
 
 L-001｜macOS bash 3.2 全形字黏變數名：`"$VAR全形字"` 在 UTF-8 locale 下會把全形字首位元組黏進變數名，`set -u` 直接炸 unbound variable（首暴＝preflight-secrets.sh 末行、B5b 移植期；且**選擇性觸發**——同檔他處同形卻沒炸，繫於後接字元的位元組值，不能靠「跑過一次沒事」排除）。rev4 全代在 WSL2 bash 5 從未暴露＝跨平台移植必掃。防法：①`$VAR` 後緊接非 ASCII 一律 `${VAR}` 包裹；②機器枚舉全 repo bash 面（regex `(?<!\\)\$[A-Za-z_][A-Za-z0-9_]*(?=[^\x00-\x7f])`、排除註解與 `\$` 轉義）逐處處置、絕不只修被咬那行（本次 6 檔 21 處一鍋改）；③新寫告警／訊息分支先空跑一次。
+
+L-002｜watchdog 扁平 grep 抽 journal key 撞巢狀 payload 同名鍵：wf-watchdog 以 `grep -oE '"key":…'` 數不重複 agent key，但 workflow journal 的 result 事件內嵌 agent 回傳 JSON——回傳結構帶同名欄（本例 coverage[].key＝"FR-001"…22 筆）即被一併計入，實證 9 支真 agent 被數成 31 → RUNAWAY 誤報、健康工作流被 TaskStop（001 刀 speckit-analyze 首撞、2026-08-05）。防法：①判準抽取一律**頂層鍵定錨**（逐行 JSON 解析、只取事件物件 top-level 欄），絕不對含任意巢狀 payload 的 jsonl 做扁平 regex 計數；②既有「journal 非空卻抽到 0 key＝fail-loud」健全性檢查保留（頂層定錨後它兼任格式漂移哨）；③workflow 回傳 schema 欄名迴避框架頂層語意名（key/type/agentId）屬縱深防禦、非根治。修復自證＝真 journal 舊法 31/新法 9＋合成巢狀鍵 journal 抽 0 觸發健全性告警。

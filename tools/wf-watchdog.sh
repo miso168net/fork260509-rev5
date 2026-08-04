@@ -57,9 +57,27 @@ while true; do
     break
   fi
   idle=$(( now - newest ))
-  # ★樣式容忍鍵值間空白（JSON 序列化器差異）；★另設判準健全性檢查：journal 非空卻抽不到
-  #   任何 key＝抽取樣式與實際格式脫節，此時保險絲恆 0＝永不觸發＝靜默失效，故 fail-loud。
-  jl=$(grep -oE '"key"[[:space:]]*:[[:space:]]*"[^"]*"' "$DIR/journal.jsonl" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+  # ★頂層鍵定錨（L-002）：逐行 JSON 解析、只取事件物件 top-level 的 "key"——扁平 grep
+  #   會把 result payload 巢狀同名鍵（如 coverage[].key＝"FR-001"）一併計入，實證 9 支
+  #   真 agent 被數成 31 → RUNAWAY 誤報。壞行跳過（擋壞行非本工具職責）。
+  #   ★另設判準健全性檢查：journal 非空卻抽不到任何 key＝抽取與實際格式脫節，此時
+  #   保險絲恆 0＝永不觸發＝靜默失效，故 fail-loud。
+  jl=$(python3 -c '
+import json, sys
+ks = set()
+try:
+    for line in open(sys.argv[1]):
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        k = e.get("key") if isinstance(e, dict) else None
+        if isinstance(k, str):
+            ks.add(k)
+except OSError:
+    pass
+print(len(ks))
+' "$DIR/journal.jsonl" 2>/dev/null || echo 0)
   jraw=$(wc -l < "$DIR/journal.jsonl" 2>/dev/null || echo 0)
   if [ "${jraw:-0}" -gt 0 ] && [ "${jl:-0}" -eq 0 ]; then
     echo "看門狗 判準失效：journal ${jraw}行 但抽不到任何 agent key——RUNAWAY 保險絲已恆 0、形同卸除→立即人工查 journal 格式"
