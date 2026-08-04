@@ -16,13 +16,13 @@
 > 由本節轉錄（audit 閘與 reference/schema 同源消費）。後續刀新表：先補本節歸屬、再登記
 > archetype-map，否則 audit 攔。
 
-| 表 | 變體 | 活性唯一 | 註 |
+| 表 | 變體 | 活性唯一（索引名） | 註 |
 |---|---|---|---|
-| sys_user | A 業務全六欄 | user_name | 六欄全；partial-uniq `WHERE deleted_at IS NULL` |
-| sys_role | A 業務全六欄 | role_code | 六欄全；活性唯一 |
-| sys_menu | A 業務全六欄 | route_name | 六欄全；活性唯一 |
-| system_settings | A 業務全六欄 | —— | 六欄全（PK＝setting_key 總體唯一、免 partial-uniq） |
-| sys_ip_rule | A 業務全六欄 | wbip_cidr | 六欄全；活性唯一 |
+| sys_user | A 業務全六欄 | sys_user_user_name_active_uniq＋sys_user_user_email_active_uniq | 六欄全；兩支 partial-uniq `WHERE deleted_at IS NULL`（email 支另含 `user_email IS NOT NULL`、lower() 表達式） |
+| sys_role | A 業務全六欄 | sys_role_code_active_uniq | 六欄全；活性唯一 |
+| sys_menu | A 業務全六欄 | sys_menu_route_name_active_uniq | 六欄全；活性唯一 |
+| system_settings | A 業務全六欄 | ——（null） | 六欄全（PK＝setting_key 總體唯一、免 partial-uniq） |
+| sys_ip_rule | A 業務全六欄 | sys_ip_rule_cidr_type_active_uniq | 六欄全；複合 (wbip_cidr, wbip_type) 活性唯一 |
 | sys_operation_log | B append-only | —— | 僅 created_at NN＋created_by（operator 域欄）；禁 updated_*／deleted_*；鑑識欄群＝rename 後定稿名（§3） |
 | sys_access_log | B append-only | —— | 僅 created_at NN＋created_by（NN）；禁 updated_*／deleted_* |
 | sys_login_attempt | B append-only | —— | 僅 created_at NN＋created_by（可空）；禁 updated_*／deleted_* |
@@ -33,6 +33,12 @@
 | sys_user_email_verify | C 衛星 | —— | 單一 PK user_id；verified_at＝最後驗證時刻（upsert 刷新）；零 FK；不存驗證碼 |
 | sys_casbin_policy_archive | D 治理 | —— | created_at/by（原 grant 快照、可空）＋archived_at NN def now()＋archived_by＋archive_reason NN |
 | casbin_rule | D 治理 | —— | adapter 基底 8 欄＋ALTER 治理欄（protected NN def false／created_at NN def now()／created_by 可空）；欄序不入親排（§7） |
+
+**`*_by` 欄性質判準**（audit 閘可空性期望之左源）：語意為**變更操作者**之 `*_by`＝archetype
+審計欄、受 §I.6「*_by nullable」通則；語意為**資料擁有者／請求主體／複合 PK 成分／首建者**
+者＝domain 欄、可 NN。本刀 created_by NN 恰四表、逐表釋義：sys_access_log（B、請求主體
+紀錄、NN）／sys_token（C、擁有者欄）／sys_pwd_custody（C、複合 PK 成分）／
+sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律可空。
 
 ## 2. 逐表欄序定稿（14 親排表 158 欄＋casbin_rule 11 欄＝169 欄）
 
@@ -621,14 +627,23 @@ entity-drift 比對豁免本表。
 - 規模：266 列——casbin_rule 163＋sys_menu 78＋system_settings 16＋sys_user 3＋sys_role 3
   ＋sys_user_role 3；其餘 9 表零列。
 - **決定性施工形**（clarify Q1＝甲・全面定稿字面）：
-  - INSERT 一律**明示 id**（不吃 nextval）＋**明示 `created_at`＝
-    `2026-08-05T00:00:00+00:00`**（不吃欄 default）；`created_by` 全 NULL。
+  - 凡具 id 欄之表**明示 id**（247 列、不吃 nextval；system_settings PK＝setting_key、
+    sys_user_role 零審計 join 表——兩表無 id 欄、不在此射程）；凡具 `created_at` 欄者
+    **明示定稿時戳 `2026-08-05T00:00:00+00:00`**（263 列、不吃欄 default）；凡具
+    `created_by` 欄者一律 NULL。
   - `sys_user.password`＝定稿 PHC 常數（三帳共用、plaintext `123456`、全文載
     seed-review.md 定稿節）；m002 **無 runtime 雜湊**（不引 argon2）。
-  - casbin_rule 163 列含 `protected` 值明示（true×17）。
+  - casbin_rule 163 列與 sys_menu 78 列之 `protected` 值逐列明示（casbin true×19、
+    menu true×8；總數以 seed-decision.json 現算為準、施工斷言禁寫死字面）。
   - 收尾 `setval` 對齊 sequence 落值（§9）。
 - 簡繁定稿：22 筆改值（Q2；含 `登录→登入`、`菜单→選單` 修正）已固化於 seed-decision.json
   ——m002 不做任何 runtime 轉換。
+- `hide_in_menu` 6 列 true（id 6 manage_user-detail／16 user-center／22 function_multi-tab／
+  58·59·60 function_hide-child_*）＝upstream route meta 原樣、非 §I.2 隱藏治理——釋義與
+  白名單＝ADR 0005。
+- 4 列選單之 `component` 指向 view 於 rev5 base-web 尚缺（manage_system-settings／
+  manage_policy-archive／manage_audit／manage_ip-rule）——選單與政策隨基線先行、view 由
+  對應 UI 刀補齊（BACKLOG B-008）。
 
 ## 9. sequences 落值（m002 收尾 setval；gate2／SC-001 比對面含此）
 

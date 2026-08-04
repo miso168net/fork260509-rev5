@@ -7,7 +7,8 @@
 
 - `bash tools/bootstrap.sh` 綠（掃描防線就位）；docker 可用。
 - 映像：`postgres:18.4-alpine`（本機已有）；`rev5-admin-rust-api:dev`
-  （`docker compose build rust-api` 自 `deploy/Dockerfile.rust-api` 建）。
+  （`docker compose -f docker-compose.yml -f docker-compose.dev.yml build rust-api` 自
+  `deploy/Dockerfile.rust-api` dev stage 建——dev override 才有 target 與該 image tag）。
 
 ## A. 基線重放（US1／US2 主流程）
 

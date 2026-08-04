@@ -50,8 +50,8 @@ migration 兩支、閘三道、entity 檔 15 支
 |---|---|---|---|
 | 1 | 違反 §I.1 base-web 權威？ | **否** | 本刀零 endpoint 面（server 不入刀）；schema 忠實壓平、無設計範圍縮減；wire-schema 維持 fail-open 警告態（spec Out of Scope 載明） |
 | 2 | 動 base-web inline？ | **否** | base-web 全程不動；本刀全在 rust-api worktree＋外層 docs/tools |
-| 3 | menu 顯示走 Casbin enforce？ | **是（seed 面）** | 本刀無 route 過濾邏輯；seed 落 demo menu 全集入 sys_menu＋casbin menu 政策（§I.2 機制前提）；`hide_in_menu` 值＝upstream route meta 原樣（detail 頁不進選單等語意）、非「前端隱藏機制」啟用；toggle-auth demo 對三角色之勾選承 rev4 終態、user 已於 seed 簽核照收（clarify 紀錄在案） |
-| 4 | wire 對齊 §I.3？ | **是（射程內）** | 本刀無 wire；id 全表 bigint（i64 自增）＝§I.3 DB 側不變式、data-model §2 機器斷言在案 |
+| 3 | menu 顯示走 Casbin enforce？ | **是（seed 面）** | 本刀無 route 過濾邏輯；seed 落 demo menu 全集入 sys_menu＋casbin menu 政策（§I.2 機制前提）；toggle-auth 示範鏈三角色初始勾選（4 列）與 hide_in_menu 原樣值（6 列）＝§I.2 例外與釋義條款（ADR 0005、Amendment v1.1.0） |
+| 4 | wire 對齊 §I.3？ | **是（射程內）** | 本刀無 wire；凡帶自增主鍵之 11 表 id 皆 bigint（i64 自增）＝§I.3 DB 側不變式（餘 4 表自然鍵／複合鍵、無 id 欄）、data-model §2 機器斷言在案 |
 | 5 | 拷貝前代 code？ | **例外內** | sea-orm-adapter 整檔拷貝＝§I.5 例外清單；migration／entity 全新打字（參照不拷貝）；防回歸條款落 data-model §10（operator_ 前綴／varchar(64)／簡體值／runtime 雜湊不得帶回） |
 | 6 | 抵觸 §II 拍板？ | **否** | #1 unknown header／#2 auth route mode／#3 路徑前綴皆不涉 |
 | 7 | 觸及 §III ★ 軌道？ | **否** | 不動 base-web；★ 軌道零觸及 |
@@ -90,7 +90,7 @@ rust-api/                        # worktree（現況空殼）——首批程式�
 ├── rust-toolchain.toml          # 1.96.1
 ├── migration/                   # m001_baseline_schema＋m002_baseline_seeds＋main/lib
 ├── entity/                      # 15 entity 檔＋lib.rs（rename 後定稿欄名）
-└── sea-orm-adapter/             # vendored（§I.5 例外、整檔拷貝、內容零改寫）
+└── sea-orm-adapter/             # vendored（§I.5 例外、整檔拷貝、除檔頭 provenance 行外零改寫）
 
 tools/
 └── schema-gate.py               # 整組重建（rev5 座標＋演進帳契約；白名單模型移除）
@@ -101,7 +101,7 @@ docs/ops/reference-src/
 ├── schema-snapshot.json         # refresh 首跑產
 └── accounts-snapshot.json       # refresh 首跑產
 
-docs/arc42/decisions/            # 0005（基線＝壓平＋定稿制）、0006（閘契約＝演進帳）
+docs/arc42/decisions/            # 0006（基線＝壓平＋定稿制）、0007（閘契約＝演進帳）；0005＝§I.2 Amendment（已落）
 docs/arc42/ARCHITECTURE.md       # 資料慣例節＋memo 家族一行（活書隨刀）
 docs/ops/RUNBOOK.md              # migration 操作節＋Day-1 登記紀律
 tools/docs-sync.py               # DAY1_EXEMPTIONS 拔 gen.snapshots（謂詞成立後）

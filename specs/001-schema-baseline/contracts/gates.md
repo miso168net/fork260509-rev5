@@ -37,20 +37,32 @@
   normalize：**COPY 段內整列排序**（消物理列序假紅）、setval 行保留原位。normalize 後
   **未排序逐列 diff**（含 id 欄）；★**禁全檔排序後雜湊比對**（會同時掩蓋 sequence 落值
   漂移與真差異）。seed 演進（seed_add／seed_update／seed_delete 登記）同樣合成後才比對。
-- **rename 血緣對照**：內建 §3 rename map，僅用於「vs rev4 快照」對賬場景（如血緣稽核
-  子命令）；rev5 自家比對一律新欄名、不走映射。
+- **rename 血緣對照**：內建 data-model §3 rename map，僅用於「vs rev4 快照」對賬場景——
+  該場景＝fixtures 產製之一次性三驗（T012、紀錄留 provenance.md），非三閘常態比對面；
+  rev5 自家比對一律新欄名、不走映射。
 
 ## 3. audit archetype 閘（15 表歸屬逐表驗）
 
 - **左源**：`docs/ops/reference-src/archetype-map.json`（data-model §1 轉錄）。
+- **左源形契約**：`{lineage, usage, tables:[{table, label, active_unique, note}]}`——
+  tables 恰 15 筆；table／label 必填非空（label ∈ 四變體字串）；active_unique＝活性唯一
+  **索引名**清單或 null；note＝人讀註記。load 斷言 fail-loud（缺鍵／表重複／label 值域外
+  ＝rc 2）。
 - **驗則**（對實庫照相逐表執行）：
   - 變體 A：六審計欄在場且型別／可空性合 §I.6（`*_at` timestamptz、created_at NN def
-    now；`*_by` bigint 可空）；有 soft-delete 之表其活性唯一索引在場
-    （`WHERE deleted_at IS NULL`；PK 總體唯一者豁免、map 之 active_unique=null）。
+    now；`*_by` bigint 可空）；活性唯一驗則＝map `active_unique` 列出的**索引名**逐支
+    在場且定義含 `WHERE (deleted_at IS NULL)`（sys_user 兩支：user_name＋lower(user_email)；
+    sys_ip_rule 複合 (wbip_cidr, wbip_type)；PK 總體唯一者豁免、active_unique=null）。
   - 變體 B：`updated_*`／`deleted_*` **不在場**（在場即紅）；created_at NN。
-  - 變體 C：依 map note 子型驗（join＝零審計欄；狀態機／極簡／衛星＝note 載明欄集）。
+  - 變體 C：子型規則**硬編碼於工具**（沿 rev4 已驗證先例；map 之 note＝人讀註記、非機器
+    判準）——sys_user_role＝零審計欄 join；sys_token＝created_at NN＋created_by NN＋
+    status；sys_pwd_custody＝複合 PK (user_id, created_by) 極簡三欄；
+    sys_user_email_verify＝user_id PK 衛星五欄。
   - 變體 D：治理欄在場（casbin_rule：protected NN def false＋created_at NN＋created_by
     可空；archive：archived_at NN def now＋archive_reason NN）。
+  - `created_by` 可空性顯式驗（不靜默）：期望值＝data-model「`*_by` 欄性質判準」逐表
+    釋義——NN 恰四表（sys_access_log／sys_token／sys_pwd_custody／sys_user_email_verify）、
+    其餘一律可空。
 - **表清單守門**：實庫表集 ≠ map 表集＝紅（新表未登記歸屬即攔——先補 data-model §1、
   再登記 map）。
 

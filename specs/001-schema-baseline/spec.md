@@ -24,7 +24,7 @@
   → A: B——**逐字簡→繁＋語意陷阱與台灣用語修正**（`登录`→`登入` 1 筆；`菜单`→`選單` 3 筆、
   user 補充裁定）：改值 22 筆（role_name×3＋buttons desc×19）、同形免改 2 筆載錄備查；
   全庫簡體殘留掃描零命中（機器斷言）。
-- Q: seed 內容逐表過目裁定（14 表淨效果 266 列）？ → A: **全表照收 rev4 淨效果原樣**，
+- Q: seed 內容逐表過目裁定（15 表淨效果 266 列＋9 空表聲明）？ → A: **全表照收 rev4 淨效果原樣**，
   唯簡體字串依 Q2 轉繁——「簡體轉繁體、其它照 rev4 搬」（機器定稿檔＝seed-decision.json、
   帶素材 sha256 血緣；素材原樣＝seed-net-effect.json）。**user 總簽核 2026-08-05：確認定稿**
   （FR-005 之工作坊已完成、SC-004 之簽核紀錄在案）。
@@ -52,8 +52,8 @@ m003 起編。
 2. **Given** data-model 已轉錄凍結，**When** 與 brainstorm §5 定稿逐表對照，**Then** 欄序、
    rename map 4 組（sys_operation_log 去 operator_ 前綴）、定稿差異 2 項（region 新增 text 可空；
    trace_id 改 text）逐筆記明、零漏轉。
-3. **Given** 重放後實庫，**When** archetype 歸屬逐表驗證，**Then** 15 表歸屬與 archetype-map
-   定稿一致（15/15 綠）。
+3. archetype 歸屬之機器驗證歸 US3（audit 閘、其場景 5）——US1 範圍內僅要求歸屬已凍結於
+   data-model §1（FR-014 之左源）、不設獨立驗收。
 4. **Given** casbin_rule 沿委派建表（基底 8 欄＋同檔 ALTER 補 3 治理欄），**When** 建表完成，
    **Then** 結構語意符合定稿；其欄序由建表機制決定、不入親排比對。
 
@@ -80,9 +80,8 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
    不一致即停手升級 user 裁決、不得單源逕行定稿。
 3. **Given** seed 淨效果清單，**When** user 於 clarify 工作坊逐表過目調整，**Then** 調整連動
    同步（如 id 重編後外鍵引用同步）、定稿全文紀錄在案。
-4. **Given** seed 定稿，**When** rev5 基線遷移對 pristine 重放後與定稿 fixtures 做未排序逐列
-   diff（含 id 欄；COPY 段整列排序 normalize），**Then** 零差異；sequence 落值與物理列序兩類
-   病灶皆可現形（禁止排序後雜湊比對）。
+4. **Given** seed 定稿，**When** rev5 基線遷移對 pristine 重放後與凍結 fixtures 比對
+   （比對形＝FR-008），**Then** 逐列零差異（含 id 欄與 sequence 落值）。
 
 ---
 
@@ -107,9 +106,10 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
    全等、綠。
 4. **Given** 登記檔缺欄位或來源刀編號格式錯誤，**When** 閘啟動，**Then** 啟動斷言 fail-loud、
    不得靜默通過。
-5. **Given** 三閘（gate1 結構全等／gate2 欄序＋seed 對 data-model 定稿、rename 走映射比對／
-   audit archetype 15 表歸屬），**When** 對基線實庫全跑，**Then** 全綠；閘工具內殘留的 3 行
-   rev4 字面座標已同刀清償為 rev5 座標。
+5. **Given** 三閘（gate1 結構全等／gate2 欄序 vs data-model 定稿＋seed vs 凍結 fixtures／
+   audit archetype 15 表歸屬），**When** 對基線實庫全跑，**Then** 全綠；閘工具內殘留之
+   rev4 世代字面與白名單模型已整組清償為 rev5 座標（血緣核對之 rename 映射＝fixtures
+   產製三驗、見 FR-010）。
 
 ---
 
@@ -131,7 +131,8 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 2. **Given** 快照豁免（gen.snapshots）拔項，**When** 全量 lint／pre-commit 執行，**Then** 綠；
    快照缺席時紅（「到期即紅」第四例成立）。
 3. **Given** entity-drift Day-1 跳過解除，**When** entity 對應層在場且與快照一致，**Then**
-   pre-commit 綠；**When** entity 目錄缺席，**Then** 擋死一切 commit（fail-loud）。
+   pre-commit 綠；**When** entity 目錄缺席且 staged 含 rust-api gitlink 或 schema 快照，
+   **Then** 該 commit 被擋（rc 2 fail-loud）。
 
 ---
 
@@ -139,15 +140,16 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 
 - **雙源互證分歧**：重放環境差異使萃取快照與 rev4 已入版快照不一致 → 停手升級 user，禁止
   單源逕行定稿（US2 場景 2）。
-- **假紅與真漂移的分辨**：物理列序差異＝假紅（COPY 段整列排序 normalize 消除）；sequence
-  落值漂移＝真漂移（必須現形）。兩需求同時成立 → 絕不排序後雜湊比對整檔。
-- **rename 映射比對**：閘對 rev4 欄名 ↔ rev5 定稿欄名走 rename map 映射，防 4 組改名被誤報
-  漂移、亦防映射錯位漏報真漂移。
+- **假紅與真漂移的分辨**：物理列序差異＝假紅（須消除）；sequence 落值漂移＝真漂移（必須
+  現形）——兩需求同時成立之比對形見 FR-008。
+- **rename 血緣核對**：對 rev4 快照之對賬（fixtures 產製三驗之一）走 rename map 映射，防
+  4 組改名被誤報漂移、亦防映射錯位漏報真漂移；rev5 自家管線一律新欄名、不走映射（FR-010）。
 - **casbin_rule 欄序**：由委派建表機制決定、不入親排；欄序比對（gate2）射程＝14 親排表，
   casbin_rule 僅驗結構語意與 archetype 歸屬。
 - **演進登記檔破損**：缺欄、格式錯、來源刀編號不合規 → 閘啟動斷言 fail-loud，不得以「登記檔
   壞了」為由靜默放行。
-- **entity 對應層半缺**：目錄缺席或表數不足 → 擋死一切 commit；不得降級為警告。
+- **entity 對應層半缺**：目錄缺席（rc 2）或表數不足（rc 1）→ 於觸發面（rust-api gitlink
+  或快照 staged）內一律擋 commit；不得降級為警告。
 - **rev4 側唯讀紀律**：素材產製全程對一次性 pristine 實例操作；誤起 rev4 既有容器（一起即寫
   WAL、volume 變動）＝違唯讀精神，程序上禁止。
 
@@ -190,29 +192,33 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
   scratchpad——拷貝例外射程內；不起其既有容器、不動其 volume）。
 - **FR-007**: 結構面 MUST 雙源互證：重放萃取快照 vs rev4 已入版 schema-snapshot；不一致 MUST
   停手升級 user 裁決。
-- **FR-008**: 定稿後 MUST 驗證：rev5 基線兩支對 pristine 重放，與定稿 fixtures 做未排序逐列
+- **FR-008**: 定稿後 MUST 驗證：rev5 基線兩支對 pristine 重放，與凍結 fixtures 做未排序逐列
   diff（含 id 欄；COPY 段整列排序 normalize 消物理列序假紅；MUST NOT 排序後雜湊比對）；
   MUST 附 negative test（注入假漂移必紅、比對器先自證）。
 
 **驗證閘＋演進帳**
 
-- **FR-009**: schema 閘契約 MUST 為 Day-1 受管演進帳：凍結面（`specs/001-schema-baseline/fixtures/*`，定稿產物、永不改寫、provenance 保存）＋演進面（`docs/ops/reference-src/schema-evolution.json` 單一登記檔，每筆新表／新欄／新索引／新 seed 列／seed 內容變更帶來源刀編號）合成期望值後與實庫**全等**比對——非容差剝除；未登記漂移一律紅；登記檔自身
+- **FR-009**: schema 閘契約 MUST 為 Day-1 受管演進帳：凍結面（`specs/001-schema-baseline/fixtures/*`，定稿產物、永不改寫、provenance 保存）＋演進面（`docs/ops/reference-src/schema-evolution.json` 單一登記檔，登記對象＝contracts/schema-evolution.md §1 kind 枚舉恰八值、每筆帶來源刀編號；刪除性演進〔drop_*〕不入登記檔——屬拍板級、走新 ADR 基線翻案）合成期望值後與實庫**全等**比對——非容差剝除；未登記漂移一律紅；登記檔自身
   MUST 有啟動斷言防呆（欄位齊全性＋來源刀編號格式）。
-- **FR-010**: 三閘 MUST 就位：gate1 結構（凍結＋演進帳合成後全等）／gate2 欄序＋seed（vs
-  data-model 定稿；rename 走映射比對）／audit archetype（15 表歸屬逐表驗）；schema 閘工具
-  MUST 整組重建為 rev5 座標（fixtures 與 data-model 路徑指向本刀、15 表），其殘留的 3 行
-  rev4 字面 MUST 同刀清償。
+- **FR-010**: 三閘 MUST 就位：gate1 結構（凍結＋演進帳合成後全等）／gate2 欄序（vs
+  data-model §2 定稿）＋seed（vs 凍結 fixtures 之 seed 定稿、源自 seed-decision.json）／
+  audit archetype（15 表歸屬逐表驗）；rev4 血緣核對（vs rev4 快照）走 rename map 映射——
+  屬 fixtures 產製之一次性三驗、非 gate2 常態比對面。schema 閘工具 MUST 整組重建為 rev5
+  座標（fixtures 與 data-model 路徑指向本刀、15 表），其殘留之 rev4 世代字面（specs/002
+  座標等、實測 6＋10 行）與白名單模型 MUST 整組清償。
 - **FR-011**: 「每支帶 migration 的刀必跑照相（refresh）＋演進帳登記」MUST 入 RUNBOOK 成為
   常設程序。
 
 **entity 與 DoD 鏈**
 
 - **FR-012**: entity 對應層 MUST 覆蓋 15 表並隨本刀首批程式工件就位；entity-drift MUST 為
-  快照 vs entity 對應層之雙向比對；Day-1 跳過解除後 pre-commit MUST 實跑，entity 目錄缺席
-  MUST 擋死一切 commit。
-- **FR-013**: DoD 鏈 MUST 依序完成：照相首跑 → schema／accounts 兩快照就位 → 真表重算 →
-  schema／accounts 參考真表首算 → 快照豁免（gen.snapshots）拔項（到期即紅第四例）→
-  entity-drift Day-1 跳過解除且 pre-commit 綠。
+  快照 vs entity 對應層之雙向比對；Day-1 跳過解除後 pre-commit MUST 實跑（觸發面＝staged
+  含 rust-api gitlink 或 schema 快照），觸發面內 entity 目錄缺席 MUST 被擋（rc 2
+  fail-loud、不得降級為警告）。
+- **FR-013**: DoD 鏈 MUST 依序完成：照相首跑 → schema／accounts 兩快照就位 → 快照豁免
+  （gen.snapshots）拔項（謂詞成立即到期即紅、MUST 先於任何後續 commit）→ schema／accounts
+  參考真表重算首算 → lint 全綠 → entity-drift Day-1 跳過解除（快照就位自動）且 pre-commit
+  全鏈綠。
 - **FR-014**: archetype 歸屬登記（archetype-map）初版 MUST 就位：15 表變體歸屬、自 data-model
   定稿轉錄。
 - **FR-015**: 兩支 ADR MUST 於刀內落地 draft→accepted：①「schema 基線＝rev4 終態壓平＋user
@@ -241,13 +247,14 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 
 ### Measurable Outcomes
 
-- **SC-001**: 對 pristine 重放 rev5 基線後，結構與 seed 與定稿 fixtures 未排序逐列 diff＝
+- **SC-001**: 對 pristine 重放 rev5 基線後，結構與 seed 與凍結 fixtures 未排序逐列 diff＝
   **零差異**（含 id 欄與 sequence 落值；亦含 password／created_at——非決定值已依 Q1 全面
   定稿字面化、零豁免欄）。
 - **SC-002**: 比對器自證通過：注入假漂移（結構、欄序、seed 值、sequence 落值各至少 1 例）
   全數必紅、零漏報。
-- **SC-003**: 14 親排表欄序與定稿逐欄一致（158＋11＝169 欄）、rename map 4 組映射比對通過、
-  archetype 歸屬 15/15 綠。
+- **SC-003**: 14 親排表欄序與定稿逐欄一致（158＋11＝169 欄）、rename map 4 組之血緣核對
+  （vs rev4 快照、fixtures 產製三驗）映射全等且紀錄留存 provenance.md、archetype 歸屬
+  15/15 綠。
 - **SC-004**: seed 全量清單 100% 經 user 過目簽核（clarify 工作坊紀錄在案）、零未過目列進
   基線。
 - **SC-005**: 演進帳往返驗證通過：未登記漂移注入→閘紅；補登記→閘綠；登記檔破損→啟動斷言
@@ -257,7 +264,8 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 
 ## Assumptions
 
-- rev4 repo 為本機可達之唯讀參考庫；migration 原始碼抄至 scratchpad 屬拷貝例外射程
+- rev4 repo 為本機可達之唯讀參考庫（工作區同層 `../fork260509-rev4`）；migration 原始碼抄至
+  scratchpad 屬拷貝例外射程
   （ADR 0001 決定 3）；rev5 正式程式工件不拷貝前代 code（工具性 crate 整檔拷貝例外承憲法
   §I.5）。
 - 容器化資料庫可起一次性 pristine 實例；rust 建置／測試一律容器內、全程 serial（host 無
@@ -275,3 +283,6 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 - wire-schema 實跑（server 在場才有意義；維持 fail-open 警告態）。
 - memo 欄家族之 UI 兌現（BACKLOG B-003 承載、四張管理列表）。
 - 任何新能力面 schema 設計（本刀＝壓平＋定稿，零新設計夾帶）。
+- seed 內 4 列 rev4 專屬管理頁選單之 base-web view（manage_system-settings／
+  manage_policy-archive／manage_audit／manage_ip-rule——`component` 指向之 view 於 rev5
+  base-web 尚不存在）：選單與政策隨基線先行、view 由對應 UI 刀補齊（BACKLOG B-008 承載）。
