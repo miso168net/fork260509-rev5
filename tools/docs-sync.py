@@ -2913,10 +2913,8 @@ REFERENCE_SOURCES = (COMPOSE_FILES + (ROUTER_SOURCE, ELEGANT_SOURCE)
 # ③lint_reference_sources 本體（具名 SKIP 統一輸出點）④check_generated 的 Lint01 缺檔／
 # 多檔分支 ⑤lint_i18n_contract 兩個 early-return。
 DAY1_EXEMPTIONS = {
-    "gen.compose": (
-        "compose 三檔於 dev stack 就位前不存在",
-        COMPOSE_FILES,                                   # 解除＝B10
-        "2026-08-04"),
+    # gen.compose：2026-08-04 B10 compose 三檔移植就位、解除謂詞成立——依「到期即紅」
+    # 下架（原豁免＝compose 三檔於 dev stack 就位前不存在；ports 真表自此恢復重算）。
     "gen.snapshots": (
         "reference-src 三來源檔未備（前兩檔＝refresh 產、第三檔 archetype-map.json "
         "＝schema 刀人維、refresh 不產）",
@@ -2953,8 +2951,6 @@ DAY1_EXEMPTIONS = {
 # ★與 DAY1_EXEMPTIONS 分表存放——前者答「何時解除」、本表答「豁免什麼」，合併會讓四欄制
 #   失去單一語意，且射程改動與解除條件改動是兩件事、不該互相牽動。
 DAY1_EXEMPT_SCOPE = {
-    "gen.compose":   (COMPOSE_FILES,
-                      (f"{GENERATED_DIR}/reference/ports.md",)),
     "gen.snapshots": ((SCHEMA_SNAPSHOT, ACCOUNTS_SNAPSHOT, ARCHETYPE_MAP),
                       (f"{GENERATED_DIR}/reference/schema.md",
                        f"{GENERATED_DIR}/reference/accounts.md")),
