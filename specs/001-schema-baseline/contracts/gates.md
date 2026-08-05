@@ -34,7 +34,11 @@
   gate1 結構語意＋audit 歸屬）。演進帳 add_column 之新欄＝接在該表末位（登記時帶
   position、預設殿後）。
 - **seed 面**：左源＝`fixtures/seed.sql`；右源＝實庫 `pg_dump --data-only` 經同一
-  normalize：**COPY 段內整列排序**（消物理列序假紅）、setval 行保留原位。normalize 後
+  normalize：**COPY 段內整列排序**（消物理列序假紅）、setval 行保留原位、★剝除 pg_dump
+  框架噪音兩類——①`\restrict`／`\unrestrict` token 行（pg_dump 18.4 每次 dump 隨機）
+  ②`seaql_migrations` COPY 段（框架帳表、applied_at 逐次重放異；gate1 照相同義排除
+  前例）——2026-08-05 兩座 pristine 獨立重放位元 diff 實證：非決定性恰此兩處、266 列
+  與 11 支 setval 行全等。normalize 後
   **未排序逐列 diff**（含 id 欄）；★**禁全檔排序後雜湊比對**（會同時掩蓋 sequence 落值
   漂移與真差異）。seed 演進（seed_add／seed_update／seed_delete 登記）同樣合成後才比對。
 - **rename 血緣對照**：內建 data-model §3 rename map，僅用於「vs rev4 快照」對賬場景——

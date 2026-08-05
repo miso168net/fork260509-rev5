@@ -10,7 +10,7 @@
 | `columns.json` | 實庫欄快照（與 refresh 同構、確定性排序） | 基線實庫照相 |
 | `indexes.json` | 索引快照（同上） | 同上 |
 | `constraints.json` | 約束快照（同上、含 NOT NULL 逐欄形） | 同上 |
-| `seed.sql` | `pg_dump --data-only` normalize 版（COPY 段整列排序、setval 保留） | 基線實庫 dump |
+| `seed.sql` | `pg_dump --data-only` normalize 版（normalize 全則＝gates.md §2 seed 面：COPY 段整列排序、setval 保留、pg_dump 框架噪音兩類剝除） | 基線實庫 dump |
 | `provenance.md` | 產製紀錄（見 §3） | 人寫＋機器值 |
 
 ## 2. 產製程序（實作階段執行一次）
