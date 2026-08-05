@@ -39,7 +39,7 @@ self-test／negative 注入（SC-002）＋pristine 重放逐列 diff（SC-001）
 （素材已於 clarify 產製完畢）；fixtures 凍結後永不改寫；secrets 掃描防線在跑（PHC 字面
 若誤報→ADR 0003 白名單處置）；pristine 驗證容器零 host 埠
 
-**Scale/Scope**: 15 表 169 欄、索引 38／約束 100、seed 266 列（casbin 163）、
+**Scale/Scope**: 15 表 169 欄、索引 38／約束 101、seed 266 列（casbin 163）、
 migration 兩支、閘三道、entity 檔 15 支
 
 ## Constitution Check

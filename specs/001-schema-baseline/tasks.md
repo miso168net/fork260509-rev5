@@ -51,7 +51,7 @@ code 不拷貝（adapter 例外）；兩段式 commit（worktree 內 commit → 
 
 ## Phase 3: User Story 1 - 基線結構定稿落地 (Priority: P1) 🎯 MVP
 
-**Goal**: m001 落地——15 表結構（169 欄、欄序＝data-model §2）＋索引 38／約束 100＋
+**Goal**: m001 落地——15 表結構（169 欄、欄序＝data-model §2）＋索引 38／約束 101＋
 pg_trgm＋casbin 委派建表，pristine 重放與定稿全等。
 
 **Independent Test**: pristine 重放 m001 → 照相 → (a) vs data-model §2 欄序逐表全等

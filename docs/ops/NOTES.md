@@ -1,7 +1,8 @@
 # NOTES — 當前意圖／下一步
 
-- 波 0 schema 基線刀（001-schema-baseline）階段 0 brainstorm 已定稿：14 表欄序親排完成、
-  三題拍板（seed 過目＝clarify 步／更名開放／閘契約＝Day-1 受管演進帳）。brainstorm 檔與
-  BACKLOG 簿記待入版（等 .specify 目錄設定檢查後隨批 commit）→ 之後手動 /speckit-specify
-  起手（input＝docs/brainstorms/001-schema-baseline.md）。
+- 波 0 schema 基線刀（001-schema-baseline）SDD 五步全完（specify→clarify→plan→tasks→
+  analyze 三分流＋追補拍板二項、branch @ 3a16667）→ **TDD 實作進行中**（Workflow 編排、
+  五執行單元：①T001–T007 ②T008–T009 ③T010–T014 ④T015–T018 ⑤T019–T021）；權威＝
+  specs/001-schema-baseline/（tasks.md／data-model.md 凍結／seed-decision.json／contracts）。
+- 全單元完成後：final holistic review → finishing（push/merge 需 user 同意）→ 收刀簿記三步。
 - 刀後接創世殘餘序列：B8b（移植驗收後段）→ B11（K1／K2 處置）→ B12（第一把功能刀）。
