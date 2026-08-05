@@ -1,4 +1,4 @@
-<!-- next: B-015 -->
+<!-- next: B-016 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -16,3 +16,4 @@
 - B-012｜audit 變體 B 禁欄判準拍板：前綴通配（gates.md §3 字面 updated_*/deleted_*）vs 具名四欄（工具 L750 現況）——前綴守門強但可能誤攔未來合法欄名；二擇一屬拍板級（001 收刀 triage 判定不宜順手拍）｜下一支動 schema-gate 的刀
 - B-013｜schema-gate 測試覆蓋兩缺口：cmd_check 綠路徑離線測試（fake run 分派 fixtures 三節）＋照相三查詢與 docs-sync 逐字重複之「同構」機器斷言（讀源碼比對三常數位元相等）｜首個維護批
 - B-014｜entity 對應層後端首刀前補強：15 檔 Relation 空 enum（data-model §6 兩條 FK 未映射）＋ActiveModel 慣例面——本刀驗收（build 綠＋drift 綠）不需要、server 刀消費時變真風險｜後端首刀（B12）brainstorm 直接輸入
+- B-015｜Lint06 arch_impact 雙向比對基準疑與「活書隨刀改」流程矛盾（001 收刀實撞：§8 隨刀內 commit 新設、merge 時已含→merge→簿記零 delta→宣稱 §8 反被判「無實際變動」；工具比 merge:BOOK vs 簿記態、若語意為「本刀影響」應比 merge^1:BOOK——屬 lint 調規拍板；本次事件以 arch_impact=none＋notes 載實況通行）｜首個維護批
