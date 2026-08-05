@@ -446,7 +446,10 @@ def lint_adrs(adrs, head_adrs, amend=False):
 RE_NEXT_ID = re.compile(r"<!--\s*next:\s*([BL])-(\d+)\s*-->")
 RE_ENTRY = {
     "B": re.compile(r"^- B-(\d+)｜", re.M),
-    "L": re.compile(r"^- (?:\*\*)?L-(\d+)(?:\*\*)?｜", re.M),
+    # L 側：LESSONS.md 檔頭自載格式＝裸段形「L-NNN｜…」（非 list-item）——`- ` 前綴設為
+    # 可選以配合實檔（001 收刀修：舊樣式強制 `- ` 使計數恆 0＋Lint09 L 側恆綠假閘）。
+    # ★B 側勿比照改動：Lint04 _backlog_ever_tokens 以其 group(0) 逐字 token 為對外契約。
+    "L": re.compile(r"^(?:- )?(?:\*\*)?L-(\d+)(?:\*\*)?｜", re.M),
 }
 # 反回收豁免視野（原 Lint09 head_ids 專用）：不錨行首的寬鬆子串形——｜為欄位分隔、散文引用不帶，
 # 故「字串曾在 HEAD 出現」即非回收；格式事故（行黏連/縮排）修復不誤判，真回收（號碼已刪列

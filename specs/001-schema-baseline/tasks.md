@@ -20,17 +20,17 @@ code 不拷貝（adapter 例外）；兩段式 commit（worktree 內 commit → 
 
 ## Phase 1: Setup（共享基礎）
 
-- [ ] T001 建 rust-api workspace 骨架：`rust-api/Cargo.toml`（members＝migration／entity／
+- [x] T001 建 rust-api workspace 骨架：`rust-api/Cargo.toml`（members＝migration／entity／
       sea-orm-adapter；workspace.package edition=2024；workspace.dependencies 依 research
       R1 pins 全組）＋`rust-api/rust-toolchain.toml`（channel "1.96.1"）
-- [ ] T002 [P] vendored 拷貝 `rust-api/sea-orm-adapter/`（整檔自 rev4 @ 2b8a101、工作區
+- [x] T002 [P] vendored 拷貝 `rust-api/sea-orm-adapter/`（整檔自 rev4 @ 2b8a101、工作區
       同層 `../fork260509-rev4`、§I.5 例外）：僅 Cargo.toml 檔頭 provenance 註解行前移一代（拷貝自 rev4…原鏈 rev2@1fa2ebd
       →rev1@0b64a57）、其餘位元零改寫——驗收＝`diff -r` 對 rev4 源僅 provenance 行差異
-- [ ] T003 [P] 立兩支 ADR draft：`docs/arc42/decisions/0006-schema-baseline-flatten-finalize.md`
+- [x] T003 [P] 立兩支 ADR draft：`docs/arc42/decisions/0006-schema-baseline-flatten-finalize.md`
       （基線＝rev4 終態壓平＋user 定稿制；provenance rev4:0014＋rev4:0021）＋
       `docs/arc42/decisions/0007-schema-gate-managed-evolution.md`（閘契約＝Day-1 受管
       演進帳；承 K1-32／K1-39）——status: draft（0005 已由 §I.2 Amendment 取號）
-- [ ] T004 [P] 建 dev 映像並斷言 toolchain：`docker compose -f docker-compose.yml -f
+- [x] T004 [P] 建 dev 映像並斷言 toolchain：`docker compose -f docker-compose.yml -f
       docker-compose.dev.yml build rust-api`；容器內 `cargo --version`＝1.96.1
 
 ---
@@ -39,7 +39,7 @@ code 不拷貝（adapter 例外）；兩段式 commit（worktree 內 commit → 
 
 **⚠️ 完成前不得開任何 user story**
 
-- [ ] T005 migration crate 骨架：`rust-api/migration/Cargo.toml`（deps＝sea-orm-migration／
+- [x] T005 migration crate 骨架：`rust-api/migration/Cargo.toml`（deps＝sea-orm-migration／
       sea-orm-adapter／tokio、★不含 argon2）＋`src/main.rs`（`_FILE` 優先語意＋空值／
       CHANGE-ME fail-loud，全新打字）＋`src/lib.rs`（空 Migrator）——驗收＝容器內
       `cargo build -p migration` 綠＋`Cargo.lock` pins 對照 R1 清單（sea-orm 1.1.20／
@@ -59,14 +59,14 @@ pg_trgm＋casbin 委派建表，pristine 重放與定稿全等。
 
 ### 驗證先行（US1）
 
-- [ ] T006 [US1] 結構驗證腳本（scratchpad `check-m001.py`）：照相三查詢（refresh 同構
+- [x] T006 [US1] 結構驗證腳本（scratchpad `check-m001.py`）：照相三查詢（refresh 同構
       SQL）＋vs data-model §2 欄序比對＋血緣核對（data-model §4 授權偏離集 normalize
       〔rename／region／trace_id／real_ip NN／預設 now()〕後 vs rev4 快照
       `../fork260509-rev4` 已入版件全等）；對空庫跑＝紅（15 表缺席逐項指名）——先紅為證
 
 ### 實作（US1）
 
-- [ ] T007 [US1] 實作 `rust-api/migration/src/m001_baseline_schema.rs`＋掛載 `src/lib.rs`：
+- [x] T007 [US1] 實作 `rust-api/migration/src/m001_baseline_schema.rs`＋掛載 `src/lib.rs`：
       `CREATE EXTENSION IF NOT EXISTS pg_trgm` → casbin_rule 委派 adapter 建基底＋同檔
       ALTER 3 治理欄 → 14 表 CREATE（欄序／型別／nullable／default 逐欄照 data-model §2）
       → 索引／約束全量（data-model §6、含 partial-uniq 與 GIN trigram）；`down`＝全量
@@ -88,7 +88,7 @@ protected 明示／setval×4），重放與 seed-decision.json 逐列全等。
 
 ### 驗證先行（US2）
 
-- [ ] T008 [US2] seed 驗證＋轉錄雙腳本（scratchpad）：①`check-m002.py`——萃取實庫 vs
+- [x] T008 [US2] seed 驗證＋轉錄雙腳本（scratchpad）：①`check-m002.py`——萃取實庫 vs
       seed-decision.json 逐列比對（含 sequences）、對僅 m001 之庫跑＝紅（266 列缺席）；
       ②`transcribe-m002.py`——自 seed-decision.json 機器轉錄 m002 用 SQL 字面（斷言：
       總列數 266、具 id 欄 247 列、具 created_at 欄 263 列、PHC、時戳、protected 總數
@@ -96,7 +96,7 @@ protected 明示／setval×4），重放與 seed-decision.json 逐列全等。
 
 ### 實作（US2）
 
-- [ ] T009 [US2] 實作 `rust-api/migration/src/m002_baseline_seeds.rs`＋掛載 `src/lib.rs`：
+- [x] T009 [US2] 實作 `rust-api/migration/src/m002_baseline_seeds.rs`＋掛載 `src/lib.rs`：
       T008② 轉錄產物入碼（明示 id＋明示 created_at＝2026-08-05T00:00:00+00:00＋PHC 常數
       ＋casbin protected 明示）＋收尾 setval（casbin_rule=163／sys_menu=78／sys_role=3／
       sys_user=3）；`down`＝seed 反向刪除——驗收＝T008① 綠；若 pre-commit 機密掃描誤報
@@ -115,10 +115,10 @@ protected 明示／setval×4），重放與 seed-decision.json 逐列全等。
 
 ### 實作（US3）
 
-- [ ] T010 [P] [US3] reference-src 兩檔初版：`docs/ops/reference-src/schema-evolution.json`
+- [x] T010 [P] [US3] reference-src 兩檔初版：`docs/ops/reference-src/schema-evolution.json`
       （`{"next_id":1,"entries":[]}`）＋`docs/ops/reference-src/archetype-map.json`
       （data-model §1 十五表逐筆轉錄、含 lineage／usage 檔頭欄）
-- [ ] T011 [US3] 整組重建 `tools/schema-gate.py`（契約＝contracts/gates.md 逐條）：
+- [x] T011 [US3] 整組重建 `tools/schema-gate.py`（契約＝contracts/gates.md 逐條）：
       gate1 凍結＋演進帳合成全等／gate2 欄序（parse data-model §2；casbin_rule 豁免）＋
       seed（pg_dump normalize：COPY 段整列排序、★禁全檔排序後雜湊）／audit archetype
       （15 表×四變體規則）；rev4 白名單模型（ADR 0032/0039/0064 殘留＋specs/002 字面）
@@ -126,16 +126,16 @@ protected 明示／setval×4），重放與 seed-decision.json 逐列全等。
       （結構／欄序／seed 值／sequence 落值各≥1、全紅）＋登記檔壞形自測（knife 格式錯／
       kind 非枚舉／id 非遞增各≥1 例、斷言 rc 2 指名）——驗收＝`test` 全綠＋fixtures
       缺席時 check rc 2 附補救
-- [ ] T012 [US3] fixtures 凍結（contracts/fixtures.md §2 先驗後凍）：pristine 重放→三驗
+- [x] T012 [US3] fixtures 凍結（contracts/fixtures.md §2 先驗後凍）：pristine 重放→三驗
       三綠（vs seed-decision 逐列／vs data-model 欄序／rename 映射 vs rev4 快照）→落
       `specs/001-schema-baseline/fixtures/`（columns/indexes/constraints.json＋seed.sql
       normalize＋provenance.md 六欄目）——驗收＝落檔後 `schema-gate.py check` 對基線庫
       rc 0
-- [ ] T013 [US3] 演進帳往返驗證（quickstart C 四步實跑）：注入未登記欄→check rc 1 指名；
+- [x] T013 [US3] 演進帳往返驗證（quickstart C 四步實跑）：注入未登記欄→check rc 1 指名；
       補登記（E-001 試登）→rc 0；登記檔壞形（刪 date 欄；另 knife 格式錯一例）→rc 2
       啟動斷言；全還原（撤登記＋DROP、
       登記檔復原空 entries）→rc 0——驗收＝四步輸出留存 review 憑證
-- [ ] T014 [P] [US3] RUNBOOK 增補 Day-1 登記紀律：`docs/ops/RUNBOOK.md` §10 migration
+- [x] T014 [P] [US3] RUNBOOK 增補 Day-1 登記紀律：`docs/ops/RUNBOOK.md` §10 migration
       操作節加「每支帶 migration 的刀收刀前必跑 refresh＋schema-evolution 登記＋三閘綠」
       （contracts/gates.md §5 條文）；並移除該節現存之創世佔位句（「本章隨 schema 刀
       補實文」類）——補實與佔位不並存
@@ -153,21 +153,21 @@ entity-drift-gate rc 2 擋。
 
 ### 實作（US4）
 
-- [ ] T015 [P] [US4] entity crate（15 表 entity 檔＋Cargo.toml＋lib.rs）：`rust-api/entity/Cargo.toml`（sea-orm features
+- [x] T015 [P] [US4] entity crate（15 表 entity 檔＋Cargo.toml＋lib.rs）：`rust-api/entity/Cargo.toml`（sea-orm features
       恰四項）＋`src/lib.rs`＋15 表 entity（含 casbin_rule.rs；欄名＝rename 後定稿名、
       型別對照 TYPE_MAP：bigint→i64／timestamptz→DateTimeWithTimeZone／inet→IpNetwork／
       jsonb→Json；全新打字、參照 rev4 對照不拷貝）——驗收＝容器內
       `cargo build -p entity` 綠
-- [ ] T016 [P] [US4] dev stack 基線落庫＋refresh 首跑：`docker compose … up -d --wait
+- [x] T016 [P] [US4] dev stack 基線落庫＋refresh 首跑：`docker compose … up -d --wait
       postgres` → `run --rm migrate`（m001+m002 applied）→ `python3 tools/docs-sync.py
       refresh` 產 `docs/ops/reference-src/schema-snapshot.json`＋`accounts-snapshot.json`
       ——驗收＝兩快照落檔且 schema 快照欄名＝rename 後定稿名
-- [ ] T017 [US4] entity-drift 恢復實跑驗證（依賴 T015＋T016＋T018——拔項未落前 lint 因
+- [x] T017 [US4] entity-drift 恢復實跑驗證（依賴 T015＋T016＋T018——拔項未落前 lint 因
       gen.snapshots 到期即紅而全紅、演練不可歸因）：`python3
       tools/entity-drift-gate.py check` 直跑 rc 0（casbin_rule SKIP 註記一行）；
       防線演練＝暫移 `rust-api/entity/src` → 對 rust-api pin bump 之 commit 被 pre-commit
       rc 2 擋 → 還原綠——驗收＝兩態輸出留存
-- [ ] T018 [US4] `tools/docs-sync.py` 拔項＋真表首算（依賴 T010＋T016）：DAY1_EXEMPTIONS
+- [x] T018 [US4] `tools/docs-sync.py` 拔項＋真表首算（依賴 T010＋T016）：DAY1_EXEMPTIONS
       ＋DAY1_EXEMPT_SCOPE 雙表拔 `gen.snapshots`（謂詞已成立、循 gen.compose 前例留日期
       註解）→ `generate`（`docs/generated/reference/schema.md`＋`accounts.md` 首算）→
       `lint` 全綠且跳過明細零 gen.snapshots；負向演練＝暫移 schema-snapshot.json→lint 紅
@@ -180,13 +180,13 @@ entity-drift-gate rc 2 擋。
 
 ## Phase 7: Polish & 收刀前置
 
-- [ ] T019 [P] 活書隨刀：`docs/arc42/ARCHITECTURE.md` 增設「資料慣例」節（現無此節、隨刀
+- [x] T019 [P] 活書隨刀：`docs/arc42/ARCHITECTURE.md` 增設「資料慣例」節（現無此節、隨刀
       新設）並載 memo 欄家族一行
       （data-model §5 語意；UI 兌現＝B-003）＋schema 基線現況一段（15 表／archetype／
       閘與演進帳、現在式）
-- [ ] T020 [P] ADR 0006／0007 draft→accepted（body 不變、status 翻轉；DECISIONS-INDEX
+- [x] T020 [P] ADR 0006／0007 draft→accepted（body 不變、status 翻轉；DECISIONS-INDEX
       由 generate 重算）
-- [ ] T021 quickstart A～E 全場景端到端重跑（驗收證據彙整：SC-001～SC-006 逐項對照輸出
+- [x] T021 quickstart A～E 全場景端到端重跑（驗收證據彙整：SC-001～SC-006 逐項對照輸出
       留存 → 供 final holistic review；含 pre-commit 全鏈耗時 <20s 警戒線確認）
 
 ---

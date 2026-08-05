@@ -50,7 +50,8 @@
 
 - **左源**：`docs/ops/reference-src/archetype-map.json`（data-model §1 轉錄）。
 - **左源形契約**：`{lineage, usage, tables:[{table, label, active_unique, note}]}`——
-  tables 恰 15 筆；table／label 必填非空（label ∈ 四變體字串）；active_unique＝活性唯一
+  tables Day-1 恰 15 筆（由 `test` 子命令釘死；後續刀隨 add_table 登記成長、常態守門
+  ＝實庫表集 vs map 表集全等）；table／label 必填非空（label ∈ 四變體字串）；active_unique＝活性唯一
   **索引名**清單或 null；note＝人讀註記。load 斷言 fail-loud（缺鍵／表重複／label 值域外
   ＝rc 2）。
 - **驗則**（對實庫照相逐表執行）：

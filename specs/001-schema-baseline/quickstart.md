@@ -22,7 +22,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm migrate 
 
 預期：`m001_baseline_schema`／`m002_baseline_seeds` 兩支 applied、零錯。
 pristine 驗證路徑（SC-001／fixtures 產製）＝一次性容器＋獨立 network（形同 clarify 素材
-產製流程；命令形載 fixtures/provenance.md）。
+產製流程；命令形載 fixtures/provenance.md；★收尾除 `docker rm -f` 容器與 `network rm`
+外、postgres 匿名 PGDATA volume 需一併清除——`docker volume ls -f dangling=true` 核對）。
 
 ## B. 三閘全跑（US3）
 

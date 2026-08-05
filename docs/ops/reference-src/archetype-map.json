@@ -1,6 +1,6 @@
 {
   "lineage": "specs/001-schema-baseline/data-model.md §1（001 基線 15 表逐筆轉錄；憲法 §I.6 四變體）",
-  "usage": "tools/schema-gate.py audit 之變體矩陣與表清單守門左源（形契約＝specs/001-schema-baseline/contracts/gates.md §3）。後續刀新表：先補 data-model §1 歸屬、再登記本檔，否則 audit 攔。label ∈ 四變體字串；active_unique＝活性唯一索引名清單或 null；note＝人讀註記、非機器判準（C 子型規則硬編碼於工具）。",
+  "usage": "tools/schema-gate.py 之 audit archetype 閘（變體矩陣與表清單守門）左源（形契約＝specs/001-schema-baseline/contracts/gates.md §3；工具子命令＝check｜test）。後續刀新表：先補 data-model §1 歸屬、再登記本檔，否則 audit 攔。label ∈ 四變體字串；active_unique＝活性唯一索引名清單或 null；note＝人讀註記、非機器判準（C 子型規則硬編碼於工具）。",
   "tables": [
     {
       "table": "sys_user",

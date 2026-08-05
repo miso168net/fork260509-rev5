@@ -60,9 +60,13 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 1. `python3 tools/docs-sync.py refresh` —— 照相（schema／accounts 兩快照前進；需運行中 stack）
 2. 登記 `docs/ops/reference-src/schema-evolution.json` —— 該刀**全部**結構／seed 變更逐筆入帳
    （kind 枚舉恰八值、每筆帶來源刀編號；刪除性演進〔drop_*〕不入登記檔——屬拍板級、
-   走新 ADR 基線翻案）
+   走新 ADR 基線翻案；seed 面合成現況：add_table 與帶 default／NOT NULL 之 add_column
+   落 rc 2 fail-loud 指引擴充——斷言完備化由 BACKLOG B-006 承載、首筆真登記前完備）
 3. `python3 tools/schema-gate.py check` —— 三閘綠（gate1 結構／gate2 欄序＋seed／audit
-   archetype）；未登記漂移一律紅、「migration 已跑、登記缺席」＝gate1 紅之常態語意
+   archetype）；未登記漂移一律紅、「migration 已跑、登記缺席」＝gate1 紅之常態語意；
+   一次性 pristine 場景加 `--container <容器名>`（預設＝compose dev stack）；判讀提示：
+   同庫反覆 DROP→ADD COLUMN（含 down→up）後 gate1 會因 PG attnum 空洞報 ordinal 差
+   ——補救＝pristine 重放、勿誤判真漂移
 
 新業務表另備兩件：先補 `specs/001-schema-baseline/data-model.md` §1 archetype 歸屬、再登記
 `docs/ops/reference-src/archetype-map.json`——否則 audit 表清單守門攔。

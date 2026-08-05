@@ -68,7 +68,8 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ### 資料慣例
 
-- **schema 基線現況**：PostgreSQL 共 15 表；對 pristine 重放 m001（結構）＋m002（seed、
+- **schema 基線現況**：PostgreSQL（表清單／欄型正典＝`docs/generated/reference/schema.md`
+  真表）；對 pristine 重放 m001（結構）＋m002（seed、
   完全決定性）兩支 migration 即得全庫（ADR 0006）。每表歸屬 constitution §I.6 archetype
   四變體（A 業務全六欄／B append-only／C join·狀態機·衛星／D 治理）之一，歸屬帳＝
   `docs/ops/reference-src/archetype-map.json`（新表先登記後進場、audit 閘表清單守門）。

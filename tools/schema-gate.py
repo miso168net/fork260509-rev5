@@ -34,7 +34,8 @@
 退出碼：0 全綠／1 漂移（逐項指名）／2 環境或結構異常（fixtures 缺、登記檔壞形、庫不可達、
 比對面為空、self-test 敗——附補救提示）／64 用法錯誤（usage 走 stderr）。
 只跑唯讀查詢與 pg_dump、絕不寫庫；pg_dump 帶 PGTZ=UTC（閘不依賴 session timezone、
-data-model §4 UTC+0 拍板）；輸出不含機密值。
+data-model §4 UTC+0 拍板）；輸出不含 deploy 機密值（seed 定稿值〔含 PHC 常數〕本在
+版控、gate2 seed diff 可回顯——非洩密面）。
 
 rename map（data-model §3、4 組）僅用於「vs rev4 快照」血緣對賬場景（fixtures 產製之
 一次性三驗、T012 scratchpad 腳本 import 消費）——非三閘常態比對面、check 不讀。

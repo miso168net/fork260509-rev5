@@ -1,6 +1,7 @@
 # contracts/fixtures.md — 凍結面（fixtures/）契約
 
-> 檔集＝`specs/001-schema-baseline/fixtures/`；**定稿產物、凍結後永不改寫**、provenance
+> 檔集＝`specs/001-schema-baseline/fixtures/`；**定稿產物、凍結後永不改寫**（唯一已用畢
+> 例外＝§4 具名條文）、provenance
 > 保存。消費者＝gate1（三 json）、gate2 seed 面（seed.sql）、SC-001 重放驗證。
 
 ## 1. 檔集（恰五件）
