@@ -332,8 +332,8 @@ sys_user_email_verify（C、首建者、NN）；其餘表之 created_by 一律�
 text＋real_ip NN＋預設統一 now()——T006／T012 對 rev4 快照比對時逐項 normalize、除此
 之外全等）；此外 rev5 新結構差異＝零支（純壓平、無新能力面）。
 
-**時區拍板**（user 2026-08-05）：DB 以 **UTC+0** 運行——postgres 容器預設 `Etc/UTC`、
-不另設定；timestamptz 內部恆 UTC 儲存、seed 定稿時戳為 `+00:00` 字面；migration 與閘
+**時區拍板**（user 2026-08-05）：DB 以 **UTC+0** 運行——postgres 容器預設（`SHOW
+timezone` 實測字面＝`UTC`）、不另設定；timestamptz 內部恆 UTC 儲存、seed 定稿時戳為 `+00:00` 字面；migration 與閘
 不得依賴 session timezone（quickstart 前置含 `SHOW timezone` 斷言）。
 
 ## 5. memo 欄家族語意（凍結）

@@ -40,8 +40,9 @@ seed 全量過目（user 總簽核 2026-08-05）完成了定稿制的全部輸�
 
 - 後續一切功能刀建立在單一權威 schema 起點；pristine 重放與凍結 fixtures 逐列全等
   （SC-001）、比對器零豁免洞。
-- rev4 已推翻之形不得帶回（data-model §10 防回歸：operator_ 前綴、trace_id varchar(64)、
-  CURRENT_TIMESTAMP 預設、seed 簡體原值、runtime 隨機雜湊）。
+- rev4 已推翻之形不得帶回（data-model §4＋§10 防回歸：operator_ 前綴、trace_id
+  varchar(64)、seed 簡體原值、runtime 隨機雜湊〔§10〕；CURRENT_TIMESTAMP 預設〔§4
+  追補拍板、統一 now()〕）。
 - reaper DB role＋GRANTs（rev4:m012／m013）不入基線——屬 observability 域運維工件、
   隨該域刀重進場（research R4）。
 - 基線翻案＝新刀新 ADR（supersedes 本檔）；fixtures 凍結後永不改寫。
