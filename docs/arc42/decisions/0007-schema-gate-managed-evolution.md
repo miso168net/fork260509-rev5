@@ -2,7 +2,7 @@
 id: "0007"
 title: schema 閘契約＝Day-1 受管演進帳（凍結面＋演進登記合成全等比對）
 date: 2026-08-05
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "K1-32／K1-39 重審（rev4 凍結模型三段鑿洞 0032→0039→0064 教訓）；brainstorm 001 §3 拍板甲；契約細節＝specs/001-schema-baseline/contracts/gates.md＋contracts/schema-evolution.md"

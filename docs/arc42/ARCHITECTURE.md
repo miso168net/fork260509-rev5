@@ -66,7 +66,20 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §8 橫切概念
 
-（本節尚無內容；橫切慣例與其守門機制隨對應刀填入。）
+### 資料慣例
+
+- **schema 基線現況**：PostgreSQL 共 15 表；對 pristine 重放 m001（結構）＋m002（seed、
+  完全決定性）兩支 migration 即得全庫（ADR 0006）。每表歸屬 constitution §I.6 archetype
+  四變體（A 業務全六欄／B append-only／C join·狀態機·衛星／D 治理）之一，歸屬帳＝
+  `docs/ops/reference-src/archetype-map.json`（新表先登記後進場、audit 閘表清單守門）。
+  漂移防線＝三閘（`tools/schema-gate.py`：gate1 結構／gate2 欄序與 seed／audit archetype）
+  ＋受管演進帳（`docs/ops/reference-src/schema-evolution.json`）——凍結面
+  （`specs/001-schema-baseline/fixtures/`、永不改寫）⊕演進登記合成期望值、與實庫全等
+  比對；合法演進唯一出口＝登記檔一筆、未登記漂移即紅（ADR 0007）。
+- **memo 欄家族**：user_memo／role_memo／menu_memo／wbip_memo（text 可空、可多行）＝
+  R_SUPER 備註——顯示於管理列表、不顯示於其它被取用處（下拉／引用／對外 API 一律不帶）；
+  role_desc（使用者可見「角色描述」）與 role_memo 職責不同、並存不合併（語意權威＝
+  `specs/001-schema-baseline/data-model.md` §5；UI 兌現由 ops/BACKLOG B-003 承載）。
 
 ## §9 架構決策
 

@@ -2,7 +2,7 @@
 id: "0006"
 title: schema 基線＝rev4 終態壓平＋user 定稿制（波 0、m001／m002 兩支基線遷移）
 date: 2026-08-05
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "rev4:0014（schema 基線壓平先例）＋rev4:0021（定稿制方法論）；rev4 終態快照＝rev4@2b8a101 docs/ops/reference-src/schema-snapshot.json；brainstorm 001 §0／§5 拍板＋clarify seed 定稿 user 總簽核 2026-08-05"
