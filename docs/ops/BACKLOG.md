@@ -1,4 +1,4 @@
-<!-- next: B-009 -->
+<!-- next: B-010 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -11,3 +11,4 @@
 - B-006｜schema-evolution.json 之 kind×detail 必備鍵表＋逐 kind 啟動斷言（analyze B2：現契約 detail 只驗非空、alter_column 零定形，壞形 entry 可滲入 gate1 合成；補「kind × detail 必備鍵」表升為斷言第 7 條＋八 kind 各一筆合法／缺鍵樣本自測）｜首筆真登記（E-001 之後、下一支帶 migration 的刀）前完備
 - B-007｜三閘與治理工具效能門檻量化（analyze B5：「秒級」無量化、無 SC 承載；pre-commit 全鏈 20s 警戒／45s 硬擋之預算分攤明文化——新閘單跑上限與量測法入 contracts 或 RUNBOOK）｜001 刀收刀後首個維護批
 - B-008｜四張 rev4 專屬管理頁 view 於 base-web 兌現——manage_system-settings／manage_policy-archive／manage_audit／manage_ip-rule（analyze D6：seed 選單與 casbin 政策隨 001 基線先行、`component` 指向之 view 於 rev5 base-web 尚不存在；期間該 4 項僅 R_SUPER 可見、點擊 404 屬已知態）｜各對應管理 UI 刀 brainstorm 直接輸入
+- B-009｜deploy secrets database_url／reaper_database_url 身分停留 rev4 世代（postgres://soybean:<pw>@…/soybean_admin_rust vs compose 拍定之 soybean_rev5/soybean_admin_rust_rev5；命中＝deploy/generate-secrets.sh L220、preflight-secrets.sh L159、deploy/secrets/README.md §composite 樣板＋secrets.dev.enc.yaml 實值——001 單元③ review 實測 migrate 正規路徑 28P01；dev 庫現值已由一次性容器內改寫暫通、非正解）｜★001 單元④ T016 前置必修（正規 run --rm migrate 會再撞）

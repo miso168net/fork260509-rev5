@@ -1,0 +1,507 @@
+[
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_protected_not_null",
+    "definition": "NOT NULL protected"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_ptype_not_null",
+    "definition": "NOT NULL ptype"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_v0_not_null",
+    "definition": "NOT NULL v0"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_v1_not_null",
+    "definition": "NOT NULL v1"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_v2_not_null",
+    "definition": "NOT NULL v2"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_v3_not_null",
+    "definition": "NOT NULL v3"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_v4_not_null",
+    "definition": "NOT NULL v4"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_v5_not_null",
+    "definition": "NOT NULL v5"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "unique_key_sea_orm_adapter",
+    "definition": "UNIQUE (ptype, v0, v1, v2, v3, v4, v5)"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_event_type_not_null",
+    "definition": "NOT NULL event_type"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_sid_not_null",
+    "definition": "NOT NULL sid"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_user_id_not_null",
+    "definition": "NOT NULL user_id"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_created_by_not_null",
+    "definition": "NOT NULL created_by"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_http_method_not_null",
+    "definition": "NOT NULL http_method"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_http_path_not_null",
+    "definition": "NOT NULL http_path"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_http_status_not_null",
+    "definition": "NOT NULL http_status"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_real_ip_not_null",
+    "definition": "NOT NULL real_ip"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_archive_reason_not_null",
+    "definition": "NOT NULL archive_reason"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_archived_at_not_null",
+    "definition": "NOT NULL archived_at"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_ptype_not_null",
+    "definition": "NOT NULL ptype"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_v0_not_null",
+    "definition": "NOT NULL v0"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_v1_not_null",
+    "definition": "NOT NULL v1"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_v2_not_null",
+    "definition": "NOT NULL v2"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_v3_not_null",
+    "definition": "NOT NULL v3"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_v4_not_null",
+    "definition": "NOT NULL v4"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_v5_not_null",
+    "definition": "NOT NULL v5"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_wbip_cidr_not_null",
+    "definition": "NOT NULL wbip_cidr"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_wbip_type_not_null",
+    "definition": "NOT NULL wbip_type"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_attempted_user_name_not_null",
+    "definition": "NOT NULL attempted_user_name"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_real_ip_not_null",
+    "definition": "NOT NULL real_ip"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_success_not_null",
+    "definition": "NOT NULL success"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_menu_name_not_null",
+    "definition": "NOT NULL menu_name"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_protected_not_null",
+    "definition": "NOT NULL protected"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_route_name_not_null",
+    "definition": "NOT NULL route_name"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_entity_table_not_null",
+    "definition": "NOT NULL entity_table"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_operation_not_null",
+    "definition": "NOT NULL operation"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_real_ip_not_null",
+    "definition": "NOT NULL real_ip"
+  },
+  {
+    "table": "sys_pwd_custody",
+    "name": "sys_pwd_custody_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_pwd_custody",
+    "name": "sys_pwd_custody_created_by_not_null",
+    "definition": "NOT NULL created_by"
+  },
+  {
+    "table": "sys_pwd_custody",
+    "name": "sys_pwd_custody_pkey",
+    "definition": "PRIMARY KEY (user_id, created_by)"
+  },
+  {
+    "table": "sys_pwd_custody",
+    "name": "sys_pwd_custody_user_id_not_null",
+    "definition": "NOT NULL user_id"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_role_code_not_null",
+    "definition": "NOT NULL role_code"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_role_name_not_null",
+    "definition": "NOT NULL role_name"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_created_by_not_null",
+    "definition": "NOT NULL created_by"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_expires_at_not_null",
+    "definition": "NOT NULL expires_at"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_issued_at_not_null",
+    "definition": "NOT NULL issued_at"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_rotation_chain_not_null",
+    "definition": "NOT NULL rotation_chain"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_status_not_null",
+    "definition": "NOT NULL status"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_token_hash_key",
+    "definition": "UNIQUE (token_hash)"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_token_hash_not_null",
+    "definition": "NOT NULL token_hash"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_id_not_null",
+    "definition": "NOT NULL id"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_password_not_null",
+    "definition": "NOT NULL password"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_pkey",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_session_policy_not_null",
+    "definition": "NOT NULL session_policy"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_user_name_not_null",
+    "definition": "NOT NULL user_name"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "pk_sys_user_email_verify",
+    "definition": "PRIMARY KEY (user_id)"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "sys_user_email_verify_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "sys_user_email_verify_created_by_not_null",
+    "definition": "NOT NULL created_by"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "sys_user_email_verify_user_id_not_null",
+    "definition": "NOT NULL user_id"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "sys_user_email_verify_verified_at_not_null",
+    "definition": "NOT NULL verified_at"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "sys_user_email_verify_verified_email_not_null",
+    "definition": "NOT NULL verified_email"
+  },
+  {
+    "table": "sys_user_role",
+    "name": "fk_sys_user_role_role",
+    "definition": "FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE RESTRICT"
+  },
+  {
+    "table": "sys_user_role",
+    "name": "fk_sys_user_role_user",
+    "definition": "FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE RESTRICT"
+  },
+  {
+    "table": "sys_user_role",
+    "name": "sys_user_role_pkey",
+    "definition": "PRIMARY KEY (user_id, role_id)"
+  },
+  {
+    "table": "sys_user_role",
+    "name": "sys_user_role_role_id_not_null",
+    "definition": "NOT NULL role_id"
+  },
+  {
+    "table": "sys_user_role",
+    "name": "sys_user_role_user_id_not_null",
+    "definition": "NOT NULL user_id"
+  },
+  {
+    "table": "system_settings",
+    "name": "system_settings_created_at_not_null",
+    "definition": "NOT NULL created_at"
+  },
+  {
+    "table": "system_settings",
+    "name": "system_settings_pkey",
+    "definition": "PRIMARY KEY (setting_key)"
+  },
+  {
+    "table": "system_settings",
+    "name": "system_settings_setting_key_not_null",
+    "definition": "NOT NULL setting_key"
+  },
+  {
+    "table": "system_settings",
+    "name": "system_settings_setting_type_not_null",
+    "definition": "NOT NULL setting_type"
+  },
+  {
+    "table": "system_settings",
+    "name": "system_settings_setting_value_not_null",
+    "definition": "NOT NULL setting_value"
+  }
+]
