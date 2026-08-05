@@ -115,8 +115,8 @@ services:
     image: postgres:18.4-alpine
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      POSTGRES_USER: soybean_rev5
-      POSTGRES_DB: soybean_admin_rust_rev5
+      POSTGRES_USER: soybean
+      POSTGRES_DB: soybean_admin_rust
     secrets:
       - postgres_password
     volumes:
@@ -125,7 +125,7 @@ services:
       #   漏進匿名卷、down→up 全失（docker image inspect 實查後定此掛點）
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U soybean_rev5 -d soybean_admin_rust_rev5"]
+      test: ["CMD-SHELL", "pg_isready -U soybean -d soybean_admin_rust"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -283,11 +283,11 @@ services:
     profiles: [metrics]
     image: prometheuscommunity/postgres-exporter:v0.20.1
     environment:
-      # DB 名＝soybean_admin_rust_rev5（對齊 postgres POSTGRES_DB）；reuse postgres_password、
+      # DB 名＝soybean_admin_rust（對齊 postgres POSTGRES_DB）；reuse postgres_password、
       # 絕不明文密碼（rev3 as-built 形）。0.20.1 breaking＝replication_slot 系指標改名，
       # 單機 dev 該組資料本為空、面板受影響格歸 T018 grep 處理（R1）。
-      DATA_SOURCE_URI: postgres:5432/soybean_admin_rust_rev5?sslmode=disable
-      DATA_SOURCE_USER: soybean_rev5
+      DATA_SOURCE_URI: postgres:5432/soybean_admin_rust?sslmode=disable
+      DATA_SOURCE_USER: soybean
       DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
     secrets:
       - postgres_password
@@ -341,7 +341,7 @@ services:
     environment:
       # ★最小權限連線（FR-013／ADR 0072）：reaper_database_url＝reaper role 憑證（composite
       #   secret；m012 建 role＋GRANT、deploy/setup-reaper-role.sh 設密）——絕不掛 database_url
-      #   （soybean_rev5 全權身分）。
+      #   （soybean 全權身分）。
       APP_DATABASE_URL_FILE: /run/secrets/reaper_database_url
       RUST_LOG: "info"
       # REAPER_GRACE_DAYS 不設＝bin fail-default 7 天（FR-018）；

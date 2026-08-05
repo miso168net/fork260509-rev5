@@ -10,3 +10,4 @@
 | 0005 | accepted | 2026-08-05 | 憲法 §I.2 demo menu 條例外與釋義——toggle-auth 示範鏈三角色初始勾選＋hideInMenu 射程 | — | — | — |
 | 0006 | draft | 2026-08-05 | schema 基線＝rev4 終態壓平＋user 定稿制（波 0、m001／m002 兩支基線遷移） | — | — | — |
 | 0007 | draft | 2026-08-05 | schema 閘契約＝Day-1 受管演進帳（凍結面＋演進登記合成全等比對） | — | — | — |
+| 0008 | accepted | 2026-08-06 | DB 身分不帶世代後綴（soybean／soybean_admin_rust；世代錯開射程＝host 共享面） | — | — | — |

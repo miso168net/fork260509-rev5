@@ -1683,8 +1683,8 @@ SCHEMA_SNAPSHOT = f"{REFERENCE_SRC_DIR}/schema-snapshot.json"
 ACCOUNTS_SNAPSHOT = f"{REFERENCE_SRC_DIR}/accounts-snapshot.json"
 ARCHETYPE_MAP = f"{REFERENCE_SRC_DIR}/archetype-map.json"
 STACK_HINT = "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait"
-DB_USER = "soybean_rev5"
-DB_NAME = "soybean_admin_rust_rev5"
+DB_USER = "soybean"
+DB_NAME = "soybean_admin_rust"
 COMPOSE_PSQL = ["docker", "compose", "-f", "docker-compose.yml",
                 "-f", "docker-compose.dev.yml", "exec", "-T", "postgres"]
 
@@ -2915,11 +2915,9 @@ REFERENCE_SOURCES = (COMPOSE_FILES + (ROUTER_SOURCE, ELEGANT_SOURCE)
 DAY1_EXEMPTIONS = {
     # gen.compose：2026-08-04 B10 compose 三檔移植就位、解除謂詞成立——依「到期即紅」
     # 下架（原豁免＝compose 三檔於 dev stack 就位前不存在；ports 真表自此恢復重算）。
-    "gen.snapshots": (
-        "reference-src 三來源檔未備（前兩檔＝refresh 產、第三檔 archetype-map.json "
-        "＝schema 刀人維、refresh 不產）",
-        (SCHEMA_SNAPSHOT, ACCOUNTS_SNAPSHOT, ARCHETYPE_MAP),   # 解除＝B10 後／schema 基線刀
-        "2026-08-04"),
+    # gen.snapshots：2026-08-06 001-schema-baseline refresh 首跑落兩快照（archetype-map
+    # 已先入版）、解除謂詞成立——依「到期即紅」下架（原豁免＝reference-src 三來源檔於
+    # schema 基線刀前不存在；schema／accounts 真表自此恢復重算）。
     "gen.router": (
         "rust 路由表於後端首刀前無實碼",
         (ROUTER_SOURCE,),                                # 解除＝B12
@@ -2951,9 +2949,6 @@ DAY1_EXEMPTIONS = {
 # ★與 DAY1_EXEMPTIONS 分表存放——前者答「何時解除」、本表答「豁免什麼」，合併會讓四欄制
 #   失去單一語意，且射程改動與解除條件改動是兩件事、不該互相牽動。
 DAY1_EXEMPT_SCOPE = {
-    "gen.snapshots": ((SCHEMA_SNAPSHOT, ACCOUNTS_SNAPSHOT, ARCHETYPE_MAP),
-                      (f"{GENERATED_DIR}/reference/schema.md",
-                       f"{GENERATED_DIR}/reference/accounts.md")),
     "gen.router":    ((ROUTER_SOURCE,),
                       (f"{GENERATED_DIR}/reference/routes.md",)),
     "gen.msg_dict":  (tuple(rel for _lang, rel in MSG_DICT_LOCALES),

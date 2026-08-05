@@ -68,7 +68,7 @@ PW="$(cat "$PW_FILE")"
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.dev.yml)
 
 # 設密＋LOGIN（psql 沿 tools/schema-gate.py exec -T 慣例；SQL 走 stdin heredoc、密碼不進 argv）。
-"${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U soybean_rev5 -d soybean_admin_rust_rev5 \
+"${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U soybean -d soybean_admin_rust \
   --quiet --no-align --tuples-only <<SQL
 ALTER ROLE reaper LOGIN PASSWORD '${PW}';
 SQL
@@ -79,7 +79,7 @@ echo "ok: role reaper 已設 LOGIN＋密碼（值不回顯）"
 # 同認證路徑（host=postgres、scram-sha-256）。密碼經 stdin 管線交給容器內 read→PGPASSWORD
 # env（env 不進 process list）。
 RESULT="$(printf '%s\n' "$PW" | "${COMPOSE[@]}" exec -T postgres sh -c \
-  'read -r RPW; PGPASSWORD="$RPW" psql -h postgres -U reaper -d soybean_admin_rust_rev5 -Atc "SELECT 1"')"
+  'read -r RPW; PGPASSWORD="$RPW" psql -h postgres -U reaper -d soybean_admin_rust -Atc "SELECT 1"')"
 if [ "$RESULT" = "1" ]; then
   echo "ok: reaper 憑證連線驗證通過（SELECT 1）"
 else

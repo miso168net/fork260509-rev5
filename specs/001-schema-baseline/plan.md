@@ -22,7 +22,7 @@ casbin 2.20.0＋async-trait 0.1.89（vendored sea-orm-adapter）、tokio 1.52.3�
 rev4 已驗證 pins（research R1；不引 argon2——Q1 拍板 PHC 常數、無 runtime 雜湊）
 
 **Storage**: PostgreSQL 18.4（`postgres:18.4-alpine`、compose 既定；dev DB＝
-`soybean_admin_rust_rev5`／user `soybean_rev5`）
+`soybean_admin_rust`／user `soybean`）
 
 **Testing**: cargo test（容器內、全程 serial）＋python 工具自帶 test 子命令＋三閘
 self-test／negative 注入（SC-002）＋pristine 重放逐列 diff（SC-001）

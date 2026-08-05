@@ -494,7 +494,7 @@ groups:
             model:
               refId: A
               editorMode: code
-              expr: pg_stat_user_tables_n_live_tup{datname="soybean_admin_rust_rev5", relname=~"sys_operation_log|sys_access_log|sys_login_attempt|session_event"}
+              expr: pg_stat_user_tables_n_live_tup{datname="soybean_admin_rust", relname=~"sys_operation_log|sys_access_log|sys_login_attempt|session_event"}
               instant: true
               range: false
               intervalMs: 1000

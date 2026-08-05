@@ -1,4 +1,4 @@
-# example 視覺參考實例 (soybean_rev5 example 分支,連官方 mock)
+# example 視覺參考實例 (soybean example 分支,連官方 mock)
 #
 # 用途: 常駐一個跑 example 分支＋官方 apifox mock 的實例,做視覺/行為對照——
 #       rev4 worktree base-web(22081) fork 改動展開後,仍能隨時對比 mock 原貌。

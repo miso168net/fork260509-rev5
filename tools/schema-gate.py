@@ -57,8 +57,8 @@ SEED_DECISION = os.path.join("specs", "001-schema-baseline", "seed-decision.json
 LEDGER = os.path.join("docs", "ops", "reference-src", "schema-evolution.json")
 ARCHETYPE_MAP = os.path.join("docs", "ops", "reference-src", "archetype-map.json")
 
-DB_USER = "soybean_rev5"
-DB_NAME = "soybean_admin_rust_rev5"
+DB_USER = "soybean"
+DB_NAME = "soybean_admin_rust"
 COMPOSE_EXEC = ["docker", "compose", "-f", "docker-compose.yml",
                 "-f", "docker-compose.dev.yml", "exec", "-T"]
 

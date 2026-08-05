@@ -1,11 +1,20 @@
 # fixtures/provenance.md — 凍結面產製紀錄（contracts/fixtures.md §3 六欄目）
 
 > 本目錄五件＝001-schema-baseline 定稿凍結產物，**凍結後永不改寫**（重產唯一合法路徑＝
-> 基線翻案新刀、新 ADR supersedes）。
+> 基線翻案新刀、新 ADR supersedes；唯一已用畢例外＝contracts/fixtures.md §4 具名條文、
+> 見 §1 重產紀錄）。
 
 ## 1. 產製日期
 
 2026-08-05（先驗後凍三驗同日全綠後照相落檔）。
+
+**2026-08-06 重產一次**（授權＝ADR 0008「DB 身分不帶世代後綴」）：DB 身分自帶
+`_rev5` 後綴之舊形回滾為 `soybean`／`soybean_admin_rust`，
+seed.sql 之 pg_dump `Owner:` 註解行連動（±26 行、15 表 COPY 段＋11 sequence 段）；
+**三 json 位元零變、seed 資料內容位元零變**（僅 Owner 註解）。重產程序＝重走先驗後凍
+三驗（同日三綠、輸出同 §5 字面）後照相落檔；下方 §6 命令形已同步新身分。
+契約調和＝contracts/fixtures.md §4 具名例外條文（唯一、已用畢；其後重產仍走基線翻案
+新刀主文）。
 
 ## 2. 容器映像
 
@@ -43,17 +52,17 @@ m002_baseline_seeds、重放輸出兩支 applied 零錯）
 # 一次性 pristine（零 host 埠、獨立 network）
 docker network create rev5-u3-fixnet
 docker run -d --name rev5-u3-fixpg --network rev5-u3-fixnet \
-  -e POSTGRES_USER=soybean_rev5 -e POSTGRES_PASSWORD=<拋棄式> \
-  -e POSTGRES_DB=soybean_admin_rust_rev5 postgres:18.4-alpine
+  -e POSTGRES_USER=soybean -e POSTGRES_PASSWORD=<拋棄式> \
+  -e POSTGRES_DB=soybean_admin_rust postgres:18.4-alpine
 # 重放（容器內、serial）
 docker run --rm --network rev5-u3-fixnet -v <repo>/rust-api:/app \
   -v rev5-admin_rust_api_cargo_cache:/usr/local/cargo/registry \
   -v rev5-admin_rust_api_target:/app/target \
-  -e APP_DATABASE_URL=postgres://soybean_rev5:<拋棄式>@rev5-u3-fixpg:5432/soybean_admin_rust_rev5 \
+  -e APP_DATABASE_URL=postgres://soybean:<拋棄式>@rev5-u3-fixpg:5432/soybean_admin_rust \
   --entrypoint cargo rev5-admin-rust-api:dev run --bin migration up
 # 照相三 json＝tools/schema-gate.py 之三查詢（docs-sync refresh 同構）＋確定性排序
 #（columns 依 table,ordinal；indexes/constraints 依 table,name）、json indent 2 落檔
-# seed.sql＝pg_dump -U soybean_rev5 -d soybean_admin_rust_rev5 --data-only（PGTZ=UTC）
+# seed.sql＝pg_dump -U soybean -d soybean_admin_rust --data-only（PGTZ=UTC）
 # 經 tools/schema-gate.py normalize_seed_dump（gates.md §2 全則：COPY 段整列排序＋setval
 # 原位＋剝除 \restrict／\unrestrict token 行＋seaql_migrations COPY 段）；冪等斷言＋
 # setval 名冊 vs seed-decision sequences 節斷言後落檔

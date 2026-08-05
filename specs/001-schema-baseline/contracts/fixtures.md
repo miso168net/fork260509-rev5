@@ -32,5 +32,9 @@ seed-decision.json sha256；三驗紀錄（§2-2 的三綠）；產製與 normal
 - 凍結後任何位元變更＝違憲級（pre-commit 不設專閘、由 review 與 gate1 語意承載：fixtures
   變 → gate1 期望變 → 未登記漂移紅之對偶形現形）。
 - 「重產 fixtures」唯一合法路徑＝基線翻案新刀（新 ADR supersedes＋新 fixtures 目錄）。
+  **具名例外（唯一、已用畢）**：2026-08-06 依 ADR 0008（DB 身分不帶世代後綴、user 拍板
+  ＋回滾批計畫過目後「動工」批准）刀內重產一次——重走 §2 先驗後凍三驗、位元射程恰
+  pg_dump `Owner:` 註解行（seed.sql ±26；三 json 位元零變）、provenance §1 在案。
+  本例外不開放沿用：其後任何重產仍走本條主文。
 - 快照三 json 與 `docs/ops/reference-src/schema-snapshot.json`（refresh 產、跨刀前進）
   職責不同：fixtures＝凍結史料（不動）、reference-src＝現況帳（隨刀 refresh）。

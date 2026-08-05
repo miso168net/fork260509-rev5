@@ -109,7 +109,7 @@
 
 ## R9 DoD 鏈與 Day-1 拔項的機器形
 
-- **Decision**: refresh 首跑（dev stack、`soybean_rev5`/`soybean_admin_rust_rev5`）→
+- **Decision**: refresh 首跑（dev stack、`soybean`/`soybean_admin_rust`）→
   兩快照＋archetype-map 就位 → `gen.snapshots` 解除謂詞（三檔存在）成立 → 依「到期即紅」
   自 `DAY1_EXEMPTIONS`／`DAY1_EXEMPT_SCOPE` 雙表拔項（留日期註解、循 gen.compose／
   gen.screens 前例）→ generate 重算 schema／accounts 真表 → pre-commit 全綠。

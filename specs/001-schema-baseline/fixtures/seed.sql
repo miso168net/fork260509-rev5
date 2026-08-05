@@ -19,7 +19,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Data for Name: casbin_rule; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: casbin_rule; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.casbin_rule (id, ptype, v0, v1, v2, v3, v4, v5, protected, created_at, created_by) FROM stdin;
@@ -190,7 +190,7 @@ COPY public.casbin_rule (id, ptype, v0, v1, v2, v3, v4, v5, protected, created_a
 
 
 --
--- Data for Name: session_event; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: session_event; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.session_event (id, created_at, created_by, user_id, sid, event_type, reason, source_ip) FROM stdin;
@@ -198,7 +198,7 @@ COPY public.session_event (id, created_at, created_by, user_id, sid, event_type,
 
 
 --
--- Data for Name: sys_access_log; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_access_log; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_access_log (id, created_at, created_by, http_status, http_method, http_path, real_ip, peer_ip, x_forwarded_for, ip_confidence, region, trace_id) FROM stdin;
@@ -206,7 +206,7 @@ COPY public.sys_access_log (id, created_at, created_by, http_status, http_method
 
 
 --
--- Data for Name: sys_casbin_policy_archive; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_casbin_policy_archive; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_casbin_policy_archive (id, role_id, created_at, created_by, archived_at, archived_by, archive_reason, ptype, v0, v1, v2, v3, v4, v5) FROM stdin;
@@ -214,7 +214,7 @@ COPY public.sys_casbin_policy_archive (id, role_id, created_at, created_by, arch
 
 
 --
--- Data for Name: sys_ip_rule; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_ip_rule; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_ip_rule (id, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, "order", wbip_type, wbip_cidr, wbip_memo) FROM stdin;
@@ -222,7 +222,7 @@ COPY public.sys_ip_rule (id, created_at, created_by, updated_at, updated_by, del
 
 
 --
--- Data for Name: sys_login_attempt; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_login_attempt; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_login_attempt (id, created_at, created_by, success, attempted_user_name, real_ip, peer_ip, x_forwarded_for, ip_confidence, region, trace_id) FROM stdin;
@@ -230,7 +230,7 @@ COPY public.sys_login_attempt (id, created_at, created_by, success, attempted_us
 
 
 --
--- Data for Name: sys_menu; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_menu; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_menu (id, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, status, "order", hide_in_menu, keep_alive, constant, multi_tab, protected, parent_id, menu_type, menu_name, menu_memo, route_name, route_path, component, icon, icon_type, i18n_key, href, active_menu, fixed_index_in_tab, query, buttons) FROM stdin;
@@ -316,7 +316,7 @@ COPY public.sys_menu (id, created_at, created_by, updated_at, updated_by, delete
 
 
 --
--- Data for Name: sys_operation_log; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_operation_log; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_operation_log (id, created_at, created_by, operation, entity_table, entity_id, payload_before, payload_after, real_ip, peer_ip, x_forwarded_for, ip_confidence, region, trace_id) FROM stdin;
@@ -324,7 +324,7 @@ COPY public.sys_operation_log (id, created_at, created_by, operation, entity_tab
 
 
 --
--- Data for Name: sys_pwd_custody; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_pwd_custody; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_pwd_custody (user_id, created_at, created_by) FROM stdin;
@@ -332,7 +332,7 @@ COPY public.sys_pwd_custody (user_id, created_at, created_by) FROM stdin;
 
 
 --
--- Data for Name: sys_role; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_role; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_role (id, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, status, role_code, role_name, role_memo, role_home, role_desc) FROM stdin;
@@ -343,7 +343,7 @@ COPY public.sys_role (id, created_at, created_by, updated_at, updated_by, delete
 
 
 --
--- Data for Name: sys_token; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_token; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_token (id, created_at, created_by, status, token_hash, rotation_chain, issued_at, expires_at, used_at) FROM stdin;
@@ -351,7 +351,7 @@ COPY public.sys_token (id, created_at, created_by, status, token_hash, rotation_
 
 
 --
--- Data for Name: sys_user; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_user; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_user (id, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, status, user_gender, user_name, password, nick_name, session_policy, session_id, user_phone, user_email, user_memo) FROM stdin;
@@ -362,7 +362,7 @@ COPY public.sys_user (id, created_at, created_by, updated_at, updated_by, delete
 
 
 --
--- Data for Name: sys_user_email_verify; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_user_email_verify; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_user_email_verify (user_id, created_at, created_by, verified_at, verified_email) FROM stdin;
@@ -370,7 +370,7 @@ COPY public.sys_user_email_verify (user_id, created_at, created_by, verified_at,
 
 
 --
--- Data for Name: sys_user_role; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: sys_user_role; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.sys_user_role (user_id, role_id) FROM stdin;
@@ -381,7 +381,7 @@ COPY public.sys_user_role (user_id, role_id) FROM stdin;
 
 
 --
--- Data for Name: system_settings; Type: TABLE DATA; Schema: public; Owner: soybean_rev5
+-- Data for Name: system_settings; Type: TABLE DATA; Schema: public; Owner: soybean
 --
 
 COPY public.system_settings (setting_key, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, setting_type, setting_value, description) FROM stdin;
@@ -405,77 +405,77 @@ single_session_default	2026-08-05 00:00:00+00	\N	\N	\N	\N	\N	enum:on,off	off	全
 
 
 --
--- Name: casbin_rule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: casbin_rule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.casbin_rule_id_seq', 163, true);
 
 
 --
--- Name: session_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: session_event_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.session_event_id_seq', 1, false);
 
 
 --
--- Name: sys_access_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_access_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_access_log_id_seq', 1, false);
 
 
 --
--- Name: sys_casbin_policy_archive_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_casbin_policy_archive_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_casbin_policy_archive_id_seq', 1, false);
 
 
 --
--- Name: sys_ip_rule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_ip_rule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_ip_rule_id_seq', 1, false);
 
 
 --
--- Name: sys_login_attempt_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_login_attempt_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_login_attempt_id_seq', 1, false);
 
 
 --
--- Name: sys_menu_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_menu_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_menu_id_seq', 78, true);
 
 
 --
--- Name: sys_operation_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_operation_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_operation_log_id_seq', 1, false);
 
 
 --
--- Name: sys_role_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_role_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_role_id_seq', 3, true);
 
 
 --
--- Name: sys_token_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_token_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_token_id_seq', 1, false);
 
 
 --
--- Name: sys_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean_rev5
+-- Name: sys_user_id_seq; Type: SEQUENCE SET; Schema: public; Owner: soybean
 --
 
 SELECT pg_catalog.setval('public.sys_user_id_seq', 3, true);
