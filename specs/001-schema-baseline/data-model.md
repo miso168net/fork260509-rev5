@@ -489,14 +489,14 @@ real_ip NN 之新增約束 1）。
 - `idx_operation_log_operator_time`：`CREATE INDEX idx_operation_log_operator_time ON public.sys_operation_log USING btree (created_by, created_at)`
 - `sys_operation_log_pkey`：`CREATE UNIQUE INDEX sys_operation_log_pkey ON public.sys_operation_log USING btree (id)`
 
-約束（5）：
+約束（6）：
 
 - `sys_operation_log_created_at_not_null`：`NOT NULL created_at`
 - `sys_operation_log_entity_table_not_null`：`NOT NULL entity_table`
 - `sys_operation_log_id_not_null`：`NOT NULL id`
 - `sys_operation_log_operation_not_null`：`NOT NULL operation`
-- `sys_operation_log_real_ip_not_null`：`NOT NULL real_ip`（★§4 定稿差異新增、rev4 無）
 - `sys_operation_log_pkey`：`PRIMARY KEY (id)`
+- `sys_operation_log_real_ip_not_null`：`NOT NULL real_ip`（★§4 定稿差異新增、rev4 無）
 
 ### sys_pwd_custody
 
