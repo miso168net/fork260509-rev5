@@ -13,7 +13,7 @@
 
 ## tools/schema-gate.py
 - 語言：python
-- 子命令：`audit`｜`gate1`｜`gate2`｜`test`
+- 子命令：`check`｜`test`
 
 ## tools/wire-schema.py
 - 語言：python

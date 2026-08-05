@@ -1,0 +1,192 @@
+[
+  {
+    "table": "casbin_rule",
+    "name": "casbin_rule_pkey",
+    "definition": "CREATE UNIQUE INDEX casbin_rule_pkey ON public.casbin_rule USING btree (id)"
+  },
+  {
+    "table": "casbin_rule",
+    "name": "unique_key_sea_orm_adapter",
+    "definition": "CREATE UNIQUE INDEX unique_key_sea_orm_adapter ON public.casbin_rule USING btree (ptype, v0, v1, v2, v3, v4, v5)"
+  },
+  {
+    "table": "session_event",
+    "name": "idx_session_event_user_time",
+    "definition": "CREATE INDEX idx_session_event_user_time ON public.session_event USING btree (user_id, created_at)"
+  },
+  {
+    "table": "session_event",
+    "name": "session_event_pkey",
+    "definition": "CREATE UNIQUE INDEX session_event_pkey ON public.session_event USING btree (id)"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "idx_access_log_created_at",
+    "definition": "CREATE INDEX idx_access_log_created_at ON public.sys_access_log USING btree (created_at)"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "idx_access_log_operator_time",
+    "definition": "CREATE INDEX idx_access_log_operator_time ON public.sys_access_log USING btree (created_by, created_at)"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "idx_access_log_path_trgm",
+    "definition": "CREATE INDEX idx_access_log_path_trgm ON public.sys_access_log USING gin (http_path gin_trgm_ops)"
+  },
+  {
+    "table": "sys_access_log",
+    "name": "sys_access_log_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_access_log_pkey ON public.sys_access_log USING btree (id)"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "idx_casbin_archive_archived_at",
+    "definition": "CREATE INDEX idx_casbin_archive_archived_at ON public.sys_casbin_policy_archive USING btree (archived_at)"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "idx_casbin_archive_role_dim",
+    "definition": "CREATE INDEX idx_casbin_archive_role_dim ON public.sys_casbin_policy_archive USING btree (v0, v2)"
+  },
+  {
+    "table": "sys_casbin_policy_archive",
+    "name": "sys_casbin_policy_archive_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_casbin_policy_archive_pkey ON public.sys_casbin_policy_archive USING btree (id)"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_cidr_type_active_uniq",
+    "definition": "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)"
+  },
+  {
+    "table": "sys_ip_rule",
+    "name": "sys_ip_rule_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_ip_rule_pkey ON public.sys_ip_rule USING btree (id)"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "idx_login_attempt_created_at",
+    "definition": "CREATE INDEX idx_login_attempt_created_at ON public.sys_login_attempt USING btree (created_at)"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "idx_login_attempt_ip_time",
+    "definition": "CREATE INDEX idx_login_attempt_ip_time ON public.sys_login_attempt USING btree (real_ip, created_at)"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "idx_login_attempt_user_name_trgm",
+    "definition": "CREATE INDEX idx_login_attempt_user_name_trgm ON public.sys_login_attempt USING gin (attempted_user_name gin_trgm_ops)"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "idx_login_attempt_user_time",
+    "definition": "CREATE INDEX idx_login_attempt_user_time ON public.sys_login_attempt USING btree (attempted_user_name, created_at)"
+  },
+  {
+    "table": "sys_login_attempt",
+    "name": "sys_login_attempt_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_login_attempt_pkey ON public.sys_login_attempt USING btree (id)"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_menu_pkey ON public.sys_menu USING btree (id)"
+  },
+  {
+    "table": "sys_menu",
+    "name": "sys_menu_route_name_active_uniq",
+    "definition": "CREATE UNIQUE INDEX sys_menu_route_name_active_uniq ON public.sys_menu USING btree (route_name) WHERE (deleted_at IS NULL)"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "idx_operation_log_created_at",
+    "definition": "CREATE INDEX idx_operation_log_created_at ON public.sys_operation_log USING btree (created_at)"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "idx_operation_log_operator_time",
+    "definition": "CREATE INDEX idx_operation_log_operator_time ON public.sys_operation_log USING btree (created_by, created_at)"
+  },
+  {
+    "table": "sys_operation_log",
+    "name": "sys_operation_log_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_operation_log_pkey ON public.sys_operation_log USING btree (id)"
+  },
+  {
+    "table": "sys_pwd_custody",
+    "name": "sys_pwd_custody_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_pwd_custody_pkey ON public.sys_pwd_custody USING btree (user_id, created_by)"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_code_active_uniq",
+    "definition": "CREATE UNIQUE INDEX sys_role_code_active_uniq ON public.sys_role USING btree (role_code) WHERE (deleted_at IS NULL)"
+  },
+  {
+    "table": "sys_role",
+    "name": "sys_role_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_role_pkey ON public.sys_role USING btree (id)"
+  },
+  {
+    "table": "sys_token",
+    "name": "idx_sys_token_chain",
+    "definition": "CREATE INDEX idx_sys_token_chain ON public.sys_token USING btree (rotation_chain)"
+  },
+  {
+    "table": "sys_token",
+    "name": "idx_sys_token_expires_at",
+    "definition": "CREATE INDEX idx_sys_token_expires_at ON public.sys_token USING btree (expires_at)"
+  },
+  {
+    "table": "sys_token",
+    "name": "idx_sys_token_user_active",
+    "definition": "CREATE INDEX idx_sys_token_user_active ON public.sys_token USING btree (created_by) WHERE ((status)::text = 'active'::text)"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_token_pkey ON public.sys_token USING btree (id)"
+  },
+  {
+    "table": "sys_token",
+    "name": "sys_token_token_hash_key",
+    "definition": "CREATE UNIQUE INDEX sys_token_token_hash_key ON public.sys_token USING btree (token_hash)"
+  },
+  {
+    "table": "sys_token",
+    "name": "uq_sys_token_chain_active",
+    "definition": "CREATE UNIQUE INDEX uq_sys_token_chain_active ON public.sys_token USING btree (rotation_chain) WHERE ((status)::text = 'active'::text)"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_user_pkey ON public.sys_user USING btree (id)"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_user_email_active_uniq",
+    "definition": "CREATE UNIQUE INDEX sys_user_user_email_active_uniq ON public.sys_user USING btree (lower((user_email)::text)) WHERE ((deleted_at IS NULL) AND (user_email IS NOT NULL))"
+  },
+  {
+    "table": "sys_user",
+    "name": "sys_user_user_name_active_uniq",
+    "definition": "CREATE UNIQUE INDEX sys_user_user_name_active_uniq ON public.sys_user USING btree (user_name) WHERE (deleted_at IS NULL)"
+  },
+  {
+    "table": "sys_user_email_verify",
+    "name": "pk_sys_user_email_verify",
+    "definition": "CREATE UNIQUE INDEX pk_sys_user_email_verify ON public.sys_user_email_verify USING btree (user_id)"
+  },
+  {
+    "table": "sys_user_role",
+    "name": "sys_user_role_pkey",
+    "definition": "CREATE UNIQUE INDEX sys_user_role_pkey ON public.sys_user_role USING btree (user_id, role_id)"
+  },
+  {
+    "table": "system_settings",
+    "name": "system_settings_pkey",
+    "definition": "CREATE UNIQUE INDEX system_settings_pkey ON public.system_settings USING btree (setting_key)"
+  }
+]

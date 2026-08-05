@@ -1,2128 +1,1441 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""tools/schema-gate.py — 基線 schema 驗證閘（python 標準庫、單檔、自帶測試）
+"""tools/schema-gate.py — 三閘 schema 驗證閘（001 基線；Day-1 受管演進帳）
 
 子命令：
-  gate1 [--live-rev3]   閘 1：結構零漂移——實庫 vs 凍結基準（contracts/gates.md §2）
-  gate2                 閘 2：定稿落實——欄序 vs data-model §3＋seed vs fixtures
-                        六支 json（contracts/gates.md §3）
-  audit                 審計欄建表守門——archetype 變體矩陣逐表驗＋表清單守門
-                        （contracts/gates.md §4；矩陣來源＝
-                        docs/ops/reference-src/archetype-map.json）
-  test                  跑自帶測試（unittest、離線可跑）
+  check [--container 名] [--user U] [--db D]
+        三閘全跑（gate1 結構＋gate2 欄序/seed＋audit archetype）；入口無條件先跑合成
+        self-test（敗＝rc 2、不讀任何真檔）。預設對 dev stack（compose exec postgres）；
+        `--container` 指向一次性 pristine 容器（fixtures 產製／演進帳往返驗證場景）。
+  test  跑自帶測試（unittest、離線、零 docker）——含 SC-002 四類 negative 注入
+        （結構／欄序／seed 值／sequence 落值）與登記檔壞形自測。
 
-退出碼：全綠 0；任一差異 1＋stderr 逐項指名（表／欄／索引名／seed natural key）；
-環境不可用（stack 不在、psql 失敗、基準檔缺）2＋指名原因；用法錯誤（無參數／未知
-子命令／未知旗標／多餘參數）64（EX_USAGE、usage 訊息走 stderr）——與「環境不可用 2」
-分離、契約 0/1/2 語意不變。
-只跑唯讀查詢（SELECT／information_schema／pg_catalog）、絕不寫庫；需 stack 在跑、
-不進 pre-commit（FR-014、與 docs-sync 分工）；輸出不含機密值（password 只驗格式規則）。
+契約＝specs/001-schema-baseline/contracts/gates.md（行為）＋contracts/schema-evolution.md
+（登記檔形＋啟動斷言六條）＋contracts/fixtures.md（凍結面）。零容差語意：一切比對＝全等，
+「容差」唯一合法形＝演進帳登記（docs/ops/reference-src/schema-evolution.json）。
 
-gate1 比對規則：右側＝specs/002-schema-baseline/fixtures/（columns／constraints／
-indexes 三檔、凍結基準）；欄名經 rename map（data-model.md §2 節 2、14 組）映射後
-雙向配對；表內欄序不敏感（欄序歸閘 2）；型別以 information_schema 正規形比對；
-複合索引／複合主鍵內部欄序逐字；索引名沿凍結基準原名逐字；白名單恰 4 項
-（data-model.md §2 節 3）；結構 additive 白名單（ADR 0039、STRUCT_ADDITIVE_ALLOWLIST）
-容 post-baseline 合法「新增」（多表／多索引）為容差 delta——只放寬新增、不放寬改動；
-varchar 長度面以 sidecar（fixtures/columns-maxlen.txt、B-055）為基準額外比對
-（範圍＝sidecar 所列之表欄；post-baseline 新表不在 sidecar 屬正常設計）；
-seaql_migrations 框架表除外。
-`--live-rev3`＝運行期交叉驗證：右側改連容器 rev3-admin-postgres-1 的活庫直比
-（唯讀）；該容器不在機＝exit 2（無法驗證）而非誤報差異。
+三閘：
+  gate1 結構——左源＝specs/001-schema-baseline/fixtures/{columns,indexes,constraints}.json
+        （凍結面）⊕ 演進帳合成期望；右源＝實庫照相三節（與 tools/docs-sync.py refresh
+        同構三查詢、排除 seaql_migrations、確定性排序）；三節逐列全等，未登記差異＝紅
+        （指名 section／table／名稱／左右值）、登記超前（登記了實庫沒有）同紅。
+  gate2 欄序——左源＝data-model.md §2 逐表欄序（解析「| # | 欄 |」表體）＋演進帳
+        add_column 接末位；右源＝實庫 ordinal；14 親排表逐位全等、casbin_rule 豁免。
+  gate2 seed——左源＝fixtures/seed.sql ⊕ seed_* 演進合成；右源＝實庫 pg_dump --data-only；
+        兩側同一 normalize（COPY 段整列排序＋setval 原位＋剝除 \\restrict／\\unrestrict
+        token 行＋seaql_migrations COPY 段）後**未排序逐列 diff**（含 id 欄）；
+        ★禁全檔排序後雜湊（會掩蓋 sequence 落值漂移與真差異）。sequence 名冊讀
+        seed-decision.json 之 sequences 節（勿手抄名字面）。
+  audit archetype——左源＝docs/ops/reference-src/archetype-map.json（15 表歸屬、形契約
+        gates.md §3）；對實庫照相逐表驗四變體規則（C／D 子型硬編碼於工具、map note＝
+        人讀註記）；created_by 可空性顯式驗（NN 恰四表）；表清單守門（實庫表集≠map
+        表集＝紅）。
 
-gate2 比對規則：欄序面＝每表實庫 information_schema.ordinal_position 逐欄
-＝data-model.md §3 十二張欄序表（機器解析 markdown；欄名去引號正規化）；★post-baseline
-additive 容差（ADR 0039）＝實庫尾端多出且登記 WHITELIST_ADD 之欄剝除後再逐位比對（只放寬
-尾端新增、不放寬改動/重排；§3 定稿與 psql 快照凍結不改；首例＝009 m007 archive.role_id）。seed 面
-＝實庫 6 表列集合＝fixtures 六支 json-<表名>.json（natural key 配對：user_name／
-role_code／route_name／setting_key／casbin ptype+v0..v5／sys_user_role 複合鍵；
-多列 0、缺列 0）；內容欄逐列比對、fixtures 欄名先經 rename map。內容比對排除面：
-id（sequence 落位、data-model §4「不寫 id 欄」——m002 down→up 還原後 id 前移、
-故對具體 id 值零依賴：sys_menu.parent_id 以 route_name 解析比對、sys_user_role
-複合鍵解析為 user_name×role_code）；審計時間戳欄 created_at/updated_at/deleted_at
-（執行期 now()、契約明列）；updated_by 與 sys_user.session_id（執行期編修／登入
-元資料、非 seed 內容——機器證據＝fixtures scratch-json-* vs json-* 機器 diff、
-m002 不寫此二欄）；password 改驗 PHC 規則（$argon2id$ 前綴、不做位元比對、不列值）；
-jsonb 欄正規化後深比對（空容器 []≡NULL——與閘 1 預設值正規化同則）。
+退出碼：0 全綠／1 漂移（逐項指名）／2 環境或結構異常（fixtures 缺、登記檔壞形、庫不可達、
+比對面為空、self-test 敗——附補救提示）／64 用法錯誤（usage 走 stderr）。
+只跑唯讀查詢與 pg_dump、絕不寫庫；pg_dump 帶 PGTZ=UTC（閘不依賴 session timezone、
+data-model §4 UTC+0 拍板）；輸出不含 deploy 機密值（seed 定稿值〔含 PHC 常數〕本在
+版控、gate2 seed diff 可回顯——非洩密面）。
 
-audit 規則（憲法 §I.6）：表清單與變體歸屬以 archetype-map.json 為準（002＝12 表；
-初始內容＝data-model.md §1 轉錄）；實庫多出清單外業務表＝FAIL（seaql_migrations
-框架表除外）。逐表驗：A＝六審計欄全在＋型別對（*_at timestamptz、created_at NN
-def now、*_by bigint 可空）＋活性唯一 partial-uniq 在場（PK 總體唯一者免）；
-B＝created_at NN 在場、updated_*／deleted_* 出現即 FAIL；C＝sys_user_role 零審計欄
-／sys_token 恰 created_at＋created_by＋status 且無 updated_*／deleted_*
-／sys_pwd_custody created_at NN 在場且無 updated_*／deleted_*（極簡欄集；列可 upsert
-刷新與全刪、非 append-only——015-pwd-custody m011）
-／sys_user_email_verify created_at NN 在場且無 updated_*／deleted_*（衛星表 upsert
-刷新＝重驗事件覆寫、verified_at 即其時戳——憲法 §I.6 變體 C 釋義（v1.15.0）、
-020-email-verify-smtp m014）；
-D＝sys_casbin_policy_archive 驗 archived_* 三欄＋created_at/by 可空、casbin_rule
-驗 ALTER 三治理欄在場且基底 8 欄未被動。
-
-lineage：specs/002-schema-baseline/（契約＝contracts/gates.md、定稿＝data-model.md、
-凍結基準＝fixtures/）；變體矩陣＝docs/ops/reference-src/archetype-map.json。
+rename map（data-model §3、4 組）僅用於「vs rev4 快照」血緣對賬場景（fixtures 產製之
+一次性三驗、T012 scratchpad 腳本 import 消費）——非三閘常態比對面、check 不讀。
 """
+import contextlib
+import io
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FIXTURES_DIR = os.path.join("specs", "002-schema-baseline", "fixtures")
-MAXLEN_SIDECAR = os.path.join(FIXTURES_DIR, "columns-maxlen.txt")  # B-055 長度基準（非凍結集）
-DATA_MODEL = os.path.join("specs", "002-schema-baseline", "data-model.md")
+
+FIXTURES_DIR = os.path.join("specs", "001-schema-baseline", "fixtures")
+DATA_MODEL = os.path.join("specs", "001-schema-baseline", "data-model.md")
+SEED_DECISION = os.path.join("specs", "001-schema-baseline", "seed-decision.json")
+LEDGER = os.path.join("docs", "ops", "reference-src", "schema-evolution.json")
 ARCHETYPE_MAP = os.path.join("docs", "ops", "reference-src", "archetype-map.json")
 
-DB_USER = "soybean_rev5"
-DB_NAME = "soybean_admin_rust_rev5"
-COMPOSE_PSQL = ["docker", "compose", "-f", "docker-compose.yml",
-                "-f", "docker-compose.dev.yml", "exec", "-T", "postgres"]
-LIVE_CONTAINER = "rev3-admin-postgres-1"   # --live-rev3 交叉驗證目標容器（契約指定）
-LIVE_PSQL = ["docker", "exec", LIVE_CONTAINER]
+DB_USER = "soybean"
+DB_NAME = "soybean_admin_rust"
+COMPOSE_EXEC = ["docker", "compose", "-f", "docker-compose.yml",
+                "-f", "docker-compose.dev.yml", "exec", "-T"]
 
-FRAMEWORK_TABLES = {"seaql_migrations"}
-SEP = "\x1f"
+# 三節列鍵集（與 docs-sync refresh 快照同構；fixtures 形斷言用）
+COL_KEYS = frozenset({"table", "column", "ordinal", "type", "nullable", "default"})
+DEF_KEYS = frozenset({"table", "name", "definition"})
 
-# rename map（data-model §2 節 2 總表；14 組表×欄：凍結基準欄名 → 現行定稿欄名）
-RENAME_MAP = {
-    ("sys_user", "current_session_id"): "session_id",
-    ("sys_role", "code"): "role_code",
-    ("sys_role", "name"): "role_name",
-    ("sys_role", "home"): "role_home",
-    ("system_settings", "value_type"): "setting_type",
-    ("sys_operation_log", "operator_id"): "created_by",
-    ("sys_access_log", "operator_id"): "created_by",
-    ("sys_access_log", "method"): "http_method",
-    ("sys_access_log", "path"): "http_path",
-    ("sys_login_attempt", "operator_id"): "created_by",
-    ("sys_token", "user_id"): "created_by",
-    ("sys_ip_rule", "rule_type"): "wbip_type",
-    ("sys_ip_rule", "cidr"): "wbip_cidr",
-    ("sys_ip_rule", "description"): "wbip_memo",
-}
+# 登記檔（contracts/schema-evolution.md）：kind 枚舉恰八值；id／knife／date 格式
+KINDS = ("add_table", "add_column", "alter_column", "add_index", "add_constraint",
+         "seed_add", "seed_update", "seed_delete")
+RE_ENTRY_ID = re.compile(r"^E-\d{3}$")
+RE_KNIFE = re.compile(r"^\d{3}-[a-z0-9-]+$")
+RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-# 新增欄白名單（ADR 0021）：dict {(表,欄): 期望型別}——泛化支援非 text 型加欄。
-# 002 基線 3 memo text 欄（data-model §2 節 3）＋post-baseline 隨刀登記加欄（各帶期望型別、
-# 來源刀註記）；is_whitelisted_extra 比對登記型別＋可空／無預設三條件。搭配型別變更 1 處
-# （WHITELIST_TYPE）＝原「白名單恰 4 項」之新增面；新增機制不與 STRUCT_ADDITIVE_ALLOWLIST
-# 混用（後者 kind∈table/index、非欄位）。
-WHITELIST_ADD = {
-    ("sys_user", "user_memo"): "text",
-    ("sys_role", "role_memo"): "text",
-    ("sys_menu", "menu_memo"): "text",
-    ("sys_casbin_policy_archive", "role_id"): "bigint",  # 009-role-admin m007
-}
-WHITELIST_TYPE = {
-    ("sys_ip_rule", "wbip_memo"): ("character varying", "text"),
-}
-
-# ---- 閘 1 結構面：post-baseline rev4 新增結構白名單（ADR 0039）----
-# 002 凍結基準之後、後續刀合法「新增」的結構物件。比照 SEED_ADDITIVE_ALLOWLIST（ADR 0032）
-# 範式：逐項註明來源刀、零萬用字元；白名單內的「實庫多表／多索引」＝容差 delta、非 FAIL；
-# 白名單外＝FAIL。★只放寬「新增」、不放寬「改動」——名稱撞基準既有物件者仍走定義比對；
-# 凍結 fixtures 永不因新增而改寫。形＝(kind, table, name)：kind="table"（整表容差、
-# 含其自身欄/約束/索引——基準無此表、無從比對；name=None）／kind="index"（既有表上的新增索引）。
-STRUCT_ADDITIVE_ALLOWLIST = {
-    ("table", "session_event", None),                     # 006-session-lifecycle m004
-    ("index", "sys_token", "uq_sys_token_chain_active"),  # 006-session-lifecycle m004
-    ("table", "sys_pwd_custody", None),                   # 015-pwd-custody m011
-    ("index", "sys_access_log", "idx_access_log_path_trgm"),             # 012-audit-admin m009（015 U2 勘誤補登、L-148）
-    ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm"),  # 012-audit-admin m009（015 U2 勘誤補登、L-148）
-    ("table", "sys_user_email_verify", None),                            # 020-email-verify-smtp m014
-    ("index", "sys_user", "sys_user_user_email_active_uniq"),            # 020-email-verify-smtp m014
-}
-
-# ---- 閘 2 seed 面（contracts §3）----
-# natural key（sys_user_role 不在此表——複合鍵解析為 user_name×role_code、見 cmd_gate2）
-SEED_KEYS = {
-    "sys_user": ("user_name",),
-    "sys_role": ("role_code",),
-    "sys_menu": ("route_name",),
-    "system_settings": ("setting_key",),
-    "casbin_rule": ("ptype", "v0", "v1", "v2", "v3", "v4", "v5"),
-}
-SEED_TABLES = ("sys_user", "sys_role", "sys_user_role", "sys_menu",
-               "casbin_rule", "system_settings")
-# 內容比對排除面（敘事見檔頭 gate2 節；updated_by／session_id 之機器證據＝
-# fixtures scratch-json-* vs json-* 機器 diff）
-GLOBAL_SEED_EXCLUDE = {"id", "created_at", "updated_at", "deleted_at", "updated_by"}
-PER_TABLE_SEED_EXCLUDE = {
-    "sys_user": {"session_id"},      # 執行期登入 session 狀態、非 seed 內容
-    "sys_menu": {"parent_id"},       # 以 route_name 解析比對（menu_parent_map）
-}
-
-# ---- 閘 2 seed 面：post-baseline rev4 新增 seed 白名單（ADR 0032）----
-# 002 凍結基準（fixtures 凍結不改寫、byte 級原樣）之後、後續 feature 合法新增的 seed。
-# 比照 gate1 結構白名單（WHITELIST_ADD＝3 memo 欄〔ADR 0021 基線〕＋post-baseline 隨刀登記項〔如 009 role_id、ADR 0049〕）：白名單內的「實庫多列」＝容差 delta、非 FAIL；
-# 白名單外任何實庫多列＝FAIL（防意外多出 seed）。key＝(table, natural_key tuple)。
-SEED_ADDITIVE_ALLOWLIST = {
-    ("system_settings", ("session_idle_timeout",)),  # 005-auth-login m003（ADR 0030 閒置逾時設定）
-    ("system_settings", ("login_throttle_max_fails",)),       # 007-login-throttle m005
-    ("system_settings", ("login_throttle_window_minutes",)),  # 007-login-throttle m005
-    ("system_settings", ("login_throttle_captcha_after",)),   # 007-login-throttle m005
-    ("system_settings", ("ip_max_fails",)),        # 008-ip-gate m006
-    ("system_settings", ("ip_window_minutes",)),   # 008-ip-gate m006
-    ("system_settings", ("ip_captcha_after",)),    # 008-ip-gate m006
-    # 011-user-admin m008（4 端點 p 列＋4 按鈕碼、全 R_SUPER；natural key＝ptype+v0..v5 七元組）
-    ("casbin_rule", ("p", "R_SUPER", "/systemManage/resetUserPassword", "POST", "", "", "")),  # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "/systemManage/kickUser", "POST", "", "", "")),           # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "/systemManage/getDeletedUsers", "GET", "", "", "")),     # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "/systemManage/restoreUser", "POST", "", "", "")),        # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "user:reset-pwd", "button", "", "", "")),                 # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "user:kick", "button", "", "", "")),                      # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "user:restore", "button", "", "", "")),                   # 011 m008
-    ("casbin_rule", ("p", "R_SUPER", "user:unlock", "button", "", "", "")),                    # 011 m008
-    # 012-audit-admin m009（getSessionEvent GET＋purgeAuditLog POST、全 R_SUPER；natural key＝ptype+v0..v5 七元組）
-    ("casbin_rule", ("p", "R_SUPER", "/systemManage/getSessionEvent", "GET", "", "", "")),     # 012 m009
-    ("casbin_rule", ("p", "R_SUPER", "/systemManage/purgeAuditLog", "POST", "", "", "")),      # 012 m009
-    # 013-ip-rule-admin m010（4 按鈕碼 p 列、全 R_SUPER；natural key＝ptype+v0..v5 七元組；ADR 0063）
-    ("casbin_rule", ("p", "R_SUPER", "ipRule:add", "button", "", "", "")),      # 013 m010
-    ("casbin_rule", ("p", "R_SUPER", "ipRule:edit", "button", "", "", "")),     # 013 m010
-    ("casbin_rule", ("p", "R_SUPER", "ipRule:delete", "button", "", "", "")),   # 013 m010
-    ("casbin_rule", ("p", "R_SUPER", "ipRule:restore", "button", "", "", "")),  # 013 m010
-    # 015-pwd-custody m011（設密冷卻秒數、0＝停用）
-    ("system_settings", ("password_change_min_interval",)),  # 015 m011
-}
-
-# ---- 閘 2 seed 面：既有 seed 列內容變更受管軌道（ADR 0064）----
-# 與 SEED_ADDITIVE_ALLOWLIST 平行分工：additive＝「實庫多列（新增 seed）」容差；
-# content-override＝「natural key 配對成功之既有列、單一 cell 內容」的受管演進。
-# key＝(table, natural_key_str, column)——natural_key_str＝fmt_natural_key 輸出形
-# （c=v 逗號串接，例 route_name=manage_ip-rule）；value＝登記的預期新內容。
-# 行為：命中 cell 改比「實庫值 == 登記預期值」（兩側皆過 norm_seed_value 正規化；
-# ★非 == fixture 值）——基準自凍結 fixture 演進為登記值、仍逐值比對、保留漂移偵測、
-# 絕非跳過該格不比；fixture 保持 byte 級凍結不改寫；白名單外任何既有列內容差異仍 FAIL。
-# 逐筆登記須 ADR／spec 留痕（首筆＝013 m010 buttons 回填、隨該刀 seed 登記）。
-SEED_CONTENT_OVERRIDE_ALLOWLIST = {
-    # 013-ip-rule-admin m010（首筆；ADR 0063/0064）：manage_ip-rule 列 buttons 自 NULL 回填
-    # 四按鈕碼——★物件形 {code, desc}（all_button_codes 逐元素取 code；desc＝m002 既有簡體風格）。
-    ("sys_menu", "route_name=manage_ip-rule", "buttons"): [
-        {"code": "ipRule:add", "desc": "新增IP规则"},
-        {"code": "ipRule:edit", "desc": "编辑IP规则"},
-        {"code": "ipRule:delete", "desc": "删除IP规则"},
-        {"code": "ipRule:restore", "desc": "恢复IP规则"},
-    ],
-    # maint-b101 m015（B-101；ADR 0064）：manage_user 列 buttons 自 m002 三碼演進為七碼——
-    # 既有三碼原值原序保留、append 四碼（m008 於 011 只 seed casbin 按鈕政策未回填 buttons
-    # 之缺口補平；desc 簡體＝欄內既有 seed 風格延續）。
-    ("sys_menu", "route_name=manage_user", "buttons"): [
-        {"code": "user:add", "desc": "新增用户"},
-        {"code": "user:edit", "desc": "编辑用户"},
-        {"code": "user:delete", "desc": "删除用户"},
-        {"code": "user:reset-pwd", "desc": "重置密码"},
-        {"code": "user:kick", "desc": "踢除下线"},
-        {"code": "user:restore", "desc": "复原用户"},
-        {"code": "user:unlock", "desc": "解锁登录"},
-    ],
-}
-
-# ---- audit 變體矩陣（contracts §4）----
+# archetype 四變體字串（gates.md §3 label 值域；C 子型明細走 note 人讀）
+LABELS = ("A 業務全六欄", "B append-only", "C join·狀態機", "D 治理")
+# created_by NN 恰四表（data-model §1「*_by 欄性質判準」：domain 欄、非審計欄）；其餘一律可空
+CREATED_BY_NN = ("sys_access_log", "sys_token", "sys_pwd_custody", "sys_user_email_verify")
 AUDIT_SIX = ("created_at", "created_by", "updated_at", "updated_by",
              "deleted_at", "deleted_by")
-CASBIN_BASE8 = ("id", "ptype", "v0", "v1", "v2", "v3", "v4", "v5")
-TSTZ = "timestamp with time zone"
+ORDER_EXEMPT = ("casbin_rule",)   # 委派建表、欄序不入親排（data-model §7）
+
+# rename map（data-model §3、4 組、全在 sys_operation_log）：僅供 vs rev4 快照血緣對賬
+# 場景（fixtures 產製一次性三驗腳本 import）；rev5 自家比對一律新欄名、check 不消費。
+RENAME_MAP = {
+    "operator_real_ip": "real_ip",
+    "operator_peer_ip": "peer_ip",
+    "operator_x_forwarded_for": "x_forwarded_for",
+    "operator_ip_confidence": "ip_confidence",
+}
+
+# ── 照相三查詢（與 tools/docs-sync.py refresh 同構 SQL；SELECT only）────────────
+_JSON_WRAP = "SELECT COALESCE(json_agg(t), '[]'::json) FROM ({}) t"
+SQL_COLUMNS = _JSON_WRAP.format(
+    'SELECT c.table_name AS "table", c.column_name AS "column",'
+    ' c.ordinal_position AS "ordinal", format_type(a.atttypid, a.atttypmod) AS "type",'
+    " c.is_nullable = 'YES' AS \"nullable\", c.column_default AS \"default\""
+    " FROM information_schema.columns c"
+    " JOIN pg_class cl ON cl.relname = c.table_name"
+    " JOIN pg_namespace ns ON ns.oid = cl.relnamespace AND ns.nspname = c.table_schema"
+    " JOIN pg_attribute a ON a.attrelid = cl.oid AND a.attname = c.column_name"
+    " WHERE c.table_schema = 'public' AND c.table_name <> 'seaql_migrations'"
+    " ORDER BY c.table_name, c.ordinal_position")
+SQL_INDEXES = _JSON_WRAP.format(
+    'SELECT tablename AS "table", indexname AS "name", indexdef AS "definition"'
+    " FROM pg_indexes WHERE schemaname = 'public' AND tablename <> 'seaql_migrations'"
+    " ORDER BY tablename, indexname")
+SQL_CONSTRAINTS = _JSON_WRAP.format(
+    'SELECT rel.relname AS "table", con.conname AS "name",'
+    ' pg_get_constraintdef(con.oid) AS "definition"'
+    " FROM pg_constraint con"
+    " JOIN pg_class rel ON rel.oid = con.conrelid"
+    " JOIN pg_namespace ns ON ns.oid = rel.relnamespace"
+    " WHERE ns.nspname = 'public' AND rel.relname <> 'seaql_migrations'"
+    " ORDER BY rel.relname, con.conname")
 
 
-class EnvUnavailable(Exception):
-    """環境不可用（stack 不在、psql 失敗、基準檔缺）——exit 2 途徑。"""
+class GateError(Exception):
+    """環境／結構異常（fixtures 缺、登記檔壞形、庫不可達、比對面為空）——rc 2 fail-loud。"""
 
 
 # ---------------------------------------------------------------------------
-# 純函式面（測試先行）
+# DB 存取（helper 單支帶 parse 旗標；--container 指定＝docker exec、預設＝compose exec）
 # ---------------------------------------------------------------------------
 
-def norm_ident(name):
-    """欄名正規化：剝除包覆雙引號（"order"→order）。"""
-    name = name.strip()
-    if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
-        return name[1:-1]
-    return name
+def _db_base(container):
+    if container:
+        return ["docker", "exec", "-i", container]
+    return list(COMPOSE_EXEC) + ["postgres"]
 
 
-def apply_rename(table, col):
-    """基準欄名經 rename map 映射為現行定稿欄名（table 域內；未列者原樣）。"""
-    col = norm_ident(col)
-    return RENAME_MAP.get((table, col), col)
+def _run_docker(cmd, run):
+    """docker 子行程統一入口：docker 執行不起來（OSError；不在 PATH／CLI 缺）＝
+    環境異常 GateError→rc 2、非漂移——與 docs-sync psql_fetch／wire-schema
+    extract_schema 同慣例。"""
+    try:
+        return run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+    except OSError as ex:
+        raise GateError(f"無法執行 docker（{ex}）——三閘需 docker 可用；dev stack 啟動："
+                        "docker compose -f docker-compose.yml -f docker-compose.dev.yml "
+                        "up -d --wait postgres；一次性容器場景→確認 --container 名"
+                        ) from None
 
 
-def norm_default(val):
-    """預設值正規化：無值形（None／''／'-'）→None；[]→NULL；
-    CURRENT_TIMESTAMP≡now()（同函式之兩種正規列印形）。"""
-    if val is None:
-        return None
-    val = val.strip()
-    if val in ("", "-", "[]", "'[]'::jsonb"):
-        return None
-    if val == "CURRENT_TIMESTAMP":
-        return "now()"
-    return val
+def psql(sql, parse=False, container=None, user=DB_USER, db=DB_NAME, run=subprocess.run):
+    """docker（compose）exec psql 唯讀撈取；parse=True 時 stdout 以 JSON 解析。
+    psql 失敗（含 docker 不可執行）或 JSON 壞形皆屬環境異常（GateError→rc 2）。"""
+    cmd = _db_base(container) + ["psql", "-U", user, "-d", db,
+                                 "-tA", "-v", "ON_ERROR_STOP=1", "-c", sql]
+    r = _run_docker(cmd, run)
+    if r.returncode != 0:
+        raise GateError(f"psql 失敗（rc={r.returncode}）：{r.stderr.strip()[:300]}"
+                        "——補救：dev stack 未起→docker compose -f docker-compose.yml "
+                        "-f docker-compose.dev.yml up -d --wait postgres；"
+                        "一次性容器場景→確認 --container 名")
+    out = r.stdout.strip()
+    if not parse:
+        return out
+    try:
+        return json.loads(out or "[]")
+    except json.JSONDecodeError as ex:
+        raise GateError(f"psql 輸出非合法 JSON：{ex}；前 200 字＝{out[:200]}")
 
 
-def norm_maxlen(val):
-    """varchar 長度正規形（B-055）：無值形（None／''）→None（無長度上限）；數字字串→int。"""
-    if val is None:
-        return None
-    val = val.strip()
-    if val == "":
-        return None
-    return int(val)
+def pg_dump_data(container=None, user=DB_USER, db=DB_NAME, run=subprocess.run):
+    """實庫 pg_dump --data-only（右源原文）；PGTZ=UTC＝閘不依賴 session timezone。"""
+    base = _db_base(container)
+    # -e 必掛 exec 子命令之後（兩形皆然）；插 docker compose 頂層＝unknown shorthand flag
+    i = base.index("exec") + 1
+    cmd = base[:i] + ["-e", "PGTZ=UTC"] + base[i:] + \
+        ["pg_dump", "-U", user, "-d", db, "--data-only"]
+    r = _run_docker(cmd, run)
+    if r.returncode != 0:
+        raise GateError(f"pg_dump 失敗（rc={r.returncode}）：{r.stderr.strip()[:300]}")
+    return r.stdout
 
 
-def rewrite_def(table, defstr):
-    """把基準側約束／索引定義內的欄識別字經 rename map 改寫為現行欄名
-    （word-boundary、僅該表域；索引「名」不在改寫面——沿凍結基準原名逐字）。"""
-    for (t, old), new in RENAME_MAP.items():
-        if t == table:
-            defstr = re.sub(rf"\b{re.escape(old)}\b", new, defstr)
-    return defstr
+# ---------------------------------------------------------------------------
+# 左源載入（啟動斷言全部 fail-loud；「列缺欄」類壞形前置斷言、勿裸 KeyError）
+# ---------------------------------------------------------------------------
+
+def _load_json(path, what):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        raise GateError(f"{what} 缺席（{path}）") from None
+    except json.JSONDecodeError as ex:
+        raise GateError(f"{what} JSON 壞形：{ex}") from None
 
 
-def is_whitelisted_extra(table, col, attrs):
-    """白名單「新增欄」判定：表×欄在白名單且屬性＝登記期望型別／可空／無預設。"""
-    dtype, nullable, default, _maxlen = attrs
-    want = WHITELIST_ADD.get((table, col))
-    return (want is not None and dtype == want
-            and nullable == "YES" and norm_default(default) is None)
+def load_ledger(root):
+    """演進登記檔＋啟動斷言六條（contracts/schema-evolution.md §2）；任一敗＝GateError。"""
+    path = os.path.join(root, LEDGER)
+    data = _load_json(path, "演進登記檔 schema-evolution.json")
+    # ① 頂層鍵恰集＋型別
+    if not isinstance(data, dict) or set(data) != {"next_id", "entries"}:
+        raise GateError("登記檔啟動斷言①敗：頂層鍵須恰為 {next_id, entries}"
+                        f"（得 {sorted(data) if isinstance(data, dict) else type(data).__name__}）")
+    if not isinstance(data["next_id"], int) or isinstance(data["next_id"], bool) \
+            or data["next_id"] < 1:
+        raise GateError(f"登記檔啟動斷言①敗：next_id 須正整數（得 {data['next_id']!r}）")
+    if not isinstance(data["entries"], list):
+        raise GateError("登記檔啟動斷言①敗：entries 須為 list")
+    nums = []
+    for i, e in enumerate(data["entries"]):
+        tag = f"entries[{i}]"
+        if not isinstance(e, dict):
+            raise GateError(f"登記檔啟動斷言②敗：{tag} 非物件")
+        # ② 欄位齊全非空
+        for k in ("id", "knife", "kind", "table", "detail", "date"):
+            if k not in e or e[k] in (None, "", [], {}):
+                raise GateError(f"登記檔啟動斷言②敗：{tag} 欄位 {k} 缺席或空"
+                                f"（id={e.get('id', '?')}）")
+        # ③ id 格式；⑤ kind 枚舉＋date 格式；④ knife 格式；⑥ drop_* 不存在
+        if not isinstance(e["id"], str) or not RE_ENTRY_ID.match(e["id"]):
+            raise GateError(f"登記檔啟動斷言③敗：{tag} id 格式非 E-NNN（得 {e['id']!r}）")
+        if not isinstance(e["knife"], str) or not RE_KNIFE.match(e["knife"]):
+            raise GateError(f"登記檔啟動斷言④敗：{e['id']} knife（來源刀編號）格式非 "
+                            f"NNN-slug（得 {e['knife']!r}）")
+        if isinstance(e["kind"], str) and e["kind"].startswith("drop_"):
+            raise GateError(f"登記檔啟動斷言⑥敗：{e['id']} kind={e['kind']}——刪除性演進"
+                            "屬拍板級、走新 ADR＋基線翻案，不入登記檔")
+        if e["kind"] not in KINDS:
+            raise GateError(f"登記檔啟動斷言⑤敗：{e['id']} kind={e['kind']!r} 不在枚舉"
+                            f"恰八值 {KINDS}")
+        if not isinstance(e["date"], str) or not RE_DATE.match(e["date"]):
+            raise GateError(f"登記檔啟動斷言⑤敗：{e['id']} date 格式非 YYYY-MM-DD"
+                            f"（得 {e['date']!r}）")
+        if not isinstance(e["detail"], dict):
+            raise GateError(f"登記檔啟動斷言②敗：{e['id']} detail 須為物件")
+        nums.append(int(e["id"][2:]))
+    # ③ 全檔唯一、遞增、永不回收（next_id＝最大號＋1）
+    if len(set(nums)) != len(nums):
+        raise GateError("登記檔啟動斷言③敗：id 重複")
+    if nums != sorted(nums) or any(b <= a for a, b in zip(nums, nums[1:])):
+        raise GateError(f"登記檔啟動斷言③敗：id 非遞增（序列 {nums}）")
+    if nums and data["next_id"] != nums[-1] + 1:
+        raise GateError(f"登記檔啟動斷言③敗：next_id={data['next_id']} ≠ 最大號＋1"
+                        f"（={nums[-1] + 1}）")
+    return data
 
 
-def is_whitelisted_type_change(table, col, base_type, live_type):
-    """白名單「型別變更」判定：恰為登記之（基準型別→實庫型別）方向。"""
-    return WHITELIST_TYPE.get((table, col)) == (base_type, live_type)
-
-
-def is_allowlisted_struct_extra_table(table):
-    """gate1 結構 additive（ADR 0039）：實庫多表是否在白名單（整表容差、
-    含其自身欄/約束/索引——基準無此表、無從比對）。"""
-    return ("table", table, None) in STRUCT_ADDITIVE_ALLOWLIST
-
-
-def is_allowlisted_struct_extra_index(table, name):
-    """gate1 結構 additive（ADR 0039）：既有表上的實庫多索引是否在白名單
-    （按 (table, name) 綁定、跨表不通用；只涵蓋「多」向、改動不放行）。"""
-    return ("index", table, name) in STRUCT_ADDITIVE_ALLOWLIST
-
-
-def parse_psql_aligned(text):
-    """解析 psql 對齊表格輸出（凍結基準三檔之格式）→ list[list[str]]。
-    跳過表頭與分隔線、止於「(N rows)」注腳；儲存格 strip。"""
-    rows = []
-    for i, line in enumerate(text.splitlines()):
-        if i < 2:
-            continue
-        if re.match(r"^\(\d+ rows?\)\s*$", line):
-            break
-        if not line.strip():
-            continue
-        rows.append([cell.strip() for cell in line.split("|")])
+def _assert_rows(rows, keys, what):
+    if not isinstance(rows, list) or not rows:
+        raise GateError(f"{what} 非非空 list——比對面為空、不得靜默判綠")
+    for i, r in enumerate(rows):
+        if not isinstance(r, dict) or set(r) != keys:
+            raise GateError(f"{what} 第 {i} 列形壞：鍵集須恰為 {sorted(keys)}"
+                            f"（得 {sorted(r) if isinstance(r, dict) else type(r).__name__}）")
     return rows
 
 
-def compare_columns(table, left, right):
-    """單表欄比對。left／right＝{欄名:(型別,可空,預設,maxlen)}；right＝基準欄名（映射前）。
-    maxlen（尾端）不在本面比對——長度面另以 sidecar 為基準（compare_maxlen、B-055）。
-    回 (issues, hits)：issues＝白名單外差異逐項；hits＝白名單命中逐項。"""
-    issues, hits = [], []
-    mapped = {apply_rename(table, c): attrs for c, attrs in right.items()}
-    for col in sorted(set(left) - set(mapped)):
-        if is_whitelisted_extra(table, col, left[col]):
-            hits.append(f"{table}.{col}（白名單新增欄）")
-        elif (table, col) in WHITELIST_ADD:
-            lt, ln, ld, _lm = left[col]
-            want = WHITELIST_ADD[(table, col)]
-            issues.append(f"{table}.{col}：白名單新增欄屬性不符"
-                          f"（期 {want}／可空／無預設，實 {lt}／{ln}／{norm_default(ld)}）")
-        else:
-            issues.append(f"{table}.{col}：實庫多欄（白名單外）")
-    for col in sorted(set(mapped) - set(left)):
-        issues.append(f"{table}.{col}：實庫漏欄（基準經欄名映射後應在）")
-    for col in sorted(set(left) & set(mapped)):
-        lt, ln, ld, _lm = left[col]
-        rt, rn, rd, _rm = mapped[col]
-        if lt != rt:
-            if is_whitelisted_type_change(table, col, rt, lt):
-                hits.append(f"{table}.{col}（白名單型別變更 {rt}→{lt}）")
-            else:
-                issues.append(f"{table}.{col}：型別不符（基準 {rt}、實庫 {lt}、白名單外）")
-        if ln != rn:
-            issues.append(f"{table}.{col}：可空性不符（基準 {rn}、實庫 {ln}）")
-        if norm_default(ld) != norm_default(rd):
-            issues.append(f"{table}.{col}：預設值不符"
-                          f"（基準 {norm_default(rd)}、實庫 {norm_default(ld)}）")
-    return issues, hits
+def load_fixtures(root):
+    """凍結面四件（三 json＋seed.sql）；缺席＝GateError 附補救提示（rc 2）。"""
+    remedy = ("——補救：fixtures＝凍結面（specs/001-schema-baseline/fixtures/、"
+              "contracts/fixtures.md）；未產製→依 §2 產製程序（pristine 重放＋三驗後照相"
+              "落檔）；已凍結卻缺檔＝repo 受損，自 git 還原、絕不重產")
+    fx = {}
+    for name, keys in (("columns", COL_KEYS), ("indexes", DEF_KEYS),
+                       ("constraints", DEF_KEYS)):
+        path = os.path.join(root, FIXTURES_DIR, f"{name}.json")
+        try:
+            rows = _load_json(path, f"fixtures/{name}.json")
+        except GateError as ex:
+            raise GateError(str(ex) + remedy) from None
+        fx[name] = _assert_rows(rows, keys, f"fixtures/{name}.json")
+    seed_path = os.path.join(root, FIXTURES_DIR, "seed.sql")
+    try:
+        with open(seed_path, encoding="utf-8") as fh:
+            fx["seed"] = fh.read()
+    except FileNotFoundError:
+        raise GateError(f"fixtures/seed.sql 缺席（{seed_path}）{remedy}") from None
+    if not fx["seed"].strip():
+        raise GateError("fixtures/seed.sql 內容為空——比對面為空、不得靜默判綠" + remedy)
+    return fx
 
 
-def compare_named_defs(table, kind, left, right, allow_extra=None):
-    """按名稱配對比 def（約束／索引）；right def 先經 rewrite_def 映射；
-    名稱與定義皆逐字。allow_extra＝結構 additive 白名單判定（ADR 0039；僅適用
-    「多」向——只放寬新增，名稱撞基準既有者仍走定義比對）。
-    回 (issues, deltas)：issues＝差異逐項；deltas＝白名單容差逐項（非 FAIL）。"""
-    issues, deltas = [], []
-    expected = {name: rewrite_def(table, d) for name, d in right.items()}
-    for name in sorted(set(left) - set(expected)):
-        if allow_extra is not None and allow_extra(table, name):
-            deltas.append(f"{table}：多{kind} {name}（ADR 0039 結構 additive 白名單）")
-        else:
-            issues.append(f"{table}：多{kind} {name}（基準無）")
-    for name in sorted(set(expected) - set(left)):
-        issues.append(f"{table}：漏{kind} {name}（基準有、實庫無）")
-    for name in sorted(set(left) & set(expected)):
-        if left[name] != expected[name]:
-            issues.append(f"{table}：{kind} {name} 定義不符"
-                          f"（基準映射後＝{expected[name]}｜實庫＝{left[name]}）")
-    return issues, deltas
-
-
-def compare_maxlen(sidecar, live_cols_by_table):
-    """B-055 varchar 長度面（ADR 0039）：以 sidecar 為長度基準額外比對。
-    sidecar＝{(表, 現行欄名): maxlen(int|None)}；live_cols_by_table＝
-    {表:{欄:(型別,可空,預設,maxlen)}}（maxlen 併 attrs 尾端）。
-    比對範圍＝sidecar 所列之表欄（僅此、不外擴——post-baseline 新表如 session_event
-    不在 sidecar 屬正常設計、其長度治理歸各自刀）；None≠int 亦屬漂移（界撤除／新設界）。
-    白名單型別變更欄（wbip_memo varchar→text）兩側 maxlen 皆 None、自然等值。回 issues。"""
-    issues = []
-    for (table, col), want in sorted(sidecar.items(), key=str):
-        attrs = live_cols_by_table.get(table, {}).get(col)
-        if attrs is None:
-            issues.append(f"{table}.{col}：sidecar 長度基準有此欄、實庫無")
-            continue
-        got = attrs[3]
-        if got != want:
-            issues.append(f"{table}.{col}：varchar 長度不符（sidecar {want}、實庫 {got}）")
-    return issues
-
-
-# ---- 閘 2 純函式面（欄序解析／natural key 配對／內容正規化）----
-
-def parse_datamodel_ordinals(md_text):
-    """解析 data-model §3 欄序定稿（markdown 十二張表）→ {表名: [欄名（去引號）…]}
-    （依 §3 出現序；§3.12 離散列同形直比）。每表列序必須自 1 連號；
-    格式異常＝EnvUnavailable（基準不可用、走 exit 2、非差異）。"""
-    tables = {}
-    current = None
-    in_s3 = False
-    for line in md_text.splitlines():
-        if re.match(r"^## 3\. ", line):
-            in_s3 = True
-            continue
-        if in_s3 and re.match(r"^## \d", line):
-            break
-        if not in_s3:
-            continue
-        m = re.match(r"^### 3\.\d+ ([A-Za-z_][A-Za-z0-9_]*)", line)
-        if m:
-            current = m.group(1)
-            if current in tables:
-                raise EnvUnavailable(f"data-model §3 表 {current} 重複出現")
-            tables[current] = []
-            continue
-        m = re.match(r"^\|\s*(\d+)\s*\|([^|]*)\|", line)
-        if m and current is not None:
-            seq, col = int(m.group(1)), norm_ident(m.group(2))
-            if seq != len(tables[current]) + 1:
-                raise EnvUnavailable(
-                    f"data-model §3 {current} 欄序表跳號（見 {seq}、期 {len(tables[current]) + 1}）")
-            tables[current].append(col)
-    if not tables:
-        raise EnvUnavailable("data-model §3 無可解析欄序表")
+def load_archetype_map(root):
+    """archetype-map 載入＋形斷言（gates.md §3 形契約；缺鍵／表重複／label 值域外＝rc 2）。"""
+    data = _load_json(os.path.join(root, ARCHETYPE_MAP), "archetype-map.json")
+    if not isinstance(data, dict) or set(data) != {"lineage", "usage", "tables"}:
+        raise GateError("archetype-map 形壞：頂層鍵須恰為 {lineage, usage, tables}")
+    tables = data["tables"]
+    if not isinstance(tables, list) or not tables:
+        raise GateError("archetype-map 形壞：tables 非非空 list")
+    seen = set()
+    for i, row in enumerate(tables):
+        if not isinstance(row, dict) or set(row) != {"table", "label",
+                                                     "active_unique", "note"}:
+            raise GateError(f"archetype-map tables[{i}] 形壞：鍵集須恰為 "
+                            "{table, label, active_unique, note}")
+        if not isinstance(row["table"], str) or not row["table"]:
+            raise GateError(f"archetype-map tables[{i}]：table 必填非空")
+        if row["table"] in seen:
+            raise GateError(f"archetype-map：表 {row['table']} 重複登記")
+        seen.add(row["table"])
+        if row["label"] not in LABELS:
+            raise GateError(f"archetype-map：{row['table']} label={row['label']!r} "
+                            f"值域外（四變體字串＝{LABELS}）")
+        au = row["active_unique"]
+        if au is not None and (not isinstance(au, list) or not au
+                               or any(not isinstance(x, str) or not x for x in au)):
+            raise GateError(f"archetype-map：{row['table']} active_unique 須為索引名"
+                            "非空清單或 null")
+        if not isinstance(row["note"], str):
+            raise GateError(f"archetype-map：{row['table']} note 須為字串（人讀註記）")
     return tables
 
 
-def compare_ordinals(table, live_cols, dm_cols):
-    """單表欄序逐欄比對（位置嚴格）；回 issues 逐位指名。
+def parse_data_model_order(text):
+    """data-model §2 →「表→定稿欄名序」；宣告欄數 vs 解析列數自檢（防靜默漏列）。"""
+    m = re.search(r"^## 2\. .*?$(.*?)^## 3\. ", text, re.M | re.S)
+    if not m:
+        raise GateError("data-model §2 段落定位失敗（## 2. … ## 3. 邊界不在）")
+    tables, declared, cur = {}, {}, None
+    for line in m.group(1).splitlines():
+        h = re.match(r"^### (\w+)（(\d+) 欄", line)
+        if h:
+            cur = h.group(1)
+            declared[cur] = int(h.group(2))
+            tables[cur] = []
+            continue
+        if cur and line.startswith("|"):
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if len(cells) >= 2 and cells[0].isdigit():
+                tables[cur].append(cells[1])
+    for t, n in declared.items():
+        if len(tables[t]) != n:
+            raise GateError(f"data-model §2 解析自檢敗：{t} 宣告 {n} 欄、解析得 "
+                            f"{len(tables[t])}")
+    if len(tables) != 14:
+        raise GateError(f"data-model §2 解析自檢敗：期望 14 親排表、解析得 {len(tables)}")
+    return tables
 
-    ADR 0039 additive 容差（gate2 欄序面）：實庫尾端多出且登記於 gate1 欄面白名單
-    WHITELIST_ADD 的欄——post-baseline `ALTER TABLE ADD COLUMN` 恆落物理尾序——視為
-    容差、非欄序漂移，據以剝除後再與 §3 定稿逐位比對。§3 欄序定稿與 psql 凍結快照
-    一律不改（比照 gate1「只放寬新增、不放寬改動/重排」）。首個實例＝009 m007
-    sys_casbin_policy_archive.role_id（gate1 已白名單放行、type 面由 gate1 把關）。"""
-    # 尾端連續段：逐一剝除「超出定稿欄數且登記 WHITELIST_ADD」的實庫尾欄（不觸基準區）
-    effective = list(live_cols)
-    while len(effective) > len(dm_cols) and (table, effective[-1]) in WHITELIST_ADD:
-        effective.pop()
-    if effective == dm_cols:
+
+def load_data_model_order(root):
+    path = os.path.join(root, DATA_MODEL)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return parse_data_model_order(fh.read())
+    except FileNotFoundError:
+        raise GateError(f"data-model.md 缺席（{path}）") from None
+
+
+def load_sequence_roster(root):
+    """sequence 名冊＝seed-decision.json 之 sequences 節（唯一源、勿手抄名字面）。"""
+    data = _load_json(os.path.join(root, SEED_DECISION), "seed-decision.json")
+    seqs = data.get("sequences") if isinstance(data, dict) else None
+    if not isinstance(seqs, list) or not seqs:
+        raise GateError("seed-decision.json sequences 節空或缺——sequence 名冊無源")
+    names = []
+    for i, s in enumerate(seqs):
+        if not isinstance(s, dict) or not isinstance(s.get("name"), str) or not s["name"]:
+            raise GateError(f"seed-decision.json sequences[{i}] 形壞（缺 name）")
+        names.append(s["name"])
+    if len(set(names)) != len(names):
+        raise GateError("seed-decision.json sequences 名冊重複")
+    return sorted(names)
+
+
+# ---------------------------------------------------------------------------
+# gate1：凍結 ⊕ 演進帳合成 → 三節逐列全等
+# ---------------------------------------------------------------------------
+
+def _need(detail, keys, eid):
+    for k in keys:
+        if k not in detail:
+            raise GateError(f"演進帳 {eid} detail 缺鍵 {k}——不足以機器合成期望值")
+
+
+def synth_expected(fixtures, entries):
+    """凍結三節 ⊕ 結構性 entries（seed_* 歸 gate2 seed 面）→ 期望三節（確定性排序）。"""
+    cols = [dict(r) for r in fixtures["columns"]]
+    idxs = [dict(r) for r in fixtures["indexes"]]
+    cons = [dict(r) for r in fixtures["constraints"]]
+    for e in entries:
+        kind, t, d, eid = e["kind"], e["table"], e["detail"], e["id"]
+        if kind == "add_table":
+            _need(d, ("columns",), eid)
+            if not isinstance(d["columns"], list) or not d["columns"]:
+                raise GateError(f"演進帳 {eid} add_table columns 須為全欄非空清單")
+            if any(c["table"] == t for c in cols):
+                raise GateError(f"演進帳 {eid} add_table：表 {t} 已存在於期望面")
+            for i, c in enumerate(d["columns"], 1):
+                if not isinstance(c, dict):
+                    raise GateError(f"演進帳 {eid} add_table columns[{i - 1}] 非物件")
+                _need(c, ("column", "type", "nullable"), eid)
+                cols.append({"table": t, "column": c["column"], "ordinal": i,
+                             "type": c["type"], "nullable": c["nullable"],
+                             "default": c.get("default")})
+        elif kind == "add_column":
+            _need(d, ("column", "type", "nullable"), eid)
+            if d.get("position", "末位") != "末位":
+                raise GateError(f"演進帳 {eid} add_column position={d['position']!r} "
+                                "未支援——契約＝接末位（gates.md §2）")
+            existing = [c for c in cols if c["table"] == t]
+            if not existing:
+                raise GateError(f"演進帳 {eid} add_column：表 {t} 不在期望面")
+            cols.append({"table": t, "column": d["column"],
+                         "ordinal": max(c["ordinal"] for c in existing) + 1,
+                         "type": d["type"], "nullable": d["nullable"],
+                         "default": d.get("default")})
+        elif kind == "alter_column":
+            _need(d, ("column",), eid)
+            hit = [c for c in cols if c["table"] == t and c["column"] == d["column"]]
+            if len(hit) != 1:
+                raise GateError(f"演進帳 {eid} alter_column：{t}.{d['column']} 在期望面"
+                                f"命中 {len(hit)} 筆（須恰 1）")
+            for k in ("type", "nullable", "default"):
+                if k in d:
+                    hit[0][k] = d[k]
+        elif kind == "add_index":
+            _need(d, ("name", "definition"), eid)
+            idxs.append({"table": t, "name": d["name"], "definition": d["definition"]})
+        elif kind == "add_constraint":
+            _need(d, ("name", "definition"), eid)
+            cons.append({"table": t, "name": d["name"], "definition": d["definition"]})
+        # seed_add／seed_update／seed_delete：gate2 seed 面合成（apply_seed_entries）
+    return {
+        "columns": sorted(cols, key=lambda r: (r["table"], r["ordinal"])),
+        "indexes": sorted(idxs, key=lambda r: (r["table"], r["name"])),
+        "constraints": sorted(cons, key=lambda r: (r["table"], r["name"])),
+    }
+
+
+def compare_structure(expected, actual):
+    """三節逐列全等；未登記差異／登記超前逐項指名（section＋table＋名稱＋左右值）。"""
+    findings = []
+    exp_c = {(c["table"], c["column"]):
+             (c["ordinal"], c["type"], c["nullable"], c["default"])
+             for c in expected["columns"]}
+    act_c = {(c["table"], c["column"]):
+             (c["ordinal"], c["type"], c["nullable"], c["default"])
+             for c in actual["columns"]}
+    for k in sorted(set(exp_c) - set(act_c)):
+        findings.append(f"[gate1] columns/{k[0]}/{k[1]}｜期望有、實庫無"
+                        f"（左={exp_c[k]}、右=∅）——登記超前也是漂移")
+    for k in sorted(set(act_c) - set(exp_c)):
+        findings.append(f"[gate1] columns/{k[0]}/{k[1]}｜實庫有、期望無"
+                        f"（左=∅、右={act_c[k]}）——未登記漂移（合法化唯一路徑＝"
+                        "schema-evolution.json 登記）")
+    for k in sorted(set(exp_c) & set(act_c)):
+        if exp_c[k] != act_c[k]:
+            findings.append(f"[gate1] columns/{k[0]}/{k[1]}｜(ordinal,type,nullable,"
+                            f"default) 左（期望）={exp_c[k]}、右（實庫）={act_c[k]}")
+    for section in ("indexes", "constraints"):
+        exp = {(r["table"], r["name"]): r["definition"] for r in expected[section]}
+        act = {(r["table"], r["name"]): r["definition"] for r in actual[section]}
+        for k in sorted(set(exp) - set(act)):
+            findings.append(f"[gate1] {section}/{k[0]}/{k[1]}｜期望有、實庫無"
+                            f"（左={exp[k]!r}）")
+        for k in sorted(set(act) - set(exp)):
+            findings.append(f"[gate1] {section}/{k[0]}/{k[1]}｜實庫有、期望無"
+                            f"（右={act[k]!r}）——未登記漂移")
+        for k in sorted(set(exp) & set(act)):
+            if exp[k] != act[k]:
+                findings.append(f"[gate1] {section}/{k[0]}/{k[1]}｜定義異：左（期望）="
+                                f"{exp[k]!r}、右（實庫）={act[k]!r}")
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# gate2 欄序：data-model §2 ＋ add_column 末位 vs 實庫 ordinal
+# ---------------------------------------------------------------------------
+
+def compare_column_order(dm_order, entries, actual_cols):
+    """14 親排表逐位全等；casbin_rule 豁免；演進帳 add_column 依 id 序接末位。"""
+    findings = []
+    expected = {t: list(names) for t, names in dm_order.items()}
+    for e in entries:
+        if e["kind"] == "add_column" and e["table"] in expected:
+            expected[e["table"]].append(e["detail"]["column"])
+    by_table = {}
+    for c in actual_cols:
+        by_table.setdefault(c["table"], []).append(c)
+    for t in sorted(expected):
+        if t in ORDER_EXEMPT:
+            continue
+        if t not in by_table:
+            findings.append(f"[gate2·欄序] {t}｜表不在實庫")
+            continue
+        act = [c["column"] for c in sorted(by_table[t], key=lambda c: c["ordinal"])]
+        exp = expected[t]
+        if act != exp:
+            for i in range(max(len(act), len(exp))):
+                a = act[i] if i < len(act) else "∅"
+                x = exp[i] if i < len(exp) else "∅"
+                if a != x:
+                    findings.append(f"[gate2·欄序] {t} 第 {i + 1} 位｜期望={x}、實庫={a}")
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# gate2 seed：pg_dump normalize（兩側同則）＋ seed_* 合成 ＋ 未排序逐列 diff
+# ---------------------------------------------------------------------------
+
+RE_COPY_HDR = re.compile(r"^COPY public\.(\w+) \(([^)]*)\) FROM stdin;$")
+
+
+def normalize_seed_dump(text):
+    """gates.md §2 normalize 全則：剝 \\restrict／\\unrestrict token 行＋seaql_migrations
+    COPY 段（框架帳表 stanza 整段）；COPY 段內整列排序（消物理列序假紅）；setval 原位。
+    冪等：normalize(normalize(x))＝normalize(x)。"""
+    lines = text.splitlines()
+    out, i, n = [], 0, len(lines)
+    while i < n:
+        ln = lines[i]
+        if ln.startswith("\\restrict ") or ln.startswith("\\unrestrict "):
+            i += 1
+            continue
+        if ln.startswith("-- Data for Name: seaql_migrations;"):
+            if out and out[-1] == "--":
+                out.pop()
+            i += 1
+            if i < n and lines[i] == "--":
+                i += 1
+            while i < n and lines[i] == "":
+                i += 1
+            if i < n and lines[i].startswith("COPY public.seaql_migrations "):
+                while i < n and lines[i] != "\\.":
+                    i += 1
+                i += 1                       # 吃掉 \.
+            while i < n and lines[i] == "":
+                i += 1
+            continue
+        m = RE_COPY_HDR.match(ln)
+        if m:
+            out.append(ln)
+            i += 1
+            block = []
+            while i < n and lines[i] != "\\.":
+                block.append(lines[i])
+                i += 1
+            out.extend(sorted(block))        # 整列排序（僅段內；全檔不排序）
+            if i < n:
+                out.append(lines[i])         # \.
+                i += 1
+            continue
+        out.append(ln)
+        i += 1
+    return "\n".join(out) + "\n"
+
+
+def copy_literal(v):
+    """python 值 → pg COPY text 格；不支援型別 fail-loud。"""
+    if v is None:
+        return "\\N"
+    if v is True:
+        return "t"
+    if v is False:
+        return "f"
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, str):
+        return (v.replace("\\", "\\\\").replace("\t", "\\t")
+                .replace("\n", "\\n").replace("\r", "\\r"))
+    raise GateError(f"seed 合成不支援的值型別：{type(v).__name__}")
+
+
+def _copy_blocks(lines):
+    """normalize 後文本 → {表: (欄名序, 首列行號, 末列行號後一)}；行號指 COPY 資料列範圍。"""
+    blocks = {}
+    i = 0
+    while i < len(lines):
+        m = RE_COPY_HDR.match(lines[i])
+        if m:
+            cols = [c.strip().strip('"') for c in m.group(2).split(",")]
+            start = i + 1
+            j = start
+            while j < len(lines) and lines[j] != "\\.":
+                j += 1
+            blocks[m.group(1)] = (cols, start, j)
+            i = j
+        i += 1
+    return blocks
+
+
+def apply_seed_entries(norm_text, entries):
+    """seed 面演進合成到左源（normalize 後施作、段內重排序）。消費四類 entries：
+    seed_add＝{pk:[主鍵欄…], values:{欄:值 全欄}}／seed_update＝{pk:{欄:值}, set:{欄:值}}
+    ／seed_delete＝{pk:{欄:值}}；★add_column 亦動 seed 面（pg_dump COPY 段首欄清單隨
+    結構走）——僅支援 nullable 無 default 形（既有列補 \\N）；其它形與 add_table 之
+    seed 面合成未內建＝GateError fail-loud（該刀擴充本閘或走基線翻案；gate1 結構面照常）。"""
+    seed_kinds = [e for e in entries
+                  if e["kind"].startswith("seed_") or e["kind"] in ("add_column",
+                                                                    "add_table")]
+    if not seed_kinds:
+        return norm_text
+    lines = norm_text.splitlines()
+    for e in seed_kinds:
+        kind, t, d, eid = e["kind"], e["table"], e["detail"], e["id"]
+        if kind == "add_table":
+            raise GateError(f"演進帳 {eid} add_table：seed 面（pg_dump 新增 COPY 段）"
+                            "合成未內建——該刀擴充 tools/schema-gate.py seed 合成或走"
+                            "基線翻案（gate1 結構面已承載）")
+        blocks = _copy_blocks(lines)
+        if t not in blocks:
+            raise GateError(f"演進帳 {eid} {kind}：seed 面無表 {t} 之 COPY 段")
+        cols, start, end = blocks[t]
+        rows = lines[start:end]
+        if kind == "add_column":
+            _need(d, ("column", "type", "nullable"), eid)
+            if not (d["nullable"] is True and d.get("default") is None):
+                raise GateError(f"演進帳 {eid} add_column {t}.{d['column']}：seed 面"
+                                "列值合成僅支援 nullable 無 default（既有列補 \\N）——"
+                                "帶 default／NOT NULL 回填形＝該刀擴充本閘或走基線翻案")
+            if not re.match(r"^[a-z_][a-z0-9_]*$", d["column"]):
+                raise GateError(f"演進帳 {eid} add_column：欄名 {d['column']!r} 非"
+                                "樸素識別字——pg_dump 引號形無法機器合成")
+            hdr = lines[start - 1]
+            lines[start - 1] = hdr.replace(") FROM stdin;",
+                                           f", {d['column']}) FROM stdin;")
+            lines[start:end] = sorted(r + "\t\\N" for r in rows)
+            continue
+
+        def _match(row, pk_map):
+            vals = row.split("\t")
+            if len(vals) != len(cols):
+                raise GateError(f"演進帳 {eid}：{t} COPY 列欄數 {len(vals)} ≠ 段首欄數 "
+                                f"{len(cols)}（凍結面受損？）")
+            return all(vals[cols.index(k)] == copy_literal(v)
+                       for k, v in pk_map.items())
+
+        if kind == "seed_add":
+            _need(d, ("pk", "values"), eid)
+            if set(d["values"]) != set(cols):
+                raise GateError(f"演進帳 {eid} seed_add：values 欄集 ≠ {t} COPY 欄集"
+                                f"（差集 {sorted(set(cols) ^ set(d['values']))}）")
+            rows.append("\t".join(copy_literal(d["values"][c]) for c in cols))
+        elif kind == "seed_update":
+            _need(d, ("pk", "set"), eid)
+            hits = [i for i, r in enumerate(rows) if _match(r, d["pk"])]
+            if len(hits) != 1:
+                raise GateError(f"演進帳 {eid} seed_update：{t} pk={d['pk']} 命中 "
+                                f"{len(hits)} 列（須恰 1）")
+            vals = rows[hits[0]].split("\t")
+            for k, v in d["set"].items():
+                if k not in cols:
+                    raise GateError(f"演進帳 {eid} seed_update：欄 {k} 不在 {t} COPY 段")
+                vals[cols.index(k)] = copy_literal(v)
+            rows[hits[0]] = "\t".join(vals)
+        else:  # seed_delete
+            _need(d, ("pk",), eid)
+            hits = [i for i, r in enumerate(rows) if _match(r, d["pk"])]
+            if len(hits) != 1:
+                raise GateError(f"演進帳 {eid} seed_delete：{t} pk={d['pk']} 命中 "
+                                f"{len(hits)} 列（須恰 1）")
+            del rows[hits[0]]
+        lines[start:end] = sorted(rows)      # 段內重排序、段外原位
+    return "\n".join(lines) + "\n"
+
+
+RE_SETVAL = re.compile(r"^SELECT pg_catalog\.setval\('public\.(\w+)', \d+, (?:true|false)\);$")
+
+
+def assert_seed_roster(norm_frozen, roster):
+    """凍結 seed.sql 之 setval 名冊必恰等 seed-decision sequences 節（兩者皆凍結面）。"""
+    names = sorted(m.group(1) for m in
+                   (RE_SETVAL.match(ln) for ln in norm_frozen.splitlines()) if m)
+    if names != sorted(roster):
+        raise GateError(f"凍結 seed.sql setval 名冊 {names} ≠ seed-decision sequences "
+                        f"名冊 {sorted(roster)}——凍結面受損或名冊源壞")
+
+
+def compare_seed(expected_text, actual_text, limit=60):
+    """normalize 後未排序逐列 diff（含 id 欄）；★禁全檔排序後雜湊比對。"""
+    exp, act = expected_text.splitlines(), actual_text.splitlines()
+    if exp == act:
         return []
-    issues = []
-    for i in range(max(len(effective), len(dm_cols))):
-        lc = effective[i] if i < len(effective) else "（無）"
-        dc = dm_cols[i] if i < len(dm_cols) else "（無）"
-        if lc != dc:
-            issues.append(f"{table}：欄序位 {i + 1} 不符（定稿 {dc}、實庫 {lc}）")
-    return issues
-
-
-def natural_key_of(table, row):
-    return tuple(row.get(c) for c in SEED_KEYS[table])
-
-
-def fmt_natural_key(table, key):
-    return ",".join(f"{c}={v}" for c, v in zip(SEED_KEYS[table], key))
-
-
-def is_allowlisted_seed_extra(table, key_str):
-    """實庫多列是否為 ADR 0032 白名單內的合法 post-baseline 新增 seed（凍結 fixtures 不含、但合法）。
-    key_str＝fmt_natural_key 格式；比對白名單各項的同格式字串（按 (table,key) 綁定、跨表不通用）。"""
-    allowed = {fmt_natural_key(t, k) for (t, k) in SEED_ADDITIVE_ALLOWLIST if t == table}
-    return key_str in allowed
-
-
-def rows_by_natural_key(table, rows):
-    """列集合按 natural key 建索引；重複鍵逐項回報（不覆蓋、防假配對）。"""
-    by, dups = {}, []
-    for row in rows:
-        key = natural_key_of(table, row)
-        if key in by:
-            dups.append(fmt_natural_key(table, key))
-        else:
-            by[key] = row
-    return by, dups
-
-
-def match_seed_sets(table, live_rows, fixt_rows):
-    """natural key 雙向配對：回 (pairs{key:(live,fixt)}, 多列, 缺列, 重複鍵)。"""
-    lby, ldups = rows_by_natural_key(table, live_rows)
-    fby, fdups = rows_by_natural_key(table, fixt_rows)
-    pairs = {k: (lby[k], fby[k]) for k in lby if k in fby}
-    extra = sorted(fmt_natural_key(table, k) for k in set(lby) - set(fby))
-    missing = sorted(fmt_natural_key(table, k) for k in set(fby) - set(lby))
-    return pairs, extra, missing, ldups + fdups
-
-
-def norm_seed_value(val):
-    """seed 內容正規化：jsonb 空容器（[]／{}）≡ NULL（與閘 1 預設值 []→NULL 同則）；
-    結構值走解析後深比對、不比字面。"""
-    if isinstance(val, (list, dict)) and not val:
-        return None
-    return val
-
-
-def compare_seed_row(table, key_str, live, fixt):
-    """配對後單列內容比對。排除面與 password PHC 規則見檔頭 gate2 節；
-    fixt 缺鍵視同 NULL（memo 新欄不 seed）；輸出不含 password 值；
-    cell 命中 SEED_CONTENT_OVERRIDE_ALLOWLIST（ADR 0064）→改比登記預期值。"""
-    issues = []
-    exclude = GLOBAL_SEED_EXCLUDE | PER_TABLE_SEED_EXCLUDE.get(table, set())
-    if table == "sys_user":
-        pw = live.get("password")
-        if not (isinstance(pw, str) and pw.startswith("$argon2id$")):
-            issues.append(f"{table}（{key_str}）.password：PHC 格式不符"
-                          f"（期 $argon2id$ 前綴；不列值）")
-        exclude = exclude | {"password"}
-    for col in sorted((set(live) | set(fixt)) - exclude):
-        if col not in live:
-            issues.append(f"{table}（{key_str}）.{col}：實庫無此欄（基準有值）")
-            continue
-        lv = norm_seed_value(live.get(col))
-        ov_key = (table, key_str, col)
-        if ov_key in SEED_CONTENT_OVERRIDE_ALLOWLIST:
-            # content-override 軌（ADR 0064）：基準自凍結 fixture 演進為登記預期值
-            # ——仍逐值比對、保留漂移偵測、非豁免；fixture 保持凍結不改寫。
-            ev = norm_seed_value(SEED_CONTENT_OVERRIDE_ALLOWLIST[ov_key])
-            if lv != ev:
-                issues.append(f"{table}（{key_str}）.{col}：內容不符"
-                              f"（override 軌 ADR 0064：登記預期 {ev!r}、實庫 {lv!r}）")
-            continue
-        fv = norm_seed_value(fixt.get(col))
-        if lv != fv:
-            issues.append(f"{table}（{key_str}）.{col}：內容不符"
-                          f"（定稿 {fv!r}、實庫 {lv!r}）")
-    return issues
-
-
-def menu_parent_map(rows):
-    """sys_menu 父子關係以 route_name 表達（id 由插入序落位、對具體 id 值零依賴）。"""
-    by_id = {r.get("id"): r for r in rows}
-    out = {}
-    for r in rows:
-        pid = r.get("parent_id")
-        if pid is None:
-            out[r.get("route_name")] = None
-        else:
-            parent = by_id.get(pid)
-            out[r.get("route_name")] = (parent.get("route_name") if parent
-                                        else f"（無此 id={pid}）")
-    return out
-
-
-def resolve_user_role(rows, users_by_id, roles_by_id):
-    """sys_user_role 複合鍵解析為 (user_name, role_code) 集合（id 非穩定、不直比）。"""
-    out = set()
-    for r in rows:
-        uid, rid = r.get("user_id"), r.get("role_id")
-        out.add((users_by_id.get(uid, f"（無此 user_id={uid}）"),
-                 roles_by_id.get(rid, f"（無此 role_id={rid}）")))
-    return out
-
-
-# ---- audit 純函式面（變體矩陣逐表判定）----
-
-def has_active_unique(index_defs, col):
-    """活性唯一在場判定：UNIQUE 索引、WHERE (deleted_at IS NULL)、鍵含指定欄
-    （複合鍵成員亦算在場）。"""
-    for d in index_defs:
-        if "UNIQUE" not in d or "WHERE (deleted_at IS NULL)" not in d:
-            continue
-        m = re.search(r"USING btree \(([^)]*)\)", d)
-        if m and col in [c.strip() for c in m.group(1).split(",")]:
-            return True
-    return False
-
-
-def audit_table(table, variant, active_unique, cols, index_defs):
-    """單表變體判定（contracts §4）。cols＝{欄:(型別,可空,預設)}；回 issues。"""
-    issues = []
-
-    def forbid_mutation_cols(tag):
-        for col in sorted(cols):
-            if col.startswith("updated_") or col.startswith("deleted_"):
-                issues.append(f"{table}.{col}：{tag} 禁 updated_*／deleted_*（不可竄改性）")
-
-    if variant == "A":
-        for col in AUDIT_SIX:
-            if col not in cols:
-                issues.append(f"{table}.{col}：審計欄缺（A 變體六欄全）")
-        for col in ("created_at", "updated_at", "deleted_at"):
-            if col in cols and cols[col][0] != TSTZ:
-                issues.append(f"{table}.{col}：型別不符（期 {TSTZ}、實 {cols[col][0]}）")
-        for col in ("created_by", "updated_by", "deleted_by"):
-            if col in cols:
-                dtype, nullable, _, _ = cols[col]
-                if dtype != "bigint":
-                    issues.append(f"{table}.{col}：型別不符（期 bigint、實 {dtype}）")
-                if nullable != "YES":
-                    issues.append(f"{table}.{col}：應可空（憲法 §I.6 *_by nullable 通則）")
-        if "created_at" in cols:
-            _, nullable, default, _ = cols["created_at"]
-            if nullable != "NO" or norm_default(default) != "now()":
-                issues.append(f"{table}.created_at：應 NOT NULL default now()"
-                              f"（實 {nullable}／{norm_default(default)}）")
-        if active_unique and not has_active_unique(index_defs, active_unique):
-            issues.append(f"{table}：缺活性唯一 partial-uniq"
-                          f"（UNIQUE…({active_unique})…WHERE deleted_at IS NULL）")
-    elif variant == "B":
-        if "created_at" not in cols:
-            issues.append(f"{table}.created_at：B 變體必備欄缺")
-        elif cols["created_at"][1] != "NO":
-            issues.append(f"{table}.created_at：應 NOT NULL（B 變體）")
-        forbid_mutation_cols("B 變體")
-    elif variant == "C" and table == "sys_user_role":
-        for col in AUDIT_SIX:
-            if col in cols:
-                issues.append(f"{table}.{col}：C join 變體零審計欄（出現即 FAIL）")
-    elif variant == "C" and table == "sys_token":
-        for col in ("created_at", "created_by", "status"):
-            if col not in cols:
-                issues.append(f"{table}.{col}：C 狀態機變體必備欄缺")
-        forbid_mutation_cols("C 狀態機變體")
-    elif variant == "C" and table == "sys_pwd_custody":
-        # 015-pwd-custody m011：極簡欄集（user_id＋created_by＋created_at NN）；
-        # 列本身可 upsert 刷新與全刪、非 append-only——禁 updated_*／deleted_* 審計欄。
-        if "created_at" not in cols:
-            issues.append(f"{table}.created_at：C 極簡變體必備欄缺")
-        elif cols["created_at"][1] != "NO":
-            issues.append(f"{table}.created_at：應 NOT NULL（C 極簡變體）")
-        forbid_mutation_cols("C 極簡變體")
-    elif variant == "C" and table == "sys_user_email_verify":
-        # 020-email-verify-smtp m014：信箱已驗證值衛星表（單一 PK user_id＋verified_*＋
-        # created_* 首建成對）；upsert 刷新＝重驗事件覆寫、verified_at 即其時戳、不設
-        # updated_{at,by}（憲法 §I.6 變體 C 釋義、v1.15.0）——禁 updated_*／deleted_* 審計欄。
-        if "created_at" not in cols:
-            issues.append(f"{table}.created_at：C 衛星變體必備欄缺")
-        elif cols["created_at"][1] != "NO":
-            issues.append(f"{table}.created_at：應 NOT NULL（C 衛星變體）")
-        forbid_mutation_cols("C 衛星變體")
-    elif variant == "D" and table == "sys_casbin_policy_archive":
-        for col, want_null in (("archived_at", "NO"), ("archived_by", None),
-                               ("archive_reason", "NO"), ("created_at", "YES"),
-                               ("created_by", "YES")):
-            if col not in cols:
-                issues.append(f"{table}.{col}：D 治理變體必備欄缺")
-            elif want_null and cols[col][1] != want_null:
-                expect = "NOT NULL" if want_null == "NO" else "可空（grant 快照）"
-                issues.append(f"{table}.{col}：可空性不符（期 {expect}）")
-    elif variant == "D" and table == "casbin_rule":
-        for col in CASBIN_BASE8:
-            if col not in cols:
-                issues.append(f"{table}.{col}：基底欄缺（基底 8 欄不得被動）")
-        if "protected" not in cols:
-            issues.append(f"{table}.protected：ALTER 治理欄缺")
-        else:
-            _, nullable, default, _ = cols["protected"]
-            if nullable != "NO" or norm_default(default) != "false":
-                issues.append(f"{table}.protected：應 NOT NULL default false"
-                              f"（實 {nullable}／{norm_default(default)}）")
-        if "created_at" not in cols:
-            issues.append(f"{table}.created_at：ALTER 治理欄缺")
-        else:
-            _, nullable, default, _ = cols["created_at"]
-            if nullable != "NO" or norm_default(default) != "now()":
-                issues.append(f"{table}.created_at：應 NOT NULL default now()"
-                              f"（實 {nullable}／{norm_default(default)}）")
-        if "created_by" not in cols:
-            issues.append(f"{table}.created_by：ALTER 治理欄缺")
-    else:
-        issues.append(f"{table}：變體 {variant} 無對應規則（archetype-map 登記異常）")
-    return issues
+    import difflib
+    diff = list(difflib.unified_diff(exp, act, lineterm="",
+                                     fromfile="期望（fixtures⊕演進帳）",
+                                     tofile="實庫（pg_dump normalize）"))
+    body = diff[:limit] + ([f"…（共 {len(diff)} 行 diff、截斷）"]
+                           if len(diff) > limit else [])
+    return ["[gate2·seed] normalize 後逐列 diff 非零：\n    " + "\n    ".join(body)]
 
 
 # ---------------------------------------------------------------------------
-# 取數（實庫唯讀查詢／凍結基準檔）
+# audit archetype：15 表歸屬逐表驗（C／D 子型硬編碼；map note＝人讀）
 # ---------------------------------------------------------------------------
 
-Q_COLUMNS = ("SELECT table_name, column_name, data_type, is_nullable, column_default, "
-             "character_maximum_length "  # B-055 長度面（sidecar 為基準；maxlen 併 attrs 尾端）
-             "FROM information_schema.columns WHERE table_schema='public' "
-             "ORDER BY table_name, ordinal_position")
-# contype 排除 'n'（PG18 起 not-null 以約束列形出現；可空性已由欄比對面覆蓋）
-Q_CONSTRAINTS = ("SELECT conrelid::regclass::text, conname, pg_get_constraintdef(oid) "
-                 "FROM pg_constraint WHERE connamespace='public'::regnamespace "
-                 "AND contype IN ('p','u','f','c','x') ORDER BY 1, 2")
-Q_INDEXES = ("SELECT tablename, indexname, indexdef FROM pg_indexes "
-             "WHERE schemaname='public' ORDER BY tablename, indexname")
-Q_ORDINALS = ("SELECT table_name, column_name FROM information_schema.columns "
-              "WHERE table_schema='public' ORDER BY table_name, ordinal_position")
-Q_TABLES = ("SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema='public' AND table_type='BASE TABLE' "
-            "ORDER BY table_name")
+TS_TZ = "timestamp with time zone"
 
 
-def run_psql(prefix, sql):
-    """唯讀查詢（-qAt 無框輸出、\\x1f 分欄）；失敗＝EnvUnavailable（exit 2 途徑）。"""
-    cmd = prefix + ["psql", "-U", DB_USER, "-d", DB_NAME,
-                    "-v", "ON_ERROR_STOP=1", "-qAt", "-F", SEP, "-c", sql]
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
-    except OSError as ex:
-        raise EnvUnavailable(f"無法執行 {cmd[0]}（{ex}）")
-    if proc.returncode != 0:
-        reason = (proc.stderr or proc.stdout).strip() or f"退出碼 {proc.returncode}"
-        raise EnvUnavailable(f"psql 失敗：{reason}")
-    return [line.split(SEP) for line in proc.stdout.splitlines() if line]
-
-
-def fetch_db_triple(prefix):
-    """自實庫撈（欄、約束、索引）三面；回 (cols_rows, con_rows, idx_rows)。"""
-    return (run_psql(prefix, Q_COLUMNS),
-            run_psql(prefix, Q_CONSTRAINTS),
-            run_psql(prefix, Q_INDEXES))
-
-
-def load_fixture_triple():
-    """讀凍結基準三檔；欄檔第 3 欄＝序（閘 2 面）、此處剝除。"""
-    rows3 = []
-    for fname, ncols in (("columns.txt", 6), ("constraints.txt", 3), ("indexes.txt", 3)):
-        path = os.path.join(REPO_ROOT, FIXTURES_DIR, fname)
-        try:
-            with open(path, encoding="utf-8") as fh:
-                rows = parse_psql_aligned(fh.read())
-        except OSError as ex:
-            raise EnvUnavailable(f"凍結基準檔不可讀：{FIXTURES_DIR}/{fname}（{ex}）")
-        bad = [r for r in rows if len(r) != ncols]
-        if bad:
-            raise EnvUnavailable(f"凍結基準檔格式異常：{FIXTURES_DIR}/{fname}（欄數不符）")
-        rows3.append(rows)
-    cols, cons, idxs = rows3
-    cols = [[t, c, dt, nul, d] for t, c, _ordinal, dt, nul, d in cols]
-    return cols, cons, idxs
-
-
-def columns_by_table(rows):
-    """rows＝[表, 欄, 型別, 可空, 預設(, maxlen)]；attrs 四元組（maxlen 併尾端、B-055）。
-    來源無 maxlen 欄（凍結基準 columns.txt 三檔）＝None——長度面另以 sidecar 為基準比對。"""
+def _cols_of(actual_cols):
     by = {}
-    for row in rows:
-        table, col, dtype, nullable, default = row[:5]
-        maxlen = norm_maxlen(row[5]) if len(row) > 5 else None
-        by.setdefault(table, {})[norm_ident(col)] = (dtype, nullable, default, maxlen)
+    for c in actual_cols:
+        by.setdefault(c["table"], {})[c["column"]] = c
     return by
 
 
-def defs_by_table(rows):
-    by = {}
-    for table, name, defstr in rows:
-        by.setdefault(table, {})[name] = defstr
-    return by
+def _check_col(fnd, t, tcols, name, type_=None, nn=None, default=None):
+    c = tcols.get(name)
+    if c is None:
+        fnd.append(f"[audit] {t}｜欄 {name} 缺席")
+        return
+    if type_ is not None and c["type"] != type_:
+        fnd.append(f"[audit] {t}.{name}｜型別={c['type']}、期望={type_}")
+    if nn is not None and c["nullable"] != (not nn):
+        fnd.append(f"[audit] {t}.{name}｜可空性={'可空' if c['nullable'] else 'NN'}、"
+                   f"期望={'NN' if nn else '可空'}")
+    if default is not None and (c["default"] or "") != default:
+        fnd.append(f"[audit] {t}.{name}｜default={c['default']!r}、期望={default!r}")
 
 
-def load_maxlen_sidecar():
-    """讀 B-055 varchar 長度 sidecar（ADR 0039；來源＝rev3 live 重擷取、非凍結集、
-    psql 對齊格式：表｜欄｜character_maximum_length）；欄名經 rename map 映射為現行
-    定稿欄名。回 {(表, 欄): maxlen(int|None)}；不可讀／格式異常＝EnvUnavailable。"""
-    path = os.path.join(REPO_ROOT, MAXLEN_SIDECAR)
+def _pk_def(t, cons_by):
+    for (tt, _name), definition in cons_by.items():
+        if tt == t and definition.startswith("PRIMARY KEY"):
+            return definition
+    return None
+
+
+def audit_archetype(map_rows, actual_cols, actual_idxs, actual_cons):
+    """gates.md §3 驗則逐表執行（對實庫照相）；表清單守門；created_by 可空性顯式驗。
+    C／D 子型規則不明的表＝GateError（不可驗＝不得靜默放行）。"""
+    fnd = []
+    cols_by = _cols_of(actual_cols)
+    idx_by = {(r["table"], r["name"]): r["definition"] for r in actual_idxs}
+    cons_by = {(r["table"], r["name"]): r["definition"] for r in actual_cons}
+    map_tables = {r["table"] for r in map_rows}
+    actual_tables = set(cols_by)
+    for t in sorted(actual_tables - map_tables):
+        fnd.append(f"[audit] 表清單守門｜實庫表 {t} 未登記 archetype 歸屬"
+                   "（先補 data-model §1、再登記 archetype-map.json）")
+    for t in sorted(map_tables - actual_tables):
+        fnd.append(f"[audit] 表清單守門｜map 登記表 {t} 不在實庫")
+    for row in sorted(map_rows, key=lambda r: r["table"]):
+        t, label = row["table"], row["label"]
+        if t not in cols_by:
+            continue                          # 守門已計
+        tc = cols_by[t]
+        if label == "A 業務全六欄":
+            _check_col(fnd, t, tc, "created_at", TS_TZ, nn=True, default="now()")
+            _check_col(fnd, t, tc, "updated_at", TS_TZ, nn=False)
+            _check_col(fnd, t, tc, "deleted_at", TS_TZ, nn=False)
+            _check_col(fnd, t, tc, "created_by", "bigint")
+            _check_col(fnd, t, tc, "updated_by", "bigint", nn=False)
+            _check_col(fnd, t, tc, "deleted_by", "bigint", nn=False)
+            for iname in (row["active_unique"] or []):
+                definition = idx_by.get((t, iname))
+                if definition is None:
+                    fnd.append(f"[audit] {t}｜活性唯一索引 {iname} 不在實庫")
+                elif "deleted_at IS NULL" not in definition:
+                    fnd.append(f"[audit] {t}｜索引 {iname} 定義缺 WHERE "
+                               f"(deleted_at IS NULL)：{definition!r}")
+        elif label == "B append-only":
+            for bad in ("updated_at", "updated_by", "deleted_at", "deleted_by"):
+                if bad in tc:
+                    fnd.append(f"[audit] {t}｜變體 B 禁欄 {bad} 在場（append-only "
+                               "不可竄改、憲法 §I.6）")
+            _check_col(fnd, t, tc, "created_at", TS_TZ, nn=True, default="now()")
+            _check_col(fnd, t, tc, "created_by", "bigint")
+        elif label == "C join·狀態機":
+            if t == "sys_user_role":
+                for bad in AUDIT_SIX:
+                    if bad in tc:
+                        fnd.append(f"[audit] {t}｜零審計欄 join 卻見 {bad}")
+            elif t == "sys_token":
+                _check_col(fnd, t, tc, "created_at", TS_TZ, nn=True)
+                _check_col(fnd, t, tc, "created_by", "bigint")
+                if "status" not in tc:
+                    fnd.append(f"[audit] {t}｜狀態機欄 status 缺席")
+            elif t == "sys_pwd_custody":
+                if set(tc) != {"user_id", "created_at", "created_by"}:
+                    fnd.append(f"[audit] {t}｜極簡三欄集不符：{sorted(tc)}")
+                pk = _pk_def(t, cons_by)
+                if pk != "PRIMARY KEY (user_id, created_by)":
+                    fnd.append(f"[audit] {t}｜複合 PK 期望 (user_id, created_by)、"
+                               f"實得 {pk!r}")
+            elif t == "sys_user_email_verify":
+                if len(tc) != 5 or "user_id" not in tc:
+                    fnd.append(f"[audit] {t}｜衛星五欄形不符：{sorted(tc)}")
+                pk = _pk_def(t, cons_by)
+                if pk != "PRIMARY KEY (user_id)":
+                    fnd.append(f"[audit] {t}｜PK 期望 (user_id)、實得 {pk!r}")
+            else:
+                raise GateError(f"audit：表 {t} 標 C 變體但子型規則未硬編碼——"
+                                "先補 gates.md §3 驗則與本工具子型分派")
+        else:  # D 治理
+            if t == "casbin_rule":
+                _check_col(fnd, t, tc, "protected", "boolean", nn=True, default="false")
+                _check_col(fnd, t, tc, "created_at", TS_TZ, nn=True, default="now()")
+                _check_col(fnd, t, tc, "created_by", "bigint")
+            elif t == "sys_casbin_policy_archive":
+                _check_col(fnd, t, tc, "archived_at", TS_TZ, nn=True, default="now()")
+                _check_col(fnd, t, tc, "archive_reason", nn=True)
+                _check_col(fnd, t, tc, "created_at", TS_TZ, nn=False)
+                _check_col(fnd, t, tc, "created_by", "bigint", nn=False)
+            else:
+                raise GateError(f"audit：表 {t} 標 D 變體但子型規則未硬編碼——"
+                                "先補 gates.md §3 驗則與本工具子型分派")
+        # created_by 可空性顯式驗（不靜默；期望＝data-model §1 判準：NN 恰四表）
+        if "created_by" in tc:
+            want_nn = t in CREATED_BY_NN
+            if tc["created_by"]["nullable"] != (not want_nn):
+                fnd.append(f"[audit] {t}.created_by｜可空性顯式驗不符："
+                           f"{'可空' if tc['created_by']['nullable'] else 'NN'}、期望"
+                           f"={'NN' if want_nn else '可空'}（NN 恰四表＝{CREATED_BY_NN}）")
+        elif t in CREATED_BY_NN:
+            fnd.append(f"[audit] {t}｜created_by 欄缺席（NN 四表之一）")
+    return fnd
+
+
+# ---------------------------------------------------------------------------
+# self-test（check 入口無條件合成；敗＝rc 2 不讀真檔——防恆綠假閘）
+# ---------------------------------------------------------------------------
+
+def _st_fixtures():
+    return {
+        "columns": [
+            {"table": "t_log", "column": "id", "ordinal": 1, "type": "bigint",
+             "nullable": False, "default": "nextval('t_log_id_seq'::regclass)"},
+            {"table": "t_log", "column": "created_at", "ordinal": 2, "type": TS_TZ,
+             "nullable": False, "default": "now()"},
+            {"table": "t_ok", "column": "id", "ordinal": 1, "type": "bigint",
+             "nullable": False, "default": None},
+            {"table": "t_ok", "column": "name", "ordinal": 2,
+             "type": "character varying", "nullable": False, "default": None},
+        ],
+        "indexes": [{"table": "t_ok", "name": "t_ok_pkey",
+                     "definition": "CREATE UNIQUE INDEX t_ok_pkey ON public.t_ok"
+                                   " USING btree (id)"}],
+        "constraints": [{"table": "t_ok", "name": "t_ok_pkey",
+                         "definition": "PRIMARY KEY (id)"}],
+    }
+
+
+_ST_DUMP = ("\\restrict TOKEN123\n"
+            "--\n"
+            "-- Data for Name: seaql_migrations; Type: TABLE DATA; Schema: public;"
+            " Owner: -\n"
+            "--\n"
+            "\n"
+            "COPY public.seaql_migrations (version, applied_at) FROM stdin;\n"
+            "m001\t123\n"
+            "\\.\n"
+            "\n"
+            "\n"
+            "COPY public.t_ok (id, name) FROM stdin;\n"
+            "2\tb\n"
+            "1\ta\n"
+            "\\.\n"
+            "\n"
+            "SELECT pg_catalog.setval('public.t_ok_id_seq', 2, true);\n"
+            "\n"
+            "\\unrestrict TOKEN123\n")
+
+
+def check_self_test():
+    """健康對必綠＋注入假漂移必紅（四類：結構／欄序／seed 值／sequence 落值）＋
+    normalize 冪等——任一敗＝AssertionError（呼叫端轉 rc 2、不讀真檔）。"""
+    fix = _st_fixtures()
+    healthy = synth_expected(fix, [])
+    # gate1：健康綠
+    if compare_structure(synth_expected(fix, []), healthy) != []:
+        raise AssertionError("gate1 健康合成對被誤判為漂移")
+    # gate1：未登記加欄必紅＋指名
+    drifted = json.loads(json.dumps(healthy))
+    drifted["columns"].append({"table": "t_ok", "column": "ghost", "ordinal": 3,
+                               "type": "text", "nullable": True, "default": None})
+    f = compare_structure(synth_expected(fix, []), drifted)
+    if not any("columns/t_ok/ghost" in x for x in f):
+        raise AssertionError("gate1 未登記加欄假漂移未被攔或未指名")
+    # gate1：登記後同欄轉綠；登記超前（實庫沒有）必紅
+    entry = {"id": "E-001", "knife": "001-schema-baseline", "kind": "add_column",
+             "table": "t_ok", "detail": {"column": "ghost", "type": "text",
+                                         "nullable": True, "default": None,
+                                         "position": "末位"},
+             "date": "2026-08-05"}
+    if compare_structure(synth_expected(fix, [entry]), drifted) != []:
+        raise AssertionError("gate1 演進帳合成後應綠而未綠")
+    if not compare_structure(synth_expected(fix, [entry]), healthy):
+        raise AssertionError("gate1 登記超前未被攔")
+    # gate1：型別改動必紅
+    mutated = json.loads(json.dumps(healthy))
+    mutated["columns"][2]["type"] = "integer"
+    if not compare_structure(synth_expected(fix, []), mutated):
+        raise AssertionError("gate1 型別改動假漂移未被攔")
+    # gate2 欄序：健康綠／同表兩欄互換必紅
+    dm = {"t_ok": ["id", "name"]}
+    if compare_column_order(dm, [], healthy["columns"]) != []:
+        raise AssertionError("gate2 欄序健康對被誤判")
+    swapped = json.loads(json.dumps(healthy["columns"]))
+    for c in swapped:
+        if c["table"] == "t_ok":
+            c["ordinal"] = 3 - c["ordinal"]
+    if not compare_column_order(dm, [], swapped):
+        raise AssertionError("gate2 欄序互換假漂移未被攔")
+    # gate2 seed：normalize（剝 token 行＋seaql 段＋段內排序）＋冪等＋健康綠
+    norm = normalize_seed_dump(_ST_DUMP)
+    if "\\restrict" in norm or "seaql_migrations" in norm:
+        raise AssertionError("normalize 未剝除 pg_dump 框架噪音")
+    if norm.index("1\ta") > norm.index("2\tb"):
+        raise AssertionError("normalize COPY 段內未整列排序")
+    if normalize_seed_dump(norm) != norm:
+        raise AssertionError("normalize 非冪等")
+    if compare_seed(norm, normalize_seed_dump(_ST_DUMP)) != []:
+        raise AssertionError("gate2 seed 健康對被誤判")
+    # seed 值改一格必紅；sequence 落值 ±1 必紅
+    if not compare_seed(norm, norm.replace("1\ta", "1\tX")):
+        raise AssertionError("gate2 seed 值假漂移未被攔")
+    if not compare_seed(norm, norm.replace("', 2, true);", "', 3, true);")):
+        raise AssertionError("gate2 sequence 落值假漂移未被攔")
+    # add_column 登記之 seed 面合成：COPY 段首欄清單接末位＋既有列補 \N 後轉綠
+    drift_dump = (norm.replace("COPY public.t_ok (id, name) FROM stdin;",
+                               "COPY public.t_ok (id, name, ghost) FROM stdin;")
+                  .replace("1\ta", "1\ta\t\\N").replace("2\tb", "2\tb\t\\N"))
+    if compare_seed(norm, drift_dump) == []:
+        raise AssertionError("gate2 seed 未攔加欄後的 COPY 段漂移")
+    if compare_seed(apply_seed_entries(norm, [entry]), drift_dump) != []:
+        raise AssertionError("gate2 seed add_column 合成後應綠而未綠")
+    # audit：健康 A／B 合成對綠；B 表注入 updated_at 必紅
+    amap = [{"table": "t_biz", "label": "A 業務全六欄",
+             "active_unique": ["t_biz_code_active_uniq"], "note": ""},
+            {"table": "t_log2", "label": "B append-only",
+             "active_unique": None, "note": ""}]
+    acols = [
+        {"table": "t_biz", "column": "id", "ordinal": 1, "type": "bigint",
+         "nullable": False, "default": None},
+        {"table": "t_biz", "column": "created_at", "ordinal": 2, "type": TS_TZ,
+         "nullable": False, "default": "now()"},
+        {"table": "t_biz", "column": "created_by", "ordinal": 3, "type": "bigint",
+         "nullable": True, "default": None},
+        {"table": "t_biz", "column": "updated_at", "ordinal": 4, "type": TS_TZ,
+         "nullable": True, "default": None},
+        {"table": "t_biz", "column": "updated_by", "ordinal": 5, "type": "bigint",
+         "nullable": True, "default": None},
+        {"table": "t_biz", "column": "deleted_at", "ordinal": 6, "type": TS_TZ,
+         "nullable": True, "default": None},
+        {"table": "t_biz", "column": "deleted_by", "ordinal": 7, "type": "bigint",
+         "nullable": True, "default": None},
+        {"table": "t_log2", "column": "id", "ordinal": 1, "type": "bigint",
+         "nullable": False, "default": None},
+        {"table": "t_log2", "column": "created_at", "ordinal": 2, "type": TS_TZ,
+         "nullable": False, "default": "now()"},
+        {"table": "t_log2", "column": "created_by", "ordinal": 3, "type": "bigint",
+         "nullable": True, "default": None},
+    ]
+    aidx = [{"table": "t_biz", "name": "t_biz_code_active_uniq",
+             "definition": "CREATE UNIQUE INDEX t_biz_code_active_uniq ON"
+                           " public.t_biz USING btree (code)"
+                           " WHERE (deleted_at IS NULL)"}]
+    if audit_archetype(amap, acols, aidx, []) != []:
+        raise AssertionError("audit 健康合成對被誤判")
+    bad = json.loads(json.dumps(acols))
+    bad.append({"table": "t_log2", "column": "updated_at", "ordinal": 4,
+                "type": TS_TZ, "nullable": True, "default": None})
+    if not any("禁欄 updated_at" in x for x in audit_archetype(amap, bad, aidx, [])):
+        raise AssertionError("audit 變體 B 禁欄假漂移未被攔")
+
+
+# ---------------------------------------------------------------------------
+# check 子命令
+# ---------------------------------------------------------------------------
+
+def cmd_check(root=REPO_ROOT, container=None, user=DB_USER, db=DB_NAME,
+              run=subprocess.run):
+    # ① self-test（無條件；敗＝rc 2、不讀任何真檔——防恆綠假閘）
     try:
-        with open(path, encoding="utf-8") as fh:
-            rows = parse_psql_aligned(fh.read())
-    except OSError as ex:
-        raise EnvUnavailable(f"長度基準 sidecar 不可讀：{MAXLEN_SIDECAR}（{ex}）")
-    if any(len(r) != 3 for r in rows):
-        raise EnvUnavailable(f"長度基準 sidecar 格式異常：{MAXLEN_SIDECAR}（欄數不符）")
-    out = {}
-    for table, col, maxlen in rows:
-        key = (table, apply_rename(table, col))
-        if key in out:
-            raise EnvUnavailable(f"長度基準 sidecar 格式異常：{MAXLEN_SIDECAR}"
-                                 f"（{key[0]}.{key[1]} 重複）")
-        try:
-            out[key] = norm_maxlen(maxlen)
-        except ValueError:
-            raise EnvUnavailable(f"長度基準 sidecar 格式異常：{MAXLEN_SIDECAR}"
-                                 f"（{key[0]}.{key[1]} 長度值非數字：{maxlen!r}）")
-    return out
-
-
-def load_datamodel_ordinals():
-    """讀 data-model.md §3 欄序定稿（閘 2 欄序基準）；不可讀＝EnvUnavailable。"""
-    path = os.path.join(REPO_ROOT, DATA_MODEL)
+        check_self_test()
+    except (AssertionError, GateError) as ex:
+        print(f"[check] ✗ self-test 失敗（比對邏輯壞、不讀真檔）：{ex}", file=sys.stderr)
+        return 2
+    # ② 左源載入（啟動斷言 fail-loud）
     try:
-        with open(path, encoding="utf-8") as fh:
-            return parse_datamodel_ordinals(fh.read())
-    except OSError as ex:
-        raise EnvUnavailable(f"定稿基準檔不可讀：{DATA_MODEL}（{ex}）")
-
-
-def load_seed_fixture(table):
-    """讀 fixtures/json-<表名>.json（閘 2 seed 基準）；欄名經 rename map 映射為
-    現行定稿欄名後回傳。"""
-    fname = f"json-{table}.json"
-    path = os.path.join(REPO_ROOT, FIXTURES_DIR, fname)
+        ledger = load_ledger(root)
+        fixtures = load_fixtures(root)
+        map_rows = load_archetype_map(root)
+        dm_order = load_data_model_order(root)
+        roster = load_sequence_roster(root)
+    except GateError as ex:
+        print(f"[check] ✗ {ex}", file=sys.stderr)
+        return 2
+    # ③ 右源照相＋dump（唯讀）
     try:
-        with open(path, encoding="utf-8") as fh:
-            rows = json.load(fh)
-    except (OSError, ValueError) as ex:
-        raise EnvUnavailable(f"seed 基準檔不可讀：{FIXTURES_DIR}/{fname}（{ex}）")
-    return [{apply_rename(table, k): v for k, v in row.items()} for row in rows]
-
-
-def fetch_seed_rows(prefix, table):
-    """自實庫撈單表全列（row_to_json 逐列；唯讀）——jsonb／布林／數值以 JSON 型別
-    原樣取回、與 fixtures json 同型比對。表名限 SEED_TABLES 白名單。"""
-    if table not in SEED_TABLES:
-        raise EnvUnavailable(f"非 seed 白名單表：{table}")
-    sql = f"SELECT row_to_json(t) FROM (SELECT * FROM {table}) t"
+        actual = {
+            "columns": sorted(psql(SQL_COLUMNS, parse=True, container=container,
+                                   user=user, db=db, run=run),
+                              key=lambda r: (r["table"], r["ordinal"])),
+            "indexes": sorted(psql(SQL_INDEXES, parse=True, container=container,
+                                   user=user, db=db, run=run),
+                              key=lambda r: (r["table"], r["name"])),
+            "constraints": sorted(psql(SQL_CONSTRAINTS, parse=True, container=container,
+                                       user=user, db=db, run=run),
+                                  key=lambda r: (r["table"], r["name"])),
+        }
+        if not actual["columns"]:
+            raise GateError("實庫照相 columns 為空——比對面為空（migration 未跑？）")
+        dump = pg_dump_data(container=container, user=user, db=db, run=run)
+    except GateError as ex:
+        print(f"[check] ✗ {ex}", file=sys.stderr)
+        return 2
+    # ④ 三閘（合成期望；合成不可能＝結構異常 rc 2）
     try:
-        return [json.loads(line[0]) for line in run_psql(prefix, sql)]
-    except ValueError as ex:
-        raise EnvUnavailable(f"{table}：row_to_json 輸出解析失敗（{ex}）")
-
-
-def load_archetype_map():
-    """讀 archetype 變體矩陣（audit 表清單守門與變體來源）；缺檔／格式異常＝
-    EnvUnavailable（無法驗證、非差異）。"""
-    path = os.path.join(REPO_ROOT, ARCHETYPE_MAP)
-    try:
-        with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
-    except (OSError, ValueError) as ex:
-        raise EnvUnavailable(f"變體矩陣不可讀：{ARCHETYPE_MAP}（{ex}）")
-    entries = data.get("tables")
-    if not isinstance(entries, list) or not entries:
-        raise EnvUnavailable(f"變體矩陣格式異常：{ARCHETYPE_MAP}（缺 tables 陣列）")
-    seen = set()
-    for e in entries:
-        if not isinstance(e, dict) or "table" not in e or "variant" not in e:
-            raise EnvUnavailable(f"變體矩陣格式異常：{ARCHETYPE_MAP}（條目缺 table/variant）")
-        if e["table"] in seen:
-            raise EnvUnavailable(f"變體矩陣格式異常：{ARCHETYPE_MAP}（表 {e['table']} 重複）")
-        seen.add(e["table"])
-    return entries
-
-
-def cmd_gate1(args):
-    live = False
-    for a in args:
-        if a == "--live-rev3":
-            live = True
-        else:
-            print(f"gate1：未知參數 {a}（可用：--live-rev3）", file=sys.stderr)
-            return 64
-    left_raw = fetch_db_triple(COMPOSE_PSQL)
-    if live:
-        try:
-            right_raw = fetch_db_triple(LIVE_PSQL)
-        except EnvUnavailable as ex:
-            print(f"[gate1][ENV] --live-rev3：容器 {LIVE_CONTAINER} 不可用"
-                  f"（無法驗證、非差異）：{ex}", file=sys.stderr)
-            return 2
-        right_label = f"活庫（{LIVE_CONTAINER}、唯讀直比）"
-    else:
-        right_raw = load_fixture_triple()
-        right_label = f"凍結基準（{FIXTURES_DIR}/）"
-
-    lcols, lcons, lidxs = (columns_by_table(left_raw[0]),
-                           defs_by_table(left_raw[1]), defs_by_table(left_raw[2]))
-    rcols, rcons, ridxs = (columns_by_table(right_raw[0]),
-                           defs_by_table(right_raw[1]), defs_by_table(right_raw[2]))
-
-    ltables = set(lcols) - FRAMEWORK_TABLES
-    rtables = set(rcols) - FRAMEWORK_TABLES
-
-    maxlen_side = load_maxlen_sidecar()   # B-055 長度基準（sidecar；比對範圍＝其所列表欄）
-
-    print(f"[gate1] 左＝實庫（compose postgres／{DB_NAME}）；右＝{right_label}")
-    all_issues, all_hits, all_deltas = [], [], []
-    n_ok = 0
-    for table in sorted(ltables | rtables):
-        deltas = []
-        if table not in ltables:
-            issues = [f"{table}：實庫漏表（基準有）"]
-        elif table not in rtables:
-            # 實庫多表：白名單內＝容差 delta（ADR 0039、比照 gate2 real/delta 分流）、外＝FAIL
-            if is_allowlisted_struct_extra_table(table):
-                delta = f"{table}：實庫多表（ADR 0039 結構 additive 白名單、整表容差）"
-                print(f"  {table:<26} 容差 delta：{delta}")
-                all_deltas.append(delta)
-                continue
-            issues = [f"{table}：實庫多表（基準無）"]
-        else:
-            issues, hits = compare_columns(table, lcols[table], rcols[table])
-            con_issues, con_deltas = compare_named_defs(
-                table, "約束", lcons.get(table, {}), rcons.get(table, {}))
-            idx_issues, idx_deltas = compare_named_defs(
-                table, "索引", lidxs.get(table, {}), ridxs.get(table, {}),
-                allow_extra=is_allowlisted_struct_extra_index)
-            issues += con_issues + idx_issues
-            deltas = con_deltas + idx_deltas
-            all_hits += hits
-        for delta in deltas:
-            print(f"  {table:<26} 容差 delta：{delta}")
-        all_deltas += deltas
-        if issues:
-            print(f"  {table:<26} FAIL（差異 {len(issues)}）")
-            all_issues += issues
-        else:
-            n_ok += 1
-            ncol = len(lcols[table])
-            ncon = len(lcons.get(table, {}))
-            nidx = len(lidxs.get(table, {}))
-            print(f"  {table:<26} OK（欄 {ncol}｜約束 {ncon}｜索引 {nidx}）")
-
-    # B-055 長度面（ADR 0039）：以 sidecar 為 varchar 長度基準額外比對（左恆＝rev4 實庫）
-    maxlen_issues = compare_maxlen(maxlen_side, lcols)
-    all_issues += maxlen_issues
-    print(f"[gate1] 長度面（B-055 sidecar）：{len(maxlen_side)} 欄比對"
-          f"｜差異 {len(maxlen_issues)}")
-
-    for msg in all_issues:
-        print(f"[gate1][FAIL] {msg}", file=sys.stderr)
-    n_tables = len(ltables | rtables)
-    verdict = "PASS" if not all_issues else "FAIL"
-    n_whitelist = len(WHITELIST_ADD) + len(WHITELIST_TYPE)
-    print(f"[gate1] {verdict}｜表 {n_ok}/{n_tables} 過｜白名單命中 {len(all_hits)}/{n_whitelist}"
-          f"｜結構容差 delta {len(all_deltas)}｜白名單外差異 {len(all_issues)}")
-    return 0 if not all_issues else 1
-
-
-def cmd_gate2():
-    """閘 2：欄序面（data-model §3）＋seed 面（fixtures 六支 json）；規則見檔頭。"""
-    dm = load_datamodel_ordinals()
-    if len(dm) != 12:
-        raise EnvUnavailable(f"data-model §3 期 12 表、解析得 {len(dm)}")
-    live_ord = {}
-    for table, col in run_psql(COMPOSE_PSQL, Q_ORDINALS):
-        live_ord.setdefault(table, []).append(norm_ident(col))
-
-    print(f"[gate2] 左＝實庫（compose postgres／{DB_NAME}）；"
-          f"右＝定稿（{DATA_MODEL} §3＋{FIXTURES_DIR}/json-*.json）")
-    all_issues = []
-    n_ord_ok = 0
-    for table in dm:
-        if table not in live_ord:
-            issues = [f"{table}：實庫缺表（定稿 §3 有）"]
-        else:
-            issues = compare_ordinals(table, live_ord[table], dm[table])
-        if issues:
-            print(f"  {table:<26} 欄序 FAIL（差異 {len(issues)}）")
-            all_issues += issues
-        else:
-            n_ord_ok += 1
-            print(f"  {table:<26} 欄序 OK（{len(dm[table])} 欄）")
-
-    # seed 表在實庫缺席時短路為「驗證失敗」（exit 1）——欄序面已記缺表差異，
-    # 續取數只會 EnvUnavailable 誤分類成「無法驗證」（exit 2）
-    missing_live = [t for t in SEED_TABLES if t not in live_ord]
-    if missing_live:
-        for t in missing_live:
-            all_issues.append(f"{t}：seed 面略過（實庫缺表、欄序面已記）")
-        for msg in all_issues:
-            print(f"[gate2][FAIL] {msg}", file=sys.stderr)
-        print(f"[gate2] FAIL｜欄序 {n_ord_ok}/{len(dm)} 表"
-              f"｜seed 面略過（缺表 {len(missing_live)}）｜差異 {len(all_issues)}")
+        expected = synth_expected(fixtures, ledger["entries"])
+        frozen_norm = normalize_seed_dump(fixtures["seed"])
+        assert_seed_roster(frozen_norm, roster)
+        seed_expected = apply_seed_entries(frozen_norm, ledger["entries"])
+        findings = compare_structure(expected, actual)
+        findings += compare_column_order(dm_order, ledger["entries"], actual["columns"])
+        seed_findings = compare_seed(seed_expected, normalize_seed_dump(dump))
+        findings += seed_findings
+        findings += audit_archetype(map_rows, actual["columns"], actual["indexes"],
+                                    actual["constraints"])
+    except GateError as ex:
+        print(f"[check] ✗ {ex}", file=sys.stderr)
+        return 2
+    if findings:
+        print(f"[check] ✗ {len(findings)} 項漂移（未登記差異一律紅；合法化唯一路徑＝"
+              "schema-evolution.json 登記）：", file=sys.stderr)
+        for x in findings:
+            print(f"    DRIFT {x}", file=sys.stderr)
         return 1
-
-    live_rows = {t: fetch_seed_rows(COMPOSE_PSQL, t) for t in SEED_TABLES}
-    fixt_rows = {t: load_seed_fixture(t) for t in SEED_TABLES}
-    n_matched = 0
-    n_expected = sum(len(rows) for rows in fixt_rows.values())
-    n_extra = n_missing = n_delta = 0
-    for table in SEED_TABLES:
-        issues = []
-        if table == "sys_user_role":
-            lset = resolve_user_role(
-                live_rows[table],
-                {u.get("id"): u.get("user_name") for u in live_rows["sys_user"]},
-                {r.get("id"): r.get("role_code") for r in live_rows["sys_role"]})
-            fset = resolve_user_role(
-                fixt_rows[table],
-                {u.get("id"): u.get("user_name") for u in fixt_rows["sys_user"]},
-                {r.get("id"): r.get("role_code") for r in fixt_rows["sys_role"]})
-            for user, role in sorted(lset - fset):
-                issues.append(f"{table}：實庫多列（user_name={user},role_code={role}）")
-            for user, role in sorted(fset - lset):
-                issues.append(f"{table}：實庫缺列（user_name={user},role_code={role}）")
-            matched = len(lset & fset)
-            n_extra += len(lset - fset)
-            n_missing += len(fset - lset)
-        else:
-            pairs, extra, missing, dups = match_seed_sets(
-                table, live_rows[table], fixt_rows[table])
-            real_extra = [ks for ks in extra if not is_allowlisted_seed_extra(table, ks)]
-            delta_extra = [ks for ks in extra if is_allowlisted_seed_extra(table, ks)]
-            for key_str in real_extra:
-                issues.append(f"{table}：實庫多列（{key_str}）")
-            for key_str in delta_extra:
-                print(f"  {table:<26} seed 容差 delta（ADR 0032 白名單）：{key_str}")
-            for key_str in missing:
-                issues.append(f"{table}：實庫缺列（{key_str}）")
-            for key_str in dups:
-                issues.append(f"{table}：natural key 重複（{key_str}）")
-            for key, (lrow, frow) in sorted(pairs.items(), key=lambda kv: str(kv[0])):
-                issues += compare_seed_row(table, fmt_natural_key(table, key), lrow, frow)
-            if table == "sys_menu":
-                lmap = menu_parent_map(live_rows[table])
-                fmap = menu_parent_map(fixt_rows[table])
-                for rn in sorted(set(lmap) & set(fmap)):
-                    if lmap[rn] != fmap[rn]:
-                        issues.append(f"{table}（route_name={rn}）.parent_id：父節點不符"
-                                      f"（定稿 {fmap[rn]!r}、實庫 {lmap[rn]!r}）")
-            matched = len(pairs)
-            n_extra += len(real_extra)
-            n_delta += len(delta_extra)
-            n_missing += len(missing)
-        n_matched += matched  # key 配對數一律累加（與多/缺計數同口徑）
-        if issues:
-            print(f"  {table:<26} seed FAIL（差異 {len(issues)}）")
-            all_issues += issues
-        else:
-            print(f"  {table:<26} seed OK（{matched} 列全配對）")
-
-    for msg in all_issues:
-        print(f"[gate2][FAIL] {msg}", file=sys.stderr)
-    verdict = "PASS" if not all_issues else "FAIL"
-    print(f"[gate2] {verdict}｜欄序 {n_ord_ok}/{len(dm)} 表"
-          f"｜seed 配對 {n_matched}/{n_expected} 列（多 {n_extra}、缺 {n_missing}、容差 delta {n_delta}）"
-          f"｜差異 {len(all_issues)}")
-    return 0 if not all_issues else 1
-
-
-def cmd_audit():
-    """審計欄建表守門：archetype 變體矩陣逐表驗＋表清單守門；規則見檔頭。"""
-    entries = load_archetype_map()
-    live_tables = {row[0] for row in run_psql(COMPOSE_PSQL, Q_TABLES)} - FRAMEWORK_TABLES
-    cols_by = columns_by_table(run_psql(COMPOSE_PSQL, Q_COLUMNS))
-    idx_by = {}
-    for table, _name, defstr in run_psql(COMPOSE_PSQL, Q_INDEXES):
-        idx_by.setdefault(table, []).append(defstr)
-
-    print(f"[audit] 實庫（compose postgres／{DB_NAME}）vs 變體矩陣（{ARCHETYPE_MAP}、"
-          f"{len(entries)} 表）")
-    all_issues = []
-    n_ok = 0
-    for e in entries:
-        table = e["table"]
-        if table not in live_tables:
-            issues = [f"{table}：實庫缺表（變體矩陣登記、實庫無）"]
-        else:
-            issues = audit_table(table, e["variant"], e.get("active_unique"),
-                                 cols_by.get(table, {}), idx_by.get(table, []))
-        if issues:
-            print(f"  {table:<26} FAIL（變體 {e['variant']}｜差異 {len(issues)}）")
-            all_issues += issues
-        else:
-            n_ok += 1
-            print(f"  {table:<26} OK（變體 {e['variant']}）")
-    unlisted = sorted(live_tables - {e["table"] for e in entries})
-    for table in unlisted:
-        print(f"  {table:<26} FAIL（清單外）")
-        all_issues.append(f"{table}：清單外業務表（archetype-map 未登記；防未登記建表）")
-
-    for msg in all_issues:
-        print(f"[audit][FAIL] {msg}", file=sys.stderr)
-    verdict = "PASS" if not all_issues else "FAIL"
-    print(f"[audit] {verdict}｜表 {n_ok}/{len(entries)} 過｜清單外 {len(unlisted)}"
-          f"｜差異 {len(all_issues)}")
-    return 0 if not all_issues else 1
+    n_entries = len(ledger["entries"])
+    print(f"[check] ✓ gate1 結構：columns {len(actual['columns'])}／indexes "
+          f"{len(actual['indexes'])}／constraints {len(actual['constraints'])} 全等"
+          f"（演進帳合成 {n_entries} 筆）")
+    print(f"[check] ✓ gate2 欄序：{len(dm_order)} 親排表逐位全等"
+          f"（{'、'.join(ORDER_EXEMPT)} 豁免）")
+    print(f"[check] ✓ gate2 seed：normalize 後 {len(seed_expected.splitlines())} 行"
+          f"逐列零差異（setval 名冊 {len(roster)} 支）")
+    print(f"[check] ✓ audit archetype：{len(map_rows)}/{len(map_rows)} 綠"
+          "（表清單守門通過）")
+    return 0
 
 
 # ---------------------------------------------------------------------------
-# 自帶測試（離線；tools/schema-gate.py test）
+# 自帶測試（unittest、離線——不觸 docker、不讀實庫）
 # ---------------------------------------------------------------------------
 
-def _day1_pending(*rels):
-    """類二 skipUnless 的測試側謂詞：真根下所列路徑全部存在才跑該案（§4.5.10 類二）。
-
-    ★測試側自持、刻意不讀 lint 常數（§4.5.4 套套邏輯戒律）。
-    ★skip 訊息一律帶「解除謂詞＋所屬 B 步」——B8a 殘紅盤點要求每筆跳過可追去處。
-    """
-    return all(os.path.exists(os.path.join(REPO_ROOT, r)) for r in rels)
-
-
-class TestRenameMap(unittest.TestCase):
-    def test_map_has_14_pairs(self):
-        self.assertEqual(len(RENAME_MAP), 14)
-
-    def test_apply_rename_mapped(self):
-        self.assertEqual(apply_rename("sys_role", "code"), "role_code")
-        self.assertEqual(apply_rename("sys_role", "name"), "role_name")
-        self.assertEqual(apply_rename("sys_role", "home"), "role_home")
-        self.assertEqual(apply_rename("sys_user", "current_session_id"), "session_id")
-        self.assertEqual(apply_rename("system_settings", "value_type"), "setting_type")
-        self.assertEqual(apply_rename("sys_operation_log", "operator_id"), "created_by")
-        self.assertEqual(apply_rename("sys_access_log", "operator_id"), "created_by")
-        self.assertEqual(apply_rename("sys_access_log", "method"), "http_method")
-        self.assertEqual(apply_rename("sys_access_log", "path"), "http_path")
-        self.assertEqual(apply_rename("sys_login_attempt", "operator_id"), "created_by")
-        self.assertEqual(apply_rename("sys_token", "user_id"), "created_by")
-        self.assertEqual(apply_rename("sys_ip_rule", "rule_type"), "wbip_type")
-        self.assertEqual(apply_rename("sys_ip_rule", "cidr"), "wbip_cidr")
-        self.assertEqual(apply_rename("sys_ip_rule", "description"), "wbip_memo")
-
-    def test_apply_rename_passthrough(self):
-        self.assertEqual(apply_rename("sys_user", "user_name"), "user_name")
-        self.assertEqual(apply_rename("casbin_rule", "ptype"), "ptype")
-
-    def test_apply_rename_table_scoped(self):
-        # description 只在 sys_ip_rule 域內改名；system_settings.description 原樣
-        self.assertEqual(apply_rename("system_settings", "description"), "description")
-        # user_id 只在 sys_token 域內改名；sys_user_role.user_id 原樣
-        self.assertEqual(apply_rename("sys_user_role", "user_id"), "user_id")
-
-    def test_apply_rename_unquotes(self):
-        self.assertEqual(apply_rename("sys_menu", '"order"'), "order")
-
-
-class TestNormIdent(unittest.TestCase):
-    def test_unquote(self):
-        self.assertEqual(norm_ident('"order"'), "order")
-
-    def test_plain(self):
-        self.assertEqual(norm_ident("order"), "order")
-        self.assertEqual(norm_ident("user_name"), "user_name")
-
-
-class TestNormDefault(unittest.TestCase):
-    def test_null_forms(self):
-        self.assertIsNone(norm_default(None))
-        self.assertIsNone(norm_default(""))
-        self.assertIsNone(norm_default("-"))
-
-    def test_empty_json_array_to_null(self):
-        self.assertIsNone(norm_default("[]"))
-        self.assertIsNone(norm_default("'[]'::jsonb"))
-
-    def test_current_timestamp_equiv_now(self):
-        self.assertEqual(norm_default("CURRENT_TIMESTAMP"), "now()")
-        self.assertEqual(norm_default("now()"), "now()")
-
-    def test_passthrough(self):
-        self.assertEqual(norm_default("nextval('sys_user_id_seq'::regclass)"),
-                         "nextval('sys_user_id_seq'::regclass)")
-        self.assertEqual(norm_default("'inherit'::character varying"),
-                         "'inherit'::character varying")
-        self.assertEqual(norm_default("false"), "false")
-
-
-class TestRewriteDef(unittest.TestCase):
-    def test_rewrite_columns_in_def(self):
-        got = rewrite_def(
-            "sys_ip_rule",
-            "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
-            "USING btree (cidr, rule_type) WHERE (deleted_at IS NULL)")
-        self.assertEqual(
-            got,
-            "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
-            "USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)")
-
-    def test_rewrite_keeps_index_name_intact(self):
-        # 索引名內含 cidr／type 子字串、但識別字內無 word boundary——不得被改寫
-        got = rewrite_def("sys_ip_rule", "sys_ip_rule_cidr_type_active_uniq")
-        self.assertEqual(got, "sys_ip_rule_cidr_type_active_uniq")
-
-    def test_rewrite_partial_where(self):
-        got = rewrite_def(
-            "sys_token",
-            "CREATE INDEX idx_sys_token_user_active ON public.sys_token "
-            "USING btree (user_id) WHERE ((status)::text = 'active'::text)")
-        self.assertEqual(
-            got,
-            "CREATE INDEX idx_sys_token_user_active ON public.sys_token "
-            "USING btree (created_by) WHERE ((status)::text = 'active'::text)")
-
-    def test_rewrite_scoped_to_table(self):
-        # system_settings 域內 description 不改名
-        got = rewrite_def("system_settings", "USING btree (description)")
-        self.assertEqual(got, "USING btree (description)")
-
-
-class TestWhitelist(unittest.TestCase):
-    def test_whitelist_entries(self):
-        # WHITELIST_ADD＝dict {(表,欄): 期望型別}——002 基線 3 memo text 欄＋009 m007
-        # role_id bigint＝4 add 項；型別變更 1 處（WHITELIST_TYPE）。
-        self.assertEqual(WHITELIST_ADD, {
-            ("sys_user", "user_memo"): "text",
-            ("sys_role", "role_memo"): "text",
-            ("sys_menu", "menu_memo"): "text",
-            ("sys_casbin_policy_archive", "role_id"): "bigint",
-        })
-        self.assertEqual(WHITELIST_TYPE,
-                         {("sys_ip_rule", "wbip_memo"): ("character varying", "text")})
-
-    def test_extra_allowed(self):
-        self.assertTrue(is_whitelisted_extra("sys_user", "user_memo",
-                                             ("text", "YES", None, None)))
-        self.assertTrue(is_whitelisted_extra("sys_menu", "menu_memo",
-                                             ("text", "YES", "-", None)))
-
-    def test_extra_bigint_allowed(self):
-        # 009 m007 role_id bigint NULL——泛化後非 text 型加欄放行（型別比對登記值）
-        self.assertTrue(is_whitelisted_extra(
-            "sys_casbin_policy_archive", "role_id", ("bigint", "YES", None, None)))
-        # 型別不符（text 冒充登記之 bigint）不放行
-        self.assertFalse(is_whitelisted_extra(
-            "sys_casbin_policy_archive", "role_id", ("text", "YES", None, None)))
-        # 可空性／預設不符不放行
-        self.assertFalse(is_whitelisted_extra(
-            "sys_casbin_policy_archive", "role_id", ("bigint", "NO", None, None)))
-        self.assertFalse(is_whitelisted_extra(
-            "sys_casbin_policy_archive", "role_id", ("bigint", "YES", "0", None)))
-
-    def test_extra_wrong_attrs_rejected(self):
-        self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
-                                              ("character varying", "YES", None, None)))
-        self.assertFalse(is_whitelisted_extra("sys_user", "user_memo",
-                                              ("text", "NO", None, None)))
-
-    def test_extra_probe_rejected(self):
-        self.assertFalse(is_whitelisted_extra("sys_user", "t_gate1_probe",
-                                              ("text", "YES", None, None)))
-
-    def test_type_change_allowed(self):
-        self.assertTrue(is_whitelisted_type_change(
-            "sys_ip_rule", "wbip_memo", "character varying", "text"))
-
-    def test_type_change_rejected(self):
-        self.assertFalse(is_whitelisted_type_change(
-            "sys_user", "password", "character varying", "text"))
-        # 反向不放行
-        self.assertFalse(is_whitelisted_type_change(
-            "sys_ip_rule", "wbip_memo", "text", "character varying"))
-
-
-class TestSeedAdditiveAllowlist(unittest.TestCase):
-    """閘 2 seed 白名單（ADR 0032）：白名單內的實庫多列＝容差、外＝FAIL、跨表不通用。"""
-    def test_allowlisted_extra_tolerated(self):
-        ks = fmt_natural_key("system_settings", ("session_idle_timeout",))
-        self.assertTrue(is_allowlisted_seed_extra("system_settings", ks))
-        ks = fmt_natural_key("system_settings", ("password_change_min_interval",))
-        self.assertTrue(is_allowlisted_seed_extra("system_settings", ks))
-
-    def test_unlisted_extra_rejected(self):
-        ks = fmt_natural_key("system_settings", ("rogue_seed",))
-        self.assertFalse(is_allowlisted_seed_extra("system_settings", ks))
-
-    def test_allowlist_scoped_to_table(self):
-        # 同名 key 掛到別表 → 不放行（白名單按 (table,key) 綁定）
-        ks = fmt_natural_key("sys_user", ("session_idle_timeout",))
-        self.assertFalse(is_allowlisted_seed_extra("sys_user", ks))
-
-
-class TestParseAligned(unittest.TestCase):
-    SAMPLE = (" tbl  | name | def \n"
-              "------+------+-----\n"
-              " a    | b    | c d \n"
-              " e    | f    | g   \n"
-              "(2 rows)\n")
-
-    def test_parse(self):
-        self.assertEqual(parse_psql_aligned(self.SAMPLE),
-                         [["a", "b", "c d"], ["e", "f", "g"]])
-
-    def test_single_row_footer(self):
-        text = " h | i \n---+---\n x | y \n(1 row)\n"
-        self.assertEqual(parse_psql_aligned(text), [["x", "y"]])
-
-
-class TestCompareColumns(unittest.TestCase):
-    def test_identical_ok(self):
-        cols = {"id": ("bigint", "NO", "nextval('t_id_seq'::regclass)", None)}
-        issues, hits = compare_columns("sys_user", dict(cols), dict(cols))
-        self.assertEqual(issues, [])
-        self.assertEqual(hits, [])
-
-    def test_rename_pairing(self):
-        left = {"role_code": ("character varying", "NO", None, None)}
-        right = {"code": ("character varying", "NO", "-", None)}
-        issues, hits = compare_columns("sys_role", left, right)
-        self.assertEqual(issues, [])
-
-    def test_extra_probe_named(self):
-        left = {"t_gate1_probe": ("text", "YES", None, None)}
-        issues, _ = compare_columns("sys_user", left, {})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_user.t_gate1_probe", issues[0])
-
-    def test_missing_named(self):
-        right = {"user_phone": ("character varying", "YES", "-", None)}
-        issues, _ = compare_columns("sys_user", {}, right)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_user.user_phone", issues[0])
-
-    def test_whitelisted_add_hits(self):
-        left = {"user_memo": ("text", "YES", None, None)}
-        issues, hits = compare_columns("sys_user", left, {})
-        self.assertEqual(issues, [])
-        self.assertEqual(len(hits), 1)
-        self.assertIn("user_memo", hits[0])
-
-    def test_whitelisted_type_change_hits(self):
-        left = {"wbip_memo": ("text", "YES", None, None)}
-        right = {"description": ("character varying", "YES", "-", None)}
-        issues, hits = compare_columns("sys_ip_rule", left, right)
-        self.assertEqual(issues, [])
-        self.assertEqual(len(hits), 1)
-        self.assertIn("wbip_memo", hits[0])
-
-    def test_whitelisted_bigint_add_hits(self):
-        # 009 m007：非 text 型加欄（bigint NULL）經泛化白名單放行（實庫多欄容差）
-        left = {"role_id": ("bigint", "YES", None, None)}
-        issues, hits = compare_columns("sys_casbin_policy_archive", left, {})
-        self.assertEqual(issues, [])
-        self.assertEqual(len(hits), 1)
-        self.assertIn("role_id", hits[0])
-
-    def test_whitelisted_add_wrong_type_precise_msg(self):
-        # 屬性不符錯誤訊息帶登記期望型別（bigint）、非硬編 text
-        left = {"role_id": ("text", "YES", None, None)}
-        issues, hits = compare_columns("sys_casbin_policy_archive", left, {})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("bigint", issues[0])
-        self.assertEqual(hits, [])
-
-    def test_default_normalized_equiv(self):
-        left = {"created_at": ("timestamp with time zone", "NO", "CURRENT_TIMESTAMP", None)}
-        right = {"created_at": ("timestamp with time zone", "NO", "now()", None)}
-        issues, _ = compare_columns("sys_ip_rule", left, right)
-        self.assertEqual(issues, [])
-
-    def test_type_mismatch_named(self):
-        left = {"password": ("text", "NO", None, None)}
-        right = {"password": ("character varying", "NO", "-", None)}
-        issues, _ = compare_columns("sys_user", left, right)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_user.password", issues[0])
-
-
-class TestCompareOrdinals(unittest.TestCase):
-    # sys_casbin_policy_archive §3.11 定稿 13 欄（時間欄群前置、止於 v5）。
-    ARCHIVE_DM = ["id", "created_at", "created_by", "archived_at", "archived_by",
-                  "archive_reason", "ptype", "v0", "v1", "v2", "v3", "v4", "v5"]
-
-    def test_identical_ok(self):
-        cols = ["id", "ptype", "v0"]
-        self.assertEqual(compare_ordinals("casbin_rule", list(cols), list(cols)), [])
-
-    def test_trailing_additive_tolerated(self):
-        # 實庫尾端多出白名單登記欄（009 m007 archive.role_id）→ ADR 0039 容差、零 issue
-        live = self.ARCHIVE_DM + ["role_id"]
-        self.assertEqual(
-            compare_ordinals("sys_casbin_policy_archive", live, self.ARCHIVE_DM), [])
-
-    def test_trailing_extra_unlisted_rejected(self):
-        # 尾端多出但未登記白名單 → 欄序不符（不容忍）
-        issues = compare_ordinals("casbin_rule", ["id", "ptype", "rogue_col"], ["id", "ptype"])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("欄序位 3", issues[0])
-
-    def test_additive_does_not_mask_baseline_drift(self):
-        # 剝除尾端 additive 欄後仍逐位比對、基準區漂移（v4/v5 對調）照樣抓
-        live = ["id", "created_at", "created_by", "archived_at", "archived_by",
-                "archive_reason", "ptype", "v0", "v1", "v2", "v3", "v5", "v4", "role_id"]
-        issues = compare_ordinals("sys_casbin_policy_archive", live, self.ARCHIVE_DM)
-        self.assertTrue(any("欄序位 12" in i for i in issues))
-
-    def test_additive_scoped_to_table(self):
-        # role_id 白名單綁 archive 表；同名尾欄掛到別表不容忍
-        issues = compare_ordinals("casbin_rule", ["id", "ptype", "role_id"], ["id", "ptype"])
-        self.assertEqual(len(issues), 1)
-
-
-class TestCompareNamedDefs(unittest.TestCase):
-    def test_identical_ok(self):
-        d = {"sys_user_pkey": "PRIMARY KEY (id)"}
-        self.assertEqual(compare_named_defs("sys_user", "約束", dict(d), dict(d)),
-                         ([], []))
-
-    def test_missing_index_named(self):
-        left = {"sys_casbin_policy_archive_pkey": "x"}
-        right = {"sys_casbin_policy_archive_pkey": "x",
-                 "idx_casbin_archive_archived_at": "y"}
-        issues, _ = compare_named_defs("sys_casbin_policy_archive", "索引", left, right)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("idx_casbin_archive_archived_at", issues[0])
-
-    def test_def_rewritten_before_compare(self):
-        left = {"sys_ip_rule_cidr_type_active_uniq":
-                "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
-                "USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)"}
-        right = {"sys_ip_rule_cidr_type_active_uniq":
-                 "CREATE UNIQUE INDEX sys_ip_rule_cidr_type_active_uniq ON public.sys_ip_rule "
-                 "USING btree (cidr, rule_type) WHERE (deleted_at IS NULL)"}
-        self.assertEqual(compare_named_defs("sys_ip_rule", "索引", left, right),
-                         ([], []))
-
-    def test_def_mismatch_named(self):
-        left = {"sys_user_role_pkey": "PRIMARY KEY (role_id, user_id)"}
-        right = {"sys_user_role_pkey": "PRIMARY KEY (user_id, role_id)"}
-        issues, _ = compare_named_defs("sys_user_role", "約束", left, right)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_user_role_pkey", issues[0])
-
-
-class TestStructAdditiveAllowlist(unittest.TestCase):
-    """閘 1 結構 additive 白名單（ADR 0039）：白名單內多表／多索引＝容差 delta、
-    白名單外＝仍 FAIL；只放寬「新增」、不放寬「改動」；零萬用字元。"""
-
-    def test_allowlist_exactly_seven(self):
-        self.assertEqual(STRUCT_ADDITIVE_ALLOWLIST, {
-            ("table", "session_event", None),
-            ("index", "sys_token", "uq_sys_token_chain_active"),
-            ("table", "sys_pwd_custody", None),
-            ("index", "sys_access_log", "idx_access_log_path_trgm"),
-            ("index", "sys_login_attempt", "idx_login_attempt_user_name_trgm"),
-            ("table", "sys_user_email_verify", None),
-            ("index", "sys_user", "sys_user_user_email_active_uniq")})
-
-    def test_extra_table_allowlisted(self):
-        self.assertTrue(is_allowlisted_struct_extra_table("session_event"))
-        self.assertTrue(is_allowlisted_struct_extra_table("sys_pwd_custody"))
-        self.assertTrue(is_allowlisted_struct_extra_table("sys_user_email_verify"))
-
-    def test_extra_table_unlisted_rejected(self):
-        self.assertFalse(is_allowlisted_struct_extra_table("t_rogue"))
-        # index 項不放行整表
-        self.assertFalse(is_allowlisted_struct_extra_table("sys_token"))
-
-    def test_extra_index_allowlisted(self):
-        self.assertTrue(is_allowlisted_struct_extra_index(
-            "sys_token", "uq_sys_token_chain_active"))
-        self.assertTrue(is_allowlisted_struct_extra_index(
-            "sys_access_log", "idx_access_log_path_trgm"))
-        self.assertTrue(is_allowlisted_struct_extra_index(
-            "sys_login_attempt", "idx_login_attempt_user_name_trgm"))
-        self.assertTrue(is_allowlisted_struct_extra_index(
-            "sys_user", "sys_user_user_email_active_uniq"))
-
-    def test_extra_index_unlisted_rejected(self):
-        self.assertFalse(is_allowlisted_struct_extra_index("sys_token", "idx_rogue"))
-
-    def test_extra_index_scoped_to_table(self):
-        # 同名索引掛到別表 → 不放行（白名單按 (table, name) 綁定）
-        self.assertFalse(is_allowlisted_struct_extra_index(
-            "sys_user", "uq_sys_token_chain_active"))
-
-    def test_named_defs_extra_index_tolerated(self):
-        # 正向：白名單內多索引 → 容差 delta、非差異
-        left = {"sys_token_pkey": "PRIMARY KEY (id)",
-                "uq_sys_token_chain_active": "CREATE UNIQUE INDEX … WHERE …"}
-        right = {"sys_token_pkey": "PRIMARY KEY (id)"}
-        issues, deltas = compare_named_defs("sys_token", "索引", left, right,
-                                            allow_extra=is_allowlisted_struct_extra_index)
-        self.assertEqual(issues, [])
-        self.assertEqual(len(deltas), 1)
-        self.assertIn("uq_sys_token_chain_active", deltas[0])
-
-    def test_named_defs_extra_index_unlisted_still_fails(self):
-        # 負向：白名單外多索引 → 仍 FAIL
-        left = {"idx_rogue": "CREATE INDEX idx_rogue ON x"}
-        issues, deltas = compare_named_defs("sys_token", "索引", left, {},
-                                            allow_extra=is_allowlisted_struct_extra_index)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("idx_rogue", issues[0])
-        self.assertEqual(deltas, [])
-
-    def test_named_defs_allowlist_not_applied_to_def_change(self):
-        # 負向：只放寬「新增」——名稱撞基準既有者仍走定義比對（改動不放行）
-        left = {"uq_sys_token_chain_active": "def-live"}
-        right = {"uq_sys_token_chain_active": "def-base"}
-        issues, deltas = compare_named_defs("sys_token", "索引", left, right,
-                                            allow_extra=is_allowlisted_struct_extra_index)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("定義不符", issues[0])
-        self.assertEqual(deltas, [])
-
-
-class TestMaxlenSidecar(unittest.TestCase):
-    """B-055 varchar 長度面（ADR 0039）：sidecar 為長度基準、gate1 額外比對。"""
-
-    def test_norm_maxlen(self):
-        self.assertIsNone(norm_maxlen(None))
-        self.assertIsNone(norm_maxlen(""))
-        self.assertIsNone(norm_maxlen("  "))
-        self.assertEqual(norm_maxlen("36"), 36)
-
-    def test_columns_by_table_attrs_quadruple(self):
-        # attrs 四元組、maxlen 併尾端；來源無 maxlen 欄（凍結基準三檔）＝None
-        by = columns_by_table([["t", "a", "character varying", "NO", "-", "64"],
-                               ["t", "b", "text", "YES", "", ""]])
-        self.assertEqual(by["t"]["a"], ("character varying", "NO", "-", 64))
-        self.assertEqual(by["t"]["b"], ("text", "YES", "", None))
-        by5 = columns_by_table([["t", "a", "character varying", "NO", "-"]])
-        self.assertEqual(by5["t"]["a"], ("character varying", "NO", "-", None))
-
-    def test_equal_ok(self):
-        side = {("sys_token", "token_hash"): 64, ("sys_user", "user_name"): None}
-        live = {"sys_token": {"token_hash": ("character varying", "NO", None, 64)},
-                "sys_user": {"user_name": ("character varying", "NO", None, None)}}
-        self.assertEqual(compare_maxlen(side, live), [])
-
-    def test_mismatch_fails_named(self):
-        # 負向：長度不符 → FAIL 逐項指名
-        side = {("sys_token", "token_hash"): 64}
-        live = {"sys_token": {"token_hash": ("character varying", "NO", None, 128)}}
-        issues = compare_maxlen(side, live)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_token.token_hash", issues[0])
-        self.assertIn("64", issues[0])
-
-    def test_bound_dropped_fails(self):
-        # 負向：界撤除（varchar(36)→無上限）亦屬長度漂移
-        side = {("sys_user", "session_id"): 36}
-        live = {"sys_user": {"session_id": ("character varying", "YES", None, None)}}
-        self.assertEqual(len(compare_maxlen(side, live)), 1)
-
-    def test_missing_live_col_fails(self):
-        side = {("sys_user", "session_id"): 36}
-        issues = compare_maxlen(side, {"sys_user": {}})
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_user.session_id", issues[0])
-
-    @unittest.skipUnless(_day1_pending(MAXLEN_SIDECAR),
-                         "Day 1 未達：解除＝specs/002 長度基準 sidecar 落地（schema 基線刀）")
-    def test_real_sidecar_file(self):
-        side = load_maxlen_sidecar()
-        self.assertEqual(len(side), 46)
-        # rename map 已映射（current_session_id→session_id）；範圍＝12 基線表
-        self.assertEqual(side[("sys_user", "session_id")], 36)
-        self.assertEqual(side[("sys_token", "token_hash")], 64)
-        self.assertIsNone(side[("sys_menu", "route_name")])
-        # post-baseline 新表（session_event）不在 sidecar 屬正常設計
-        self.assertFalse(any(t == "session_event" for t, _ in side))
-
-
-# ---- 閘 2／audit 純函式測試（T010／T011 測試先行）----
-
-
-class TestParseDataModelOrdinals(unittest.TestCase):
-    SAMPLE = (
-        "## 3. 欄序定稿（逐表）\n\n前言文字。\n\n"
-        "### 3.1 tbl_a（3 欄）\n\n"
-        "| 序 | 欄名 | 註記 |\n|---|---|---|\n"
-        "| 1 | id | bigint PK |\n"
-        '| 2 | "order" | |\n'
-        "| 3 | name | varchar |\n\n"
-        "### 3.2 tbl_b（基底委派＋說明段）\n\n中間說明段落。\n\n"
-        "| 序 | 欄名 | 註記 |\n|---|---|---|\n"
-        "| 1 | id | |\n"
-        "| 2 | ptype | |\n\n"
-        "## 4. seed 定稿清單\n\n"
-        "| 序 | 欄名 |\n|---|---|\n"
-        "| 9 | zzz |\n"
-    )
-
-    def test_parse_sample(self):
-        got = parse_datamodel_ordinals(self.SAMPLE)
-        self.assertEqual(got, {"tbl_a": ["id", "order", "name"],
-                               "tbl_b": ["id", "ptype"]})
-
-    def test_stops_at_section_4(self):
-        got = parse_datamodel_ordinals(self.SAMPLE)
-        for cols in got.values():
-            self.assertNotIn("zzz", cols)
-
-    def test_seq_gap_raises(self):
-        bad = ("## 3. 欄序\n\n### 3.1 tbl_a（2 欄）\n"
-               "| 序 | 欄名 | 註記 |\n|---|---|---|\n"
-               "| 1 | id | |\n| 3 | name | |\n\n## 4. x\n")
-        with self.assertRaises(EnvUnavailable):
-            parse_datamodel_ordinals(bad)
-
-    @unittest.skipUnless(_day1_pending(DATA_MODEL),
-                         "Day 1 未達：解除＝specs/002 data-model.md 落地（schema 基線刀）")
-    def test_real_datamodel_file(self):
-        dm = load_datamodel_ordinals()
-        self.assertEqual(len(dm), 12)
-        self.assertEqual(len(dm["sys_user"]), 17)
-        self.assertEqual(dm["sys_user"][0], "id")
-        self.assertEqual(dm["sys_user"][-1], "user_memo")
-        self.assertEqual(dm["sys_user_role"], ["user_id", "role_id"])
-        self.assertEqual(dm["sys_menu"][8], "order")  # 定稿載 "order"、去引號
-        self.assertEqual(dm["casbin_rule"][8:], ["protected", "created_at", "created_by"])
-        self.assertEqual(sum(len(v) for v in dm.values()), 151)
-
-
-class TestOrdinalCompare(unittest.TestCase):
-    def test_identical_ok(self):
-        self.assertEqual(compare_ordinals("t", ["id", "a", "b"], ["id", "a", "b"]), [])
-
-    def test_swapped_positions_named(self):
-        issues = compare_ordinals("t", ["id", "b", "a"], ["id", "a", "b"])
-        self.assertEqual(len(issues), 2)
-        self.assertIn("位 2", issues[0])
-        self.assertIn("位 3", issues[1])
-
-    def test_live_shorter_named(self):
-        issues = compare_ordinals("t", ["id"], ["id", "a"])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("a", issues[0])
-
-
-class TestSeedPairing(unittest.TestCase):
-    def test_single_key_pairing(self):
-        live = [{"user_name": "Super", "status": 1}]
-        fixt = [{"user_name": "Super", "status": 1}]
-        pairs, extra, missing, dups = match_seed_sets("sys_user", live, fixt)
-        self.assertEqual(list(pairs), [("Super",)])
-        self.assertEqual((extra, missing, dups), ([], [], []))
-
-    def test_extra_and_missing_named(self):
-        live = [{"setting_key": "a"}, {"setting_key": "b"}]
-        fixt = [{"setting_key": "a"}, {"setting_key": "c"}]
-        pairs, extra, missing, dups = match_seed_sets("system_settings", live, fixt)
-        self.assertEqual(extra, ["setting_key=b"])
-        self.assertEqual(missing, ["setting_key=c"])
-
-    def test_composite_key_casbin(self):
-        row = {"ptype": "p", "v0": "R", "v1": "/x", "v2": "GET",
-               "v3": "", "v4": "", "v5": "", "protected": False}
-        pairs, extra, missing, dups = match_seed_sets("casbin_rule", [row], [dict(row)])
-        self.assertEqual(len(pairs), 1)
-        key_str = fmt_natural_key("casbin_rule", next(iter(pairs)))
-        self.assertIn("ptype=p", key_str)
-        self.assertIn("v1=/x", key_str)
-
-    def test_duplicate_key_flagged(self):
-        live = [{"user_name": "Super"}, {"user_name": "Super"}]
-        _, _, _, dups = match_seed_sets("sys_user", live, [{"user_name": "Super"}])
-        self.assertEqual(len(dups), 1)
-        self.assertIn("user_name=Super", dups[0])
-
-
-class TestSeedContentCompare(unittest.TestCase):
-    def test_equal_row_ok(self):
-        live = {"setting_key": "a", "setting_value": "8", "description": "x",
-                "created_by": None, "deleted_by": None}
-        fixt = dict(live)
-        self.assertEqual(compare_seed_row("system_settings", "setting_key=a", live, fixt), [])
-
-    def test_diff_named_with_key(self):
-        live = {"setting_key": "a", "setting_value": "9"}
-        fixt = {"setting_key": "a", "setting_value": "8"}
-        issues = compare_seed_row("system_settings", "setting_key=a", live, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("system_settings（setting_key=a）.setting_value", issues[0])
-
-    def test_runtime_metadata_excluded(self):
-        # id／審計時間戳（契約明列）＋updated_by／session_id（執行期元資料；機器證據＝
-        # fixtures scratch-json-* vs json-* 機器 diff）不入內容比對
-        live = {"id": 9, "user_name": "Super", "password": "$argon2id$v=19$x",
-                "created_at": "2026-07-04T00:00:00+00:00", "updated_at": None,
-                "updated_by": None, "session_id": None, "status": 1}
-        fixt = {"id": 1, "user_name": "Super", "password": "$argon2id$v=19$y",
-                "created_at": "2026-07-03T11:20:15+00:00",
-                "updated_at": "2026-07-03T12:58:40+00:00",
-                "updated_by": 1, "session_id": "4d8ca6bd-x", "status": 1}
-        self.assertEqual(compare_seed_row("sys_user", "user_name=Super", live, fixt), [])
-
-    def test_password_phc_rule_not_bitwise(self):
-        live = {"user_name": "Super", "password": "$argon2id$v=19$m=19456,t=2,p=1$aa$bb"}
-        fixt = {"user_name": "Super", "password": "$argon2id$v=19$m=19456,t=2,p=1$cc$dd"}
-        self.assertEqual(compare_seed_row("sys_user", "user_name=Super", live, fixt), [])
-
-    def test_password_phc_violation_no_value_leak(self):
-        live = {"user_name": "Super", "password": "plaintext-123456"}
-        fixt = {"user_name": "Super", "password": "$argon2id$v=19$x"}
-        issues = compare_seed_row("sys_user", "user_name=Super", live, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("PHC", issues[0])
-        self.assertNotIn("plaintext-123456", issues[0])
-
-    def test_jsonb_empty_equiv_null(self):
-        live = {"route_name": "manage", "query": None, "buttons": None}
-        fixt = {"route_name": "manage", "query": [], "buttons": []}
-        self.assertEqual(compare_seed_row("sys_menu", "route_name=manage", live, fixt), [])
-
-    def test_jsonb_deep_compare(self):
-        live = {"route_name": "m", "buttons": [{"code": "user:add", "desc": "新增用户"}]}
-        fixt = {"route_name": "m", "buttons": [{"desc": "新增用户", "code": "user:add"}]}
-        self.assertEqual(compare_seed_row("sys_menu", "route_name=m", live, fixt), [])
-        live2 = {"route_name": "m", "buttons": [{"code": "user:del", "desc": "x"}]}
-        issues = compare_seed_row("sys_menu", "route_name=m", live2, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("buttons", issues[0])
-
-    def test_memo_absent_in_fixture_means_null(self):
-        live = {"role_code": "R_SUPER", "role_memo": None}
-        fixt = {"role_code": "R_SUPER"}
-        self.assertEqual(compare_seed_row("sys_role", "role_code=R_SUPER", live, fixt), [])
-        live2 = {"role_code": "R_SUPER", "role_memo": "x"}
-        issues = compare_seed_row("sys_role", "role_code=R_SUPER", live2, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("role_memo", issues[0])
-
-
-class TestSeedContentOverride(unittest.TestCase):
-    """SEED_CONTENT_OVERRIDE_ALLOWLIST self-test（ADR 0064；防恆綠）。
-    以 unittest.mock.patch.dict 於測試內暫換常數表（clear＋還原）、絕不污染真表。"""
-
-    _KEY = ("sys_menu", "route_name=manage_ip-rule", "buttons")
-    _EXPECT = [{"code": "ipRule:add", "desc": "新增IP规则"},
-               {"code": "ipRule:edit", "desc": "编辑IP规则"}]
-
-    def _patched(self, mapping):
-        from unittest import mock
-        return mock.patch.dict(SEED_CONTENT_OVERRIDE_ALLOWLIST, mapping, clear=True)
-
-    def test_override_hit_matches_expected(self):
-        # 命中 override 且實庫值==登記預期值→零 issue；fixture 值不同亦零 issue＝override 生效證據
-        live = {"route_name": "manage_ip-rule", "buttons": list(self._EXPECT)}
-        fixt = {"route_name": "manage_ip-rule", "buttons": None}
-        with self._patched({self._KEY: self._EXPECT}):
-            self.assertEqual(
-                compare_seed_row("sys_menu", "route_name=manage_ip-rule", live, fixt), [])
-
-    def test_override_hit_mismatch_fails(self):
-        # 防恆綠核心：改壞登記預期值即紅——證明機制真在比對、非跳過該格
-        live = {"route_name": "manage_ip-rule", "buttons": list(self._EXPECT)}
-        fixt = {"route_name": "manage_ip-rule", "buttons": None}
-        broken = [{"code": "ipRule:BROKEN", "desc": "x"}]
-        with self._patched({self._KEY: broken}):
-            issues = compare_seed_row("sys_menu", "route_name=manage_ip-rule", live, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("buttons", issues[0])
-        self.assertIn("override", issues[0])
-
-    def test_non_override_column_still_fixture(self):
-        # 未命中 override 的欄照舊比 fixture（原行為零迴歸）
-        live = {"route_name": "manage_ip-rule", "buttons": list(self._EXPECT),
-                "icon": "new-icon"}
-        fixt = {"route_name": "manage_ip-rule", "buttons": None, "icon": "old-icon"}
-        with self._patched({self._KEY: self._EXPECT}):
-            issues = compare_seed_row("sys_menu", "route_name=manage_ip-rule", live, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn(".icon", issues[0])
-
-    def test_empty_override_table_unchanged(self):
-        # override 表空時行為與現行完全一致（buttons 差異仍 FAIL）
-        live = {"route_name": "m", "buttons": [{"code": "a", "desc": "b"}]}
-        fixt = {"route_name": "m", "buttons": None}
-        with self._patched({}):
-            issues = compare_seed_row("sys_menu", "route_name=m", live, fixt)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("buttons", issues[0])
-
-    def test_override_side_normalized(self):
-        # 登記預期值亦過 norm_seed_value（空容器 []≡NULL、與 fixture 側同則）
-        live = {"route_name": "m", "buttons": None}
-        fixt = {"route_name": "m", "buttons": [{"code": "a", "desc": "b"}]}
-        with self._patched({("sys_menu", "route_name=m", "buttons"): []}):
-            self.assertEqual(compare_seed_row("sys_menu", "route_name=m", live, fixt), [])
-
-
-class TestMenuParentMap(unittest.TestCase):
-    def test_parent_resolved_by_route_name(self):
-        rows = [{"id": 10, "parent_id": None, "route_name": "root"},
-                {"id": 11, "parent_id": 10, "route_name": "child"}]
-        self.assertEqual(menu_parent_map(rows), {"root": None, "child": "root"})
-
-    def test_id_shift_invariant(self):
-        a = [{"id": 1, "parent_id": None, "route_name": "root"},
-             {"id": 2, "parent_id": 1, "route_name": "child"}]
-        b = [{"id": 101, "parent_id": None, "route_name": "root"},
-             {"id": 102, "parent_id": 101, "route_name": "child"}]
-        self.assertEqual(menu_parent_map(a), menu_parent_map(b))
-
-    def test_dangling_parent_marked(self):
-        rows = [{"id": 2, "parent_id": 99, "route_name": "orphan"}]
-        got = menu_parent_map(rows)
-        self.assertIn("99", got["orphan"])
-
-
-class TestUserRoleResolve(unittest.TestCase):
-    def test_resolved_pairs_id_independent(self):
-        rows = [{"user_id": 4, "role_id": 7}]
-        got = resolve_user_role(rows, {4: "Admin"}, {7: "R_ADMIN"})
-        self.assertEqual(got, {("Admin", "R_ADMIN")})
-
-    def test_unresolvable_marked(self):
-        got = resolve_user_role([{"user_id": 42, "role_id": 7}], {}, {7: "R_ADMIN"})
-        (pair,) = got
-        self.assertIn("42", pair[0])
-
-
-class TestHasActiveUnique(unittest.TestCase):
-    UNIQ = ("CREATE UNIQUE INDEX idx_u ON public.sys_user "
-            "USING btree (user_name) WHERE (deleted_at IS NULL)")
-    COMPOSITE = ("CREATE UNIQUE INDEX idx_c ON public.sys_ip_rule "
-                 "USING btree (wbip_cidr, wbip_type) WHERE (deleted_at IS NULL)")
-
-    def test_single_col_hit(self):
-        self.assertTrue(has_active_unique([self.UNIQ], "user_name"))
-
-    def test_composite_member_hit(self):
-        self.assertTrue(has_active_unique([self.COMPOSITE], "wbip_cidr"))
-
-    def test_not_unique_miss(self):
-        d = self.UNIQ.replace("UNIQUE INDEX", "INDEX")
-        self.assertFalse(has_active_unique([d], "user_name"))
-
-    def test_no_partial_where_miss(self):
-        d = self.UNIQ.replace(" WHERE (deleted_at IS NULL)", "")
-        self.assertFalse(has_active_unique([d], "user_name"))
-
-    def test_other_col_miss(self):
-        self.assertFalse(has_active_unique([self.UNIQ], "nick_name"))
-
-
-class TestAuditTable(unittest.TestCase):
-    IDX = [("CREATE UNIQUE INDEX idx_u ON public.sys_user "
-            "USING btree (user_name) WHERE (deleted_at IS NULL)")]
+_VALID_LEDGER = {"next_id": 1, "entries": []}
+
+
+def _entry(**kw):
+    e = {"id": "E-001", "knife": "001-schema-baseline", "kind": "add_column",
+         "table": "sys_user",
+         "detail": {"column": "tmp_x", "type": "text", "nullable": True,
+                    "default": None, "position": "末位"},
+         "date": "2026-08-05"}
+    e.update(kw)
+    return e
+
+
+def _write_ledger(d, data):
+    path = os.path.join(d, LEDGER)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False)
+
+
+class TestSelfTest(unittest.TestCase):
+    def test_self_test_passes(self):
+        check_self_test()   # 不 raise 即綠（健康對＋四類注入內含）
+
+
+class TestNegativeInjection(unittest.TestCase):
+    """SC-002 四類假漂移注入、全數必紅（比對器先自證；test 子命令承載面）。"""
+
+    def setUp(self):
+        self.fix = _st_fixtures()
+        self.healthy = synth_expected(self.fix, [])
+        self.norm = normalize_seed_dump(_ST_DUMP)
+
+    def test_1_structure_add_column_red(self):
+        drifted = json.loads(json.dumps(self.healthy))
+        drifted["columns"].append({"table": "t_ok", "column": "ghost", "ordinal": 3,
+                                   "type": "text", "nullable": True, "default": None})
+        f = compare_structure(synth_expected(self.fix, []), drifted)
+        self.assertTrue(any("columns/t_ok/ghost" in x and "未登記" in x for x in f))
+
+    def test_1b_structure_type_change_red(self):
+        mutated = json.loads(json.dumps(self.healthy))
+        mutated["columns"][2]["type"] = "integer"
+        f = compare_structure(synth_expected(self.fix, []), mutated)
+        self.assertTrue(any("columns/t_ok/id" in x for x in f))
+
+    def test_2_column_order_swap_red(self):
+        swapped = json.loads(json.dumps(self.healthy["columns"]))
+        for c in swapped:
+            if c["table"] == "t_ok":
+                c["ordinal"] = 3 - c["ordinal"]
+        f = compare_column_order({"t_ok": ["id", "name"]}, [], swapped)
+        self.assertTrue(any("[gate2·欄序] t_ok" in x for x in f))
+
+    def test_3_seed_value_red(self):
+        f = compare_seed(self.norm, self.norm.replace("1\ta", "1\tX"))
+        self.assertTrue(f and "diff 非零" in f[0])
+
+    def test_4_setval_red(self):
+        f = compare_seed(self.norm, self.norm.replace("', 2, true);", "', 1, true);"))
+        self.assertTrue(f and "setval" in f[0])
+
+    def test_registered_then_green(self):
+        """演進帳往返縮影：注入紅→登記綠（SC-005 之離線半）。"""
+        drifted = json.loads(json.dumps(self.healthy))
+        drifted["columns"].append({"table": "t_ok", "column": "ghost", "ordinal": 3,
+                                   "type": "text", "nullable": True, "default": None})
+        entry = _entry(table="t_ok",
+                       detail={"column": "ghost", "type": "text", "nullable": True,
+                               "default": None, "position": "末位"})
+        self.assertEqual(compare_structure(synth_expected(self.fix, [entry]),
+                                           drifted), [])
+        f = compare_column_order({"t_ok": ["id", "name"]}, [entry],
+                                 drifted["columns"])
+        self.assertEqual(f, [])
+
+
+class TestLedgerAssertions(unittest.TestCase):
+    """登記檔啟動斷言六條（contracts/schema-evolution.md §2）＝rc 2 fail-loud。"""
+
+    def _load(self, data):
+        with tempfile.TemporaryDirectory() as d:
+            _write_ledger(d, data)
+            return load_ledger(d)
+
+    def test_baseline_form_green(self):
+        self.assertEqual(self._load(_VALID_LEDGER)["entries"], [])
+        got = self._load({"next_id": 2, "entries": [_entry()]})
+        self.assertEqual(got["entries"][0]["id"], "E-001")
+
+    def test_knife_format_bad(self):
+        with self.assertRaisesRegex(GateError, "斷言④.*knife"):
+            self._load({"next_id": 2, "entries": [_entry(knife="002_bad_slug")]})
+
+    def test_kind_not_in_enum(self):
+        with self.assertRaisesRegex(GateError, "斷言⑤.*kind"):
+            self._load({"next_id": 2, "entries": [_entry(kind="rename_column")]})
+
+    def test_drop_kind_named(self):
+        with self.assertRaisesRegex(GateError, "斷言⑥.*基線翻案"):
+            self._load({"next_id": 2, "entries": [_entry(kind="drop_column")]})
+
+    def test_id_not_ascending(self):
+        with self.assertRaisesRegex(GateError, "斷言③.*遞增"):
+            self._load({"next_id": 4, "entries": [
+                _entry(id="E-003"),
+                _entry(id="E-002", kind="add_index", table="sys_role",
+                       detail={"name": "x", "definition": "y"})]})
+
+    def test_missing_date_field(self):
+        e = _entry()
+        del e["date"]
+        with self.assertRaisesRegex(GateError, "斷言②.*date"):
+            self._load({"next_id": 2, "entries": [e]})
+
+    def test_top_level_keys_exact(self):
+        with self.assertRaisesRegex(GateError, "斷言①"):
+            self._load({"next_id": 1, "entries": [], "extra": 1})
+
+    def test_next_id_mismatch(self):
+        with self.assertRaisesRegex(GateError, "斷言③.*next_id"):
+            self._load({"next_id": 9, "entries": [_entry()]})
+
+    def test_json_malformed_caught(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, LEDGER)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("{broken")
+            with self.assertRaisesRegex(GateError, "JSON 壞形"):
+                load_ledger(d)
+
+
+class TestFixturesMissing(unittest.TestCase):
+    def test_check_rc2_with_remedy(self):
+        """fixtures 缺席＝check rc 2 附補救提示（T011 驗收面；self-test＋登記檔綠後即攔、
+        零 docker）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _write_ledger(d, _VALID_LEDGER)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(cmd_check(root=d), 2)
+            self.assertIn("fixtures/columns.json 缺席", err.getvalue())
+            self.assertIn("補救", err.getvalue())
+
+
+class TestSeedSynthesis(unittest.TestCase):
+    def setUp(self):
+        self.norm = normalize_seed_dump(_ST_DUMP)
+
+    def test_seed_add(self):
+        e = _entry(kind="seed_add", table="t_ok",
+                   detail={"pk": ["id"], "values": {"id": 3, "name": "c"}})
+        out = apply_seed_entries(self.norm, [e])
+        self.assertIn("3\tc", out)
+        self.assertEqual(compare_seed(out, normalize_seed_dump(out)), [])
+
+    def test_seed_update(self):
+        e = _entry(kind="seed_update", table="t_ok",
+                   detail={"pk": {"id": 1}, "set": {"name": "z"}})
+        out = apply_seed_entries(self.norm, [e])
+        self.assertIn("1\tz", out)
+        self.assertNotIn("1\ta", out)
+
+    def test_seed_delete(self):
+        e = _entry(kind="seed_delete", table="t_ok", detail={"pk": {"id": 2}})
+        out = apply_seed_entries(self.norm, [e])
+        self.assertNotIn("2\tb", out)
+
+    def test_seed_update_pk_miss_fail_loud(self):
+        e = _entry(kind="seed_update", table="t_ok",
+                   detail={"pk": {"id": 99}, "set": {"name": "z"}})
+        with self.assertRaisesRegex(GateError, "命中 0 列"):
+            apply_seed_entries(self.norm, [e])
+
+    def test_null_literal(self):
+        self.assertEqual(copy_literal(None), "\\N")
+        self.assertEqual(copy_literal(True), "t")
+        self.assertEqual(copy_literal("a\tb"), "a\\tb")
+
+    def test_roster_assert(self):
+        assert_seed_roster(self.norm, ["t_ok_id_seq"])
+        with self.assertRaisesRegex(GateError, "setval 名冊"):
+            assert_seed_roster(self.norm, ["t_ok_id_seq", "missing_seq"])
+
+    def test_add_column_header_and_fill(self):
+        out = apply_seed_entries(self.norm, [_entry(table="t_ok")])
+        self.assertIn("COPY public.t_ok (id, name, tmp_x) FROM stdin;", out)
+        self.assertIn("1\ta\t\\N", out)
+
+    def test_add_column_with_default_fail_loud(self):
+        e = _entry(table="t_ok",
+                   detail={"column": "x", "type": "text", "nullable": True,
+                           "default": "'v'::text", "position": "末位"})
+        with self.assertRaisesRegex(GateError, "僅支援 nullable 無 default"):
+            apply_seed_entries(self.norm, [e])
+
+    def test_add_table_seed_face_fail_loud(self):
+        e = _entry(kind="add_table", table="t_new",
+                   detail={"columns": [{"column": "id", "type": "bigint",
+                                        "nullable": False}]})
+        with self.assertRaisesRegex(GateError, "add_table.*seed 面"):
+            apply_seed_entries(self.norm, [e])
+
+
+class TestPgDumpArgv(unittest.TestCase):
+    """pg_dump 旗標渲染回歸：-e PGTZ=UTC 必掛 exec 子命令之後（兩形皆然）。
+    曾有缺陷：compose 形把 -e 插在 docker compose 頂層 → `unknown shorthand flag: 'e'`
+    rc 1 → check 對 dev stack 永遠 rc 2（quickstart §B／RUNBOOK §10 裸 check 不可用）。"""
+
+    class _R:
+        returncode, stdout, stderr = 0, "x", ""
+
+    def _rendered(self, container):
+        seen = {}
+
+        def fake_run(cmd, **kw):
+            seen["cmd"] = cmd
+            return self._R()
+
+        pg_dump_data(container=container, run=fake_run)
+        return seen["cmd"]
+
+    def test_compose_form_env_after_exec(self):
+        cmd = self._rendered(None)
+        i = cmd.index("exec")
+        self.assertEqual(cmd[i + 1:i + 3], ["-e", "PGTZ=UTC"])
+        self.assertNotIn("-e", cmd[:i])      # docker compose 頂層絕無 -e
+
+    def test_container_form_env_after_exec(self):
+        self.assertEqual(self._rendered("pristine-pg")[:6],
+                         ["docker", "exec", "-e", "PGTZ=UTC", "-i", "pristine-pg"])
+
+
+class TestDockerUnavailable(unittest.TestCase):
+    """docker 不可執行（OSError；不在 PATH／CLI 缺）＝環境異常 GateError→rc 2——
+    非 rc 1 漂移、非裸 traceback（契約 gates.md §0；RUNBOOK §12 依碼判讀之根據）。
+    注意與 daemon 停擺區分：後者 docker 有跑、回非零、走既有 rc≠0 分支。"""
 
     @staticmethod
-    def a_cols():
-        return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
-            "created_at": ("timestamp with time zone", "NO", "now()", None),
-            "created_by": ("bigint", "YES", None, None),
-            "updated_at": ("timestamp with time zone", "YES", None, None),
-            "updated_by": ("bigint", "YES", None, None),
-            "deleted_at": ("timestamp with time zone", "YES", None, None),
-            "deleted_by": ("bigint", "YES", None, None),
-            "user_name": ("character varying", "NO", None, None),
-        }
+    def _no_docker(cmd, **kw):
+        raise FileNotFoundError(2, "No such file or directory", "docker")
 
-    def test_a_full_ok(self):
-        self.assertEqual(audit_table("sys_user", "A", "user_name",
-                                     self.a_cols(), self.IDX), [])
+    def test_psql_oserror_to_gateerror(self):
+        with self.assertRaisesRegex(GateError, "無法執行 docker"):
+            psql("SELECT 1", parse=True, run=self._no_docker)
 
-    def test_a_missing_audit_col(self):
-        cols = self.a_cols()
-        del cols["deleted_by"]
-        issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("sys_user.deleted_by", issues[0])
+    def test_pg_dump_oserror_to_gateerror(self):
+        with self.assertRaisesRegex(GateError, "無法執行 docker"):
+            pg_dump_data(run=self._no_docker)
 
-    def test_a_created_at_bad_default(self):
-        cols = self.a_cols()
-        cols["created_at"] = ("timestamp with time zone", "NO", None, None)
-        issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("created_at", issues[0])
-
-    def test_a_by_col_not_nullable(self):
-        cols = self.a_cols()
-        cols["updated_by"] = ("bigint", "NO", None, None)
-        issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("updated_by", issues[0])
-
-    def test_a_at_col_bad_type(self):
-        cols = self.a_cols()
-        cols["deleted_at"] = ("timestamp without time zone", "YES", None, None)
-        issues = audit_table("sys_user", "A", "user_name", cols, self.IDX)
-        self.assertEqual(len(issues), 1)
-        self.assertIn("deleted_at", issues[0])
-
-    def test_a_missing_partial_uniq(self):
-        issues = audit_table("sys_user", "A", "user_name", self.a_cols(), [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("partial-uniq", issues[0])
-
-    def test_a_settings_pk_exempt(self):
-        cols = self.a_cols()
-        del cols["user_name"]
-        cols["setting_key"] = ("character varying", "NO", None, None)
-        self.assertEqual(audit_table("system_settings", "A", None, cols, []), [])
-
-    @staticmethod
-    def b_cols():
-        return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
-            "created_at": ("timestamp with time zone", "NO", "now()", None),
-            "created_by": ("bigint", "YES", None, None),
-            "http_status": ("smallint", "YES", None, None),
-        }
-
-    def test_b_ok(self):
-        self.assertEqual(audit_table("sys_access_log", "B", None, self.b_cols(), []), [])
-
-    def test_b_updated_present_fail(self):
-        cols = self.b_cols()
-        cols["updated_at"] = ("timestamp with time zone", "YES", None, None)
-        issues = audit_table("sys_access_log", "B", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("updated_at", issues[0])
-
-    def test_b_deleted_present_fail(self):
-        cols = self.b_cols()
-        cols["deleted_by"] = ("bigint", "YES", None, None)
-        issues = audit_table("sys_access_log", "B", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("deleted_by", issues[0])
-
-    def test_b_created_at_nullable_fail(self):
-        cols = self.b_cols()
-        cols["created_at"] = ("timestamp with time zone", "YES", "now()", None)
-        issues = audit_table("sys_access_log", "B", None, cols, [])
-        self.assertEqual(len(issues), 1)
-
-    def test_c_join_zero_audit_ok(self):
-        cols = {"user_id": ("bigint", "NO", None, None), "role_id": ("bigint", "NO", None, None)}
-        self.assertEqual(audit_table("sys_user_role", "C", None, cols, []), [])
-
-    def test_c_join_any_audit_fail(self):
-        cols = {"user_id": ("bigint", "NO", None, None), "role_id": ("bigint", "NO", None, None),
-                "created_at": ("timestamp with time zone", "NO", "now()", None)}
-        issues = audit_table("sys_user_role", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("created_at", issues[0])
-
-    @staticmethod
-    def token_cols():
-        return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
-            "created_at": ("timestamp with time zone", "NO", "now()", None),
-            "created_by": ("bigint", "NO", None, None),   # domain 欄、NN 合法
-            "status": ("character varying", "NO", None, None),
-            "token_hash": ("character varying", "NO", None, None),
-        }
-
-    def test_c_token_ok(self):
-        self.assertEqual(audit_table("sys_token", "C", None, self.token_cols(), []), [])
-
-    def test_c_token_missing_status_fail(self):
-        cols = self.token_cols()
-        del cols["status"]
-        issues = audit_table("sys_token", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("status", issues[0])
-
-    def test_c_token_deleted_fail(self):
-        cols = self.token_cols()
-        cols["deleted_at"] = ("timestamp with time zone", "YES", None, None)
-        issues = audit_table("sys_token", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("deleted_at", issues[0])
-
-    @staticmethod
-    def custody_cols():
-        # 015-pwd-custody m011：極簡欄集（複合 PK user_id×created_by＋created_at NN def now）
-        return {
-            "user_id": ("bigint", "NO", None, None),
-            "created_by": ("bigint", "NO", None, None),
-            "created_at": ("timestamp with time zone", "NO", "now()", None),
-        }
-
-    def test_c_custody_ok(self):
-        self.assertEqual(
-            audit_table("sys_pwd_custody", "C", None, self.custody_cols(), []), [])
-
-    def test_c_custody_updated_present_fail(self):
-        cols = self.custody_cols()
-        cols["updated_at"] = ("timestamp with time zone", "YES", None, None)
-        issues = audit_table("sys_pwd_custody", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("updated_at", issues[0])
-
-    def test_c_custody_deleted_present_fail(self):
-        cols = self.custody_cols()
-        cols["deleted_at"] = ("timestamp with time zone", "YES", None, None)
-        issues = audit_table("sys_pwd_custody", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("deleted_at", issues[0])
-
-    def test_c_custody_created_at_nullable_fail(self):
-        cols = self.custody_cols()
-        cols["created_at"] = ("timestamp with time zone", "YES", "now()", None)
-        issues = audit_table("sys_pwd_custody", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("created_at", issues[0])
-
-    @staticmethod
-    def email_verify_cols():
-        # 020-email-verify-smtp m014：衛星欄集（單一 PK user_id＋verified_*＋created_* NN、
-        # created_at def now）。
-        return {
-            "user_id": ("bigint", "NO", None, None),
-            "verified_email": ("character varying", "NO", None, None),
-            "verified_at": ("timestamp with time zone", "NO", None, None),
-            "created_at": ("timestamp with time zone", "NO", "now()", None),
-            "created_by": ("bigint", "NO", None, None),
-        }
-
-    def test_c_email_verify_ok(self):
-        self.assertEqual(
-            audit_table("sys_user_email_verify", "C", None, self.email_verify_cols(), []), [])
-
-    def test_c_email_verify_updated_present_fail(self):
-        cols = self.email_verify_cols()
-        cols["updated_at"] = ("timestamp with time zone", "YES", None, None)
-        issues = audit_table("sys_user_email_verify", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("updated_at", issues[0])
-
-    def test_c_email_verify_deleted_present_fail(self):
-        cols = self.email_verify_cols()
-        cols["deleted_at"] = ("timestamp with time zone", "YES", None, None)
-        issues = audit_table("sys_user_email_verify", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("deleted_at", issues[0])
-
-    def test_c_email_verify_created_at_nullable_fail(self):
-        cols = self.email_verify_cols()
-        cols["created_at"] = ("timestamp with time zone", "YES", "now()", None)
-        issues = audit_table("sys_user_email_verify", "C", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("created_at", issues[0])
-
-    @staticmethod
-    def archive_cols():
-        return {
-            "id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None),
-            "created_at": ("timestamp with time zone", "YES", None, None),
-            "created_by": ("bigint", "YES", None, None),
-            "archived_at": ("timestamp with time zone", "NO", "now()", None),
-            "archived_by": ("bigint", "YES", None, None),
-            "archive_reason": ("character varying", "NO", None, None),
-            "ptype": ("character varying", "YES", None, None),
-        }
-
-    def test_d_archive_ok(self):
-        self.assertEqual(
-            audit_table("sys_casbin_policy_archive", "D", None, self.archive_cols(), []), [])
-
-    def test_d_archive_reason_nullable_fail(self):
-        cols = self.archive_cols()
-        cols["archive_reason"] = ("character varying", "YES", None, None)
-        issues = audit_table("sys_casbin_policy_archive", "D", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("archive_reason", issues[0])
-
-    def test_d_archive_snapshot_created_at_must_be_nullable(self):
-        cols = self.archive_cols()
-        cols["created_at"] = ("timestamp with time zone", "NO", None, None)
-        issues = audit_table("sys_casbin_policy_archive", "D", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("created_at", issues[0])
-
-    @staticmethod
-    def casbin_cols():
-        cols = {"id": ("bigint", "NO", "nextval('x_id_seq'::regclass)", None)}
-        for c in ("ptype", "v0", "v1", "v2", "v3", "v4", "v5"):
-            cols[c] = ("character varying", "YES", None, None)
-        cols["protected"] = ("boolean", "NO", "false", None)
-        cols["created_at"] = ("timestamp with time zone", "NO", "now()", None)
-        cols["created_by"] = ("bigint", "YES", None, None)
-        return cols
-
-    def test_d_casbin_ok(self):
-        self.assertEqual(audit_table("casbin_rule", "D", None, self.casbin_cols(), []), [])
-
-    def test_d_casbin_missing_protected_fail(self):
-        cols = self.casbin_cols()
-        del cols["protected"]
-        issues = audit_table("casbin_rule", "D", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("protected", issues[0])
-
-    def test_d_casbin_base_col_missing_fail(self):
-        cols = self.casbin_cols()
-        del cols["v3"]
-        issues = audit_table("casbin_rule", "D", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("casbin_rule.v3", issues[0])
-
-    def test_d_casbin_protected_default_fail(self):
-        cols = self.casbin_cols()
-        cols["protected"] = ("boolean", "NO", "true", None)
-        issues = audit_table("casbin_rule", "D", None, cols, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("protected", issues[0])
-
-    def test_unknown_variant_flagged(self):
-        issues = audit_table("t_x", "X", None, {"id": ("bigint", "NO", None, None)}, [])
-        self.assertEqual(len(issues), 1)
-        self.assertIn("X", issues[0])
+    def test_cmd_check_rc2_with_remedy(self):
+        """cmd_check 層：左源全綠後右源照相撞 OSError → rc 2 附補救、絕不判漂移。"""
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(cmd_check(run=self._no_docker), 2)
+        self.assertIn("無法執行 docker", err.getvalue())
+        self.assertIn("--container", err.getvalue())
 
 
-class TestArchetypeMapFile(unittest.TestCase):
-    @unittest.skipUnless(_day1_pending(DATA_MODEL, "docs/ops/reference-src/archetype-map.json"),
-                         "Day 1 未達：解除＝data-model 與 archetype-map 雙檔到位（schema 基線刀；★§4.5.2 原列兩案、實測本案亦屬同族）")
-    def test_map_matches_datamodel_s1(self):
-        # 002 基線 12 表（data-model §1 轉錄）＋post-baseline 隨刀登記
-        # （session_event＝006-session-lifecycle m004、變體 B；
-        # sys_pwd_custody＝015-pwd-custody m011、變體 C；
-        # sys_user_email_verify＝020-email-verify-smtp m014、變體 C）＝15 表
-        entries = load_archetype_map()
-        tables = [e["table"] for e in entries]
-        self.assertEqual(len(tables), 15)
-        self.assertEqual(len(set(tables)), 15)
-        self.assertEqual(sorted(e["variant"] for e in entries),
-                         ["A"] * 5 + ["B"] * 4 + ["C"] * 4 + ["D"] * 2)
-        by = {e["table"]: e for e in entries}
-        self.assertEqual({t: by[t]["variant"] for t in tables}, {
-            "sys_user": "A", "sys_role": "A", "sys_menu": "A",
-            "system_settings": "A", "sys_ip_rule": "A",
-            "sys_operation_log": "B", "sys_access_log": "B", "sys_login_attempt": "B",
-            "session_event": "B",
-            "sys_user_role": "C", "sys_token": "C", "sys_pwd_custody": "C",
-            "sys_user_email_verify": "C",
-            "sys_casbin_policy_archive": "D", "casbin_rule": "D"})
-        au = {e["table"]: e.get("active_unique") for e in entries if e["variant"] == "A"}
-        self.assertEqual(au, {"sys_user": "user_name", "sys_role": "role_code",
-                              "sys_menu": "route_name", "system_settings": None,
-                              "sys_ip_rule": "wbip_cidr"})
+class TestDataModelParse(unittest.TestCase):
+    DM = ("## 2. 逐表欄序定稿\n\n### t_a（2 欄；變體 A）\n\n"
+          "| # | 欄 | 型別 | NULL | default | 註 |\n|---|---|---|---|---|---|\n"
+          "| 1 | id | bigint | NN | —— |  |\n| 2 | name | text | 可空 | —— |  |\n\n"
+          + "".join(f"### t_{c}（1 欄）\n\n| # | 欄 |\n|---|---|\n| 1 | id |\n\n"
+                    for c in "bcdefghijklmn")
+          + "## 3. rename map\n")
+
+    def test_parse_and_self_check(self):
+        got = parse_data_model_order(self.DM)
+        self.assertEqual(got["t_a"], ["id", "name"])
+        self.assertEqual(len(got), 14)
+
+    def test_declared_count_mismatch_fail_loud(self):
+        with self.assertRaisesRegex(GateError, "解析自檢敗"):
+            parse_data_model_order(self.DM.replace("t_a（2 欄", "t_a（3 欄"))
+
+    def test_real_data_model_parses(self):
+        """對現庫 data-model 實解析：14 親排表、總欄 158（凍結定稿字面）。"""
+        got = load_data_model_order(REPO_ROOT)
+        self.assertEqual(len(got), 14)
+        self.assertEqual(sum(len(v) for v in got.values()), 158)
+        self.assertEqual(len(got["sys_user"]), 17)
 
 
-class TestUsageExit(unittest.TestCase):
-    def _run_main(self, argv):
-        import contextlib
-        import io
-        with contextlib.redirect_stderr(io.StringIO()), \
-                contextlib.redirect_stdout(io.StringIO()):
-            return main(argv)
+class TestAuditEngine(unittest.TestCase):
+    def test_unknown_c_subtype_fail_loud(self):
+        amap = [{"table": "t_mystery", "label": "C join·狀態機",
+                 "active_unique": None, "note": ""}]
+        cols = [{"table": "t_mystery", "column": "id", "ordinal": 1,
+                 "type": "bigint", "nullable": False, "default": None}]
+        with self.assertRaisesRegex(GateError, "子型規則未硬編碼"):
+            audit_archetype(amap, cols, [], [])
 
-    def test_no_args_exit_64(self):
-        self.assertEqual(self._run_main(["schema-gate"]), 64)
+    def test_table_guard_both_ways(self):
+        amap = [{"table": "t_biz", "label": "A 業務全六欄",
+                 "active_unique": None, "note": ""}]
+        cols = [{"table": "t_other", "column": "id", "ordinal": 1,
+                 "type": "bigint", "nullable": False, "default": None}]
+        f = audit_archetype(amap, cols, [], [])
+        self.assertTrue(any("t_other 未登記" in x for x in f))
+        self.assertTrue(any("t_biz 不在實庫" in x for x in f))
 
-    def test_unknown_subcommand_exit_64(self):
-        self.assertEqual(self._run_main(["schema-gate", "bogus"]), 64)
+    def test_created_by_nn_roster_enforced(self):
+        """created_by 可空性顯式驗：非 NN 四表卻 NN＝紅。"""
+        amap = [{"table": "t_log2", "label": "B append-only",
+                 "active_unique": None, "note": ""}]
+        cols = [
+            {"table": "t_log2", "column": "created_at", "ordinal": 1, "type": TS_TZ,
+             "nullable": False, "default": "now()"},
+            {"table": "t_log2", "column": "created_by", "ordinal": 2,
+             "type": "bigint", "nullable": False, "default": None},
+        ]
+        f = audit_archetype(amap, cols, [], [])
+        self.assertTrue(any("created_by｜可空性顯式驗不符" in x for x in f))
 
-    def test_gate1_unknown_flag_exit_64(self):
-        self.assertEqual(self._run_main(["schema-gate", "gate1", "--bogus"]), 64)
 
-    def test_gate2_rejects_args_exit_64(self):
-        self.assertEqual(self._run_main(["schema-gate", "gate2", "extra"]), 64)
+class TestMapAssertions(unittest.TestCase):
+    def _map(self, tables):
+        return {"lineage": "x", "usage": "y", "tables": tables}
 
-    def test_audit_rejects_args_exit_64(self):
-        self.assertEqual(self._run_main(["schema-gate", "audit", "--x"]), 64)
+    def _load(self, data):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, ARCHETYPE_MAP)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(data, fh, ensure_ascii=False)
+            return load_archetype_map(d)
+
+    def test_label_out_of_domain(self):
+        with self.assertRaisesRegex(GateError, "值域外"):
+            self._load(self._map([{"table": "t", "label": "E 神秘",
+                                   "active_unique": None, "note": ""}]))
+
+    def test_duplicate_table(self):
+        row = {"table": "t", "label": "D 治理", "active_unique": None, "note": ""}
+        with self.assertRaisesRegex(GateError, "重複登記"):
+            self._load(self._map([row, dict(row)]))
+
+    def test_missing_key(self):
+        with self.assertRaisesRegex(GateError, "鍵集須恰為"):
+            self._load(self._map([{"table": "t", "label": "D 治理"}]))
+
+    def test_real_map_day1_form(self):
+        """現庫 archetype-map 實載：恰 15 筆（gates.md §3 Day-1 形）＋load 斷言全過。"""
+        rows = load_archetype_map(REPO_ROOT)
+        self.assertEqual(len(rows), 15)
+        self.assertEqual(sorted(r["table"] for r in rows if r["label"] == LABELS[0]),
+                         ["sys_ip_rule", "sys_menu", "sys_role", "sys_user",
+                          "system_settings"])
+
+
+class TestConstantsPinned(unittest.TestCase):
+    """治理常數字面釘死（慣例承 entity-drift-gate TestWhitelist）：常數縮水＝斷言跟縮
+    的套套邏輯在此擋。"""
+
+    def test_kinds_exactly_eight(self):
+        self.assertEqual(KINDS, ("add_table", "add_column", "alter_column",
+                                 "add_index", "add_constraint",
+                                 "seed_add", "seed_update", "seed_delete"))
+
+    def test_labels_four(self):
+        self.assertEqual(LABELS, ("A 業務全六欄", "B append-only",
+                                  "C join·狀態機", "D 治理"))
+
+    def test_created_by_nn_four(self):
+        self.assertEqual(CREATED_BY_NN, ("sys_access_log", "sys_token",
+                                         "sys_pwd_custody", "sys_user_email_verify"))
+
+    def test_rename_map_four_pairs(self):
+        self.assertEqual(RENAME_MAP, {
+            "operator_real_ip": "real_ip", "operator_peer_ip": "peer_ip",
+            "operator_x_forwarded_for": "x_forwarded_for",
+            "operator_ip_confidence": "ip_confidence"})
+
+    def test_paths_are_001_coordinates(self):
+        """rev4 世代座標（specs/002）整組清償：路徑常數一律 001。"""
+        for p in (FIXTURES_DIR, DATA_MODEL, SEED_DECISION):
+            self.assertIn("001-schema-baseline", p)
+
+
+class TestUsage(unittest.TestCase):
+    def test_no_args_exit64(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["schema-gate.py"]), 64)
+
+    def test_unknown_subcommand_exit64(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["schema-gate.py", "gate1"]), 64)
+
+    def test_check_unknown_flag_exit64(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["schema-gate.py", "check", "--bogus"]), 64)
+
+    def test_check_flag_missing_value_exit64(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["schema-gate.py", "check", "--container"]), 64)
 
 
 # ---------------------------------------------------------------------------
-# 入口
+# CLI
 # ---------------------------------------------------------------------------
 
 def usage(msg=None):
-    """用法錯誤：usage 走 stderr、exit 64（EX_USAGE）——與環境不可用 2 分離。"""
     if msg:
         print(msg, file=sys.stderr)
     print(__doc__, file=sys.stderr)
@@ -2136,20 +1449,25 @@ def main(argv):
     if cmd == "test":
         result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
         return 0 if result.wasSuccessful() else 1
-    if cmd == "gate1":
-        try:
-            return cmd_gate1(argv[2:])
-        except EnvUnavailable as ex:
-            print(f"[gate1][ENV] 環境不可用：{ex}", file=sys.stderr)
-            return 2
-    if cmd in ("gate2", "audit"):
-        if argv[2:]:
-            return usage(f"{cmd}：不收參數（見 {' '.join(argv[2:])}）")
-        try:
-            return cmd_gate2() if cmd == "gate2" else cmd_audit()
-        except EnvUnavailable as ex:
-            print(f"[{cmd}][ENV] 環境不可用：{ex}", file=sys.stderr)
-            return 2
+    if cmd == "check":
+        container, user, db = None, DB_USER, DB_NAME
+        args = argv[2:]
+        i = 0
+        while i < len(args):
+            flag = args[i]
+            if flag not in ("--container", "--user", "--db"):
+                return usage(f"未知旗標：{flag}")
+            if i + 1 >= len(args) or args[i + 1].startswith("--"):
+                return usage(f"旗標 {flag} 缺值")
+            val = args[i + 1]
+            if flag == "--container":
+                container = val
+            elif flag == "--user":
+                user = val
+            else:
+                db = val
+            i += 2
+        return cmd_check(container=container, user=user, db=db)
     return usage(f"未知子命令：{cmd}")
 
 

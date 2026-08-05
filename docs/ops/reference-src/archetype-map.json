@@ -1,0 +1,96 @@
+{
+  "lineage": "specs/001-schema-baseline/data-model.md §1（001 基線 15 表逐筆轉錄；憲法 §I.6 四變體）",
+  "usage": "tools/schema-gate.py 之 audit archetype 閘（變體矩陣與表清單守門）左源（形契約＝specs/001-schema-baseline/contracts/gates.md §3；工具子命令＝check｜test）。後續刀新表：先補 data-model §1 歸屬、再登記本檔，否則 audit 攔。label ∈ 四變體字串；active_unique＝活性唯一索引名清單或 null；note＝人讀註記、非機器判準（C 子型規則硬編碼於工具）。",
+  "tables": [
+    {
+      "table": "sys_user",
+      "label": "A 業務全六欄",
+      "active_unique": ["sys_user_user_name_active_uniq", "sys_user_user_email_active_uniq"],
+      "note": "六欄全；兩支 partial-uniq WHERE deleted_at IS NULL（email 支另含 user_email IS NOT NULL、lower() 表達式）"
+    },
+    {
+      "table": "sys_role",
+      "label": "A 業務全六欄",
+      "active_unique": ["sys_role_code_active_uniq"],
+      "note": "六欄全；role_code 活性唯一"
+    },
+    {
+      "table": "sys_menu",
+      "label": "A 業務全六欄",
+      "active_unique": ["sys_menu_route_name_active_uniq"],
+      "note": "六欄全；route_name 活性唯一"
+    },
+    {
+      "table": "system_settings",
+      "label": "A 業務全六欄",
+      "active_unique": null,
+      "note": "六欄全（PK＝setting_key 總體唯一、免 partial-uniq）"
+    },
+    {
+      "table": "sys_ip_rule",
+      "label": "A 業務全六欄",
+      "active_unique": ["sys_ip_rule_cidr_type_active_uniq"],
+      "note": "六欄全；複合 (wbip_cidr, wbip_type) 活性唯一"
+    },
+    {
+      "table": "sys_operation_log",
+      "label": "B append-only",
+      "active_unique": null,
+      "note": "僅 created_at NN＋created_by（可空）；禁 updated_*／deleted_*；鑑識欄群＝rename 後定稿名（data-model §3）"
+    },
+    {
+      "table": "sys_access_log",
+      "label": "B append-only",
+      "active_unique": null,
+      "note": "僅 created_at NN＋created_by（NN、請求主體紀錄）；禁 updated_*／deleted_*"
+    },
+    {
+      "table": "sys_login_attempt",
+      "label": "B append-only",
+      "active_unique": null,
+      "note": "僅 created_at NN＋created_by（可空）；禁 updated_*／deleted_*"
+    },
+    {
+      "table": "session_event",
+      "label": "B append-only",
+      "active_unique": null,
+      "note": "僅 created_at NN＋created_by（可空）；禁 updated_*／deleted_*"
+    },
+    {
+      "table": "sys_user_role",
+      "label": "C join·狀態機",
+      "active_unique": null,
+      "note": "子型 join：零審計欄、硬刪；複合 PK＋2 FK"
+    },
+    {
+      "table": "sys_token",
+      "label": "C join·狀態機",
+      "active_unique": null,
+      "note": "子型狀態機：created_at NN＋created_by NN＋status；created_by＝domain 擁有者欄（非 archetype 審計欄、NN 不受「*_by nullable」通則約束）"
+    },
+    {
+      "table": "sys_pwd_custody",
+      "label": "C join·狀態機",
+      "active_unique": null,
+      "note": "子型極簡：複合 PK (user_id, created_by) 三欄；created_at＝最後設定時間（upsert 刷新）；零 FK；不存密碼"
+    },
+    {
+      "table": "sys_user_email_verify",
+      "label": "C join·狀態機",
+      "active_unique": null,
+      "note": "子型衛星：單一 PK user_id 五欄；verified_at＝最後驗證時刻（upsert 刷新）；零 FK；不存驗證碼"
+    },
+    {
+      "table": "sys_casbin_policy_archive",
+      "label": "D 治理",
+      "active_unique": null,
+      "note": "created_at/by（原 grant 快照、可空）＋archived_at NN def now()＋archived_by＋archive_reason NN"
+    },
+    {
+      "table": "casbin_rule",
+      "label": "D 治理",
+      "active_unique": null,
+      "note": "adapter 基底 8 欄＋ALTER 治理欄（protected NN def false／created_at NN def now()／created_by 可空）；欄序不入親排（data-model §7）"
+    }
+  ]
+}

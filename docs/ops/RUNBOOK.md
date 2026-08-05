@@ -54,7 +54,22 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 
 ## 10. migration 操作
 
-（本章隨 schema 刀補實文；創世期無內容。）
+★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝
+`specs/001-schema-baseline/contracts/gates.md` §5；rev4 紅燈裸奔兩刀教訓 K1-39）：
+
+1. `python3 tools/docs-sync.py refresh` —— 照相（schema／accounts 兩快照前進；需運行中 stack）
+2. 登記 `docs/ops/reference-src/schema-evolution.json` —— 該刀**全部**結構／seed 變更逐筆入帳
+   （kind 枚舉恰八值、每筆帶來源刀編號；刪除性演進〔drop_*〕不入登記檔——屬拍板級、
+   走新 ADR 基線翻案；seed 面合成現況：add_table 與帶 default／NOT NULL 之 add_column
+   落 rc 2 fail-loud 指引擴充——斷言完備化由 BACKLOG B-006 承載、首筆真登記前完備）
+3. `python3 tools/schema-gate.py check` —— 三閘綠（gate1 結構／gate2 欄序＋seed／audit
+   archetype）；未登記漂移一律紅、「migration 已跑、登記缺席」＝gate1 紅之常態語意；
+   一次性 pristine 場景加 `--container <容器名>`（預設＝compose dev stack）；判讀提示：
+   同庫反覆 DROP→ADD COLUMN（含 down→up）後 gate1 會因 PG attnum 空洞報 ordinal 差
+   ——補救＝pristine 重放、勿誤判真漂移
+
+新業務表另備兩件：先補 `specs/001-schema-baseline/data-model.md` §1 archetype 歸屬、再登記
+`docs/ops/reference-src/archetype-map.json`——否則 audit 表清單守門攔。
 
 ## 11. 觀測層維運
 
@@ -68,7 +83,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint24） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
-| `python3 tools/schema-gate.py gate1|gate2|audit` | 零漂移／定稿落實／審計欄矩陣（不進 pre-commit、手動跑） | **是** |
+| `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
 | `python3 tools/schema-gate.py test` | 自測 | 否 |
 | `python3 tools/wire-schema.py extract` / `check` / `test` | 容器內抽 typings→wire-schema.json 快照／快照 drift 比對（`--staged-gate`＝pre-commit 收窄形）／自測 | extract **是**、check 未起→警告放行 |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |

@@ -49,3 +49,16 @@ condition = "AND"
 regexTarget = "match"
 paths = ['''^INTEGRATION-rev5-arc42\.md$''', '''^docs/brainstorms/000-doc-architecture\.md$''']
 regexes = ['''(?:merge|web|api)"\s*:\s*"[0-9a-f]{40}"''']
+
+# ③vendored sea-orm-adapter 測試碼假 DSN（001-schema-baseline T002、ADR 0003 佔位字面）：
+#   adapter.rs #[cfg(feature = "mysql")] 測試分支之 mysql://root:123456@localhost 範例
+#   連線串——vendored 件位元零改寫紀律（§I.5）禁止改字面消音；佔位（123456@localhost）
+#   公開非機密。2026-08-05 雙向突變實證：無此條→rev5-dsn-credential-url 命中 1、
+#   加此條→no leaks rc=0。path 相對 rust-api 源倉根（hook 於源倉樹執行）。
+[[allowlists]]
+description = "vendored sea-orm-adapter 測試碼假 DSN（mysql root:123456@localhost 佔位）"
+targetRules = ["rev5-dsn-credential-url"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^sea-orm-adapter/src/adapter\.rs$''']
+regexes = ['''mysql://root:123456@localhost:3306/casbin''']
