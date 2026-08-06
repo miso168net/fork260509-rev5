@@ -3981,11 +3981,7 @@ LINT25_EXEMPTIONS = {
         "——同 HISTORICAL_EXEMPT 之理由，檔案級永久豁免，本檔真正的清償面走 B-004 批 C 人工兜底",
         lambda h: h["rel"] == "tools/docs-sync.py",
         False, "2026-08-07"),
-    "backlog.b004-entry": (
-        "BACKLOG 的 B-004 條目行本身＝這批清償的**標的清單本文**（逐族逐檔逐號列在裡面）、"
-        "前綴化即改寫工單，解除謂詞＝B-004 清償完成刪列後本筆零命中",
-        lambda h: h["rel"] == BACKLOG and h["line"].lstrip().startswith("- B-004｜"),
-        True, "2026-08-07"),
+    # backlog.b004-entry：B-004 清償收單刪列（2026-08-07）、解除謂詞成立——依到期即紅下架。
 }
 
 # (h) 全域降級豁免：清償進行中，整條款降 WARN。
@@ -8358,8 +8354,11 @@ class TestLintIdNamespace(unittest.TestCase):
     def test_exemption_table_columns(self):
         """四欄紀律：名冊自身腐化會讓整套豁免語意失真。"""
         _assert_lint25_table()
-        self.assertTrue(any(row[2] for row in LINT25_EXEMPTIONS.values()),
-                        msg="至少一筆須帶到期即紅，否則整表都是永久豁免、無解除機關")
+        # B-004 收官（2026-08-07）後全表合法地僅剩結構性永久豁免（到期即紅列可為零）；
+        # 解除機關本體由 test_expiring_exemption_goes_red_when_zero_hit 以合成表自證，
+        # 此處只釘欄形：第三欄必為 bool（真值腐化＝永久豁免被誤標可解除、或反之）。
+        self.assertTrue(all(isinstance(row[2], bool) for row in LINT25_EXEMPTIONS.values()),
+                        msg="到期即紅欄必為 bool")
 
     def test_expiring_exemption_goes_red_when_zero_hit(self):
         """★到期即紅：帶解除謂詞的豁免零命中＝清償已完成，項仍在表即 ERROR 指名該筆。"""
@@ -8487,13 +8486,15 @@ class TestLintIdNamespace(unittest.TestCase):
     def test_run_lint_wires_id_namespace(self):
         """★接線層：lint_id_namespace 從 run_lint 掉線＝Lint25 整條靜默下線。
 
-        bare fixture 零 tracked 檔→仍必有 Lint25 的降級 SKIP 與總數 WARN；任何 Lint25
-        finding 只可能來自 lint_id_namespace——信號純淨。
+        ERROR 活態（B-004 收官後）零命中即零輸出，故 fixture **種一筆裸前代號**——run_lint
+        輸出必含其 Lint25 ERROR；任何 Lint25 finding 只可能來自 lint_id_namespace——信號純淨。
         """
         with tempfile.TemporaryDirectory() as d:
             _init_outer(d)
+            _wfile(d, "docs/ops/NOTES.md", "接線探針：見 ADR 9999。\n")
+            _git(d, "add", "docs/ops/NOTES.md")   # run_lint 走 tracked_files、未追蹤不進掃描面
             f = run_lint(d)
-            self.assertTrue(any(x["code"] == "Lint25" for x in f),
+            self.assertTrue(any(x["code"] == "Lint25" and x["level"] == ERROR for x in f),
                             msg=str([x for x in f if x["code"] == "Lint25"]))
 
 
