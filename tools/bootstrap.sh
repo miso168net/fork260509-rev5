@@ -147,19 +147,23 @@ check_pin "base-web"
 check_pin "rust-api"
 
 # ── 5. 守門工具自測（rev4:FR-015：體檢無條件全跑；pre-commit 則條件觸發）＋fork-delta 全掃 ──
-run_tool_test() { # $1=工具名（不含 .py）；失敗才吐明細，成功保持體檢輸出乾淨
+# ★引數改收**相對路徑**（B-035 U2／ADR 0010）：受治理的 python 工具不再只住 tools/，
+#   deploy/ 的機密管線腳本轉 python 後同列本名冊（與 docs-sync TOOLS_PY、pre-commit 名冊
+#   三處手抄，由 docs-sync 自測對賬）。
+run_tool_test() { # $1=工具相對路徑（含 .py）；失敗才吐明細，成功保持體檢輸出乾淨
   local out
-  if ! out="$(python3 "$ROOT/tools/$1.py" test 2>&1)"; then
+  if ! out="$(python3 "$ROOT/$1" test 2>&1)"; then
     echo "$out" >&2
-    die "$1.py 自測未過——見上方明細"
+    die "$1 自測未過——見上方明細"
   fi
-  ok "$1.py 自測綠"
+  ok "$1 自測綠"
 }
-run_tool_test docs-sync
-run_tool_test schema-gate
-run_tool_test wire-schema
-run_tool_test secret-value-guard
-run_tool_test entity-drift-gate
+run_tool_test tools/docs-sync.py
+run_tool_test tools/schema-gate.py
+run_tool_test tools/wire-schema.py
+run_tool_test tools/secret-value-guard.py
+run_tool_test tools/entity-drift-gate.py
+run_tool_test deploy/preflight-secrets.py
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
 # entity 漂移閘實跑（rev4:B-110；worktree 已於上方重建、entity 檔必在——零 docker、秒級）
