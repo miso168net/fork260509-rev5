@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# deploy/decrypt-secrets.sh — 019 解密管線：deploy/secrets.dev.enc.yaml → $SECRETS_DIR/*.txt
-# 契約＝contracts/secret-pipeline.md §P4（fail-loud：斷言不符＝零寫入＋非零退出＋指名）
+# deploy/decrypt-secrets.sh — rev4:019 解密管線：deploy/secrets.dev.enc.yaml → $SECRETS_DIR/*.txt
+# 契約＝contracts/secret-pipeline.md rev4:§P4（fail-loud：斷言不符＝零寫入＋非零退出＋指名）
 #
 # 用法：自 repo 根、有 tty 的終端執行 ./deploy/decrypt-secrets.sh
 #   B′ 私鑰＝passphrase 加殼 identity → sops 對**每個 recipient** 各索一次 passphrase
@@ -10,47 +10,47 @@
 #     不顯示提示，依本腳本印出的預告直接輸入 passphrase 後按 Enter 即可。
 #
 # 要點對照：
-#   P4.2 tty 守衛：非互動吵鬧失敗、不 hang、不寫壞檔
-#   P4.4／P4.6 自建 0700 子目錄＋權限自證（縱深防禦、與落點無關；ADR 0080 決策 4）
-#   P4.3 key 數與名稱斷言：缺／多 key＝零寫入＋非零退出＋指名（絕不落到 generate 造亂數路徑）
-#   P4.1／P5.7 逐檔 printf '%s' 寫入（無尾端換行）；P4.7 檔 644
-#   P4.5 現值 ≠ 解密值 → 另存 <name>.txt.new＋警示、不覆寫；現值＝解密值 → 照寫（冪等）
-#   FR-021／SC-005 明文暫存落點：$XDG_CACHE_HOME（回退 $HOME/.cache）之 0700 暫存目錄、
+#   rev4:P4.2 tty 守衛：非互動吵鬧失敗、不 hang、不寫壞檔
+#   rev4:P4.4／rev4:P4.6 自建 0700 子目錄＋權限自證（縱深防禦、與落點無關；rev4:ADR 0080 決策 4）
+#   rev4:P4.3 key 數與名稱斷言：缺／多 key＝零寫入＋非零退出＋指名（絕不落到 generate 造亂數路徑）
+#   rev4:P4.1／rev4:P5.7 逐檔 printf '%s' 寫入（無尾端換行）；rev4:P4.7 檔 644
+#   rev4:P4.5 現值 ≠ 解密值 → 另存 <name>.txt.new＋警示、不覆寫；現值＝解密值 → 照寫（冪等）
+#   rev4:FR-021／rev4:SC-005 明文暫存落點：$XDG_CACHE_HOME（回退 $HOME/.cache）之 0700 暫存目錄、
 #     非 repo 內 tmp/（/mnt/d＝9p、chmod no-op＝實效 777）；落點性質不符即 fail-loud
 #   單次 sops -d 收全 YAML 再本地拆 key——B′ 下每次容器呼叫都要輸 passphrase（每
 #   recipient 一次），絕不逐 key --extract 重呼容器
 
 set -euo pipefail
 
-# ---- P4.2 tty 守衛 ----
+# ---- rev4:P4.2 tty 守衛 ----
 if [ ! -t 0 ]; then
     echo "FAIL：decrypt-secrets.sh 需要互動終端（B′ passphrase 解密提示需 tty）。" >&2
     echo "      命令替換／管線／CI 等非互動情境不支援；請在真實終端執行。" >&2
     exit 1
 fi
 
-# ---- 必須自 repo 根執行（wrapper P1.5 同前提）----
+# ---- 必須自 repo 根執行（wrapper rev4:P1.5 同前提）----
 if [ ! -f .sops.yaml ] || [ ! -f deploy/secrets.dev.enc.yaml ]; then
     echo "FAIL：請自 repo 根執行（當前目錄找不到 .sops.yaml 或 deploy/secrets.dev.enc.yaml）。" >&2
     exit 1
 fi
 
-# ---- 落點解析（019 P5.2 五支賦值型消費者之一；generate／preflight／setup-reaper-role
-#      ／tools/secret-value-guard.py 同口徑，消費者聯集七處＝契約 P5.1）：環境變數優先
+# ---- 落點解析（rev4:019 rev4:P5.2 五支賦值型消費者之一；generate／preflight／setup-reaper-role
+#      ／tools/secret-value-guard.py 同口徑，消費者聯集七處＝契約 rev4:P5.1）：環境變數優先
 #      （與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行（★不整檔 source
 #      ——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，含錢字號小括號
 #      ／反引號之值 source 時會被執行）→ 皆缺回退 deploy/secrets ----
-# ★偵測寬、取值窄（019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
+# ★偵測寬、取值窄（rev4:019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
 #   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，而行首錨定 `SECRETS_DIR=`
 #   的窄樣式對這五形一律漏認並**靜默回退**舊落點——實測 compose v5.3.1 五形全部解析為新
-#   落點，即契約 P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」（decrypt 更會據此把
-#   10 支明文寫回 repo 內 /mnt/d 舊落點＝違反 FR-021／SC-005）。故偵測改用寬樣式撈出
+#   落點，即契約 rev4:P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」（decrypt 更會據此把
+#   10 支明文寫回 repo 內 /mnt/d 舊落點＝違反 rev4:FR-021／rev4:SC-005）。故偵測改用寬樣式撈出
 #   compose 會讀到的那一行（同 tail -n 1 後者勝口徑），再對其值套下方嚴格白名單：寬進窄出，
 #   四形一律「正確採用」或「吵鬧失敗」，永不落入靜默回退。
-# ★空字串邊界（019 U4 quality 修；五支賦值型解析器同刀齊改）：「已匯出但為空」≠「未設」——
+# ★空字串邊界（rev4:019 U4 quality 修；五支賦值型解析器同刀齊改）：「已匯出但為空」≠「未設」——
 #   shell 環境已勝出 .env，compose 的 ${SECRETS_DIR:-./deploy/secrets} 對空字串直接吃預設值、
 #   回退 repo 內舊落點且**不讀 .env 該鍵**；而 [ -z ] 把空字串當未設、續往 .env 取新落點＝
-#   本腳本把 10 支明文寫進 .env 新落點、compose 卻掛 repo 內舊落點，即 P5.1 違反後果欄那條路
+#   本腳本把 10 支明文寫進 .env 新落點、compose 卻掛 repo 內舊落點，即 rev4:P5.1 違反後果欄那條路
 #   的另一入口，且破在靜默方向。空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因。
 if [ "${SECRETS_DIR+set}" = set ] && [ -z "$SECRETS_DIR" ]; then
     echo "FAIL：SECRETS_DIR 已匯出為空字串——compose 會忽略 .env 並回退 ./deploy/secrets（repo 內舊落點）。" >&2
@@ -75,14 +75,14 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f .env ]; then
     fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-deploy/secrets}"
-# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支同刀齊改、契約 P5.1）：錨定基準取自
+# ★相對值錨定基準＝repo 根（rev4:019 U4 quality 修；五支同刀齊改、契約 rev4:P5.1）：錨定基準取自
 # **本腳本位置**（非 `$PWD`）——本腳本 :31 雖已斷言 CWD＝repo 根，但拿 `$PWD` 當基準等於
 # 把正確性續押在該斷言上：斷言日後一旦放寬，`$PWD` 隨呼叫端漂、落點就靜默改變。自
 # BASH_SOURCE 推導與 CWD 無關，才與 generate／preflight 真正同形（U4 收單審 advisory）。
 _ANCHOR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$_ANCHOR_ROOT/$SECRETS_DIR" ;; esac
 
-# ---- P4.4／P4.6 自建 0700 子目錄＋權限自證 ----
+# ---- rev4:P4.4／rev4:P4.6 自建 0700 子目錄＋權限自證 ----
 umask 077
 mkdir -p "$SECRETS_DIR"
 chmod 700 "$SECRETS_DIR"
@@ -90,15 +90,15 @@ DIR_MODE="$(stat -c '%a' "$SECRETS_DIR" 2>/dev/null || stat -f '%A' "$SECRETS_DI
 if [ "$DIR_MODE" != "700" ]; then
     if [ "$(uname -s)" = "Linux" ]; then FS_TYPE="$(stat -f -c '%T' "$SECRETS_DIR")"; else FS_TYPE="non-linux"; fi   # ★fs 判定限 Linux——BSD stat -f 語意不同、不可直譯
     if [ "$FS_TYPE" = "v9fs" ]; then
-        # drvfs（/mnt/*）：chmod 結構性 no-op、權限恆 777——現行落點已知限制（US3 遷移消滅）
-        echo "WARN：$SECRETS_DIR 權限=${DIR_MODE}（fs=${FS_TYPE}、chmod 為 no-op；US3 遷移後消失）" >&2
+        # drvfs（/mnt/*）：chmod 結構性 no-op、權限恆 777——現行落點已知限制（rev4:US3 遷移消滅）
+        echo "WARN：$SECRETS_DIR 權限=${DIR_MODE}（fs=${FS_TYPE}、chmod 為 no-op；rev4:US3 遷移後消失）" >&2
     else
         echo "FAIL：$SECRETS_DIR chmod 700 未生效（實際 ${DIR_MODE}、fs=${FS_TYPE}）。" >&2
         exit 1
     fi
 fi
 
-# ---- 10 key 名單（＝deploy/secrets.dev.enc.yaml 全集；9 leaf＋alert_webhook_url；020 增
+# ---- 10 key 名單（＝deploy/secrets.dev.enc.yaml 全集；9 leaf＋alert_webhook_url；rev4:020 增
 #      smtp_password／email_verify_secret；composite 三支由 generate-secrets.sh 自 leaf 重生、
 #      不進加密檔）----
 EXPECTED_KEYS=(postgres_password redis_password jwt_secret refresh_token_secret
@@ -108,9 +108,9 @@ EXPECTED_KEYS=(postgres_password redis_password jwt_secret refresh_token_secret
 # ---- 單次 sops -d 收全 YAML 至暫存（明文中間產物；落點必須離開 /mnt/d）----
 # ★不得落 repo 內 tmp/：/mnt/d＝9p（v9fs），umask／chmod 皆結構性 no-op（同上方 SECRETS_DIR
 #   權限自證分支所承認的性質）——暫存檔會以實效 777、Windows 側可見的形式承載 10 支完整明文，
-#   正是 FR-021／SC-005「/mnt/d 全樹零明文機密檔」要消滅的暴露面，且不隨 US3 落點遷移而消失。
+#   正是 rev4:FR-021／rev4:SC-005「/mnt/d 全樹零明文機密檔」要消滅的暴露面，且不隨 rev4:US3 落點遷移而消失。
 # ★本檔由 host shell 重導向產生、不進容器（wrapper 只掛載 $PWD 供 sops 讀 enc 檔），故不受
-#   contracts §P7「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
+#   contracts rev4:§P7「合併衝突」列之「暫存明文必須落 repo 內」限制——該限只適用於要餵回 sops
 #   加密的檔（wrapper 只掛載 $PWD、repo 外的檔容器讀不到）。
 TMP_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev5"
 mkdir -p "$TMP_ROOT"
@@ -126,7 +126,7 @@ if [ "$TMP_FS" = "v9fs" ] || [ "$TMP_MODE" != "700" ]; then
 fi
 RAW="$TMP_DIR/raw.out"
 
-# 暫存流雜訊＝passphrase 提示行＋ANSI 清行序列＋容器 pty 的 CRLF（wrapper P1.2 註／L-168）：
+# 暫存流雜訊＝passphrase 提示行＋ANSI 清行序列＋容器 pty 的 CRLF（wrapper rev4:P1.2 註／rev4:L-168）：
 #   ①CR 一律轉行界 ②剝 ANSI CSI 序列（失敗診斷與拆 key 兩路共用此正規化）
 ESC=$'\x1b'
 normalize_raw() {
@@ -148,7 +148,7 @@ SOPS_RC=0
 ./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$RAW" || SOPS_RC=$?
 if [ "$SOPS_RC" -ne 0 ]; then
     echo "FAIL：sops 解密失敗（rc=${SOPS_RC}）——sops 輸出如下（資料行已濾除）：" >&2
-    # ★RAW 同時承載容器 stdout 與 stderr（wrapper -t＝單一 pty 流、L-168），故「解密失敗
+    # ★RAW 同時承載容器 stdout 與 stderr（wrapper -t＝單一 pty 流、rev4:L-168），故「解密失敗
     #   就不含明文」只是 sops 正常錯誤路徑（MAC 檢查早於 Emit）的性質、不是本腳本的保證：
     #   已 Emit 才異常結束者（stdout 寫入失敗、passphrase 過關後收 SIGINT）RAW 即含明文。
     #   註解斷言防不了洩漏——倒出前先濾掉 key 行（含已知 key 名任意位置）及其縮排續行
@@ -178,7 +178,7 @@ while IFS= read -r line; do
     esac
 done < "$CLEAN"
 
-# ---- P4.3 key 數與名稱斷言（不符＝零寫入＋非零退出＋指名）----
+# ---- rev4:P4.3 key 數與名稱斷言（不符＝零寫入＋非零退出＋指名）----
 MISSING=()
 for k in "${EXPECTED_KEYS[@]}"; do
     if [ -z "${VALS[$k]+x}" ] || [ -z "${VALS[$k]}" ]; then
@@ -192,7 +192,7 @@ for k in "${!VALS[@]}"; do
         *) EXTRA+=("$k") ;;
     esac
 done
-# 非裸量純量斷言（P4.3 同族：靜默壞值一律翻成吵鬧失敗）
+# 非裸量純量斷言（rev4:P4.3 同族：靜默壞值一律翻成吵鬧失敗）
 #   sops（go-yaml v3）只在值能當裸量純量時吐裸量；否則吐雙引號／單引號／區塊純量形，
 #   而本腳本逐行拆 key 拿到的是「含引號字元的原樣 token」、無法還原原值——逐字寫入即壞值。
 #   ★空值案更會架空上面的「值為空」判定：吐出的是 2 字元的 ""、非空。
@@ -219,7 +219,7 @@ if [ "${#MISSING[@]}" -ne 0 ] || [ "${#EXTRA[@]}" -ne 0 ] || [ "${#NONPLAIN[@]}"
     exit 1
 fi
 
-# ---- 既有 .txt.new 偵測（019 U3 遺留 advisory 三）：值重新一致後，先前 DIFF 產下的舊 .new
+# ---- 既有 .txt.new 偵測（rev4:019 U3 遺留 advisory 三）：值重新一致後，先前 DIFF 產下的舊 .new
 #      不會再被觸碰＝長存落點；此處只提醒、★不自動刪（避免吃掉人工待決資料）----
 STALE_NEW=()
 for f in "$SECRETS_DIR"/*.txt.new; do
@@ -229,7 +229,7 @@ if [ "${#STALE_NEW[@]}" -ne 0 ]; then
     echo "WARN：落點已有先前遺留的待決 .txt.new：${STALE_NEW[*]}——請人工比對處置（本腳本不自動刪）。" >&2
 fi
 
-# ---- 寫入（斷言全過後才進入；P4.1／P4.5／P4.7）----
+# ---- 寫入（斷言全過後才進入；rev4:P4.1／rev4:P4.5／rev4:P4.7）----
 NEW_SAVED=()
 for k in "${EXPECTED_KEYS[@]}"; do
     dst="$SECRETS_DIR/$k.txt"
@@ -237,7 +237,7 @@ for k in "${EXPECTED_KEYS[@]}"; do
     if [ -f "$dst" ] && ! printf '%s' "$v" | cmp -s - "$dst"; then
         # 現值 ≠ 解密值：另存 .new、不覆寫（decrypt 不得成為靜默覆寫路徑）
         # ★.new 亦為 644（不是 600）：WARN 指示的補救＝`mv .new` 蓋回，mv 於同 fs＝rename、
-        #   mode 原樣保留——.new 若為 600，蓋回後落點檔終值即 600、違反 P4.7／FR-022，
+        #   mode 原樣保留——.new 若為 600，蓋回後落點檔終值即 600、違反 rev4:P4.7／rev4:FR-022，
         #   且只在開 obs／metrics 軌時才炸（grafana 472／postgres-exporter 65534／
         #   redis-exporter 59000 全部 Permission denied）。目錄本身 700，644 不擴大暴露面。
         printf '%s' "$v" > "$dst.new"

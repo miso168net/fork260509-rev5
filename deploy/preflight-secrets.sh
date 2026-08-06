@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# deploy/preflight-secrets.sh — up 前十三機密檔預檢（001-compose-stack；007 增 captcha_secret、REVIEW-001-010 F001-1 補列；016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；019 T027 增 CR 護欄＋composite↔leaf 一致性；B-123 增權限面三斷言、B-119 增佔位字面 WARN；020 增 smtp_password／email_verify_secret）
+# deploy/preflight-secrets.sh — up 前十三機密檔預檢（rev4:001-compose-stack；rev4:007 增 captcha_secret、rev4:REVIEW-001-010 rev4:F001-1 補列；rev4:016 增 reaper_password／reaper_database_url／alert_webhook_url／grafana_admin_password；rev4:019 rev4:T027 增 CR 護欄＋composite↔leaf 一致性；rev4:B-123 增權限面三斷言、rev4:B-119 增佔位字面 WARN；rev4:020 增 smtp_password／email_verify_secret）
 # 用法：./deploy/preflight-secrets.sh
 #
 # 為何：docker compose secrets 用 `file: …/*.txt` bind；source 檔缺時
 #   compose 不報「缺 X 檔」而是自動建空目錄 → 容器拿到空／目錄 secret、錯誤訊息誤導
 #   （如 DB 連線失敗、boot panic）、不指向真因。本預檢在 up 前指名缺檔。
-#   019 起本腳本＝落點接線的 fail-loud 承載者（contracts P5.4）：缺檔／CR 劣化／
+#   rev4:019 起本腳本＝落點接線的 fail-loud 承載者（contracts rev4:P5.4）：缺檔／CR 劣化／
 #   composite drift 一律非零退出＋指名，絕不讓服務靜默啟動失敗。
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# SECRETS_DIR 解析（019 P5.2 五支賦值型消費者同刀齊改之一；generate／decrypt／
-# setup-reaper-role／tools/secret-value-guard.py 同口徑，消費者聯集七處＝契約 P5.1）：
+# SECRETS_DIR 解析（rev4:019 rev4:P5.2 五支賦值型消費者同刀齊改之一；generate／decrypt／
+# setup-reaper-role／tools/secret-value-guard.py 同口徑，消費者聯集七處＝契約 rev4:P5.1）：
 # 環境變數優先（與 compose 口徑一致）→ repo 根 .env 只嚴格解析 SECRETS_DIR 一行
 # （★不整檔 source——compose 的 .env 允許不加引號的含空白值、井號語意亦與 shell 不同，
 # 含錢字號小括號／反引號之值 source 時會被執行）→ 皆缺回退 repo 內 deploy/secrets。
-# ★偵測寬、取值窄（019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
+# ★偵測寬、取值窄（rev4:019 U4 quality 修；五處解析器同刀齊改）：compose 的 .env 解析器接受
 # UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的窄
 # 樣式對這五形一律漏認並**靜默回退**舊落點（實測 compose v5.3.1 五形皆解析為新落點）＝契約
-# P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」——本腳本正是 fail-loud 承載者，回退
+# rev4:P5.1 違反後果欄的「compose 讀新落點、腳本查舊落點」——本腳本正是 fail-loud 承載者，回退
 # 即「preflight 查舊落點回 OK、compose 掛新落點」。故偵測用寬樣式撈出 compose 會讀到的那一
 # 行、再對其值套下方嚴格白名單：寬進窄出，永不落入靜默回退。
-# ★空字串邊界（019 U4 quality 修；五支賦值型解析器同刀齊改）：「已匯出但為空」≠「未設」——
+# ★空字串邊界（rev4:019 U4 quality 修；五支賦值型解析器同刀齊改）：「已匯出但為空」≠「未設」——
 #   shell 環境已勝出 .env，compose 的 ${SECRETS_DIR:-./deploy/secrets} 對空字串直接吃預設值、
 #   回退 repo 內舊落點且**不讀 .env 該鍵**；而 [ -z ] 把空字串當未設、續往 .env 取新落點＝
-#   腳本查新落點、compose 掛舊落點，即 P5.1 違反後果欄那條路的另一入口，且破在靜默方向
+#   腳本查新落點、compose 掛舊落點，即 rev4:P5.1 違反後果欄那條路的另一入口，且破在靜默方向
 #   （本腳本印「可 up」rc=0，compose 卻在 repo 內自動建空目錄當 secret 掛入容器）。
 #   空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因、不代 operator 猜邊。
 if [ "${SECRETS_DIR+set}" = set ] && [ -z "$SECRETS_DIR" ]; then
@@ -52,7 +52,7 @@ if [ -z "${SECRETS_DIR:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
     fi
 fi
 SECRETS_DIR="${SECRETS_DIR:-$SCRIPT_DIR/secrets}"
-# ★相對值錨定基準＝repo 根（019 U4 quality 修；五支賦值型解析器同刀齊改、契約 P5.1）：
+# ★相對值錨定基準＝repo 根（rev4:019 U4 quality 修；五支賦值型解析器同刀齊改、契約 rev4:P5.1）：
 # compose 以**專案目錄**（＝repo 根）解析相對值、guard 以 repo 根 join；本腳本若逕用相對值
 # 即以 **CWD** 錨定＝自 repo 子目錄執行時本檢查與 compose 看的是**不同目錄**，於是出現
 # 「preflight 全綠、compose 掛空目錄」的假綠（本檢查正是 fail-loud 承載者、假綠最致命）。
@@ -60,7 +60,7 @@ case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$REPO_ROOT/$SECRETS_DIR" ;; esac
 
 # 與 generate-secrets.sh 同一份十三機密清單（grafana_admin_password 僅 grafana[profiles:obs,metrics]
 # 消費、但一律生成納入預檢——免 --profile obs 時 compose 對缺檔自動建空目錄、grafana $__file{}
-# 讀到空密碼、admin 登入靜默壞；020 增 smtp_password／email_verify_secret 兩 leaf）
+# 讀到空密碼、admin 登入靜默壞；rev4:020 增 smtp_password／email_verify_secret 兩 leaf）
 REQUIRED=(postgres_password redis_password jwt_secret refresh_token_secret database_url redis_url captcha_secret reaper_password reaper_database_url alert_webhook_url grafana_admin_password smtp_password email_verify_secret)
 
 missing=()
@@ -81,9 +81,9 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 
-# B-123：權限面三斷言（縱深防禦、超出契約 P5.6 要求面）——目錄 mode 700／檔 mode 644／
-# 檔 owner 非 root。decrypt-secrets.sh 每次寫出即自證此形（P4.4／P4.6 目錄 700、P4.7 檔 644），
-# 但落點檔被人手改（chmod 600、目錄 777、sudo 建檔）後現檢照樣全綠——而那正是 P4.5／P4.7
+# rev4:B-123：權限面三斷言（縱深防禦、超出契約 rev4:P5.6 要求面）——目錄 mode 700／檔 mode 644／
+# 檔 owner 非 root。decrypt-secrets.sh 每次寫出即自證此形（rev4:P4.4／rev4:P4.6 目錄 700、rev4:P4.7 檔 644），
+# 但落點檔被人手改（chmod 600、目錄 777、sudo 建檔）後現檢照樣全綠——而那正是 rev4:P4.5／rev4:P4.7
 # 自陳「只在開 obs／metrics 軌時才炸」的失敗形（grafana uid 472／postgres-exporter 65534／
 # redis-exporter 59000 讀 /run/secrets/* 全 Permission denied）。本斷言把它前移到 up 之前指名。
 # 置於 CR／composite 檢查之前：owner=root＋600 之檔會讓後方 cat 直接 Permission denied，
@@ -105,25 +105,25 @@ for name in "${REQUIRED[@]}"; do
     fi
 done
 if [ "${#perm_hit[@]}" -gt 0 ]; then
-    echo "FAIL：權限面不符（目錄須 700、檔須 644 且 owner 非 root）——這正是 P4.5／P4.7 自陳"
+    echo "FAIL：權限面不符（目錄須 700、檔須 644 且 owner 非 root）——這正是 rev4:P4.5／rev4:P4.7 自陳"
     echo "      「只在開 obs／metrics 軌才炸」的失敗形（grafana uid 472／postgres-exporter 65534／"
     echo "      redis-exporter 59000 讀 /run/secrets/* 全 Permission denied）；本斷言把它前移到 up 之前："
     for p in "${perm_hit[@]}"; do echo "   - $p"; done
     if [ "$(uname -s)" = "Linux" ] && [ "$(stat -f -c '%T' "$SECRETS_DIR")" = "v9fs" ]; then   # ★fs 判定限 Linux——BSD stat -f 語意不同、不可直譯
         echo "→ 落點在 /mnt/* 之 drvfs（9p）：chmod 結構性 no-op、mode 恆讀 777，本紅字是特性不是誤報——"
-        echo "  拍板落點應在 ext4（如 \$HOME/.cache/fork260509-rev5/secrets；承 rev4:ADR 0080／0084），請遷落點而非改本檢查。"
+        echo "  拍板落點應在 ext4（如 \$HOME/.cache/fork260509-rev5/secrets；承 rev4:ADR 0080／rev4:0084），請遷落點而非改本檢查。"
     fi
     exit 1
 fi
 
-# 019 T027①：CR 護欄——printf '%s' 管線寫檔應零 CR；任何 CR＝內容已劣化
+# rev4:019 rev4:T027①：CR 護欄——printf '%s' 管線寫檔應零 CR；任何 CR＝內容已劣化
 # （CRLF 編輯器覆存／pty 流未剝 CR 直落檔），值進 URL／密碼尾即靜默壞。
 # ★U4 quality 補 LF 護欄：CR 護欄照不到「尾端多一個 LF」，而下方 composite 一致性檢查用
 #   命令替換取值比較（$(cat) 剝尾端換行）對它**結構性失明**——實測 redis_password.txt 尾多
 #   一個 LF 時 preflight 仍回「齊備且健康、可 up」rc=0，而 compose 會把 15 byte 的密碼掛進
 #   redis 容器、把內嵌 14 byte 版本的 redis_url 掛進 rust-api，認證必失敗。尾端換行正是編輯器
 #   覆存最常見的產物（與 CRLF 同一個編輯器、同一次覆存）。
-#   判準＝檔案零換行字元（P4.1／P5.7 之 printf '%s' 寫檔形不變式的可機檢投影）：
+#   判準＝檔案零換行字元（rev4:P4.1／rev4:P5.7 之 printf '%s' 寫檔形不變式的可機檢投影）：
 #   比對 stat 位元組數與剝除 CR／LF 後的位元組數，兩者不等即劣化。
 CR="$(printf '\r')"
 cr_hit=()
@@ -148,9 +148,9 @@ if [ "${#nl_hit[@]}" -gt 0 ]; then
     exit 1
 fi
 
-# 019 T027②：composite↔leaf 一致性（複用 generate-secrets.sh 之期望值組合式）——
+# rev4:019 rev4:T027②：composite↔leaf 一致性（複用 generate-secrets.sh 之期望值組合式）——
 # 防「塞入密碼已過期的 database_url 也回 OK」；訊息只指名檔案、絕不印值。
-# ★比對走 printf 接 cmp 的**位元組**比對（與 decrypt P4.5 同一形）：命令替換會剝尾端換行，
+# ★比對走 printf 接 cmp 的**位元組**比對（與 decrypt rev4:P4.5 同一形）：命令替換會剝尾端換行，
 #   字串相等比較對尾端換行失明（上方 LF 護欄已先擋、此處為縱深防禦、不靠護欄的執行序）。
 PG_PASS="$(cat "$SECRETS_DIR/postgres_password.txt")"
 RD_PASS="$(cat "$SECRETS_DIR/redis_password.txt")"
@@ -165,7 +165,7 @@ if [ "${#drift[@]}" -gt 0 ]; then
     exit 1
 fi
 
-# B-119：已知佔位字面清單比對（★WARN 不阻擋、rc 不因它非零——佔位期照設計是可過的合法
+# rev4:B-119：已知佔位字面清單比對（★WARN 不阻擋、rc 不因它非零——佔位期照設計是可過的合法
 # 狀態；升級成阻擋屬拍板級、本單元明文不做）。清單字面逐字取自 generate-secrets.sh 之
 # gen_placeholder 呼叫處（唯一佔位源頭）；清單形設計、未來新增佔位即加一元素。
 # 比對走 printf 接 cmp 的位元組比對（與 composite 檢查同一形）、只指名檔案、絕不印內容。
