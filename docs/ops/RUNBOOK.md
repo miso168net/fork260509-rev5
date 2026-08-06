@@ -9,7 +9,7 @@
 
 1. `bash tools/bootstrap.sh` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
 2. `bash deploy/generate-secrets.sh` —— 十三機密缺則補
-3. `bash deploy/preflight-secrets.sh` —— up 前預檢（全齊印 OK）
+3. `python3 deploy/preflight-secrets.py` —— up 前預檢（全齊印 OK）
 4. `bash deploy/generate-dev-cert.sh` —— dev TLS 憑證。★非可選：front-nginx 恆 bind-mount
    兩支 pem、缺檔直接 up＝Docker 代建空目錄佔位→nginx PEM emerg 死循環（rev4:L-141；修復＝
    `rmdir` 假目錄→生成→`docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate front-nginx`）。
@@ -99,7 +99,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
-| `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔 | 否（需 docker＋互動 tty） |
+| `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔 | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需真 tty；age 缺席時需網路） |
 
 退出碼注意：schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
@@ -146,8 +146,9 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 `updatekeys` **已於首次真實加人實跑**（2026-08-06 第二位成員入列；diff 性質經機器複核、與本節
 所述預期逐項相符——10 支 `ENC[…]` 本體零改動、`mac` 不變、密文內 recipient 1→2 且與
 `.sops.yaml` 逐把相符）；§15.7 步驟 1 的解密需 passphrase
-（僅存持鑰者腦中）故**未實跑**，其正規化片段係逐字鏡像 `deploy/decrypt-secrets.sh` 的
-`normalize_raw`——該函式每次 decrypt 都在實跑。
+（僅存持鑰者腦中）故**未實跑**，其正規化片段與 `deploy/decrypt-secrets.py` 的
+`normalize_stream` **同形**（CR→行界＋剝 ANSI CSI、同序；語意等價、非逐字複本）——該函式
+每次 decrypt 都在實跑。
 
 ### 15.1 資產、工具與不可省紀律
 
@@ -155,9 +156,9 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 `alert_webhook_url`）／`.sops.yaml`（recipient 公鑰清單、tracked）／
 `~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**；
 跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。
-工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版、自動選鑰）、`bash deploy/decrypt-secrets.sh`
+工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版、自動選鑰）、`python3 deploy/decrypt-secrets.py`
 （密文→`$SECRETS_DIR/*.txt`）、`bash deploy/generate-secrets.sh`（產亂數）、
-`bash deploy/preflight-secrets.sh`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
+`python3 deploy/preflight-secrets.py`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
 ★所有命令一律**自 repo 根**執行——wrapper 只掛載 `$PWD`，換目錄跑就找不到 `.sops.yaml`。
 
 三條不可省紀律：
@@ -168,10 +169,10 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 3. **加密不需私鑰、解密才需**：age 加密只用公鑰——§15.4 的回寫與 §15.7 步驟 3 全程無 passphrase；
    只有 `-d`／`updatekeys` 需要。
 
-★**輸入 passphrase 的時機**：`bash deploy/decrypt-secrets.sh` 把 sops 提示行與解密輸出收進
+★**輸入 passphrase 的時機**：`python3 deploy/decrypt-secrets.py` 把 sops 提示行與解密輸出收進
 同一條容器 pty 流，畫面上常看不到提示——看到腳本自己印的預告行後、**等容器起來再輸入**；
 搶在容器接管 tty 之前打字＝該串字被 host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。
-★**次數＝recipient 數**（每個 recipient 各索一次、皆同一個 passphrase；`decrypt-secrets.sh`
+★**次數＝recipient 數**（每個 recipient 各索一次、皆同一個 passphrase；`decrypt-secrets.py`
 會自密文現算後印在預告行）。實測（2026-08-06、單檔掛載×2 recipient）：恰 2 次，且**單次提示
 內無重試迴圈**——passphrase 打錯即該 masterkey 失敗、不會再問一次。★**打太晚同樣會外洩**：
 sops 已結束才輸入的那一次落到 host shell，畫面會留下 `<你打的字>: command not found` 並進
@@ -190,7 +191,7 @@ gpg-agent／pinentry 方向查。
 ```bash
 bash deploy/generate-age-key.sh keys-fork260509-rev5.txt
 # 之後解密照常跑、★毋須帶任何環境變數——wrapper 認得這個檔名、會自動選它
-bash deploy/decrypt-secrets.sh
+python3 deploy/decrypt-secrets.py
 ```
 　檔名取 **repo 目錄名**（`keys-fork260509-rev5.txt`）而非 `keys-rev5.txt` 這類短代號——跨代並存
 　的機器上短代號家族必撞名，此即 `rev4:0084` 付過代價換來的命名紀律（同源＝`SECRETS_DIR`
@@ -233,13 +234,13 @@ commit＋push（分開推會出現「清單有你、密文還沒給你」的中�
   提示不只一次而有一次被空答**。sops 對**每個 recipient** 各索一次 passphrase（容器內若還有
   他代的鑰，還要再乘上鑰匙數），而提示被暫存檔捕捉、畫面上看不見。處置＝把 rev5 那把改名為
   `keys-fork260509-rev5.txt`（wrapper 即改走單檔掛載、次數收斂為 recipient 數），並依
-  `decrypt-secrets.sh` 預告行印出的次數**每一次都輸入**、絕不空答。
+  `decrypt-secrets.py` 預告行印出的次數**每一次都輸入**、絕不空答。
 
 前兩種的頭一種是流程未完成、不是故障；`WARN … encrypted identity … didn't match file's
 recipients` 一行同樣只是這件事的複述——它在多 recipient 下屬**正常過程訊息**（試到不是你那把
 的 recipient 時必然出現），不可據以判定失敗。
-**驗收（新成員側）**：`bash deploy/decrypt-secrets.sh` 寫出 10 支且零 `.new`，
-`bash deploy/preflight-secrets.sh` rc=0。
+**驗收（新成員側）**：`python3 deploy/decrypt-secrets.py` 寫出 10 支且零 `.new`，
+`python3 deploy/preflight-secrets.py` rc=0。
 
 ### 15.3 撤銷與 recipient 輪替（五準則）
 
@@ -255,7 +256,7 @@ recipients` 一行同樣只是這件事的複述——它在多 recipient 下屬
 5. **撤銷演練需第二把**：先 `bash deploy/generate-age-key.sh keys-fork260509-rev5-drill.txt` 產第二把、加入 recipient
    並確認它真的能解，再演練移除第一把——否則演練失敗就是永久失效。★演練鑰的檔名**不等於**
    wrapper 自動選用的那個名，故用它解密時要覆寫：
-   `RV5_AGE_KEY_FILE=$HOME/.config/sops/age/keys-fork260509-rev5-drill.txt bash deploy/decrypt-secrets.sh`
+   `RV5_AGE_KEY_FILE=$HOME/.config/sops/age/keys-fork260509-rev5-drill.txt python3 deploy/decrypt-secrets.py`
    （★給 **host 端絕對路徑**、非容器內路徑；wrapper 自行對位掛載）。
 
 ### 15.4 值變更後回寫加密檔
@@ -279,14 +280,18 @@ done
 mv tmp/enc.new deploy/secrets.dev.enc.yaml && chmod 644 deploy/secrets.dev.enc.yaml
 rm -f tmp/plain.yaml
 ```
-　★值一律**裸量、不加引號**——decrypt 側 parser 取 `": "` 之後的字面全量，引號會被當成值的
-　一部分寫進 `.txt`。★`< /dev/null` 讓 stdin 非 tty、wrapper 不掛 `-i -t`，從根上不生 CRLF 與
+　★上面那行 `printf` 是**裸量 YAML 產生器**：值原樣接在 `key: ` 之後，故值若含「冒號空白」、
+　井號或前後空白，產出的 YAML 會被 sops 解析成別的東西——這類值須在 `sops -e` 之前**自行按
+　YAML 規則加引號**。引號形是安全的：decrypt 走 `--output-type json` ＋ JSON 解析，逐位元組
+　還原原值、不會把引號寫進 `.txt`（ADR 0010；舊 bash 版逐行拆 key 還原不回來，才要求一律裸量）。
+　★**含換行的值一律不可用**：decrypt 的 CR／LF 護欄會指名該 key、零寫入退出（落點檔形＝
+　一值一檔零換行）。★`< /dev/null` 讓 stdin 非 tty、wrapper 不掛 `-i -t`，從根上不生 CRLF 與
 　提示併流。★輸入檔落 `tmp/`（gitignored）是**必要**的：wrapper 只掛載 `$PWD`，repo 外的檔
 　容器讀不到。
 
 **路徑 (b)｜只改一兩支且 `$SECRETS_DIR` 不全**：走 §15.7 三步往返。
 
-**驗收**：`bash deploy/decrypt-secrets.sh` 後零 `.new` ＋ `bash deploy/preflight-secrets.sh` rc=0。
+**驗收**：`python3 deploy/decrypt-secrets.py` 後零 `.new` ＋ `python3 deploy/preflight-secrets.py` rc=0。
 
 ### 15.5 金鑰／passphrase 遺失與災難復原
 
@@ -315,12 +320,12 @@ rm -f tmp/plain.yaml
 
 ### 15.7 手動呼叫 wrapper 的正規化三步
 
-僅用於 §15.4 路徑 (b) 或需直接編輯密文時。**日常解密一律用 `bash deploy/decrypt-secrets.sh`**
+僅用於 §15.4 路徑 (b) 或需直接編輯密文時。**日常解密一律用 `python3 deploy/decrypt-secrets.py`**
 （已內建全部正規化、名冊斷言與權限自證）。
 
 **步驟 1｜解密（需 passphrase、走 tty）**——wrapper 在 stdin 有 tty 時掛 `-i -t`，容器 pty 會把
-換行改 CRLF、且 passphrase 提示行與資料同流，**必須自行正規化**（與 decrypt-secrets.sh 的
-`normalize_raw` 同形）：
+換行改 CRLF、且 passphrase 提示行與資料同流，**必須自行正規化**（與 decrypt-secrets.py 的
+`normalize_stream` 同形）：
 ```bash
 cd <repo 根> && umask 077
 WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev5/edit.XXXXXX")"
@@ -328,7 +333,8 @@ WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev5/edit.XXXXXX")
 tr '\r' '\n' < "$WORK/raw.out" | sed -E "s/$(printf '\033')\[[0-9;]*[A-Za-z]//g" > "$WORK/plain.yaml"
 ```
 
-**步驟 2｜編輯**：改 `$WORK/plain.yaml`；值裸量、不加引號（同 §15.4）。
+**步驟 2｜編輯**：改 `$WORK/plain.yaml`；值依 YAML 規則書寫（需引號者就加引號——decrypt
+逐位元組還原原值），★但不可用含換行的值（decrypt 的 CR／LF 護欄零寫入退出）。同 §15.4。
 
 **步驟 3｜重加密（不需 passphrase）**——輸入檔**必須搬進 repo 內**（wrapper 只掛載 `$PWD`）：
 ```bash

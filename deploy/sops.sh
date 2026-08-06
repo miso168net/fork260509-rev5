@@ -9,8 +9,9 @@
 #   rev4:P1.1 映像 digest 釘版（registry 與 digest 成對；tag 可被重推、digest 不可變）
 #   rev4:P1.2 互動旗標條件化：stdin 是 tty 才配 -i -t；非互動時 sops 需要互動會自己吵鬧失敗、不 hang
 #        （★stdout 重導向＋-t 並存時，容器 pty 會把輸出換行改 CRLF、且 passphrase 提示行與
-#          stdout 同流——呼叫端須自行剝 CR 並濾掉非資料行，deploy/decrypt-secrets.sh 的
-#          key 行 parser 即此設計；人工呼叫端同受此限＝RUNBOOK §15.7 步驟 1 之正規化片段。
+#          stdout 同流——呼叫端須自行剝 CR 並濾掉非資料行，deploy/decrypt-secrets.py 的
+#          `normalize_stream`＋`extract_payload` 即此設計；人工呼叫端同受此限＝
+#          RUNBOOK §15.7 步驟 1 之正規化片段。
 #          ★不需 passphrase 的子命令（-e 等）呼叫端補 `< /dev/null` 即讓本分支不成立、
 #          從根上不生 CRLF 與併流——RUNBOOK §15.7 步驟 3 用的就是這一招）
 #   rev4:P1.3 不轉發 host EDITOR（映像已內建 EDITOR=vim；host 值多指向容器內不存在的程式）

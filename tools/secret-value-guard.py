@@ -16,12 +16,15 @@
           bytes 比對（binary＝含 NUL byte 者跳過）——staged 增量對「既存於 tracked 檔的
           現值」結構性失明（rev4:L-190），本模式供導入時盤點與定期體檢；命中→stderr 只印
           「檔案:行號｜機密名」。★不接進 pre-commit（全樹非增量、成本未拍板）。
-  test    跑自帶測試（unittest、離線、單檔零第三方依賴；先 purge_git_env 隔離 GIT_*）
+  test    跑自帶測試（unittest、離線、零第三方依賴；先 purge_git_env 隔離 GIT_*）
 
 退出碼：無命中 0（含合法 skip）；命中或 self-test 失敗 1；用法錯誤 64（usage 走 stderr）。
 限制：值以單行比對（現值皆 printf '%s' 單行寫入）；binary diff／binary 檔無文字面、
 不在本層射程。
+落點解析（resolve_secrets_dir）住共用庫 deploy/secrets_common.py（ADR 0010 轉換批①）——
+本檔 import 使用同一實作，載入失敗即 fail-loud（不靜默降級）。
 """
+import importlib.util
 import os
 import re
 import subprocess
@@ -29,7 +32,24 @@ import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_SECRETS_DIR = os.path.join("deploy", "secrets")
+
+# 落點解析共用庫（ADR 0010 轉換批①）：三消費者單一實作面，本檔不再自持 resolve_secrets_dir。
+# ★以 __file__ 推出的絕對路徑載入：不依賴 CWD（pre-commit 的 CWD 不保證＝repo 根），
+#   也不把 deploy/ 塞進 sys.path（避免搜尋路徑遮蔽）。
+# ★載入失敗＝印真因後原樣拋（fail-loud）：本工具是 pre-commit 機密防線，靜默降級＝防線恆綠。
+_SECRETS_COMMON_PATH = os.path.join(ROOT, "deploy", "secrets_common.py")
+try:
+    _spec = importlib.util.spec_from_file_location("secrets_common", _SECRETS_COMMON_PATH)
+    _secrets_common = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_secrets_common)
+except Exception as _ex:
+    print(f"[secret-value-guard] ERROR 載入共用庫 {_SECRETS_COMMON_PATH} 失敗：{_ex}"
+          "——機密防線不得靜默降級（比對層本身異常、非機密命中）", file=sys.stderr)
+    raise
+
+DEFAULT_SECRETS_DIR = _secrets_common.DEFAULT_SECRETS_DIR
+resolve_secrets_dir = _secrets_common.resolve_secrets_dir
+
 # 比對下界：短於此的現值不比對（誤報面失控；防線由樣式層接手）。
 # ★self-test 的兩個邊界樣本用**字面長度**寫死、不由本常數構造：以被測常數自身構造＝套套
 # 邏輯，常數一動樣本跟著動、兩檢查恆過（rev4:019 U1 實證：MIN 改 2 或 21，run_selftest() 皆
@@ -53,15 +73,6 @@ PLACEHOLDER_VALUES = frozenset({
 })
 
 RE_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
-# .env 行形偵測＝**寬樣式**（rev4:019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env
-# 解析器接受 UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾。行首錨定
-# `SECRETS_DIR=` 的窄樣式對這五形一律漏認並**靜默回退** repo 內舊落點——本層於是改掃
-# 空目錄、印 skip 且 rc=0，裸值格結構性失守而全綠（＝rev4:L-174 經另一條路復發）。
-# 寬進窄出：寬樣式撈出 compose 會讀到的那一行，值再套下方嚴格白名單。
-RE_ENV_SECRETS_DIR = re.compile(
-    r"^[ \t]*(?:export[ \t]+)?SECRETS_DIR[ \t]*=[ \t]*(.*?)[ \t]*$")
-# .env 值字元白名單：與 deploy 四腳本 case 樣式 `*[!A-Za-z0-9_/.-]*` 逐字同集合。
-RE_ENV_VALUE_OK = re.compile(r"^[A-Za-z0-9_/.-]+$")
 
 
 def purge_git_env():
@@ -89,49 +100,6 @@ def comparable_secrets(loaded):
     secrets = {n: v for n, v in loaded.items()
                if v not in PLACEHOLDER_VALUES and eligible(v)}
     return secrets, placeholders
-
-
-def resolve_secrets_dir(root, env=None):
-    """機密落點三級口徑（與 deploy 四腳本同口徑；rev4:019 契約 rev4:§P5.1／rev4:P5.2 第五消費者）。
-
-    環境變數優先（與 compose 口徑一致）→ repo 根 `.env` 只嚴格解析 `SECRETS_DIR` 一行
-    → 皆缺回退 repo 內 `deploy/secrets`。
-    ★不整檔 source／不引 dotenv：compose 的 `.env` 允許不加引號的含空白值、井號語意亦與
-    shell 不同。★`.env` 有該鍵但值非法＝**吵鬧失敗**（回錯誤訊息）而非靜默回退——靜默回退
-    會讓本層改掃 repo 內舊落點、明明沒在守卻回綠（假綠）。
-    ★**行形偵測寬、值校驗窄**（rev4:019 U4）：偵測面必須涵蓋 compose 會讀到的每一種行形
-    （BOM／縮排／export 前綴／等號兩側空白／CRLF），否則漏認即靜默回退＝同一個假綠。
-    ★**空字串邊界**（rev4:019 U4 quality）：「已匯出但為空」≠「未設」——shell 環境已勝出 `.env`，
-    compose 的 `${SECRETS_DIR:-./deploy/secrets}` 對空字串直接吃預設值、回退 repo 內舊落點
-    且**不讀 `.env` 該鍵**；`if val:` 把空字串當未設而續讀 `.env`＝本層掃新落點、compose
-    掛舊落點的靜默分裂。空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因。
-    回 `(絕對路徑, None)` 或 `(None, 錯誤訊息)`。
-    """
-    env = os.environ if env is None else env
-    val = env.get("SECRETS_DIR")
-    if val == "":
-        return None, ("SECRETS_DIR 已匯出為空字串——compose 會忽略 .env 並回退 repo 內 "
-                      "./deploy/secrets；要用 .env 的值請先 unset SECRETS_DIR")
-    if val:
-        return (val if os.path.isabs(val) else os.path.join(root, val)), None
-    envfile = os.path.join(root, ".env")
-    if os.path.isfile(envfile):
-        raw_val = None
-        # utf-8-sig＝剝首行 UTF-8 BOM（compose 同口徑；Windows 側編輯器覆存常見）
-        with open(envfile, encoding="utf-8-sig", errors="replace") as fh:
-            for raw in fh:
-                m = RE_ENV_SECRETS_DIR.match(raw.rstrip("\r\n"))
-                if m:
-                    raw_val = m.group(1)   # 取最後一筆（同腳本 `grep … | tail -n 1`）
-        if raw_val is not None:
-            if not RE_ENV_VALUE_OK.match(raw_val):
-                return None, (".env 之 SECRETS_DIR 為空或含空白／shell 元字元"
-                              "——拒用（產檔約束見 .env.example）")
-            if not raw_val.startswith("/"):
-                return None, (".env 之 SECRETS_DIR 必須為絕對路徑字面"
-                              "（compose 不做 shell 展開）——見 .env.example")
-            return raw_val, None
-    return os.path.join(root, DEFAULT_SECRETS_DIR), None
 
 
 def load_secrets(secrets_dir):
@@ -581,6 +549,27 @@ class TestResolveSecretsDir(unittest.TestCase):
         root = self._root()
         self.assertEqual(resolve_secrets_dir(root, {"SECRETS_DIR": "rel/dir"})[0],
                          os.path.join(root, "rel", "dir"))
+
+    def test_env_none_defaults_to_process_environ(self):
+        """★`env=None`＝預設讀本行程環境（生產面 cmd_check 走此形）——既有直呼測試全數
+        明給 env dict，此路原本只由 TestCmdCheckIntegration 間接覆蓋。"""
+        from unittest import mock
+        root = self._root("SECRETS_DIR=/tmp/from-dotenv\n")
+        with mock.patch.dict(os.environ, {"SECRETS_DIR": "/tmp/from-process"}):
+            sdir, err = resolve_secrets_dir(root)
+        self.assertIsNone(err)
+        self.assertEqual(sdir, "/tmp/from-process")
+
+    def test_explicit_empty_env_not_replaced_by_process_environ(self):
+        """★哨兵只認 None：呼叫端明給空 dict＝「該環境確實沒設」，不得寫成
+        `env or os.environ` 而改讀本行程環境——否則「未設」與「已匯出為空」兩分支在
+        已 export SECRETS_DIR 的 shell 下靜默改判（＝本層與 compose 掛不同落點的假綠）。"""
+        from unittest import mock
+        root = self._root("SECRETS_DIR=/tmp/from-dotenv\n")
+        with mock.patch.dict(os.environ, {"SECRETS_DIR": "/tmp/from-process"}):
+            sdir, err = resolve_secrets_dir(root, {})
+        self.assertIsNone(err)
+        self.assertEqual(sdir, "/tmp/from-dotenv")
 
 
 class TestPlaceholderSkip(unittest.TestCase):

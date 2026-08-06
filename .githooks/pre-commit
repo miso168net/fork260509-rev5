@@ -44,10 +44,13 @@ python3 tools/secret-value-guard.py check || exit 1
 python3 tools/docs-sync.py check || exit 1
 python3 tools/docs-sync.py lint || exit 1
 # 守門工具自測條件觸發（rev4:FR-015／data-model §8）：staged 含某工具本體才跑該支、平時零開銷。
+# ★名冊改列**相對路徑**（B-035 U2／ADR 0010）：受治理的 python 工具不再只住 tools/，
+#   deploy/ 的機密管線腳本轉 python 後同列本名冊；本行與 docs-sync 的 TOOLS_PY、
+#   tools/bootstrap.sh 的 run_tool_test 三處手抄，由 docs-sync 自測對賬（漏接線即紅）。
 staged=$(git diff --cached --name-only)
-for t in docs-sync schema-gate wire-schema secret-value-guard entity-drift-gate; do
-  if echo "$staged" | grep -qxF "tools/$t.py"; then
-    python3 "tools/$t.py" test || exit 1
+for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py; do
+  if echo "$staged" | grep -qxF "$t"; then
+    python3 "$t" test || exit 1
   fi
 done
 # fork-delta 原行 紀律（憲法 §III L114）：base-web gitlink 變動（pin bump）時機器比對 base-web vs
