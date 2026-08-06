@@ -16,6 +16,14 @@
    自簽路線再把 `deploy/dev-certs/ca.pem` trust 進 OS（Windows shell：
    `certutil -addstore -user Root deploy/dev-certs/ca.pem`；macOS 信任程序隨 dev stack 刀實測後補記）
 5. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait` —— 起六業務件（migrate 是啟動閘：migration 失敗→rust-api 不啟→非零退出）
+   ★**B12（後端首刀）之前這一步跑不完、屬已知態**：rust-api 的 entrypoint 是
+   `cargo run --bin server`，而 workspace 現有 member 只有 `migration`／`entity`／
+   `sea-orm-adapter`——`server` crate 尚未存在，容器必以 `no bin target named server` 退出
+   （101）、healthcheck 永不轉綠，`--wait` 遂卡在 rust-api；front-nginx 因
+   `depends_on: rust-api(service_healthy)` 連帶不啟。**現階段起法＝
+   `specs/001-schema-baseline/quickstart.md`**（`up -d --wait postgres` ＋ `run --rm migrate`）；
+   起得來的是 postgres／redis／mailpit／base-web 四件＋migrate 一次性套用（實測 2026-08-06：
+   16 表落地、schema-gate 三閘 rc=0）。本步的「六業務件」待 server 實體落地後才成立。
 
 ★缺 secret 直接 up：compose 對缺 bind source 不報錯、自動建**空目錄**佔位——容器拿到空
 secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所以第 3 步不可跳。
@@ -90,7 +98,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點：staged 增量對既存明文結構性失明（rev4:L-190）、本旗標補盤點面——導入既有 repo 與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量；增量面＝pre-commit 自動跑裸 check） | 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
-| `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
+| `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔 | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需真 tty；age 缺席時需網路） |
 
@@ -145,8 +153,9 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 
 資產三件：`deploy/secrets.dev.enc.yaml`（密文、**tracked**、承載 10 支＝9 leaf＋
 `alert_webhook_url`）／`.sops.yaml`（recipient 公鑰清單、tracked）／
-`~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**）。
-工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版）、`bash deploy/decrypt-secrets.sh`
+`~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**；
+跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。
+工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版、自動選鑰）、`bash deploy/decrypt-secrets.sh`
 （密文→`$SECRETS_DIR/*.txt`）、`bash deploy/generate-secrets.sh`（產亂數）、
 `bash deploy/preflight-secrets.sh`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
 ★所有命令一律**自 repo 根**執行——wrapper 只掛載 `$PWD`，換目錄跑就找不到 `.sops.yaml`。
@@ -162,6 +171,11 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 ★**輸入 passphrase 的時機**：`bash deploy/decrypt-secrets.sh` 把 sops 提示行與解密輸出收進
 同一條容器 pty 流，畫面上常看不到提示——看到腳本自己印的預告行後、**等容器起來再輸入**；
 搶在容器接管 tty 之前打字＝該串字被 host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。
+★**次數＝recipient 數**（每個 recipient 各索一次、皆同一個 passphrase；`decrypt-secrets.sh`
+會自密文現算後印在預告行）。實測（2026-08-06、單檔掛載×2 recipient）：恰 2 次，且**單次提示
+內無重試迴圈**——passphrase 打錯即該 masterkey 失敗、不會再問一次。★**打太晚同樣會外洩**：
+sops 已結束才輸入的那一次落到 host shell，畫面會留下 `<你打的字>: command not found` 並進
+`~/.bash_history`——徵狀就是「我輸的次數比預告多」；處置＝`history -d <行號>`＋清 scrollback。
 本管線零 gpg 前置（passphrase 由 sops 內嵌 age 直讀容器內 `/dev/tty`）——提示異常不要往
 gpg-agent／pinentry 方向查。
 
@@ -175,12 +189,17 @@ gpg-agent／pinentry 方向查。
 　不可解、不可逆。正解：
 ```bash
 bash deploy/generate-age-key.sh keys-fork260509-rev5.txt
-# 之後每次解密都要指定它——★給的是「容器內路徑」，不是你本機的路徑
-SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys-fork260509-rev5.txt bash deploy/decrypt-secrets.sh
+# 之後解密照常跑、★毋須帶任何環境變數——wrapper 認得這個檔名、會自動選它
+bash deploy/decrypt-secrets.sh
 ```
 　檔名取 **repo 目錄名**（`keys-fork260509-rev5.txt`）而非 `keys-rev5.txt` 這類短代號——跨代並存
 　的機器上短代號家族必撞名，此即 `rev4:0084` 付過代價換來的命名紀律（同源＝`SECRETS_DIR`
-　亦以 repo 目錄名為根）。放別處不行：wrapper 只唯讀掛載 `~/.config/sops/age` 這一個目錄。
+　亦以 repo 目錄名為根）。放別處不行：wrapper 只認 `~/.config/sops/age` 這一個目錄。
+　★**這個檔名是機器口徑、不只是慣例**：wrapper 見到它就**只掛這一支**到容器內預設尋鑰路徑，
+　令容器內**恰有一把** identity。掛整個目錄（＝本機另有前代 `keys.txt` 時的舊行為）會讓 sops
+　把他代的鑰一併載入、並對「每個 recipient × 每把鑰」各索一次 passphrase——提示與資料同流
+　不可見，任一次空答即整體失敗（L-005）。用別的檔名（如 §15.3 演練鑰）＝以 `RV5_AGE_KEY_FILE`
+　給 **host 端絕對路徑**覆寫。
 　★rev5 **刻意不沿用前代 recipient**（`.sops.yaml` 註解明載：沿用＝前代私鑰能解 rev5 密文、違
 　世代錯開紀律），故前代那把鑰在 rev5 永遠無效，這是設計不是漏配。
 
@@ -209,10 +228,16 @@ commit＋push（分開推會出現「清單有你、密文還沒給你」的中�
 - `Group 0` 只列**管理者那一把** → 步驟 3／4 尚未做或尚未 push；**新成員這端無事可做**，
   重產鑰也不會好（新鑰同樣不在清單裡）。等管理者完成加人再 `git pull` 重跑。
 - `Group 0` **已含新成員的公鑰**卻仍失敗 → 才輪到查這端：passphrase 打錯、或用到別把
-  identity（同機多把時漏掛 `SOPS_AGE_KEY_FILE`，見步驟 1 註記）。
+  identity（見步驟 1 註記的檔名口徑）。
+- `Group 0` 已含新成員公鑰、且錯誤是 **`passphrase can't be empty`** → **不是鑰匙問題，是
+  提示不只一次而有一次被空答**。sops 對**每個 recipient** 各索一次 passphrase（容器內若還有
+  他代的鑰，還要再乘上鑰匙數），而提示被暫存檔捕捉、畫面上看不見。處置＝把 rev5 那把改名為
+  `keys-fork260509-rev5.txt`（wrapper 即改走單檔掛載、次數收斂為 recipient 數），並依
+  `decrypt-secrets.sh` 預告行印出的次數**每一次都輸入**、絕不空答。
 
-前一種是流程未完成、不是故障；`WARN … encrypted identity … didn't match file's recipients`
-一行同樣只是這件事的複述。
+前兩種的頭一種是流程未完成、不是故障；`WARN … encrypted identity … didn't match file's
+recipients` 一行同樣只是這件事的複述——它在多 recipient 下屬**正常過程訊息**（試到不是你那把
+的 recipient 時必然出現），不可據以判定失敗。
 **驗收（新成員側）**：`bash deploy/decrypt-secrets.sh` 寫出 10 支且零 `.new`，
 `bash deploy/preflight-secrets.sh` rc=0。
 
@@ -228,7 +253,10 @@ commit＋push（分開推會出現「清單有你、密文還沒給你」的中�
 4. 撤銷連動：該成員機器上的 `$SECRETS_DIR` 明文與其私鑰不受本程序影響（在他機器上），故
    準則 1 的值輪替是唯一有效手段。
 5. **撤銷演練需第二把**：先 `bash deploy/generate-age-key.sh keys-fork260509-rev5-drill.txt` 產第二把、加入 recipient
-   並確認它真的能解，再演練移除第一把——否則演練失敗就是永久失效。
+   並確認它真的能解，再演練移除第一把——否則演練失敗就是永久失效。★演練鑰的檔名**不等於**
+   wrapper 自動選用的那個名，故用它解密時要覆寫：
+   `RV5_AGE_KEY_FILE=$HOME/.config/sops/age/keys-fork260509-rev5-drill.txt bash deploy/decrypt-secrets.sh`
+   （★給 **host 端絕對路徑**、非容器內路徑；wrapper 自行對位掛載）。
 
 ### 15.4 值變更後回寫加密檔
 

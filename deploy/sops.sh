@@ -20,6 +20,7 @@
 #   P1.6 明文產物一律 host shell 收 stdout＋umask 077；不用 sops 的 --output／-i（in-place）
 #        產明文（映像以 root 執行、容器直寫產物＝root:root）——此為呼叫端紀律、wrapper 不產檔
 #   P1.7 exec bit 以 git update-index --chmod=+x 落 index（drvfs 上 chmod 不落 index）
+#   ★rev5 增補（**非 P1 契約條款**）：私鑰單檔掛載與選鑰口徑，見下方掛載段註解
 
 set -euo pipefail
 
@@ -32,18 +33,40 @@ if [ -t 0 ]; then
     TTY_FLAGS=(-i -t)
 fi
 
-# 私鑰目錄唯讀掛載（存在才掛；容器內 HOME=/root → 對位 sops 預設尋鑰路徑
-# /root/.config/sops/age/keys.txt）
+# 私鑰唯讀掛載（容器內 HOME=/root → sops 預設尋鑰路徑＝/root/.config/sops/age/keys.txt）
+# ★跨代並存機必須讓容器內**恰有一把** identity：掛整個目錄會讓 sops 連同預設路徑的
+#   keys.txt（他代的鑰）一併載入，並對「每個 recipient × 每把鑰」各索一次 passphrase；
+#   提示與資料同流不可見（P1.2 註），任一次空答即以 `passphrase can't be empty` 整體
+#   失敗、且訊息指向錯方向（實證 2026-08-06 加入第二位 recipient 當日；L-005）。
+# 選鑰口徑：RV5_AGE_KEY_FILE（host 絕對路徑）優先，否則取命名紀律預設檔名
+#   keys-fork260509-rev5.txt（＝repo 目錄名，同 SECRETS_DIR／keygen 快取之字面慣例）。
 AGE_KEY_DIR="${HOME}/.config/sops/age"
+if [ -n "${RV5_AGE_KEY_FILE:-}" ]; then
+    # ★-v 來源不存在時 docker 自動建**目錄**佔位（同 RUNBOOK §1 第 4 步 nginx 憑證坑），
+    #   故先指名退出、不放行到 docker run
+    case "$RV5_AGE_KEY_FILE" in /*) ;; *)
+        echo "FAIL：RV5_AGE_KEY_FILE 須為 host 端絕對路徑（現值：${RV5_AGE_KEY_FILE}）" >&2; exit 1 ;;
+    esac
+    [ -f "$RV5_AGE_KEY_FILE" ] \
+        || { echo "FAIL：RV5_AGE_KEY_FILE 指向的檔案不存在（${RV5_AGE_KEY_FILE}）" >&2; exit 1; }
+fi
+RV5_KEY="${RV5_AGE_KEY_FILE:-$AGE_KEY_DIR/keys-fork260509-rev5.txt}"
 KEY_MOUNT=()
-if [ -d "$AGE_KEY_DIR" ]; then
-    KEY_MOUNT=(-v "${AGE_KEY_DIR}:/root/.config/sops/age:ro")
+KEY_ENV=(-e SOPS_AGE_KEY_FILE)
+if [ -f "$RV5_KEY" ]; then
+    # 單檔掛到容器內預設尋鑰路徑＝容器內恰一把 identity；SOPS_AGE_KEY_FILE 顯式覆寫成該
+    # 路徑，使沿用舊命令形（含 shell history）者不因 host 路徑在容器內不存在而失敗
+    KEY_MOUNT=(-v "${RV5_KEY}:/root/.config/sops/age/keys.txt:ro")
+    KEY_ENV=(-e "SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys.txt")
+elif [ -d "$AGE_KEY_DIR" ]; then
+    KEY_MOUNT=(-v "${AGE_KEY_DIR}:/root/.config/sops/age:ro")   # 舊行為原樣保留
+    echo "提示：未見 ${AGE_KEY_DIR}/keys-fork260509-rev5.txt，改掛整個目錄；本機若同時持有多代 age 私鑰，把 rev5 那把改名為此檔名即可免除多餘的 passphrase 提示（命名紀律＝檔名取 repo 目錄名）。" >&2
 fi
 
 # P1.3／P1.4：只顯式轉發 SOPS_AGE_* 三變數；EDITOR 一律不轉發
 exec docker run --rm \
     "${TTY_FLAGS[@]}" \
     "${KEY_MOUNT[@]}" \
-    -e SOPS_AGE_KEY -e SOPS_AGE_KEY_FILE -e SOPS_AGE_KEY_CMD \
+    -e SOPS_AGE_KEY "${KEY_ENV[@]}" -e SOPS_AGE_KEY_CMD \
     -v "${PWD}:/work" -w /work \
     "$SOPS_IMAGE" "$@"

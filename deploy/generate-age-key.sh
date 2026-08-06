@@ -15,8 +15,10 @@
 # ★passphrase 只在你腦中：本腳本**不接受、不記錄、不回顯**——由 age 自己向 /dev/tty 索取。
 #   遺失＝該 identity 永久失效、其加密的密文不可解（離線備份義務**含 passphrase 本身**、§15.5）。
 # ★需真終端（`age -p` 走 /dev/tty）；非互動情境**吵鬧失敗且零副作用**。
-# ★同機第二把務必用非預設檔名：wrapper 只唯讀掛載 ~/.config/sops/age 這一個目錄，放別處容器
-#   讀不到；用時 SOPS_AGE_KEY_FILE 要給**容器內路徑** /root/.config/sops/age/<檔名>（§15.2 註記）。
+# ★同機第二把務必用非預設檔名：金鑰一律落 ~/.config/sops/age。取 keys-fork260509-rev5.txt
+#   這個名時 wrapper 會**自動選它**（單檔掛到容器內預設尋鑰路徑、容器內恰一把 identity），
+#   解密毋須帶任何環境變數；用其他檔名（如 §15.3 撤銷演練鑰）則以 RV5_AGE_KEY_FILE 給
+#   **host 端絕對路徑**覆寫（§15.2 步驟 1 註記）。
 # ★檔名取 **repo 目錄名**（`keys-fork260509-rev5.txt`）而非短代號：跨代並存的機器上短代號家族
 #   必撞名——此即 rev4:0084 付過代價換來的命名紀律（同源＝SECRETS_DIR 亦以 repo 目錄名為根）。
 set -euo pipefail
@@ -83,8 +85,8 @@ if [ -e "$KEYS" ]; then
   echo "FAIL：$KEYS 已存在——覆蓋＝永久銷毀該私鑰、版控內以它加密的密文即刻不可解；停手。" >&2
   echo "      跨代並存機（該機已有前代 identity）＝保留舊鑰、另產第二把，檔名取 repo 目錄名：" >&2
   echo "        bash deploy/generate-age-key.sh keys-fork260509-rev5.txt" >&2
-  echo "      之後解密一律指定它（★給**容器內**路徑、非本機路徑）：" >&2
-  echo "        SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys-fork260509-rev5.txt bash deploy/decrypt-secrets.sh" >&2
+  echo "      該檔名會被 wrapper 自動選用（單檔掛載），之後解密照常跑、毋須帶環境變數：" >&2
+  echo "        bash deploy/decrypt-secrets.sh" >&2
   echo "      全文＝RUNBOOK §15.2 步驟 1 註記。" >&2
   exit 1
 fi

@@ -3,7 +3,9 @@
 # 契約＝contracts/secret-pipeline.md §P4（fail-loud：斷言不符＝零寫入＋非零退出＋指名）
 #
 # 用法：自 repo 根、有 tty 的終端執行 ./deploy/decrypt-secrets.sh
-#   B′ 私鑰＝passphrase 加殼 identity → 每次執行恰跳 1 次 passphrase 提示（單 recipient 基線）。
+#   B′ 私鑰＝passphrase 加殼 identity → sops 對**每個 recipient** 各索一次 passphrase
+#   （皆為同一把鑰的同一個 passphrase）。★勿假設「恰跳 1 次」——那是單 recipient 時代的
+#   舊值，加人當日即失效（L-005）；次數由本腳本自密文現算後印在預告行。
 #   ★提示行與解密輸出同流被暫存檔捕捉（wrapper -t＝容器 pty、docker 單流輸出）——畫面可能
 #     不顯示提示，依本腳本印出的預告直接輸入 passphrase 後按 Enter 即可。
 #
@@ -15,8 +17,8 @@
 #   P4.5 現值 ≠ 解密值 → 另存 <name>.txt.new＋警示、不覆寫；現值＝解密值 → 照寫（冪等）
 #   FR-021／SC-005 明文暫存落點：$XDG_CACHE_HOME（回退 $HOME/.cache）之 0700 暫存目錄、
 #     非 repo 內 tmp/（/mnt/d＝9p、chmod no-op＝實效 777）；落點性質不符即 fail-loud
-#   單次 sops -d 收全 YAML 再本地拆 key——B′ 下每次容器呼叫都要 1 次 passphrase，
-#   絕不逐 key --extract 重呼容器
+#   單次 sops -d 收全 YAML 再本地拆 key——B′ 下每次容器呼叫都要輸 passphrase（每
+#   recipient 一次），絕不逐 key --extract 重呼容器
 
 set -euo pipefail
 
@@ -131,7 +133,17 @@ normalize_raw() {
     tr '\r' '\n' < "$RAW" | sed -E "s/${ESC}\[[0-9;]*[A-Za-z]//g"
 }
 
-echo "即將解密：sops 會要求輸入 identity passphrase（提示可能不顯示於畫面）——請直接輸入後按 Enter。"
+# 提示次數＝recipient 數（每 recipient 各索一次、皆同一個 passphrase）：★自密文現算、
+# 不寫死字面——寫死的「恰 1 次」正是加人當日誤導 operator 空答的來源（L-005）。
+# 措辭用「每 recipient 一次」而非硬報數：wrapper 走目錄掛載回退分支時容器內可能不只
+# 一把 identity、實際次數更多，現算值僅為正常（單檔掛載）情形之下界。
+RECIPIENT_COUNT="$(grep -cE '^[[:space:]]*recipient: age1' deploy/secrets.dev.enc.yaml || true)"
+if [ "${RECIPIENT_COUNT:-0}" -ge 1 ]; then
+    echo "即將解密：sops 會**對每個 recipient 各索一次** identity passphrase（皆為同一個）——本密文有 ${RECIPIENT_COUNT} 個 recipient，故正常會問 ${RECIPIENT_COUNT} 次。"
+else
+    echo "即將解密：sops 會要求輸入 identity passphrase（可能不只一次）。"
+fi
+echo "★提示可能不顯示於畫面——**每一次**都要輸入後按 Enter；★任一次空答即以 passphrase can't be empty 整體失敗（判讀＝RUNBOOK §15.2 失敗訊息判讀）。"
 SOPS_RC=0
 ./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$RAW" || SOPS_RC=$?
 if [ "$SOPS_RC" -ne 0 ]; then
