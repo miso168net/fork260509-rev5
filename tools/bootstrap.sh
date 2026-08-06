@@ -5,7 +5,7 @@
 #       並斷言最原始源基線（fork260509-soybean-admin-base @ example、CLAUDE.md §1）與
 #       pin 一致性；舊機重跑＝純體檢。任何斷言失敗→exit 2＋指名處置；分歧類問題只警告
 #       （⚠）不自動 reset、絕不半套。
-# 不含：機密實值（僅體檢 SECRETS_DIR 下缺檔；★019 起實值不再人對人交接——重建走
+# 不含：機密實值（僅體檢 SECRETS_DIR 下缺檔；★rev4:019 起實值不再人對人交接——重建走
 #       ./deploy/decrypt-secrets.sh〔10 支〕＋ ./deploy/generate-secrets.sh --compose-only〔3 composite〕，
 #       見 deploy/secrets/README.md）；
 #       dev stack 起法（見 specs/001 quickstart）。
@@ -37,7 +37,7 @@ esac
 git -C "$ROOT" config core.hooksPath .githooks
 ok "core.hooksPath=.githooks"
 
-# 掃描器斷言（019 scan-gates §S4；★die 級——缺席時 hook 會以 exit 127 擋掉每次 commit
+# 掃描器斷言（rev4:019 rev4:scan-gates §S4；★die 級——缺席時 hook 會以 exit 127 擋掉每次 commit
 # 且訊息難解，體檢須先 fail-loud；版本釘定值＝RUNBOOK §12 拍板、升版先改拍板再改此值）
 BETTERLEAKS_VER="1.7.3"
 case "$(uname -s)-$(uname -m)" in                 # ★雙平台（rev5：macOS arm64 與 WSL2 x86-64 皆為工作環境）
@@ -109,7 +109,7 @@ ensure_worktree() { # $1=源倉 $2=目錄名 $3=分支
 ensure_worktree "$BASEWEB_SRC" "base-web" "rev5-admin-base-web"
 ensure_worktree "$RUSTAPI_SRC" "rust-api" "rev5-admin-rust-api"
 
-# 兩源倉 hooksPath 佈署＋讀值斷言（019 scan-gates §S5；per-machine git config、源倉工作樹
+# 兩源倉 hooksPath 佈署＋讀值斷言（rev4:019 rev4:scan-gates §S5；per-machine git config、源倉工作樹
 # 零改動）：★絕對路徑指向外層 .githooks-submodule（相對路徑會相對於源倉根、必錯）；
 # 冪等（重跑＝再設同值）。他機 clone 未跑 bootstrap＝源倉無防線，由本斷言在體檢時暴露。
 for wt in base-web rust-api; do
@@ -120,7 +120,7 @@ for wt in base-web rust-api; do
 done
 ok "兩源倉 core.hooksPath＝外層 .githooks-submodule（樣式掃描防線就位）"
 
-# hooks 標的檔內容指紋斷言（B-124：simple-git-hooks 類若覆寫標的檔、hooksPath 指標值不變
+# hooks 標的檔內容指紋斷言（rev4:B-124：simple-git-hooks 類若覆寫標的檔、hooksPath 指標值不變
 # 仍印 ok＝防線靜默失效）。法＝逐檔 git hash-object（相對路徑、走 filter＝git add 同口徑）
 # 對 git rev-parse HEAD:路徑 比對——逐 byte 級 blob 指紋、失敗可逐檔指名；缺檔獨立分支指名。
 for hf in .githooks-submodule/pre-commit .githooks-submodule/pre-push; do
@@ -146,7 +146,7 @@ check_pin() { # $1=目錄名
 check_pin "base-web"
 check_pin "rust-api"
 
-# ── 5. 守門工具自測（FR-015：體檢無條件全跑；pre-commit 則條件觸發）＋fork-delta 全掃 ──
+# ── 5. 守門工具自測（rev4:FR-015：體檢無條件全跑；pre-commit 則條件觸發）＋fork-delta 全掃 ──
 run_tool_test() { # $1=工具名（不含 .py）；失敗才吐明細，成功保持體檢輸出乾淨
   local out
   if ! out="$(python3 "$ROOT/tools/$1.py" test 2>&1)"; then
@@ -162,7 +162,7 @@ run_tool_test secret-value-guard
 run_tool_test entity-drift-gate
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
-# entity 漂移閘實跑（B-110；worktree 已於上方重建、entity 檔必在——零 docker、秒級）
+# entity 漂移閘實跑（rev4:B-110；worktree 已於上方重建、entity 檔必在——零 docker、秒級）
 python3 "$ROOT/tools/entity-drift-gate.py" check || die "entity-drift-gate 未過——見上方指名"
 ok "entity-drift-gate 全綠（self-test＋實比對）"
 
@@ -218,7 +218,7 @@ else
 "創世事件名冊那一源待 B7 落地後才生效"
 fi
 
-# ── 6. .env 單一事實來源（019 T024／T029、contracts P5.4 三級口徑）────────
+# ── 6. .env 單一事實來源（rev4:019 rev4:T024／rev4:T029、contracts rev4:P5.4 三級口徑）────────
 # 口徑：.env 缺失→代勞產生（自癒、不中止）；已存在→不覆寫、只讀值斷言（形制不合＝warn
 # ＋自癒指引，不 die——上機前 fail-loud 由 preflight 承載、bootstrap 不重複把關）。
 # ★SECRETS_DIR 必須寫「絕對路徑字面」：compose 讀 .env 不做 shell 展開（$HOME 字面無效），
@@ -230,7 +230,7 @@ if [ ! -f "$ENV_FILE" ]; then
   ok ".env 缺失→已代勞產生（SECRETS_DIR=${SECRETS_DIR_DEFAULT}）"
 fi
 SECRETS_DIR="$ROOT/deploy/secrets"   # 讀值失敗時的體檢回退（＝compose 未設變數之回退口徑）
-# ★偵測寬、取值窄（019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env 解析器接受
+# ★偵測寬、取值窄（rev4:019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env 解析器接受
 #   UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾，行首錨定 `SECRETS_DIR=` 的
 #   窄樣式對這五形一律漏認（實測 compose v5.3.1 五形皆解析為新落點）——體檢會據此以舊落點
 #   進行、並印出與實情相反的「compose 將回退」診斷，把 operator 導離真因。

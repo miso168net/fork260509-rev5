@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""tools/secret-value-guard.py — 機密現值比對防線（019 U1；contracts/scan-gates.md §S2）
+"""tools/secret-value-guard.py — 機密現值比對防線（rev4:019 U1；contracts/scan-gates.md §S2）
 
 三層掃描防線的確定性層（僅外層 repo 掛載；源倉靠樣式層、零 python 依賴）：
 讀機密現值 × 比對 staged 新增行，樣式掃描構不到的「裸值形」由本層攔截。
@@ -12,9 +12,9 @@
           可辨識 skip 提示＋exit 0（fail-open；樣式掃描為主防線）。
           ★每次執行先跑紅綠 self-test（防恆綠）：紅樣本（執行期串接構造、防本檔自命中）
           未攔、近似綠樣本誤報、或 MIN_SECRET_LEN 邊界失守 → ERROR＋exit 1 擋 commit。
-          ★旗標 --full-tree（B-118）：同源讀值、改掃 `git ls-files` 全 tracked 檔逐行
+          ★旗標 --full-tree（rev4:B-118）：同源讀值、改掃 `git ls-files` 全 tracked 檔逐行
           bytes 比對（binary＝含 NUL byte 者跳過）——staged 增量對「既存於 tracked 檔的
-          現值」結構性失明（L-190），本模式供導入時盤點與定期體檢；命中→stderr 只印
+          現值」結構性失明（rev4:L-190），本模式供導入時盤點與定期體檢；命中→stderr 只印
           「檔案:行號｜機密名」。★不接進 pre-commit（全樹非增量、成本未拍板）。
   test    跑自帶測試（unittest、離線、單檔零第三方依賴；先 purge_git_env 隔離 GIT_*）
 
@@ -32,7 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_SECRETS_DIR = os.path.join("deploy", "secrets")
 # 比對下界：短於此的現值不比對（誤報面失控；防線由樣式層接手）。
 # ★self-test 的兩個邊界樣本用**字面長度**寫死、不由本常數構造：以被測常數自身構造＝套套
-# 邏輯，常數一動樣本跟著動、兩檢查恆過（019 U1 實證：MIN 改 2 或 21，run_selftest() 皆
+# 邏輯，常數一動樣本跟著動、兩檢查恆過（rev4:019 U1 實證：MIN 改 2 或 21，run_selftest() 皆
 # True，而 pre-commit 生產面只跑 check→self-test，於是 MIN 落在 1~21 任一值時日常零守門）。
 # 字面釘死後兩向都當場紅：MIN 被放寬→7 字元綠樣本誤報；MIN 被抬高→8 字元紅樣本未攔。
 # ★因此下界一旦改動，必須同步改 EDGE_HIT／EDGE_SKIP（雙記帳、不得單邊改）。
@@ -53,10 +53,10 @@ PLACEHOLDER_VALUES = frozenset({
 })
 
 RE_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
-# .env 行形偵測＝**寬樣式**（019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env
+# .env 行形偵測＝**寬樣式**（rev4:019 U4 quality 修；六處解析器同刀齊改）：compose 的 .env
 # 解析器接受 UTF-8 BOM／行首空白／export 前綴／等號兩側空白／CRLF 行尾。行首錨定
 # `SECRETS_DIR=` 的窄樣式對這五形一律漏認並**靜默回退** repo 內舊落點——本層於是改掃
-# 空目錄、印 skip 且 rc=0，裸值格結構性失守而全綠（＝L-174 經另一條路復發）。
+# 空目錄、印 skip 且 rc=0，裸值格結構性失守而全綠（＝rev4:L-174 經另一條路復發）。
 # 寬進窄出：寬樣式撈出 compose 會讀到的那一行，值再套下方嚴格白名單。
 RE_ENV_SECRETS_DIR = re.compile(
     r"^[ \t]*(?:export[ \t]+)?SECRETS_DIR[ \t]*=[ \t]*(.*?)[ \t]*$")
@@ -92,16 +92,16 @@ def comparable_secrets(loaded):
 
 
 def resolve_secrets_dir(root, env=None):
-    """機密落點三級口徑（與 deploy 四腳本同口徑；019 契約 §P5.1／P5.2 第五消費者）。
+    """機密落點三級口徑（與 deploy 四腳本同口徑；rev4:019 契約 rev4:§P5.1／rev4:P5.2 第五消費者）。
 
     環境變數優先（與 compose 口徑一致）→ repo 根 `.env` 只嚴格解析 `SECRETS_DIR` 一行
     → 皆缺回退 repo 內 `deploy/secrets`。
     ★不整檔 source／不引 dotenv：compose 的 `.env` 允許不加引號的含空白值、井號語意亦與
     shell 不同。★`.env` 有該鍵但值非法＝**吵鬧失敗**（回錯誤訊息）而非靜默回退——靜默回退
     會讓本層改掃 repo 內舊落點、明明沒在守卻回綠（假綠）。
-    ★**行形偵測寬、值校驗窄**（019 U4）：偵測面必須涵蓋 compose 會讀到的每一種行形
+    ★**行形偵測寬、值校驗窄**（rev4:019 U4）：偵測面必須涵蓋 compose 會讀到的每一種行形
     （BOM／縮排／export 前綴／等號兩側空白／CRLF），否則漏認即靜默回退＝同一個假綠。
-    ★**空字串邊界**（019 U4 quality）：「已匯出但為空」≠「未設」——shell 環境已勝出 `.env`，
+    ★**空字串邊界**（rev4:019 U4 quality）：「已匯出但為空」≠「未設」——shell 環境已勝出 `.env`，
     compose 的 `${SECRETS_DIR:-./deploy/secrets}` 對空字串直接吃預設值、回退 repo 內舊落點
     且**不讀 `.env` 該鍵**；`if val:` 把空字串當未設而續讀 `.env`＝本層掃新落點、compose
     掛舊落點的靜默分裂。空字串無合法用途（要走回退請 unset），故吵鬧失敗指名真因。
@@ -169,7 +169,7 @@ def find_hits(diff_text, secrets):
     的行前綴恆為 +／-／空白，故內容本身以「兩個加號」起頭的新增行會渲染成 `+++…`。單靠
     前綴同時判檔頭與新增行時，該行①含空白形 `+++ ` 被當成檔頭吃掉——path 被改寫成該行
     文字、後續命中報到錯的檔與錯的行；②無空白形 `+++x` 被 `not startswith("+++")` 整行
-    排除——該行漏掃、且不推進行號，同 hunk 後續命中行號一併少算（019 U1 實證）。
+    排除——該行漏掃、且不推進行號，同 hunk 後續命中行號一併少算（rev4:019 U1 實證）。
     """
     hits = []
     path = None
@@ -265,7 +265,7 @@ def cmd_check():
 
 
 # ---------------------------------------------------------------------------
-# B-118 全樹盤點模式（check --full-tree）
+# rev4:B-118 全樹盤點模式（check --full-tree）
 # ---------------------------------------------------------------------------
 
 def tracked_files(root):
@@ -332,7 +332,7 @@ def run_selftest_full_tree():
 
 
 def cmd_full_tree():
-    """B-118 一次性全樹盤點：機密現值 × 全 tracked 檔逐行比對；讀值與 check 同源。"""
+    """rev4:B-118 一次性全樹盤點：機密現值 × 全 tracked 檔逐行比對；讀值與 check 同源。"""
     if not run_selftest_full_tree():
         return 1
     sdir, err = resolve_secrets_dir(ROOT)
@@ -478,7 +478,7 @@ class TestEligibleBoundary(unittest.TestCase):
 
 
 class TestResolveSecretsDir(unittest.TestCase):
-    """三級口徑（019 U4 遷移後補：落點遷出 repo 後本層曾一律 skip＝結構性失守、L-174）。"""
+    """三級口徑（rev4:019 U4 遷移後補：落點遷出 repo 後本層曾一律 skip＝結構性失守、rev4:L-174）。"""
 
     def _root(self, env_body=None):
         import tempfile
@@ -496,7 +496,7 @@ class TestResolveSecretsDir(unittest.TestCase):
         self.assertEqual(sdir, "/tmp/from-envvar")
 
     def test_empty_env_var_rejected_loudly(self):
-        """★空字串邊界（019 U4 quality）：`SECRETS_DIR` 匯出為空時，compose 的
+        """★空字串邊界（rev4:019 U4 quality）：`SECRETS_DIR` 匯出為空時，compose 的
         `${SECRETS_DIR:-./deploy/secrets}` 直接吃預設值回退 repo 內舊落點、**不讀 .env**；
         本層若把它當未設而續讀 `.env`，即「本層掃新落點、compose 掛舊落點」的靜默分裂
         （修前實證：同一個空字串環境下 preflight 與 guard 皆 rc=0 全綠、compose config
@@ -517,11 +517,11 @@ class TestResolveSecretsDir(unittest.TestCase):
         self.assertEqual(resolve_secrets_dir(root, {})[0], "/tmp/last")
 
     def test_compose_accepted_line_forms_all_recognised(self):
-        """★寬進窄出（019 U4）：compose 的 .env 解析器接受的行形——export 前綴／行首縮排／
+        """★寬進窄出（rev4:019 U4）：compose 的 .env 解析器接受的行形——export 前綴／行首縮排／
         等號兩側空白／UTF-8 BOM／CRLF 行尾／值尾空白——本層必須全部認得。行首錨定
         `SECRETS_DIR=` 的窄樣式對前四形**靜默回退** repo 內舊落點（修前實測四形皆回
         root/deploy/secrets 且 err 為 None）→ pre-commit 掃到空目錄、印 skip 且 rc=0，
-        裸值格結構性失守而全綠（L-174 經另一條路復發）。
+        裸值格結構性失守而全綠（rev4:L-174 經另一條路復發）。
         compose v5.3.1 實測：六形全部解析為新落點。"""
         for label, body in (("export 前綴", "export SECRETS_DIR=/tmp/rev5-new\n"),
                             ("行首縮排", "  SECRETS_DIR=/tmp/rev5-new\n"),
@@ -536,7 +536,7 @@ class TestResolveSecretsDir(unittest.TestCase):
 
     def test_last_occurrence_wins_across_line_forms(self):
         """後者勝須跨行形成立：舊值裸行＋新值 export 行 → 必取新值。窄樣式修前取舊值、
-        compose 取新值，兩邊 rc 皆 0 零錯誤＝契約 P5.1 違反後果欄的「compose 讀新落點、
+        compose 取新值，兩邊 rc 皆 0 零錯誤＝契約 rev4:P5.1 違反後果欄的「compose 讀新落點、
         腳本查舊落點」。"""
         root = self._root("SECRETS_DIR=/tmp/old\nexport SECRETS_DIR=/tmp/new\n")
         self.assertEqual(resolve_secrets_dir(root, {})[0], "/tmp/new")
@@ -670,7 +670,7 @@ class TestSelfTest(unittest.TestCase):
 
     def test_selftest_catches_lowered_min_len_constant(self):
         """★下界常數被改小（MIN=2）→ 7 字元邊界綠樣本變成 eligible、誤報當場紅。
-        邊界樣本若以 MIN_SECRET_LEN 自身構造即套套邏輯（常數一動樣本跟著動）：019 U1
+        邊界樣本若以 MIN_SECRET_LEN 自身構造即套套邏輯（常數一動樣本跟著動）：rev4:019 U1
         修前實測 MIN 改 2 時 run_selftest() 仍 True，生產面（pre-commit 只跑 check）零守門。"""
         from unittest import mock
         mod = sys.modules[__name__]
@@ -778,8 +778,8 @@ class TestCmdCheckIntegration(unittest.TestCase):
 
 
 class TestFullTree(unittest.TestCase):
-    """B-118 全樹盤點模式（check --full-tree）：staged 增量模式對「已存在於 tracked 檔的
-    機密現值」結構性失明（019 U6 實證、L-190）——本模式一次性掃 git ls-files 全 tracked 檔。"""
+    """rev4:B-118 全樹盤點模式（check --full-tree）：staged 增量模式對「已存在於 tracked 檔的
+    機密現值」結構性失明（rev4:019 U6 實證、rev4:L-190）——本模式一次性掃 git ls-files 全 tracked 檔。"""
 
     def _fixture(self, d, body_bytes, fname="doc.md"):
         """temp repo＋落點：tracked 檔以 bytes 寫入並 commit（非 staged 新增行）。"""
@@ -827,7 +827,7 @@ class TestFullTree(unittest.TestCase):
             repo, sec, v = self._fixture(
                 d, ("x=" + _fixture_value() + "\n").encode("utf-8"))
             rc, _ = self._run(cmd_check, repo, sec)
-            self.assertEqual(rc, 0)     # 恰證 B-118：既存明文永不觸發增量模式
+            self.assertEqual(rc, 0)     # 恰證 rev4:B-118：既存明文永不觸發增量模式
             rc, text = self._run(cmd_full_tree, repo, sec)
             self.assertEqual(rc, 1)     # 同一狀態全樹模式必攔
             self.assertIn("doc.md:1｜fake_key", text)
@@ -943,7 +943,7 @@ class TestMainCli(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 def usage(msg=None):
-    """用法錯誤：usage 走 stderr、exit 64（EX_USAGE；沿 018 家族慣例）。"""
+    """用法錯誤：usage 走 stderr、exit 64（EX_USAGE；沿 rev4:018 家族慣例）。"""
     if msg:
         print(msg, file=sys.stderr)
     print(__doc__, file=sys.stderr)
