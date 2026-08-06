@@ -5,8 +5,9 @@
 #   各寫一份而漂移」那類失效（L-199）。手冊仍保留同口徑的 inline 形作為本腳本不可用時的退路。
 #
 # 用法（自 repo 根跑；本腳本不讀寫 repo 內任何檔，故不強制 CWD）：
-#   bash deploy/generate-age-key.sh                 # 第一把：產到預設 ~/.config/sops/age/keys.txt
-#   bash deploy/generate-age-key.sh keys-real.txt   # 同機第二把：同目錄**非預設**檔名
+#   bash deploy/generate-age-key.sh                            # 第一把：產到預設 ~/.config/sops/age/keys.txt
+#   bash deploy/generate-age-key.sh keys-fork260509-rev5.txt   # 同機第二把：同目錄**非預設**長檔名
+#     （★跨代並存機的正解——該機已有前代 identity 時走這條，見 §15.2 步驟 1 註記）
 #
 # 何時用：①新機／新成員加入（§15.2 步驟 1）②換機重建 ③撤銷演練需第二把（§15.3 準則 5）
 #   ④金鑰或 passphrase 遺失後重新加入（§15.5）。
@@ -16,6 +17,8 @@
 # ★需真終端（`age -p` 走 /dev/tty）；非互動情境**吵鬧失敗且零副作用**。
 # ★同機第二把務必用非預設檔名：wrapper 只唯讀掛載 ~/.config/sops/age 這一個目錄，放別處容器
 #   讀不到；用時 SOPS_AGE_KEY_FILE 要給**容器內路徑** /root/.config/sops/age/<檔名>（§15.2 註記）。
+# ★檔名取 **repo 目錄名**（`keys-fork260509-rev5.txt`）而非短代號：跨代並存的機器上短代號家族
+#   必撞名——此即 rev4:0084 付過代價換來的命名紀律（同源＝SECRETS_DIR 亦以 repo 目錄名為根）。
 set -euo pipefail
 
 # ---- 版本釘定（★與 RUNBOOK §12「機密工具鏈釘版」欄同步：改版須同刀改兩處；
@@ -40,7 +43,7 @@ KEYS="$KEYDIR/$KEYNAME"
 # ---- 參數自檢：檔名不得帶路徑（防穿越、也防誤把金鑰產到容器讀不到的地方）----
 case "$KEYNAME" in
   */*|"")
-    echo "FAIL：參數是**檔名**、不是路徑（例：keys-real.txt）——金鑰一律落 $KEYDIR" >&2
+    echo "FAIL：參數是**檔名**、不是路徑（例：keys-fork260509-rev5.txt）——金鑰一律落 $KEYDIR" >&2
     exit 1 ;;
 esac
 
@@ -78,7 +81,11 @@ mkdir -p "$KEYDIR"
 chmod 700 "$KEYDIR"
 if [ -e "$KEYS" ]; then
   echo "FAIL：$KEYS 已存在——覆蓋＝永久銷毀該私鑰、版控內以它加密的密文即刻不可解；停手。" >&2
-  echo "      要產第二把請給非預設檔名：bash deploy/generate-age-key.sh keys-<用途>.txt" >&2
+  echo "      跨代並存機（該機已有前代 identity）＝保留舊鑰、另產第二把，檔名取 repo 目錄名：" >&2
+  echo "        bash deploy/generate-age-key.sh keys-fork260509-rev5.txt" >&2
+  echo "      之後解密一律指定它（★給**容器內**路徑、非本機路徑）：" >&2
+  echo "        SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys-fork260509-rev5.txt bash deploy/decrypt-secrets.sh" >&2
+  echo "      全文＝RUNBOOK §15.2 步驟 1 註記。" >&2
   exit 1
 fi
 

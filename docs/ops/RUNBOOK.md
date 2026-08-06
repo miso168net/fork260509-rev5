@@ -92,7 +92,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；營運程序＝§15） | 否（需 docker） |
 | `bash deploy/decrypt-secrets.sh` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔 | 否（需 docker＋互動 tty） |
-| `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設名 | 否（需真 tty；age 缺席時需網路） |
+| `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需真 tty；age 缺席時需網路） |
 
 退出碼注意：schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
 不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
@@ -168,9 +168,19 @@ gpg-agent／pinentry 方向查。
 **步驟 1【新成員做】產 identity**：`bash deploy/generate-age-key.sh`（產到預設
 `~/.config/sops/age/keys.txt`、passphrase 加殼；覆蓋前有閘——**覆蓋＝永久銷毀既有私鑰、
 其密文即刻不可解**）。
-　註記：同機第二把務必用非預設檔名 `bash deploy/generate-age-key.sh <檔名>`；用時
-　`SOPS_AGE_KEY_FILE` 要給**容器內路徑** `/root/.config/sops/age/<檔名>`——wrapper 只唯讀掛載
-　`~/.config/sops/age` 這一個目錄，放別處容器讀不到。
+　★**註記：該機已有前代 identity 時（跨代並存機）＝保留舊鑰、另產第二把**。腳本有覆蓋閘會擋下
+　（`FAIL：… 已存在——覆蓋＝永久銷毀該私鑰`），**絕不可繞過**：覆蓋掉前代私鑰＝該代密文從此
+　不可解、不可逆。正解：
+```bash
+bash deploy/generate-age-key.sh keys-fork260509-rev5.txt
+# 之後每次解密都要指定它——★給的是「容器內路徑」，不是你本機的路徑
+SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys-fork260509-rev5.txt bash deploy/decrypt-secrets.sh
+```
+　檔名取 **repo 目錄名**（`keys-fork260509-rev5.txt`）而非 `keys-rev5.txt` 這類短代號——跨代並存
+　的機器上短代號家族必撞名，此即 `rev4:0084` 付過代價換來的命名紀律（同源＝`SECRETS_DIR`
+　亦以 repo 目錄名為根）。放別處不行：wrapper 只唯讀掛載 `~/.config/sops/age` 這一個目錄。
+　★rev5 **刻意不沿用前代 recipient**（`.sops.yaml` 註解明載：沿用＝前代私鑰能解 rev5 密文、違
+　世代錯開紀律），故前代那把鑰在 rev5 永遠無效，這是設計不是漏配。
 
 **步驟 2【新成員做】交付公鑰**：把腳本印出的 `age1…` 公鑰給管理者。公鑰非機密，任何管道皆可。
 
@@ -189,6 +199,18 @@ commit＋push（分開推會出現「清單有你、密文還沒給你」的中�
 
 **★末條**：少了步驟 3，新私鑰不在 recipient 清單裡＝拉到的密文一律解不開——這是最常見的
 「我照做了怎麼還是解不開」原因。
+
+**★失敗訊息判讀（此訊息會誤導）**：新成員側解不開時 sops 會印
+`identity did not match any of the recipients` 並附一長串「找不到金鑰於 SOPS_AGE_KEY_FILE…」，
+讀起來像「你的鑰匙有問題」，但**真正的判準是 `Group 0` 底下列出的 recipient 清單**：
+
+- `Group 0` 只列**管理者那一把** → 步驟 3／4 尚未做或尚未 push；**新成員這端無事可做**，
+  重產鑰也不會好（新鑰同樣不在清單裡）。等管理者完成加人再 `git pull` 重跑。
+- `Group 0` **已含新成員的公鑰**卻仍失敗 → 才輪到查這端：passphrase 打錯、或用到別把
+  identity（同機多把時漏掛 `SOPS_AGE_KEY_FILE`，見步驟 1 註記）。
+
+前一種是流程未完成、不是故障；`WARN … encrypted identity … didn't match file's recipients`
+一行同樣只是這件事的複述。
 **驗收（新成員側）**：`bash deploy/decrypt-secrets.sh` 寫出 10 支且零 `.new`，
 `bash deploy/preflight-secrets.sh` rc=0。
 
@@ -203,7 +225,7 @@ commit＋push（分開推會出現「清單有你、密文還沒給你」的中�
 3. **絕不移除自己手上唯一那把**：`updatekeys` 需先解密，移除後就再也解不開＝把自己鎖在門外。
 4. 撤銷連動：該成員機器上的 `$SECRETS_DIR` 明文與其私鑰不受本程序影響（在他機器上），故
    準則 1 的值輪替是唯一有效手段。
-5. **撤銷演練需第二把**：先 `bash deploy/generate-age-key.sh drill.txt` 產第二把、加入 recipient
+5. **撤銷演練需第二把**：先 `bash deploy/generate-age-key.sh keys-fork260509-rev5-drill.txt` 產第二把、加入 recipient
    並確認它真的能解，再演練移除第一把——否則演練失敗就是永久失效。
 
 ### 15.4 值變更後回寫加密檔
