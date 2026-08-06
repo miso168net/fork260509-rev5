@@ -674,8 +674,8 @@ entity-drift 比對豁免本表。
    施工時**不得帶回**。
 2. seed 簡體原值（role_name／buttons desc）與 password runtime 隨機雜湊為已推翻之形——
    **不得帶回** m002。
-3. rev4 m003～m015 為其後續刀 delta、淨效果已含於終態——**不搬**；rev5 第一支 delta 自
+3. rev4:m003～rev4:m015 為其後續刀 delta、淨效果已含於終態——**不搬**；rev5 第一支 delta 自
    m003 起編（短編號紀律承 K1-13）。
-4. reaper DB role＋GRANTs（rev4:m012／m013）**不入基線**——非三節快照射程、屬
+4. reaper DB role＋GRANTs（rev4:m012／rev4:m013）**不入基線**——非三節快照射程、屬
    observability 域運維工件、隨該域刀重進場（research R4、provenance rev4:ADR 0072）。
 5. fixtures 凍結後永不改寫；基線翻案＝新刀新 ADR（supersedes），不回改本檔。
