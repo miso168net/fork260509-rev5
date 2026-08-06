@@ -171,7 +171,7 @@ ok "entity-drift-gate 全綠（self-test＋實比對）"
 # ★期望值取自 derive_lint_codes 掃源現算，**不落字面**——落字面就變成第四份名冊，
 #   條款被靜默拆掉時它照舊報舊數（正是準則 1 要防的「名冊與實作不同源」）。
 # ★注意：條款「數」與條款碼「上界」在 rev5 刻意不同——Q8 拍甲案（拆 Lint23 留洞、
-#   Lint24 保號），故集合為 {01..22, 24}：數＝23、上界＝24。此處斷言的是**數**。
+#   Lint24 保號），故集合為 {01..22, 24, 25}：數＝24、上界＝25。此處斷言的是**數**。
 LINT_CLAUSE_COUNT=$(python3 - "$ROOT/tools/docs-sync.py" <<'PY'
 import re, sys
 src = open(sys.argv[1], encoding="utf-8-sig").read()
@@ -181,9 +181,13 @@ PY
 ) || die "條款數推導失敗——derive_lint_codes 錨形與掃源不同步？"
 [ "${LINT_CLAUSE_COUNT:-0}" -gt 0 ] \
   || die "條款數推導得 0——掃源錨形失效，整條驗收面已恆綠（fail-closed）"
-# ★真正的獨立源＝創世 misc 事件 notes 的 `lint-roster:` 前綴（§3.4 補記）——那是**人寫**
+# ★真正的獨立源＝misc 事件 notes 的 `lint-roster:` 前綴（§3.4 補記）——那是**人寫**
 #   的名冊。只比對「掃源推導」與「lint 摘要」是套套邏輯：兩者同源，條款被靜默拆掉時
 #   雙雙縮水、永遠對得上（實證：把某條款的 finding 碼全改掉，兩處同步變 22 而斷言照過）。
+# ★取**最後一筆** lint-roster 事件、不是第一筆（B-004／Lint25 上線時改）：events.jsonl 是
+#   append-only 帳、創世列絕不編輯（ADR 0012 決定 5），所以條款入冊的唯一通道就是 append
+#   一筆新的 misc 事件帶新名冊。原本「首筆命中即 break」讓名冊永遠凍在創世那一筆＝條款
+#   一上線就必然對不上、而修法會逼人改創世列（破 append-only）。故名冊演進＝末筆勝。
 EVENTS_FILE="$ROOT/docs/ops/events.jsonl"
 if [ -f "$EVENTS_FILE" ]; then
   roster_count=$(python3 - "$EVENTS_FILE" <<'PY'
@@ -199,16 +203,16 @@ for line in open(sys.argv[1], encoding="utf-8"):
         continue
     m = re.search(r"lint-roster:\s*([^\s\"]+)", str(e.get("notes", "")))
     if m:
+        # 不 break：續讀到檔尾，末筆 lint-roster 事件勝出（名冊演進走 append 新事件）
         n = str(len({c for c in m.group(1).split(",") if c.strip()}))
-        break
 print(n)
 PY
-  ) || die "創世事件 lint-roster 解析失敗"
+  ) || die "事件帳 lint-roster 解析失敗"
   [ -n "$roster_count" ] \
-    || die "events.jsonl 存在但查無創世事件的 lint-roster 行——條款名冊落點缺失（§3.4 補記）"
+    || die "events.jsonl 存在但查無 lint-roster 事件——條款名冊落點缺失（§3.4 補記）"
   [ "$roster_count" = "$LINT_CLAUSE_COUNT" ] \
-    || die "條款數不同源：創世事件 lint-roster 記 $roster_count 條、掃源推導 $LINT_CLAUSE_COUNT 條"
-  ok "條款數斷言過（創世事件名冊＝掃源推導＝$LINT_CLAUSE_COUNT 條）"
+    || die "條款數不同源：末筆 lint-roster 事件記 $roster_count 條、掃源推導 $LINT_CLAUSE_COUNT 條——條款上線須同刀 append 一筆帶新名冊的 misc 事件"
+  ok "條款數斷言過（末筆 lint-roster 事件名冊＝掃源推導＝$LINT_CLAUSE_COUNT 條）"
 else
   warn "events.jsonl 未建（B7 前）——條款數對賬僅能驗掃源側 $LINT_CLAUSE_COUNT 條，"\
 "創世事件名冊那一源待 B7 落地後才生效"

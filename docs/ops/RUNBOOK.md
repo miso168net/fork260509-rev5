@@ -88,7 +88,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint24） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint25） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
@@ -117,7 +117,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
   `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級：超 20 秒 WARN、超 45 秒 ERROR（調整走 ADR）。
-- **lint 條款**：全 23 條（範圍 Lint03~Lint24；23 號已拆除、編號不重用）。severity 三分：
+- **lint 條款**：全 24 條（範圍 Lint03~Lint25；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
   逐條機制→工具源碼與 `python3 tools/docs-sync.py test` 自測敘述；創世期具名豁免

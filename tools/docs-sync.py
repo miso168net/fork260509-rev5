@@ -5,14 +5,15 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint24（Lint04/Lint05/Lint06 收刀完整性閘：
+  lint            Lint03～Lint25（Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證；
                   Lint19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
                   Lint20 空集合守衛八組；Lint21 名冊腳本 index exec bit＝100755；
                   Lint22 條款範圍字串名冊 vs 掃源上界；
-                  Lint24 前後端 msg key 契約閘）
+                  Lint24 前後端 msg key 契約閘；
+                  Lint25 跨代裸編號閘：前代編號空間的裸引用須帶 revN: 前綴）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -3767,11 +3768,329 @@ def lint_i18n_contract(root, exemptions=None):
     return out + check_i18n_contract(backend, frontend, I18N_FRONTEND_INTERNAL_KEYS)
 
 
+# ---------------------------------------------------------------------------
+# Lint25 跨代裸編號（ADR 0012；B-004 全量清償的防復發閘）
+# ---------------------------------------------------------------------------
+# 判定三段，**逐 token、零上下文依賴**（ADR 0012 決定 3）：
+#   ①token 緊鄰左側是 rev2:／rev3:／rev4:（未來 rev5:）＝合規。空格散文形（「rev4 P1.1」）
+#     與共享前綴形（「rev4:ADR 0080／0084」的第二號）刻意**不算**合規——散文限定擋不住
+#     擴散已實證（同一 ADR 檔首處散文形、後兩處即退化純裸）。
+#   ②能在 rev5 原生 registry 解析＝原生放行。
+#   ③其餘＝命中（前代編號空間的裸引用）。
+# ★registry 一律**掃源現算**、絕不落字面名冊（ADR 0012 決定 7）：落字面就是第二份會腐化的
+#   名冊，rev5 配號往前走時它照舊用舊區間判、誤報與漏報同時發生。
+# ★已知極限（ADR 0012 明載、不強求）：「號落 rev5 原生區間、語意屬前代」的遮蔽型測不出
+#   （裸 001 既是 rev5 首刀號、也是 rev4 001-compose-stack 的號），靠人工審查兜底。
+# ★掃描面＝**外層** tracked 文字檔。submodule 內容不在 git ls-files 展開面內（同 Lint12~Lint15
+#   慣例），子庫側清償走各自的刀（B-004 批 I）。
+LINT25_SKIP_DIRS = (
+    "docs/generated/",      # 機器生成、任何字面都是上游源的鏡像（改源不改鏡）
+    "docs/brainstorms/",    # one-shot 史料（同 HISTORICAL_EXEMPT 之理由：過去式不改寫）
+    ".specify/",            # vendored spec-kit 面（ADR 0012 白名單第三類、sha256 釘死）
+    ".claude/skills/",      # vendored skill 面（同上）
+)
+
+# 形狀族表（族名＝具名群組名／中文標籤／樣式）。族名必須是合法 python 識別字。
+# ★次序即優先權：長形排在其真子形之前——刀名全形先於裸刀號，否則 019-secrets-sops 會被
+#   拆成裸 019、slug 這個最有力的血緣證據就看不到了。
+# ★各族 regex 自行收斂、**precision 優先**：寧可漏（人工兜底）不可淹——誤報一多整條款會被
+#   當雜訊略過，那才是真正的恆綠。
+# ★刻意不做的兩族（ADR 0012 已知極限）：無「ADR」字面毗鄰之裸四位（年份／埠／雜湊片段誤報
+#   面遠大於收益）、data-model §N 與 quickstart 章節號（§N 是全 repo 通用節號形、誤報面大）。
+LINT25_SHAPES = (
+    # 刀名全形 NNN-slug：左界只擋數字、**放行字母**——grafana uid 的內嵌形（obs016-…）要抓得到
+    # 才輪得到樣式級豁免吃；擋掉字母等於讓白名單變裝飾品。
+    ("feat", "刀名全形", r"(?<!\d)(?P<feat>\d{3}-[a-z]+(?:-[a-z]+)*)"),
+    ("adr", "ADR 編號", r"(?P<adr>ADR\s*[（(]?\s*\d{4}[）)]?)"),
+    ("review", "review 報告編號", r"(?<![0-9A-Za-z])(?P<review>REVIEW-\d{3}-\d{3})"),
+    ("bid", "BACKLOG 編號", r"(?<![0-9A-Za-z])(?P<bid>B-\d{3})(?!\d)"),
+    ("lid", "LESSONS 編號", r"(?<![0-9A-Za-z])(?P<lid>L-\d{3})(?!\d)"),
+    ("frsc", "需求／成功指標號", r"(?<![0-9A-Za-z])(?P<frsc>(?:FR|SC)-\d{3})(?!\d)"),
+    ("fid", "findings 編號", r"(?<![0-9A-Za-z])(?P<fid>F\d{3}-\d)(?!\d)"),
+    ("tid", "任務號", r"(?<![0-9A-Za-z])(?P<tid>T\d{3})(?!\d)"),
+    ("pn", "契約條款號", r"(?<![0-9A-Za-z])(?P<pn>§?P\d\.\d{1,2})(?!\d)"),
+    ("psec", "契約節號", r"(?P<psec>§P\d)(?!\.)"),
+    ("uround", "執行單元輪次", r"(?<!\d)(?P<uround>0\d{2}\s+U\d)(?!\d)"),
+    ("us", "user story 號", r"(?<![0-9A-Za-z])(?P<us>US\d)(?!\d)"),
+    ("research", "research 條目", r"(?P<research>research\s+R\d)(?!\d)"),
+    ("contracts", "contracts 守衛號", r"(?P<contracts>§G\d|contracts\s+G\d)(?!\d)"),
+    ("scangates", "scan-gates 節號", r"(?P<scangates>scan-gates\s+§S\d)(?!\d)"),
+    ("mid", "migration 短編號", r"(?<![0-9A-Za-z])(?P<mid>m\d{3})(?!\d)"),
+    ("lintcode", "lint 條款碼", r"(?<![0-9A-Za-z])(?P<lintcode>Lint\d{2,})"),
+    # 裸刀號：僅 0 開頭三位。四位以上（權限 mode 0755／0700、ADR 四位）由右界 (?!\d) 擋、
+    # 小數與版本號（0.001／1.0.019）由兩側的 . 擋、日期與長數字串（2026-08-07、fork260509）
+    # 由左界的數字擋；埠一律 2xxxx／非 0 開頭、天然不入。
+    ("bare", "裸刀號", r"(?<![0-9A-Za-z.])(?P<bare>0\d{2})(?![\d.])"),
+)
+RE_LINT25 = re.compile("|".join(pat for _n, _label, pat in LINT25_SHAPES))
+LINT25_LABELS = {name: label for name, label, _pat in LINT25_SHAPES}
+# 合規前綴：緊鄰左側、逐 token（rev5: 為未來世代預留——rev6 起本代編號亦須帶前綴）
+RE_LINT25_PREFIX = re.compile(r"rev[2-5]:$")
+# 自測假號段（ADR 0012 決定 4）：永不落入 rev5 可達號段，故一律視同原生
+RE_LINT25_FAKE_FEAT = re.compile(r"^9\d\d-fake")
+RE_MIGRATION_SRC = re.compile(r"^(m\d{3})_\w+\.rs$")
+MIGRATION_SRC_DIR = "rust-api/migration/src"
+LINT25_HINT = "加 rev4:／rev3:／rev2: 前綴，或查 ADR 0012（編號命名空間紀律）"
+
+
+def lint25_registry(root):
+    """Lint25 取值：rev5 原生編號 registry——一律掃源現算（ADR 0012 決定 7）。
+
+    回 dict：
+      specs      ＝specs/ 目錄名集（刀名全形原生集）
+      spec_nums  ＝其三位號集（裸刀號原生集）
+      adrs       ＝docs/arc42/decisions/ 檔名四位集
+      b_next／l_next＝BACKLOG／LESSONS 檔頭 next-id（None＝讀不到，該族一律不放行）
+      mids       ＝migration 檔名 mNNN 集；None＝來源目錄缺席（唯讀 clone），該族不判——
+                   判定基準不在就不判，比「基準空集合＝全數誤報」誠實
+      lint_bound ＝條款碼上界（derive_lint_codes 自身結果之最大值）；None＝推導失效
+    """
+    specs = set()
+    d = os.path.join(root, "specs")
+    if os.path.isdir(d):
+        specs = {n for n in os.listdir(d) if os.path.isdir(os.path.join(d, n))}
+    adrs = set()
+    ad = os.path.join(root, ADR_DIR)
+    if os.path.isdir(ad):
+        adrs = {n[:4] for n in os.listdir(ad) if n.endswith(".md") and RE_ADR_ID.fullmatch(n[:4])}
+    mids = None
+    md = os.path.join(root, MIGRATION_SRC_DIR)
+    if os.path.isdir(md):
+        mids = {m.group(1) for m in (RE_MIGRATION_SRC.match(n) for n in os.listdir(md)) if m}
+    codes = derive_lint_codes(_read(root, "tools/docs-sync.py") or "")
+    return {
+        "specs": specs,
+        "spec_nums": {n[:3] for n in specs if n[:3].isdigit()},
+        "adrs": adrs,
+        "b_next": _parse_next("B", _read(root, BACKLOG)),
+        "l_next": _parse_next("L", _read(root, "docs/ops/LESSONS.md")),
+        "mids": mids,
+        "lint_bound": max(codes) if codes else None,
+    }
+
+
+def lint25_native(kind, tok, rel, reg):
+    """該 token 是否解析得進 rev5 原生編號空間（True＝放行、不算命中）。
+
+    ★假號段（B-9xx／L-9xx／9NN-fake-*；ADR 0012 決定 4）一律放行——自測 fixture 專用區間。
+    ★K1-NN／K2-NN／E-NNN／無連字號創世步（B9／B8a／B10）不落入任何形狀族、天然不成候選，
+      故此處無對應放行碼（由 TestLintIdNamespace 的反例案釘住，避免將來改形時靜默誤報）。
+    """
+    if kind == "feat":
+        return tok in reg["specs"] or bool(RE_LINT25_FAKE_FEAT.match(tok))
+    if kind == "bare":
+        return tok in reg["spec_nums"]
+    if kind == "adr":
+        return re.search(r"\d{4}", tok).group(0) in reg["adrs"]
+    if kind in ("bid", "lid"):
+        n = int(tok[2:])
+        # next-id 本身也放行：檔頭 `<!-- next: B-NNN -->` 宣告的是 rev5 下一個保留號
+        nxt = reg["b_next" if kind == "bid" else "l_next"]
+        return (nxt is not None and n <= nxt) or 900 <= n <= 999
+    if kind == "mid":
+        return reg["mids"] is None or tok in reg["mids"]
+    if kind == "lintcode":
+        # 上界內（含已拆除而不重用的號，如 23）＝rev5 條款碼空間；超界＝前代條款碼
+        return reg["lint_bound"] is not None and int(tok[4:]) <= reg["lint_bound"]
+    if kind in ("tid", "frsc", "us"):
+        # spec 自引用：任務號／需求號／成功指標號／user story 號在**自己那支刀的目錄底下**
+        # 恆為原生（specs/<刀名>/ 內的 T012 指的就是該刀的 T012）。
+        parts = rel.split("/")
+        return len(parts) > 2 and parts[0] == "specs" and parts[1] in reg["specs"]
+    return False
+
+
+# Lint25 具名豁免表（四欄紀律比照 DAY1_EXEMPTIONS：鍵→(理由, 命中謂詞, 到期即紅, 登記日)）。
+#   理由    ＝散文（★一切散文只准住這欄；不得含全形分號——會污染跳過明細的筆數機判）
+#   命中謂詞＝callable(hit)→bool，決定「哪些命中被本筆吃掉」（檔案級／token 級／樣式級／行級）
+#   到期即紅＝True 時本筆零命中即 ERROR 指名（＝解除謂詞已成立、該下架）；
+#             False＝結構性永久豁免（自撞／規則反例／vendored 白名單），零命中不報
+#   登記日
+# ★入表資格同 DAY1：拔項會翻紅。到期即紅為 False 的四筆是**規則本身的反例面**，不是待清償項。
+LINT25_EXEMPTIONS = {
+    "events.append-only": (
+        "events.jsonl＝append-only 帳、既有列絕不編輯（ADR 0012 決定 5）——澄清只能 append "
+        "新事件，故本檔永久豁免、新列由人工審",
+        lambda h: h["rel"] == EVENTS,
+        False, "2026-08-07"),
+    "constitution.deferred": (
+        "憲法檔兩筆前代 ADR 指涉屬 B-004 ③分流「另議」（解除＝該分流拍板並處置後刪本筆）"
+        "——現階段另由 .specify/ 目錄級排除先行覆蓋，本筆是該分流的具名落點",
+        lambda h: h["rel"] == ".specify/memory/constitution.md",
+        False, "2026-08-07"),
+    "adr0004.rule-counterexample": (
+        "ADR 0004 內的裸「ADR 0019」是**規則反例 mention**（該行正在說明裸形即違規）——"
+        "清償它等於把反例改成正例、規則本身失去示範，token 級永久豁免",
+        lambda h: (h["rel"] == f"{ADR_DIR}/0004-port-allocation-2xxxx.md"
+                   and h["tok"].startswith("ADR") and h["tok"].endswith("0019")),
+        False, "2026-08-07"),
+    "research.quoted-literal": (
+        "001 刀 research.md 的存證引用句（主詞即被清償字面本身、如 specs/002-… 座標）"
+        "——前綴化會讓句子指涉不到它要存證的東西，token 級永久豁免",
+        lambda h: (h["rel"] == "specs/001-schema-baseline/research.md"
+                   and h["line"][:h["start"]].endswith("specs/")),
+        False, "2026-08-07"),
+    "grafana.uid": (
+        "grafana provisioning 的 alert uid 內嵌前代刀號（obs016-*）＝已部署告警的穩定識別字，"
+        "改字面即斷開既有告警歷史與靜音規則（ADR 0012 白名單第二類），樣式級永久豁免",
+        lambda h: (h["rel"].startswith("deploy/grafana-provisioning/")
+                   and h["line"][:h["start"]].endswith("obs")),
+        False, "2026-08-07"),
+    "docs-sync.self-corpus": (
+        "本工具自身＝條款實作與自測語料，規則文字／負向樣本必須逐字保留被偵測的形（自撞）"
+        "——同 HISTORICAL_EXEMPT 之理由，檔案級永久豁免，本檔真正的清償面走 B-004 批 C 人工兜底",
+        lambda h: h["rel"] == "tools/docs-sync.py",
+        False, "2026-08-07"),
+    "backlog.b004-entry": (
+        "BACKLOG 的 B-004 條目行本身＝這批清償的**標的清單本文**（逐族逐檔逐號列在裡面）、"
+        "前綴化即改寫工單，解除謂詞＝B-004 清償完成刪列後本筆零命中",
+        lambda h: h["rel"] == BACKLOG and h["line"].lstrip().startswith("- B-004｜"),
+        True, "2026-08-07"),
+}
+
+# (h) 全域降級豁免：清償進行中，整條款降 WARN。
+# ★這是「轉 ERROR」的**唯一機關**——B-004 清償收刀時把本常數改成 None，條款即刻轉逐筆 ERROR，
+#   不需動任何判定碼、不需改任何樣式。留著它就是「還在清償中」的機器可讀聲明。
+LINT25_DAY1_DOWNGRADE = (
+    "day1.id-cleanup",
+    "B-004 前代裸編號全量清償進行中（審計射程 19 族／68 檔）——清償未完期間整條款降 WARN",
+    "2026-08-07")
+# WARN 期逐筆列示上限（其餘以「…另 N 筆」收尾；轉 ERROR 後逐筆全列）
+LINT25_WARN_SAMPLE = 20
+
+
+def _lint25_exempt_key(hit, exemptions=None):
+    """該命中被哪一筆具名豁免吃掉（無＝None）。表序即優先序、首筆命中即歸屬。"""
+    for key, row in (exemptions if exemptions is not None else LINT25_EXEMPTIONS).items():
+        if row[1](hit):
+            return key
+    return None
+
+
+def scan_id_namespace(texts, reg, exemptions=None):
+    """Lint25 取值（純函式）：texts＝{rel: 全文}、reg＝lint25_registry 結果。
+
+    回 (hits, exempt_counts)：hits＝未被具名豁免吃掉的命中 list（檔名／行號序，每筆
+    {rel, ln, kind, tok, line, start}）；exempt_counts＝{豁免鍵: 吃掉筆數}（零筆者不入）。
+    """
+    hits, counts = [], {}
+    for rel in sorted(texts):
+        for ln, line in enumerate((texts[rel] or "").splitlines(), start=1):
+            for m in RE_LINT25.finditer(line):
+                kind = m.lastgroup
+                tok = m.group(kind)
+                if RE_LINT25_PREFIX.search(line[:m.start()]):
+                    continue                                  # ①逐 token 前綴＝合規
+                if lint25_native(kind, tok, rel, reg):
+                    continue                                  # ②rev5 原生
+                hit = {"rel": rel, "ln": ln, "kind": kind, "tok": tok,
+                       "line": line, "start": m.start()}
+                key = _lint25_exempt_key(hit, exemptions)
+                if key is not None:
+                    counts[key] = counts.get(key, 0) + 1
+                    continue
+                hits.append(hit)
+    return hits, counts
+
+
+# self-test 用的固定 registry：與真 repo 脫鉤（真 registry 一變樣本就換判定＝防恆綠自己會腐化）
+LINT25_SELF_TEST_REG = {"specs": set(), "spec_nums": set(), "adrs": {"0012"},
+                        "b_next": 40, "l_next": 6, "mids": set(), "lint_bound": 25}
+
+
+def id_namespace_self_test():
+    """防恆綠：紅樣本必紅、綠樣本必綠；失效即 ERROR（Lint16／Lint21／Lint22 慣例）。
+
+    ★樣本編號一律用 9 字頭合成號或已前綴形——不與任何真 registry 區間相撞，樣本改動不會
+      因為 rev5 配號往前走而變綠。
+    """
+    out = []
+    red = {"樣本": "見 ADR 9999 與 T999 兩處。\n"}
+    red_hits, _c = scan_id_namespace(red, LINT25_SELF_TEST_REG, {})
+    if len({h["kind"] for h in red_hits}) < 2:
+        out.append(finding(ERROR, "Lint25", "tools/docs-sync.py",
+                           "self-test 失效：紅樣本（裸 ADR 9999／T999）未被兩族分別攔下"
+                           "——條款已恆綠，修復 RE_LINT25／lint25_native 後重跑"))
+    green = {"樣本": "見 rev4:ADR 9999、ADR 0012、B-999 三處。\n"}
+    green_hits, _c = scan_id_namespace(green, LINT25_SELF_TEST_REG, {})
+    if green_hits:
+        out.append(finding(ERROR, "Lint25", "tools/docs-sync.py",
+                           "self-test 失效：綠樣本（已前綴形／rev5 原生號／假號段）誤報 "
+                           f"{len(green_hits)} 筆——判定過寬，修復 lint25_native 後重跑"))
+    return out
+
+
+def lint_id_namespace(root, tracked, exemptions=None):
+    """Lint25：跨代裸編號（ADR 0012）。組裝＝self-test 防恆綠＋掃源 registry＋全樹單 pass。
+
+    ★效能：tracked 檔單次讀、全族單一 master regex 一個 pass——族數增加不增讀檔次數。
+    """
+    out = id_namespace_self_test()
+    table = exemptions if exemptions is not None else LINT25_EXEMPTIONS
+    texts = {}
+    for rel in tracked:
+        if any(rel.startswith(p) for p in LINT25_SKIP_DIRS):
+            continue
+        try:
+            text = _read(root, rel)
+        except (UnicodeDecodeError, OSError):
+            continue                      # 二進位／非文字檔：不是掃描面
+        if text is not None:
+            texts[rel] = text
+    hits, counts = scan_id_namespace(texts, lint25_registry(root), table)
+    # 具名豁免一律列示、不靜默（機器強制第①條：跳過必列明細）
+    for key in sorted(counts):
+        out.append(finding(SKIP, "Lint25", key,
+                           f"具名豁免（{table[key][0]}）——吃掉 {counts[key]} 筆命中"))
+    # 到期即紅（機器強制第②條）：帶解除謂詞的豁免零命中＝清償已完成、該下架
+    for key, row in sorted(table.items()):
+        if row[2] and not counts.get(key):
+            out.append(finding(ERROR, "Lint25", key,
+                               "具名豁免零命中＝解除謂詞成立，而項仍在 LINT25_EXEMPTIONS"
+                               "——請移除該筆並讓條款恢復全檢"))
+    if LINT25_DAY1_DOWNGRADE is None:
+        for h in hits:
+            out.append(finding(ERROR, "Lint25", f"{h['rel']}:行 {h['ln']}",
+                               f"跨代裸編號「{h['tok']}」（{LINT25_LABELS[h['kind']]}）"
+                               f"；{LINT25_HINT}"))
+        return out
+    key, why, _since = LINT25_DAY1_DOWNGRADE
+    out.append(finding(SKIP, "Lint25", key,
+                       f"全域降級豁免（{why}）——刪除 LINT25_DAY1_DOWNGRADE 常數即轉逐筆 ERROR"))
+    out.append(finding(WARN, "Lint25", "（全樹）",
+                       f"跨代裸編號共 {len(hits)} 筆待清償（B-004）；{LINT25_HINT}"))
+    for h in hits[:LINT25_WARN_SAMPLE]:
+        out.append(finding(WARN, "Lint25", f"{h['rel']}:行 {h['ln']}",
+                           f"跨代裸編號「{h['tok']}」（{LINT25_LABELS[h['kind']]}）"))
+    if len(hits) > LINT25_WARN_SAMPLE:
+        out.append(finding(WARN, "Lint25", "（全樹）",
+                           f"…另 {len(hits) - LINT25_WARN_SAMPLE} 筆未逐筆列示"
+                           "（清償完成刪 LINT25_DAY1_DOWNGRADE 後轉 ERROR 逐筆列）"))
+    return out
+
+
+def _assert_lint25_table():
+    """啟動時斷言：四欄缺一不可——名冊自身腐化會讓整套豁免語意失真（同 _assert_day1_table）。"""
+    for key, row in LINT25_EXEMPTIONS.items():
+        assert key and isinstance(row, tuple) and len(row) == 4, \
+            f"LINT25_EXEMPTIONS[{key}] 欄數非 4"
+        why, pred, expire, since = row
+        assert isinstance(why, str) and why.strip(), f"LINT25_EXEMPTIONS[{key}] 理由欄空"
+        assert "；" not in why, \
+            f"LINT25_EXEMPTIONS[{key}] 理由欄含全形分號（會污染跳過明細筆數機判）"
+        assert callable(pred), f"LINT25_EXEMPTIONS[{key}] 命中謂詞欄非 callable"
+        assert isinstance(expire, bool), f"LINT25_EXEMPTIONS[{key}] 到期即紅欄非布林"
+        assert isinstance(since, str) and since.strip(), f"LINT25_EXEMPTIONS[{key}] 登記日欄空"
+
+
+_assert_lint25_table()
+
+
 def run_lint(root, exemptions=None):
-    """組裝 Lint03～Lint24 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    """組裝 Lint03～Lint25 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
     Lint21 exec bit 守衛、Lint22 範圍字串守衛、
-    Lint24 前後端 msg key 契約閘。
+    Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘。
     回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
     git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -3822,6 +4141,7 @@ def run_lint(root, exemptions=None):
     findings += lint_exec_bits(root)
     findings += lint_range_strings(root)
     findings += lint_i18n_contract(root, exemptions=exemptions)
+    findings += lint_id_namespace(root, tracked)
     return findings
 
 
@@ -7805,12 +8125,12 @@ class TestRangeStringGuard(unittest.TestCase):
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
     def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
-        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝24
-        （Lint24 前後端 msg key 契約閘為現行最大號）——上界前進時本測試逼著同刀更新
+        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝25
+        （Lint25 跨代裸編號閘為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
         codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
         self.assertIn(self._own(), codes)
-        self.assertEqual(max(codes), 24)
+        self.assertEqual(max(codes), 25)
 
     @unittest.skipUnless(_day1_pending(*RANGE_ROSTER),
                          "Day 1 未達：解除＝RANGE_ROSTER 三檔全在（docs/ops/RUNBOOK.md 隨 B5 骨架落地）")
@@ -7879,6 +8199,258 @@ class TestRangeStringGuard(unittest.TestCase):
             globals()["check_range_strings"] = original
         self.assertTrue(any(x["code"] == "Lint22" and "self-test 失效" in x["msg"] for x in f),
                         msg=str(f))
+
+
+class TestLintIdNamespace(unittest.TestCase):
+    """Lint25 跨代裸編號（ADR 0012）：逐 token 判定、掃源 registry、具名豁免、防恆綠。
+
+    ★樣本編號一律用 9 字頭合成號或已前綴形（ADR 0012 決定 4）——不與任何真 registry 區間
+      相撞，rev5 配號往前走時樣本不會靜默變綠；純判定案不碰真 repo。
+    """
+
+    REG = LINT25_SELF_TEST_REG
+
+    def _scan(self, line, rel="樣本.md", reg=None, exemptions=None):
+        hits, counts = scan_id_namespace({rel: line + "\n"}, reg or self.REG,
+                                         {} if exemptions is None else exemptions)
+        return hits, counts
+
+    # -- 正例：裸前代形必命中 ---------------------------------------------------
+    def test_bare_prior_generation_forms_flagged(self):
+        """一族一案：裸形逐 token 命中，且族別標籤正確（標籤錯＝紅訊息指錯方向）。"""
+        cases = [
+            ("見 999-nope-slug 刀", "feat", "999-nope-slug"),
+            ("見 ADR 9999 判例", "adr", "ADR 9999"),
+            ("見 B-777 條目", "bid", "B-777"),
+            ("見 L-777 教訓", "lid", "L-777"),
+            ("見 T999 任務", "tid", "T999"),
+            ("見 FR-999 需求", "frsc", "FR-999"),
+            ("見 SC-999 指標", "frsc", "SC-999"),
+            ("見 P9.9 條款", "pn", "P9.9"),
+            ("見 §P9 節", "psec", "§P9"),
+            ("見 REVIEW-999-999 報告", "review", "REVIEW-999-999"),
+            ("見 F999-9 finding", "fid", "F999-9"),
+            ("見 099 U9 那輪", "uround", "099 U9"),
+            ("見 US9 故事", "us", "US9"),
+            ("見 research R9 段", "research", "research R9"),
+            ("見 §G9 守衛", "contracts", "§G9"),
+            ("見 scan-gates §S9 節", "scangates", "scan-gates §S9"),
+            ("見 m999 遷移", "mid", "m999"),
+            ("見 Lint99 條款", "lintcode", "Lint99"),
+            ("見 099 刀", "bare", "099"),
+        ]
+        for line, kind, tok in cases:
+            hits, _c = self._scan(line)
+            self.assertEqual([(h["kind"], h["tok"]) for h in hits], [(kind, tok)], msg=line)
+
+    def test_shared_prefix_second_token_still_flagged(self):
+        """★ADR 0012 決定 3：共享前綴形不合規——並列第二號沒有自己的前綴就是命中。"""
+        hits, _c = self._scan("承 rev4:ADR 9999／ADR 9998 兩判例")
+        self.assertEqual([h["tok"] for h in hits], ["ADR 9998"])
+
+    def test_prose_qualifier_not_compliant(self):
+        """★ADR 0012 決定 3：空格散文形（rev4 P9.9）不算合規——散文限定擋不住擴散。"""
+        hits, _c = self._scan("沿用 rev4 P9.9 的口徑")
+        self.assertEqual([h["tok"] for h in hits], ["P9.9"])
+
+    # -- 反例：合規／原生／假號段不得命中 ---------------------------------------
+    def test_prefixed_tokens_not_flagged(self):
+        for line in ("依 rev4:999-nope-slug 刀", "依 rev3:ADR 9999", "依 rev2:B-777",
+                     "依 rev4:T999", "依 rev5:m999", "依 rev4:099 刀", "依 rev4:US9"):
+            hits, _c = self._scan(line)
+            self.assertEqual(hits, [], msg=line)
+
+    def test_rev5_native_ids_not_flagged(self):
+        """★缺此案則「裸碼即前代碼」型的錯誤實作全套仍綠（同 Lint11 負向樣本之理由）。"""
+        reg = dict(self.REG, specs={"001-schema-baseline"}, spec_nums={"001"},
+                   mids={"m001", "m002"})
+        for line in ("追 001-schema-baseline 刀", "立 ADR 0012", "追 B-012", "承 L-002",
+                     "跑 m001 遷移", "見 001 刀", "見 Lint25 條款", "配到 B-040 這個 next-id"):
+            hits, _c = self._scan(line, reg=reg)
+            self.assertEqual(hits, [], msg=line)
+
+    def test_self_reference_ids_native_inside_own_spec_dir(self):
+        """spec 自引用：T／FR／SC／US 在自己那支刀目錄底下＝原生，出了目錄照抓。"""
+        reg = dict(self.REG, specs={"001-schema-baseline"}, spec_nums={"001"})
+        line = "驗收 T999 對應 FR-999／SC-999、屬 US9"
+        inside, _c = self._scan(line, rel="specs/001-schema-baseline/tasks.md", reg=reg)
+        self.assertEqual(inside, [])
+        outside, _c = self._scan(line, rel="docs/ops/NOTES.md", reg=reg)
+        self.assertEqual(len(outside), 4, msg=str(outside))
+
+    def test_fake_segments_not_flagged(self):
+        """★ADR 0012 決定 4：自測假號段（B-9xx／L-9xx／9NN-fake-*）永不落 rev5 可達號段。"""
+        for line in ("fixture 用 B-901", "fixture 用 L-999", "fixture 刀 999-fake-slug"):
+            hits, _c = self._scan(line)
+            self.assertEqual(hits, [], msg=line)
+
+    def test_non_candidate_families_never_hit(self):
+        """★K1-NN／K2-NN／E-NNN／無連字號創世步不落入任何形狀族——天然放行的機器釘子：
+        將來收緊某族的 regex 若不慎把它們掃進來，本案當場紅。"""
+        for line in ("承襲 K1-13 與 K2-07 清單", "缺陷 E-123 已修", "波 -1 的 B9／B8a／B10 步"):
+            hits, _c = self._scan(line)
+            self.assertEqual(hits, [], msg=line)
+
+    def test_precision_exclusions(self):
+        """裸刀號的排除面：權限 mode／日期／版本號／小數／長數字串不得誤報。"""
+        for line in ("chmod 0755 與 0700", "日期 2026-08-07", "版本 1.0.019",
+                     "比例 0.001", "源倉 fork260509-rev5", "埠 20080"):
+            hits, _c = self._scan(line)
+            self.assertEqual([h["tok"] for h in hits], [], msg=line)
+
+    def test_full_knife_name_wins_over_bare_number(self):
+        """★次序即優先權：刀名全形先於裸刀號，否則 slug 這個血緣證據會被拆掉。"""
+        hits, _c = self._scan("見 099-nope-slug 刀")
+        self.assertEqual([(h["kind"], h["tok"]) for h in hits], [("feat", "099-nope-slug")])
+
+    # -- 具名豁免 ---------------------------------------------------------------
+    def test_named_exemption_swallows_and_counts(self):
+        """豁免例：events 路徑跳過、且以計數回報（不靜默）。"""
+        hits, counts = scan_id_namespace({EVENTS: "舊列提及 ADR 9999\n"}, self.REG)
+        self.assertEqual(hits, [])
+        self.assertEqual(counts, {"events.append-only": 1})
+
+    def test_named_exemption_is_path_scoped(self):
+        """★豁免射程＝具名路徑，鄰居檔不得沾光（拔項會翻紅的另一面）。"""
+        hits, _c = scan_id_namespace({"docs/ops/NOTES.md": "提及 ADR 9999\n"}, self.REG)
+        self.assertEqual(len(hits), 1)
+
+    def test_exemption_table_columns(self):
+        """四欄紀律：名冊自身腐化會讓整套豁免語意失真。"""
+        _assert_lint25_table()
+        self.assertTrue(any(row[2] for row in LINT25_EXEMPTIONS.values()),
+                        msg="至少一筆須帶到期即紅，否則整表都是永久豁免、無解除機關")
+
+    def test_expiring_exemption_goes_red_when_zero_hit(self):
+        """★到期即紅：帶解除謂詞的豁免零命中＝清償已完成，項仍在表即 ERROR 指名該筆。"""
+        table = {"樣本.expiring": ("零命中即到期", lambda h: h["rel"] == "不存在的檔", True,
+                                   "2026-08-07")}
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = lint_id_namespace(d, [], exemptions=table)
+        self.assertTrue(any(x["level"] == ERROR and x["where"] == "樣本.expiring" for x in f),
+                        msg=str(f))
+
+    # -- 降級開關（WARN ↔ ERROR） -----------------------------------------------
+    def test_downgrade_switch_controls_severity(self):
+        """★轉 ERROR 的唯一機關：刪 LINT25_DAY1_DOWNGRADE 即逐筆 ERROR、留著即 WARN 摘要形。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, "docs/ops/NOTES.md", "見 ADR 9999 與 T999。\n")
+            warn = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
+            self.assertTrue(any(x["level"] == WARN and "共 2 筆" in x["msg"] for x in warn),
+                            msg=str(warn))
+            self.assertFalse([x for x in warn if x["level"] == ERROR], msg=str(warn))
+            with mock.patch.object(sys.modules[__name__], "LINT25_DAY1_DOWNGRADE", None):
+                err = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
+            self.assertEqual(len([x for x in err if x["level"] == ERROR]), 2, msg=str(err))
+            self.assertTrue(all("ADR 0012" in x["msg"]
+                                for x in err if x["level"] == ERROR), msg=str(err))
+
+    def test_warn_sample_is_truncated(self):
+        """WARN 期只逐筆列前 N 筆、其餘以「另 N 筆」收尾（避免淹沒其他條款的紅）。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, "docs/ops/NOTES.md", "".join(f"第 {i} 行提及 ADR 9999。\n"
+                                                   for i in range(LINT25_WARN_SAMPLE + 5)))
+            f = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
+        detail = [x for x in f if x["level"] == WARN and x["where"].startswith("docs/")]
+        self.assertEqual(len(detail), LINT25_WARN_SAMPLE)
+        self.assertTrue(any("另 5 筆" in x["msg"] for x in f), msg=str(f))
+
+    # -- 掃描面 -----------------------------------------------------------------
+    def test_skip_dirs_excluded(self):
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            tracked = []
+            for rel in ("docs/generated/STATE.md", "docs/brainstorms/x.md",
+                        ".specify/templates/t.md", ".claude/skills/s/SKILL.md"):
+                _wfile(d, rel, "提及 ADR 9999。\n")
+                tracked.append(rel)
+            f = lint_id_namespace(d, tracked, exemptions={})
+            self.assertTrue(any(x["level"] == WARN and "共 0 筆" in x["msg"] for x in f),
+                            msg=str(f))
+
+    def test_binary_file_skipped(self):
+        """二進位／非文字檔不是掃描面——讀不出來就跳過，不得炸掉整條 lint。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            with open(os.path.join(d, "blob.bin"), "wb") as fh:
+                fh.write(b"\xff\xfe\x00ADR 9999")
+            f = lint_id_namespace(d, ["blob.bin"], exemptions={})
+            self.assertTrue(any(x["level"] == WARN and "共 0 筆" in x["msg"] for x in f),
+                            msg=str(f))
+
+    # -- registry 掃源現算 -------------------------------------------------------
+    def test_registry_is_derived_from_sources(self):
+        """★registry 掃源現算、絕不落字面名冊：真 repo 的 specs 目錄／ADR 檔名／next-id
+        必須逐一對得上——名冊寫死時本案在配號前進的下一刻就過期而不自知。"""
+        reg = lint25_registry(ROOT)
+        self.assertEqual(reg["specs"],
+                         {n for n in os.listdir(os.path.join(ROOT, "specs"))
+                          if os.path.isdir(os.path.join(ROOT, "specs", n))})
+        self.assertEqual(reg["adrs"],
+                         {n[:4] for n in os.listdir(os.path.join(ROOT, ADR_DIR))
+                          if n.endswith(".md")})
+        self.assertEqual(reg["b_next"], _parse_next("B", _read(ROOT, BACKLOG)))
+        self.assertEqual(reg["lint_bound"], max(derive_lint_codes(_self_source())))
+
+    def test_migration_family_not_judged_when_source_absent(self):
+        """migration 來源目錄缺席（唯讀 clone）＝判定基準不在就不判，不製造滿屏誤報。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            self.assertIsNone(lint25_registry(d)["mids"])
+            hits, _c = self._scan("跑 m999 遷移", reg=lint25_registry(d))
+            self.assertEqual(hits, [])
+
+    # -- self-test 防恆綠（Lint16／Lint21／Lint22 慣例） --------------------------
+    def test_self_test_green_on_healthy_scanner(self):
+        self.assertEqual(id_namespace_self_test(), [])
+
+    def _with_scanner(self, fake, fn):
+        original = globals()["scan_id_namespace"]
+        globals()["scan_id_namespace"] = fake
+        try:
+            return fn()
+        finally:
+            globals()["scan_id_namespace"] = original
+
+    def test_self_test_catches_dead_scanner(self):
+        """★④突變面（非恆綠自證）：掃描器被改成永不報→self-test 紅樣本當場報 ERROR。"""
+        f = self._with_scanner(lambda texts, reg, exemptions=None: ([], {}),
+                               id_namespace_self_test)
+        self.assertTrue(any(x["level"] == ERROR and "紅樣本" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_self_test_catches_overbroad_scanner(self):
+        """★④突變面：掃描器被改成一律報紅→綠樣本誤報、self-test 報 ERROR。"""
+        fake = ([{"rel": "樣本", "ln": 1, "kind": "adr", "tok": "ADR 9999",
+                  "line": "", "start": 0}], {})
+        f = self._with_scanner(lambda texts, reg, exemptions=None: fake,
+                               id_namespace_self_test)
+        self.assertTrue(any(x["level"] == ERROR and "綠樣本" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_assembly_wires_self_test(self):
+        """★組裝層：id_namespace_self_test 從 lint_id_namespace 掉線＝防恆綠靜默下線。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = self._with_scanner(lambda texts, reg, exemptions=None: ([], {}),
+                                   lambda: lint_id_namespace(d, [], exemptions={}))
+        self.assertTrue(any(x["code"] == "Lint25" and "self-test 失效" in x["msg"] for x in f),
+                        msg=str(f))
+
+    def test_run_lint_wires_id_namespace(self):
+        """★接線層：lint_id_namespace 從 run_lint 掉線＝Lint25 整條靜默下線。
+
+        bare fixture 零 tracked 檔→仍必有 Lint25 的降級 SKIP 與總數 WARN；任何 Lint25
+        finding 只可能來自 lint_id_namespace——信號純淨。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "Lint25" for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint25"]))
 
 
 class TestI18nContractGate(unittest.TestCase):
