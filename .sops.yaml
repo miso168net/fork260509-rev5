@@ -10,3 +10,4 @@ creation_rules:
   - path_regex: ^deploy/secrets\.dev\.enc\.yaml$
     age:
       - age1h86rpwqkfcqptwldqulg6wekvldzek0h44fvm5u6msexmdc3q5ts7mp46f
+      - age1wdnafv7jd7r0l7wvtl9lz60yu27shw4nay0fhugnad8tetfwh5pqs9z00u
