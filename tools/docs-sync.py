@@ -3991,10 +3991,9 @@ LINT25_EXEMPTIONS = {
 # (h) 全域降級豁免：清償進行中，整條款降 WARN。
 # ★這是「轉 ERROR」的**唯一機關**——B-004 清償收刀時把本常數改成 None，條款即刻轉逐筆 ERROR，
 #   不需動任何判定碼、不需改任何樣式。留著它就是「還在清償中」的機器可讀聲明。
-LINT25_DAY1_DOWNGRADE = (
-    "day1.id-cleanup",
-    "B-004 前代裸編號全量清償進行中（審計射程 19 族／68 檔）——清償未完期間整條款降 WARN",
-    "2026-08-07")
+# 清償收官（B-004、2026-08-07）：day1 全域降級豁免依解除謂詞下架——全樹零命中後轉逐筆
+# ERROR（ADR 0012 決定 7 之收尾動作）。歷史形（降級期間之三元組）見 git 史。
+LINT25_DAY1_DOWNGRADE = None
 # WARN 期逐筆列示上限（其餘以「…另 N 筆」收尾；轉 ERROR 後逐筆全列）
 LINT25_WARN_SAMPLE = 20
 
@@ -8374,19 +8373,21 @@ class TestLintIdNamespace(unittest.TestCase):
 
     # -- 降級開關（WARN ↔ ERROR） -----------------------------------------------
     def test_downgrade_switch_controls_severity(self):
-        """★轉 ERROR 的唯一機關：刪 LINT25_DAY1_DOWNGRADE 即逐筆 ERROR、留著即 WARN 摘要形。"""
+        """★唯一機關雙態：None（現行活態、B-004 收官後）＝逐筆 ERROR；三元組＝WARN 摘要形
+        （清償期歷史態、以 mock 續釘防迴歸）。"""
         with tempfile.TemporaryDirectory() as d:
             _init_outer(d)
             _wfile(d, "docs/ops/NOTES.md", "見 ADR 9999 與 T999。\n")
-            warn = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
-            self.assertTrue(any(x["level"] == WARN and "共 2 筆" in x["msg"] for x in warn),
-                            msg=str(warn))
-            self.assertFalse([x for x in warn if x["level"] == ERROR], msg=str(warn))
-            with mock.patch.object(sys.modules[__name__], "LINT25_DAY1_DOWNGRADE", None):
-                err = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
+            err = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
             self.assertEqual(len([x for x in err if x["level"] == ERROR]), 2, msg=str(err))
             self.assertTrue(all("ADR 0012" in x["msg"]
                                 for x in err if x["level"] == ERROR), msg=str(err))
+            with mock.patch.object(sys.modules[__name__], "LINT25_DAY1_DOWNGRADE",
+                                   ("day1.test", "測試用降級態", "2026-08-07")):
+                warn = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
+            self.assertTrue(any(x["level"] == WARN and "共 2 筆" in x["msg"] for x in warn),
+                            msg=str(warn))
+            self.assertFalse([x for x in warn if x["level"] == ERROR], msg=str(warn))
 
     def test_warn_sample_is_truncated(self):
         """WARN 期只逐筆列前 N 筆、其餘以「另 N 筆」收尾（避免淹沒其他條款的紅）。"""
@@ -8394,7 +8395,9 @@ class TestLintIdNamespace(unittest.TestCase):
             _init_outer(d)
             _wfile(d, "docs/ops/NOTES.md", "".join(f"第 {i} 行提及 ADR 9999。\n"
                                                    for i in range(LINT25_WARN_SAMPLE + 5)))
-            f = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
+            with mock.patch.object(sys.modules[__name__], "LINT25_DAY1_DOWNGRADE",
+                                   ("day1.test", "測試用降級態", "2026-08-07")):
+                f = lint_id_namespace(d, ["docs/ops/NOTES.md"], exemptions={})
         detail = [x for x in f if x["level"] == WARN and x["where"].startswith("docs/")]
         self.assertEqual(len(detail), LINT25_WARN_SAMPLE)
         self.assertTrue(any("另 5 筆" in x["msg"] for x in f), msg=str(f))
@@ -8409,8 +8412,7 @@ class TestLintIdNamespace(unittest.TestCase):
                 _wfile(d, rel, "提及 ADR 9999。\n")
                 tracked.append(rel)
             f = lint_id_namespace(d, tracked, exemptions={})
-            self.assertTrue(any(x["level"] == WARN and "共 0 筆" in x["msg"] for x in f),
-                            msg=str(f))
+            self.assertFalse([x for x in f if x["level"] in (ERROR, WARN)], msg=str(f))
 
     def test_binary_file_skipped(self):
         """二進位／非文字檔不是掃描面——讀不出來就跳過，不得炸掉整條 lint。"""
@@ -8419,8 +8421,7 @@ class TestLintIdNamespace(unittest.TestCase):
             with open(os.path.join(d, "blob.bin"), "wb") as fh:
                 fh.write(b"\xff\xfe\x00ADR 9999")
             f = lint_id_namespace(d, ["blob.bin"], exemptions={})
-            self.assertTrue(any(x["level"] == WARN and "共 0 筆" in x["msg"] for x in f),
-                            msg=str(f))
+            self.assertFalse([x for x in f if x["level"] in (ERROR, WARN)], msg=str(f))
 
     # -- registry 掃源現算 -------------------------------------------------------
     def test_registry_is_derived_from_sources(self):
