@@ -1,4 +1,4 @@
-<!-- next: L-004 -->
+<!-- next: L-005 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -9,3 +9,18 @@ L-001｜macOS bash 3.2 全形字黏變數名：`"$VAR全形字"` 在 UTF-8 local
 L-002｜watchdog 扁平 grep 抽 journal key 撞巢狀 payload 同名鍵：wf-watchdog 以 `grep -oE '"key":…'` 數不重複 agent key，但 workflow journal 的 result 事件內嵌 agent 回傳 JSON——回傳結構帶同名欄（本例 coverage[].key＝"FR-001"…22 筆）即被一併計入，實證 9 支真 agent 被數成 31 → RUNAWAY 誤報、健康工作流被 TaskStop（001 刀 speckit-analyze 首撞、2026-08-05）。防法：①判準抽取一律**頂層鍵定錨**（逐行 JSON 解析、只取事件物件 top-level 欄），絕不對含任意巢狀 payload 的 jsonl 做扁平 regex 計數；②既有「journal 非空卻抽到 0 key＝fail-loud」健全性檢查保留（頂層定錨後它兼任格式漂移哨）；③workflow 回傳 schema 欄名迴避框架頂層語意名（key/type/agentId）屬縱深防禦、非根治。修復自證＝真 journal 舊法 31/新法 9＋合成巢狀鍵 journal 抽 0 觸發健全性告警。
 
 L-003｜「移植清單照單施工」不等於「已拍板」＋勘誤不逐處＝同病二暴：①啟動書「同機並存錯開清單」第 3 條（DB 身分加 _rev5 後綴）未經 user 逐條拍板即被 b10 照單施工、001 刀再沿引為「compose 既定」擴散至 15 檔——user 發現後裁決回滾（ADR 0008；容器內身分本無衝突面、「必須錯開」言過其實）。②B-009 修復只改被點名三處、漏同檔契約註解 L16/L18，被 review 以 errata 機器枚舉抓出——正是 CLAUDE.md §4 明禁的「只修被點名那一處」。防法：①移植／施工清單中拍板級條目（schema、身分、user 可見行為）施工前逐條確認拍板紀錄在案，查無紀錄＝先問；②勘誤一律 errata 機器枚舉全 repo 同語意命中、逐處處置後才 commit，命中清單附進 report；③承諾「先提修法過目」的事項不得以「後續指示概括放行」自行豁免——過目承諾單獨兌現。
+
+- **L-004**｜移植品的「不一致」可能是前代刻意的防禦性慣例——動叫用形／預設值／樣式前，先查
+  前代教訓帳與該處的 rev4 對應寫法，**repo 內部一致性不足以構成修改理由**。
+  親歷：RUNBOOK／README 對五支 deploy 腳本混用 `bash deploy/x.sh` 與 `./deploy/x.sh`，我僅憑
+  `tools/docs-sync.py` 之 EXEC_BIT_ROSTER 註解稱該五支為「直跑形」，就把 8 處 `bash` 前綴一律
+  改成直跑形。user 指出前綴有前代來由後回查：①rev4 是**刻意混用**——其 RUNBOOK 同一張工具表
+  內 `./deploy/sops.sh` 與 `bash deploy/decrypt-secrets.sh` 並存；真正的慣例是「docs 面用 `bash`
+  前綴／腳本自身用法行與 `deploy/secrets/README.md` 用 `./` 形」②`bash` 前綴的防禦價值有二：
+  可在前面掛環境變數（rev4:L-142 的定案指令＝`LC_ALL=C PYTHONUTF8=1 bash tools/bootstrap`，
+  macOS bash 3.2 全形字邊界問題所需）、以及 index exec bit 若為 100644 時 `./x.sh` 會
+  Permission denied 而 `bash x.sh` 恆可跑（rev4:B-116；drvfs 上 `ls` 恆顯 0777 看不出 index 真值）。
+  ★即使 rev5 有 Lint21／EXEC_BIT_ROSTER 保證 100755 使直跑形安全，該慣例仍不該由 agent 以
+  一致性為由單方抹平。
+  防法：改**移植品**的既有寫法前，先跑「rev4 對應檔怎麼寫」與「教訓帳有無此主題」兩查；
+  兩查皆無來由才動，有來由則升級為拍板題問 user。已回退 21 處。

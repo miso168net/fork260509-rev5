@@ -133,17 +133,29 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 
 ## 15. SOPS 機密營運（密文入版控 × age 私鑰）
 
-資產三件：`deploy/secrets.dev.enc.yaml`（密文、**tracked**）／`.sops.yaml`（recipient
-公鑰清單、tracked）／`~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700
-檔 600、**永不進版控**）。工具兩支＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版）與
-`bash deploy/decrypt-secrets.sh`（把密文寫成 `$SECRETS_DIR` 的明文檔）。★所有命令一律
-**自 repo 根**執行——wrapper 只掛載 `$PWD`，換目錄跑就找不到 `.sops.yaml`。
+★**命令驗證狀態**（本檔開頭「章內不放未經實跑的命令」之誠實揭露）：§15.4 路徑 (a) 與 §15.7
+步驟 3 的加密序列**已非破壞性實跑驗證**（產物落 `tmp/` 後即刪、真密文零改動）；§15.2 步驟 3 的
+`updatekeys` 僅驗證子命令與旗標存在、**待首次真實加人時實跑**；§15.7 步驟 1 的解密需 passphrase
+（僅存持鑰者腦中）故**未實跑**，其正規化片段係逐字鏡像 `deploy/decrypt-secrets.sh` 的
+`normalize_raw`——該函式每次 decrypt 都在實跑。
 
-兩條不可省紀律：
+### 15.1 資產、工具與不可省紀律
+
+資產三件：`deploy/secrets.dev.enc.yaml`（密文、**tracked**、承載 10 支＝9 leaf＋
+`alert_webhook_url`）／`.sops.yaml`（recipient 公鑰清單、tracked）／
+`~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**）。
+工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版）、`bash deploy/decrypt-secrets.sh`
+（密文→`$SECRETS_DIR/*.txt`）、`bash deploy/generate-secrets.sh`（產亂數）、
+`bash deploy/preflight-secrets.sh`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
+★所有命令一律**自 repo 根**執行——wrapper 只掛載 `$PWD`，換目錄跑就找不到 `.sops.yaml`。
+
+三條不可省紀律：
 1. **私鑰與其 passphrase 永不進版控、永不離開持鑰機**；私鑰檔遺失或 passphrase 遺失＝該
-   identity 永久失效，處置＝以尚可解密的機器走加人流程重新加密。交付只交公鑰（`age1…` 開頭、非機密）。
-2. **改值後回寫加密檔**：機密輪替先改密文面（`./deploy/sops.sh` 編輯 enc 檔）再解密落地，
-   或落地後立即回寫 enc——密文檔是唯一真相，明文 `$SECRETS_DIR` 只是投影。
+   identity 永久失效（§15.5）。交付只交公鑰（`age1…` 開頭、非機密、無需保密通道）。
+2. **改值後回寫加密檔**（§15.4）：密文檔是唯一真相，明文 `$SECRETS_DIR` 只是投影；不回寫＝
+   下次 decrypt 判 DIFF 另存 `<name>.txt.new` 不覆寫，值就分叉。
+3. **加密不需私鑰、解密才需**：age 加密只用公鑰——§15.4 的回寫與 §15.7 步驟 3 全程無 passphrase；
+   只有 `-d`／`updatekeys` 需要。
 
 ★**輸入 passphrase 的時機**：`bash deploy/decrypt-secrets.sh` 把 sops 提示行與解密輸出收進
 同一條容器 pty 流，畫面上常看不到提示——看到腳本自己印的預告行後、**等容器起來再輸入**；
@@ -151,4 +163,128 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 本管線零 gpg 前置（passphrase 由 sops 內嵌 age 直讀容器內 `/dev/tty`）——提示異常不要往
 gpg-agent／pinentry 方向查。
 
-加人四步、輪替表、災難復原全文：隨機密管線（啟動書 B5b）落地後補全本章。
+### 15.2 加人四步（新成員／新機器）
+
+**步驟 1【新成員做】產 identity**：`bash deploy/generate-age-key.sh`（產到預設
+`~/.config/sops/age/keys.txt`、passphrase 加殼；覆蓋前有閘——**覆蓋＝永久銷毀既有私鑰、
+其密文即刻不可解**）。
+　註記：同機第二把務必用非預設檔名 `bash deploy/generate-age-key.sh <檔名>`；用時
+　`SOPS_AGE_KEY_FILE` 要給**容器內路徑** `/root/.config/sops/age/<檔名>`——wrapper 只唯讀掛載
+　`~/.config/sops/age` 這一個目錄，放別處容器讀不到。
+
+**步驟 2【新成員做】交付公鑰**：把腳本印出的 `age1…` 公鑰給管理者。公鑰非機密，任何管道皆可。
+
+**步驟 3【管理者做，必須在尚能解密的機器】加 recipient 並重加密**：
+```bash
+# ① 把公鑰加進 .sops.yaml 的 age: 清單（YAML 清單形、一行一把）
+# ② 重新包資料金鑰給新的收件人集合（需 passphrase；-y 免互動確認但仍需 passphrase）
+./deploy/sops.sh updatekeys deploy/secrets.dev.enc.yaml
+```
+　驗 diff：應只動 `sops:` metadata 段（age recipients 清單與 lastmodified）；**10 支機密的
+　`ENC[…]` 本體不變**——updatekeys 換的是「包資料金鑰的收件人」、不是資料本身。若 `ENC[…]`
+　也變，表示有人同時改了值，停下來查清楚再 commit。
+
+**步驟 4【管理者做】同批 commit**：`.sops.yaml` ＋ `deploy/secrets.dev.enc.yaml` 兩檔一起
+commit＋push（分開推會出現「清單有你、密文還沒給你」的中間態）。
+
+**★末條**：少了步驟 3，新私鑰不在 recipient 清單裡＝拉到的密文一律解不開——這是最常見的
+「我照做了怎麼還是解不開」原因。
+**驗收（新成員側）**：`bash deploy/decrypt-secrets.sh` 寫出 10 支且零 `.new`，
+`bash deploy/preflight-secrets.sh` rc=0。
+
+### 15.3 撤銷與 recipient 輪替（五準則）
+
+程序＝從 `.sops.yaml` 移除該公鑰 → `./deploy/sops.sh updatekeys deploy/secrets.dev.enc.yaml`
+→ 兩檔同批 commit。五條準則：
+
+1. **只 re-key 不換值＝形式撤銷**：移除只讓**新**密文不可解；舊密文永遠在 git 史，對方若曾
+   解過就已握有明文。**撤銷必連帶輪替機密值本身**（§15.6）——這條是實質、其餘是形式。
+2. 撤銷後 recipient 清單**不得為空**，也不得只剩不在手邊的 identity。
+3. **絕不移除自己手上唯一那把**：`updatekeys` 需先解密，移除後就再也解不開＝把自己鎖在門外。
+4. 撤銷連動：該成員機器上的 `$SECRETS_DIR` 明文與其私鑰不受本程序影響（在他機器上），故
+   準則 1 的值輪替是唯一有效手段。
+5. **撤銷演練需第二把**：先 `bash deploy/generate-age-key.sh drill.txt` 產第二把、加入 recipient
+   並確認它真的能解，再演練移除第一把——否則演練失敗就是永久失效。
+
+### 15.4 值變更後回寫加密檔
+
+**何時**：跑過 `bash deploy/generate-secrets.sh --force`、單支重生（刪檔重跑）、或人工編輯
+`$SECRETS_DIR/<name>.txt`（例：填 `alert_webhook_url` 真值、把 `smtp_password` 換成 Gmail
+app password）之後。**不需 passphrase**（見 §15.1 紀律 3）。
+
+**路徑 (a)｜全套重建**（`$SECRETS_DIR` 已有全部 10 支明文時，最常見）：
+```bash
+cd <repo 根> && umask 077
+SD="$(sed -n 's/^SECRETS_DIR=//p' .env)"
+: > tmp/plain.yaml
+for k in postgres_password redis_password jwt_secret refresh_token_secret captcha_secret \
+         reaper_password grafana_admin_password smtp_password email_verify_secret \
+         alert_webhook_url; do
+  printf '%s: %s\n' "$k" "$(cat "$SD/$k.txt")" >> tmp/plain.yaml
+done
+./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/plain.yaml \
+  < /dev/null > tmp/enc.new
+mv tmp/enc.new deploy/secrets.dev.enc.yaml && chmod 644 deploy/secrets.dev.enc.yaml
+rm -f tmp/plain.yaml
+```
+　★值一律**裸量、不加引號**——decrypt 側 parser 取 `": "` 之後的字面全量，引號會被當成值的
+　一部分寫進 `.txt`。★`< /dev/null` 讓 stdin 非 tty、wrapper 不掛 `-i -t`，從根上不生 CRLF 與
+　提示併流。★輸入檔落 `tmp/`（gitignored）是**必要**的：wrapper 只掛載 `$PWD`，repo 外的檔
+　容器讀不到。
+
+**路徑 (b)｜只改一兩支且 `$SECRETS_DIR` 不全**：走 §15.7 三步往返。
+
+**驗收**：`bash deploy/decrypt-secrets.sh` 後零 `.new` ＋ `bash deploy/preflight-secrets.sh` rc=0。
+
+### 15.5 金鑰／passphrase 遺失與災難復原
+
+私鑰檔與 passphrase **缺一即不可解**，故離線備份義務**含 passphrase 本身**。三種情境：
+
+| 情境 | 處置 |
+|---|---|
+| 自己這把失效、**他人尚可解** | 走 §15.2 產新鑰重新加入；舊 identity 依 §15.3 撤銷 |
+| 自己這把失效、**唯一 identity** | 密文永久不可解（無後門、設計如此）→ 下一列 |
+| **全部 identity 皆失去** | `bash deploy/generate-secrets.sh --force` 重產全部亂數機密（dev 值本就是亂數、無歷史價值）→ 依 §15.4 回寫新密文 → `.sops.yaml` 換成新 recipient。★**人工真值必須在原始來源重新取得**（SMTP app password 回 Gmail 重簽、`alert_webhook_url` 回告警平台重取）——這些不是亂數，重產不回來 |
+
+舊密文留在 git 史不必也無法移除——沒有任何 identity 能解它。
+
+### 15.6 輪替表
+
+| 對象 | 產法 | 觸發 |
+|---|---|---|
+| 9 支 leaf（postgres／redis／jwt／refresh／captcha／reaper／grafana／smtp／email_verify） | `bash deploy/generate-secrets.sh --force`（全部重產）或刪單支檔後重跑（單支重生） | 疑似外洩、成員撤銷（§15.3 準則 1）、prod 上線前 |
+| 3 支 composite（`database_url`／`redis_url`／`reaper_database_url`） | `bash deploy/generate-secrets.sh --compose-only`（自 leaf 重組） | 對應 leaf 換過即須重組 |
+| `alert_webhook_url` | 人工填真值（`--force` **不**重置；重置法＝刪檔重跑） | 起 obs 軌前（BACKLOG 滯後卷） |
+| age identity | `bash deploy/generate-age-key.sh` | 成員異動、私鑰疑洩 |
+
+★composite 三支**不在密文檔內**（密文＝9 leaf＋`alert_webhook_url`），故換 leaf 後除了 §15.4
+回寫，還要跑 `--compose-only` 重組落點。
+★**定期輪替節奏未拍板**，現行實務＝觸發式；prod 是否入 roadmap 定案時一併拍（BACKLOG 拍板待答項）。
+
+### 15.7 手動呼叫 wrapper 的正規化三步
+
+僅用於 §15.4 路徑 (b) 或需直接編輯密文時。**日常解密一律用 `bash deploy/decrypt-secrets.sh`**
+（已內建全部正規化、名冊斷言與權限自證）。
+
+**步驟 1｜解密（需 passphrase、走 tty）**——wrapper 在 stdin 有 tty 時掛 `-i -t`，容器 pty 會把
+換行改 CRLF、且 passphrase 提示行與資料同流，**必須自行正規化**（與 decrypt-secrets.sh 的
+`normalize_raw` 同形）：
+```bash
+cd <repo 根> && umask 077
+WORK="$(mktemp -d "${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev5/edit.XXXXXX")"
+./deploy/sops.sh -d deploy/secrets.dev.enc.yaml > "$WORK/raw.out"
+tr '\r' '\n' < "$WORK/raw.out" | sed -E "s/$(printf '\033')\[[0-9;]*[A-Za-z]//g" > "$WORK/plain.yaml"
+```
+
+**步驟 2｜編輯**：改 `$WORK/plain.yaml`；值裸量、不加引號（同 §15.4）。
+
+**步驟 3｜重加密（不需 passphrase）**——輸入檔**必須搬進 repo 內**（wrapper 只掛載 `$PWD`）：
+```bash
+cp "$WORK/plain.yaml" tmp/plain.yaml
+./deploy/sops.sh -e --filename-override deploy/secrets.dev.enc.yaml tmp/plain.yaml \
+  < /dev/null > tmp/enc.new
+mv tmp/enc.new deploy/secrets.dev.enc.yaml && chmod 644 deploy/secrets.dev.enc.yaml
+rm -f tmp/plain.yaml && rm -rf "$WORK"
+```
+★收尾**必刪兩處明文**（repo 內 `tmp/` 與快取 `$WORK`）——步驟 3 的 `< /dev/null` 是讓 `-e`
+不走 tty 分支、從根上不生 CRLF 與併流的關鍵。
