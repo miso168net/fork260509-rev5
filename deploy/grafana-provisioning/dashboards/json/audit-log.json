@@ -61,7 +61,7 @@
       "id": 1,
       "type": "logs",
       "title": "全工作區 log（本工作區、compose_project=rev5-admin）",
-      "description": "{compose_project=\"rev5-admin\", service=~\"$service\"}；★ 僅本工作區 log（FR-007）。包含結構化與非結構化（cargo-watch 等）行。",
+      "description": "{compose_project=\"rev5-admin\", service=~\"$service\"}；★ 僅本工作區 log（rev4:FR-007）。包含結構化與非結構化（cargo-watch 等）行。",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -135,7 +135,7 @@
       "id": 3,
       "type": "logs",
       "title": "trace_id drill（rust-api、依 $trace_id 過濾）",
-      "description": "{compose_project=\"rev5-admin\", service=\"rust-api\"} |~ `^{` | json | fields_trace_id =~ `$trace_id`；★ trace_id 巢狀於 fields → loki | json 攤平為 fields_trace_id。$trace_id 留空時 regex `` 匹配全部行。對應 DB 審計列 sys_access_log.trace_id / sys_operation_log.trace_id（FR-006）。",
+      "description": "{compose_project=\"rev5-admin\", service=\"rust-api\"} |~ `^{` | json | fields_trace_id =~ `$trace_id`；★ trace_id 巢狀於 fields → loki | json 攤平為 fields_trace_id。$trace_id 留空時 regex `` 匹配全部行。對應 DB 審計列 sys_access_log.trace_id / sys_operation_log.trace_id（rev4:FR-006）。",
       "datasource": {
         "type": "loki",
         "uid": "loki"

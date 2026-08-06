@@ -1,8 +1,8 @@
-# 016-observability T003：grafana prometheus datasource provisioning（冪等；rev3 018 U2 照搬）。
+# rev4:016-observability rev4:T003：grafana prometheus datasource provisioning（冪等；rev3:018 U2 照搬）。
 # 顯式 uid: prometheus（alert rule datasourceUid + dashboard panel 依賴穩定 uid、漂移即斷）。
 apiVersion: 1
 
-# deleteDatasources guard（與 loki.yml 對齊、rev3 research R7 hindsight）：重建時先 delete 同名再 reinsert，
+# deleteDatasources guard（與 loki.yml 對齊、rev3:research R7 hindsight）：重建時先 delete 同名再 reinsert，
 # 免 uid 既存衝突致 grafana provisioning crash-loop（冪等；prometheus 雖非 isDefault、風險較低，
 # 補此 guard 為一致性與防禦同類 uid-conflict）。
 deleteDatasources:

@@ -56,12 +56,12 @@ services:
       APP_JWT_REFRESH_TOKEN_SECRET_FILE: /run/secrets/refresh_token_secret
       APP_DATABASE_URL_FILE: /run/secrets/database_url
       APP_REDIS_URL_FILE: /run/secrets/redis_url
-      # 007-login-throttle：captcha challenge HS256 密鑰（第三把秘鑰、與 jwt/refresh 隔離）
+      # rev4:007-login-throttle：captcha challenge HS256 密鑰（第三把秘鑰、與 jwt/refresh 隔離）
       APP_CAPTCHA_SECRET_FILE: /run/secrets/captcha_secret
-      # 004-system-settings：JWT iss/aud（非機密→plain env、無需 secret 檔；值對齊 auth/jwt.rs 常數）
+      # rev4:004-system-settings：JWT iss/aud（非機密→plain env、無需 secret 檔；值對齊 auth/jwt.rs 常數）
       APP_JWT_ISS: rev5-admin
       APP_JWT_AUD: rev5-admin-web
-      # ═══ 020-email-verify SMTP 六常設 plain env（非機密、Gmail 形預設；data-model §5——
+      # ═══ rev4:020-email-verify SMTP 六常設 plain env（非機密、Gmail 形預設；data-model §5——
       #     dev override 覆寫七鍵、prod 部署層以真值覆寫）。★APP_SMTP_USERNAME 與
       #     APP_MAIL_SUBJECT_SUFFIX 於 base 一律不設鍵：不設鍵＝空語意（跳過 AUTH／主旨無後綴）、
       #     設鍵即必非空（config env_or_file 空值 panic 機器強制；R8）═══
@@ -78,9 +78,9 @@ services:
       APP_MAIL_DISPLAY_NAME: rev5-admin
       # 回信位址（prod 部署自定）
       APP_MAIL_REPLY_TO: your-account@gmail.com
-      # 020-email-verify：SMTP 密碼（dev＝亂數 leaf 未消費；prod 真值＝Gmail app password）
+      # rev4:020-email-verify：SMTP 密碼（dev＝亂數 leaf 未消費；prod 真值＝Gmail app password）
       APP_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
-      # 020-email-verify：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha 隔離）
+      # rev4:020-email-verify：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha 隔離）
       APP_EMAIL_VERIFY_SECRET_FILE: /run/secrets/email_verify_secret
       RUST_LOG: "info"
     secrets:
@@ -155,11 +155,11 @@ services:
     networks:
       - rev5_net
 
-  # ═══ 016-observability T009 obs（log 軌、profiles:[obs] opt-in、一般 up 不啟）═══
+  # ═══ rev4:016-observability rev4:T009 obs（log 軌、profiles:[obs] opt-in、一般 up 不啟）═══
   # ★ 每個觀測 service MUST networks:[rev5_net]（無 default network、漏接＝service DNS 靜默
   #   不通／prometheus scrape 靜默 down）；socket-proxy 唯一例外＝僅掛 socket_proxy_net
-  #   （FR-015：業務網段內容器對 proxy 不可達）。
-  # ★ 全件 mem_limit（FR-007；rev3 as-built 未設＝rev4 新增紀律）＋restart: unless-stopped
+  #   （rev4:FR-015：業務網段內容器對 proxy 不可達）。
+  # ★ 全件 mem_limit（rev4:FR-007；rev3 as-built 未設＝rev4 新增紀律）＋restart: unless-stopped
   #   （S8 觀測件故障自死〔crash／OOM、PID 1 消亡〕後自行回復；★docker kill/stop 屬 Docker
   #   「手動停止」語意、restart policy 明文不套用〔防重啟迴圈〕——手動 kill 之復原路徑＝
   #   compose up -d；S8 實測兩腿分證。rev3 obs 段未設 restart、rev4 依 S8 驗收補上）。
@@ -178,7 +178,7 @@ services:
   alloy:
     profiles: [obs]
     image: grafana/alloy:v1.17.1
-    # ★ FR-015 非 root：473＝映像內建 alloy user（docker image inspect 實查：映像預設 USER
+    # ★ rev4:FR-015 非 root：473＝映像內建 alloy user（docker image inspect 實查：映像預設 USER
     #   為空＝root、故必須顯式指定）；/var/lib/alloy/data 映像內 473:473 mode 770、named
     #   volume 首建繼承 ownership → 非 root 可寫。docker.sock 絕不掛本容器——docker-SD 與
     #   log 採集一律經 socket-proxy tcp 白名單端點（見 deploy/alloy/alloy-config.alloy）。
@@ -201,8 +201,8 @@ services:
 
   socket-proxy:
     profiles: [obs]
-    # wollomatic socket-proxy＝deny-by-default docker.sock 代理（research R3 選型；tecnativa
-    # 前綴放行整棵 /containers 子樹、結構上無法滿足 FR-015 遂翻案）。
+    # wollomatic socket-proxy＝deny-by-default docker.sock 代理（rev4:research R3 選型；tecnativa
+    # 前綴放行整棵 /containers 子樹、結構上無法滿足 rev4:FR-015 遂翻案）。
     # ★ tag 無 v 前綴：上游 GitHub tag 與 Docker Hub tag 一律 1.12.3（R1 表記 v1.12.3 之 v
     #   屬 release 慣稱、registry 實查無此 tag；版本數字逐字同 R1 拍板）。
     image: wollomatic/socket-proxy:1.12.3
@@ -218,7 +218,7 @@ services:
       # ★ 錨定行為源碼實證（1.12.3 internal/config/config.go:597）：regexp.Compile("^"+regex+"$")
       #   ＝自動整串錨定；比對對象＝r.URL.Path（不含 query string）——故 logs?stdout=1 之類
       #   query 不影響匹配。其餘 path 落 deny-by-default（403）、method 不在名單（405）——
-      #   archive／export／attach 天然被拒（S7 四負二正實測歸 T027）。
+      #   archive／export／attach 天然被拒（S7 四負二正實測歸 rev4:T027）。
       - '-listenip=0.0.0.0'
       # allowfrom 預設 127.0.0.1/32 必須放寬；hostname 形每請求經 docker DNS 解析、不快取
       # （源碼實證）——僅 alloy 容器 IP 放行、與專用網段雙層防護。
@@ -247,9 +247,9 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
     secrets:
       - grafana_admin_password
-      # 016-observability T012：alerting contact point webhook URL（provisioning yaml 內
+      # rev4:016-observability rev4:T012：alerting contact point webhook URL（provisioning yaml 內
       # $__file{/run/secrets/alert_webhook_url} 讀取；URL 不以完整字面進版本庫——★dev 佔位現值
-      # 仍可由 deploy/dev-webhook-sink.sh 之 NAME 推導＝dev-only 已接受殘餘、L-190）
+      # 仍可由 deploy/dev-webhook-sink.sh 之 NAME 推導＝dev-only 已接受殘餘、rev4:L-190）
       - alert_webhook_url
     volumes:
       - grafana_data:/var/lib/grafana
@@ -263,7 +263,7 @@ services:
     networks:
       - rev5_net
 
-  # ═══ 016-observability T009 metrics（指標軌、profiles:[metrics] opt-in、一般 up 不啟）═══
+  # ═══ rev4:016-observability rev4:T009 metrics（指標軌、profiles:[metrics] opt-in、一般 up 不啟）═══
   prometheus:
     profiles: [metrics]
     image: prom/prometheus:v3.13.1
@@ -285,7 +285,7 @@ services:
     environment:
       # DB 名＝soybean_admin_rust（對齊 postgres POSTGRES_DB）；reuse postgres_password、
       # 絕不明文密碼（rev3 as-built 形）。0.20.1 breaking＝replication_slot 系指標改名，
-      # 單機 dev 該組資料本為空、面板受影響格歸 T018 grep 處理（R1）。
+      # 單機 dev 該組資料本為空、面板受影響格歸 rev4:T018 grep 處理（R1）。
       DATA_SOURCE_URI: postgres:5432/soybean_admin_rust?sslmode=disable
       DATA_SOURCE_USER: soybean
       DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
@@ -318,7 +318,7 @@ services:
   pushgateway:
     profiles: [metrics]
     image: prom/pushgateway:v1.11.3
-    # FR-008 持久卷＋重啟不失憶（rev3 in-memory 形＝有意識偏離修正）。
+    # rev4:FR-008 持久卷＋重啟不失憶（rev3 in-memory 形＝有意識偏離修正）。
     # ★ 掛載點＝/pushgateway（映像 WORKDIR、nobody:nobody 775）——named volume 首建繼承
     #   ownership、映像預設 user 65534 可寫；掛映像不存在的路徑＝docker 以 root 建目錄、
     #   nobody 寫不進 persistence 檔。
@@ -331,7 +331,7 @@ services:
     networks:
       - rev5_net
 
-  # ═══ 016-observability T025 jobs（reaper 回收 sidecar、profiles:[jobs] opt-in、一般 up 不啟）═══
+  # ═══ rev4:016-observability rev4:T025 jobs（reaper 回收 sidecar、profiles:[jobs] opt-in、一般 up 不啟）═══
   reaper:
     profiles: [jobs]
     build:
@@ -339,18 +339,18 @@ services:
       dockerfile: deploy/Dockerfile.rust-api
       # base 不給 target（沿 migrate 形）；dev override 提供 target＋entrypoint 姿態分派
     environment:
-      # ★最小權限連線（FR-013／ADR 0072）：reaper_database_url＝reaper role 憑證（composite
-      #   secret；m012 建 role＋GRANT、deploy/setup-reaper-role.sh 設密）——絕不掛 database_url
+      # ★最小權限連線（rev4:FR-013／rev4:ADR 0072）：reaper_database_url＝reaper role 憑證（composite
+      #   secret；rev4:m012 建 role＋GRANT、deploy/setup-reaper-role.sh 設密）——絕不掛 database_url
       #   （soybean 全權身分）。
       APP_DATABASE_URL_FILE: /run/secrets/reaper_database_url
       RUST_LOG: "info"
-      # REAPER_GRACE_DAYS 不設＝bin fail-default 7 天（FR-018）；
+      # REAPER_GRACE_DAYS 不設＝bin fail-default 7 天（rev4:FR-018）；
       # REAPER_INTERVAL_SECS 不設＝dev override loop 內 fallback 86400（每日一輪）——
       # ★與 deploy/grafana-provisioning/alerting/rules.yml 告警⑤/⑥門檻 172800 互為 2× 錨
       #   （172800 = 2 × 86400；涵蓋 token-reap 之⑤與 audit-retention 之⑥）：調 REAPER_INTERVAL_SECS
       #   MUST 同步改⑤/⑥兩門檻——三檔同步：本檔＋docker-compose.dev.yml＋rules.yml
-      #   （契約＝specs/016-observability/contracts/reaper-cli.md＋
-      #   specs/017-audit-retention/contracts/alerting-retention.md）。
+      #   （契約＝specs/rev4:016-observability/contracts/reaper-cli.md＋
+      #   specs/rev4:017-audit-retention/contracts/alerting-retention.md）。
     secrets:
       - reaper_database_url
     depends_on:
@@ -366,7 +366,7 @@ services:
 
 networks:
   rev5_net:
-  # 016-obs FR-015：socket-proxy 專用網段——成員恰為 proxy＋alloy 兩件；internal＝無對外
+  # rev4:016-obs rev4:FR-015：socket-proxy 專用網段——成員恰為 proxy＋alloy 兩件；internal＝無對外
   # NAT 出口（proxy 只需被 alloy 達、自身只連 docker.sock）
   socket_proxy_net:
     internal: true
@@ -374,15 +374,15 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  # 016-observability obs 卷（profiles:[obs] opt-in、一般 up 不建）
+  # rev4:016-observability obs 卷（profiles:[obs] opt-in、一般 up 不建）
   loki_data:
   alloy_data:
   grafana_data:
-  # 016-observability metrics 卷（profiles:[metrics] opt-in、一般 up 不建）
+  # rev4:016-observability metrics 卷（profiles:[metrics] opt-in、一般 up 不建）
   prometheus_data:
   pushgateway_data:
 
-# 019-secrets-sops T028（FR-018／P5.3）：落點經 SECRETS_DIR 帶預設值變數展開——單一事實
+# rev4:019-secrets-sops rev4:T028（rev4:FR-018／rev4:P5.3）：落點經 SECRETS_DIR 帶預設值變數展開——單一事實
 # 來源＝repo 根 .env（gitignored、bootstrap 代勞產生、值必須為絕對路徑字面；.env.example
 # 有產檔約束全文）；未設變數回退 ./deploy/secrets（#4 向後相容——忘設＝保護失效，由
 # preflight／bootstrap 斷言補償、ADR 誠實登記）。★reaper_password 不進 compose 是設計
@@ -402,19 +402,19 @@ secrets:
     file: ${SECRETS_DIR:-./deploy/secrets}/redis_url.txt
   captcha_secret:
     file: ${SECRETS_DIR:-./deploy/secrets}/captcha_secret.txt
-  # 016-observability T009：grafana 管理密碼（GF_SECURITY_ADMIN_PASSWORD $__file{} provider 注入）
+  # rev4:016-observability rev4:T009：grafana 管理密碼（GF_SECURITY_ADMIN_PASSWORD $__file{} provider 注入）
   grafana_admin_password:
     file: ${SECRETS_DIR:-./deploy/secrets}/grafana_admin_password.txt
-  # 016-observability T012：告警 webhook URL（alerting/contact-points.yml $__file{} provider 注入）
+  # rev4:016-observability rev4:T012：告警 webhook URL（alerting/contact-points.yml $__file{} provider 注入）
   alert_webhook_url:
     file: ${SECRETS_DIR:-./deploy/secrets}/alert_webhook_url.txt
-  # 016-observability T025：reaper 最小權限 DB 憑證（composite＝postgres://reaper:…；
-  # m012 建 role、deploy/setup-reaper-role.sh 設密；FR-013 密碼零進版本庫）
+  # rev4:016-observability rev4:T025：reaper 最小權限 DB 憑證（composite＝postgres://reaper:…；
+  # rev4:m012 建 role、deploy/setup-reaper-role.sh 設密；rev4:FR-013 密碼零進版本庫）
   reaper_database_url:
     file: ${SECRETS_DIR:-./deploy/secrets}/reaper_database_url.txt
-  # 020-email-verify：SMTP 密碼（dev 亂數 leaf 未消費；prod 真值＝Gmail app password、RUNBOOK §15.4 回寫）
+  # rev4:020-email-verify：SMTP 密碼（dev 亂數 leaf 未消費；prod 真值＝Gmail app password、RUNBOOK §15.4 回寫）
   smtp_password:
     file: ${SECRETS_DIR:-./deploy/secrets}/smtp_password.txt
-  # 020-email-verify：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha 隔離）
+  # rev4:020-email-verify：驗證憑據 HS256 獨立金鑰（與 jwt/refresh/captcha 隔離）
   email_verify_secret:
     file: ${SECRETS_DIR:-./deploy/secrets}/email_verify_secret.txt

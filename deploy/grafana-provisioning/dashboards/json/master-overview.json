@@ -226,7 +226,7 @@
       "id": 5,
       "type": "stat",
       "title": "上次回收成功距今 (Reaper age)",
-      "description": "time() - reaper_last_success_timestamp{mode=\"execute\"}；reaper 上次 execute 成功至今秒數（告警⑤同錨：僅認 execute、172800=2×86400）。rev4 pushgateway 持久卷、重啟不失憶（FR-008）。US3 前序列缺席＝No data 屬預期。",
+      "description": "time() - reaper_last_success_timestamp{mode=\"execute\"}；reaper 上次 execute 成功至今秒數（告警⑤同錨：僅認 execute、172800=2×86400）。rev4 pushgateway 持久卷、重啟不失憶（rev4:FR-008）。rev4:US3 前序列缺席＝No data 屬預期。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

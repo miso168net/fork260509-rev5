@@ -26,7 +26,7 @@
       "id": 1,
       "type": "stat",
       "title": "上次 execute 成功距今 (age)",
-      "description": "time() - reaper_last_success_timestamp{mode=\"execute\"}；reaper 上次 execute 成功至今秒數（告警⑤同錨：僅認 execute、dry-run 不算；172800=2×86400、調 REAPER_INTERVAL_SECS 須同步）。rev4 pushgateway 持久卷、重啟不失憶（FR-008）。",
+      "description": "time() - reaper_last_success_timestamp{mode=\"execute\"}；reaper 上次 execute 成功至今秒數（告警⑤同錨：僅認 execute、dry-run 不算；172800=2×86400、調 REAPER_INTERVAL_SECS 須同步）。rev4 pushgateway 持久卷、重啟不失憶（rev4:FR-008）。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -235,7 +235,7 @@
       "id": 4,
       "type": "timeseries",
       "title": "刪除列數趨勢 by mode (rows deleted over time)",
-      "description": "reaper_deleted_total{mode} 隨時間；rev4 pushgateway 持久卷、重啟不失憶（FR-008、rev3 in-memory 形有意識偏離）。",
+      "description": "reaper_deleted_total{mode} 隨時間；rev4 pushgateway 持久卷、重啟不失憶（rev4:FR-008、rev3 in-memory 形有意識偏離）。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
