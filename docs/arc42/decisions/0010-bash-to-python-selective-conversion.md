@@ -26,7 +26,7 @@ deploy／tools／hooks 面腳本多為 rev4 原樣移植，`deploy/decrypt-secre
 | ① B-035 | preflight-secrets＋decrypt-secrets＋落點共用庫 | 真 YAML 解析（`sops -d --output-type json`）整段刪非裸量純量斷言；共用庫自 secret-value-guard 既有已測實作提出、消費者限三支；test 子命令入自測治理 |
 | ② B-036 | decrypt「passphrase 只打一次」互動改動 | UX 主訴求；與①分刀＝失效可歸因；刀內立安全姿態 ADR |
 | ③ B-037 | generate-secrets＋setup-reaper-role | 共用庫攤提（邊際 1.25＋0.3 人日）；密碼傳遞由 API 形參保證 |
-| 併 B-005 | wf-watchdog | 淨減行數、刪 L-142 補丁、消 GNU/BSD 雙分支；必與 B-005 同刀（CLAUDE.md §2 契約字面只改一次） |
+| 併 B-005 | wf-watchdog | 淨減行數、刪 rev4:L-142 補丁、消 GNU/BSD 雙分支；必與 B-005 同刀（CLAUDE.md §2 契約字面只改一次） |
 
 軌別＝**輕量軌**（user 拍板、推翻評估建議之 SDD）；等價驗收 DoD 與 ADR 義務不隨軌別豁免。
 治理落點（tools/ vs deploy/——四份自測名冊全綁 `tools/<name>.py` 字面）＝①開刀首題、屆時拍。
