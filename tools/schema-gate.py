@@ -1124,7 +1124,7 @@ class TestLedgerAssertions(unittest.TestCase):
 
     def test_knife_format_bad(self):
         with self.assertRaisesRegex(GateError, "斷言④.*knife"):
-            self._load({"next_id": 2, "entries": [_entry(knife="002_bad_slug")]})
+            self._load({"next_id": 2, "entries": [_entry(knife="902_bad_slug")]})
 
     def test_kind_not_in_enum(self):
         with self.assertRaisesRegex(GateError, "斷言⑤.*kind"):
@@ -1136,9 +1136,9 @@ class TestLedgerAssertions(unittest.TestCase):
 
     def test_id_not_ascending(self):
         with self.assertRaisesRegex(GateError, "斷言③.*遞增"):
-            self._load({"next_id": 4, "entries": [
-                _entry(id="E-003"),
-                _entry(id="E-002", kind="add_index", table="sys_role",
+            self._load({"next_id": 904, "entries": [
+                _entry(id="E-903"),
+                _entry(id="E-902", kind="add_index", table="sys_role",
                        detail={"name": "x", "definition": "y"})]})
 
     def test_missing_date_field(self):
@@ -1408,7 +1408,7 @@ class TestConstantsPinned(unittest.TestCase):
             "operator_ip_confidence": "ip_confidence"})
 
     def test_paths_are_001_coordinates(self):
-        """rev4 世代座標（specs/002）整組清償：路徑常數一律 001。"""
+        """rev4 世代座標（specs/rev4:002）整組清償：路徑常數一律 001。"""
         for p in (FIXTURES_DIR, DATA_MODEL, SEED_DECISION):
             self.assertIn("001-schema-baseline", p)
 

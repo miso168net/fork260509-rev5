@@ -1,4 +1,4 @@
-# 016-observability T003：prometheus scrape 配置（metrics 軌、profiles:[metrics]；rev3 018 U2 照搬）。
+# rev4:016-observability rev4:T003：prometheus scrape 配置（metrics 軌、profiles:[metrics]；rev3:018 U2 照搬）。
 # ★ job 名（rust-api/postgres/redis/pushgateway）＝ alert up{job=} selector，不可漂（rules.yml 依賴）。
 # retention 15d 走 compose command flag（--storage.tsdb.retention.time），非本檔。
 global:

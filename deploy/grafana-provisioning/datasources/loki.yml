@@ -1,5 +1,5 @@
-# 016-observability T003：grafana loki datasource provisioning（冪等；rev3 018 U1 照搬）。
-# rev3 research R7 hindsight：① deleteDatasources guard（免重建時 uid 衝突 crash-loop）；
+# rev4:016-observability rev4:T003：grafana loki datasource provisioning（冪等；rev3:018 U1 照搬）。
+# rev3:research R7 hindsight：① deleteDatasources guard（免重建時 uid 衝突 crash-loop）；
 #   ② 顯式 uid: loki（dashboard panel datasource ref 依賴穩定 uid、漂移即 panel 斷）。
 apiVersion: 1
 

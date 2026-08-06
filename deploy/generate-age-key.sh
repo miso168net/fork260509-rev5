@@ -2,7 +2,7 @@
 # deploy/generate-age-key.sh — 產 age 金鑰（B′＝passphrase 加殼 identity）
 #
 # ＝RUNBOOK §15.2 步驟 1 的**機器化版本**：守衛與自檢內建，消除「手冊裡的可執行片段與實作
-#   各寫一份而漂移」那類失效（L-199）。手冊仍保留同口徑的 inline 形作為本腳本不可用時的退路。
+#   各寫一份而漂移」那類失效（rev4:L-199）。手冊仍保留同口徑的 inline 形作為本腳本不可用時的退路。
 #
 # 用法（自 repo 根跑；本腳本不讀寫 repo 內任何檔，故不強制 CWD）：
 #   bash deploy/generate-age-key.sh                            # 第一把：產到預設 ~/.config/sops/age/keys.txt
@@ -110,7 +110,7 @@ else
   exit 1
 fi
 
-# ---- 產物自檢（★布林形、只印 True/False 與 byte 數，絕不印內容 byte；L-193）----
+# ---- 產物自檢（★布林形、只印 True/False 與 byte 數，絕不印內容 byte；rev4:L-193）----
 python3 - "$KEYS" "$PUB" <<'PY'
 import sys
 keys, pub = sys.argv[1], sys.argv[2]

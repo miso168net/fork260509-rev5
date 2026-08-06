@@ -1,4 +1,4 @@
-# .githooks/lib/scan-range.sh — pre-push stdin 解析＋掃描範圍推導（019 scan-gates §S3；三 repo 共用）
+# .githooks/lib/scan-range.sh — pre-push stdin 解析＋掃描範圍推導（rev4:019 rev4:scan-gates §S3；三 repo 共用）
 # ★本 lib 只承載 pre-push 面（source 後呼叫 scan_push_ranges）；pre-commit 不 source 本檔。
 # 呼叫端先設 SCAN_CONFIG＝.gitleaks.toml 路徑（源倉自身樹無此檔、必須顯式指定；外層同形統一）。
 #

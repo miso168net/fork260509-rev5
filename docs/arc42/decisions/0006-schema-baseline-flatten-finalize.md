@@ -22,7 +22,7 @@ seed 全量過目（user 總簽核 2026-08-05）完成了定稿制的全部輸�
 
 1. **基線＝rev4 終態壓平為兩支**：`m001_baseline_schema`（15 表結構＋索引 38／約束 101
    ＋pg_trgm＋casbin_rule 委派建表）＋`m002_baseline_seeds`（266 列 seed、完全決定性）。
-   rev4 的 m003～m015 為其後續刀 delta、淨效果已含於終態——不搬；rev5 第一支後續 delta
+   rev4 的 rev4:m003～rev4:m015 為其後續刀 delta、淨效果已含於終態——不搬；rev5 第一支後續 delta
    自 m003 起編（短編號紀律承 K1-13）。
 2. **定稿制（「定稿即基線」）**：欄序 user 逐表親排＋更名開放（rename map 4 組、全在
    sys_operation_log 去 operator_ 前綴）＋seed 全量過目（零未過目列進基線）。定稿權威
@@ -43,6 +43,6 @@ seed 全量過目（user 總簽核 2026-08-05）完成了定稿制的全部輸�
 - rev4 已推翻之形不得帶回（data-model §4＋§10 防回歸：operator_ 前綴、trace_id
   varchar(64)、seed 簡體原值、runtime 隨機雜湊〔§10〕；CURRENT_TIMESTAMP 預設〔§4
   追補拍板、統一 now()〕）。
-- reaper DB role＋GRANTs（rev4:m012／m013）不入基線——屬 observability 域運維工件、
+- reaper DB role＋GRANTs（rev4:m012／rev4:m013）不入基線——屬 observability 域運維工件、
   隨該域刀重進場（research R4）。
 - 基線翻案＝新刀新 ADR（supersedes 本檔）；fixtures 凍結後永不改寫。

@@ -73,6 +73,7 @@ fork260509-rev5/
 | 為什麼當初這樣決定 | [docs/generated/DECISIONS-INDEX.md](docs/generated/DECISIONS-INDEX.md) 找編號 → `docs/arc42/decisions/` 讀全文 |
 | rev4 當初的設計結論與教訓 | [docs/brainstorms/000-doc-architecture.md](docs/brainstorms/000-doc-architecture.md) §5 知識匯出包（K1 設計結論／K2 設計域／K3 教訓候選） |
 | 這套文件架構為什麼長這樣 | [docs/brainstorms/000-doc-architecture.md](docs/brainstorms/000-doc-architecture.md)（創世啟動書、史料） |
+| 查埠／帳號／schema／畫面現況 | `docs/generated/reference/` 五張正典表（機器生成、嚴禁手改）：[ports](docs/generated/reference/ports.md)／[accounts](docs/generated/reference/accounts.md)／[schema](docs/generated/reference/schema.md)／[screens](docs/generated/reference/screens.md)／[tools-cli](docs/generated/reference/tools-cli.md) |
 
 ## 常見疑惑
 

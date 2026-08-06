@@ -1,4 +1,4 @@
-# deploy/Dockerfile.rust-api — rust-api dev 映像（001-compose-stack）
+# deploy/Dockerfile.rust-api — rust-api dev 映像（rev4:001-compose-stack）
 # 001 版＝單一 dev stage：不 COPY 原始碼（compose bind-mount /app）、watchexec 輪詢熱重載。
 #
 # ★ Debian base 對齊義務（builder／runtime glibc 同代）：

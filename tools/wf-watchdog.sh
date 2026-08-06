@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/wf-watchdog.sh — Workflow 看門狗（CLAUDE.md §2、L-104/L-112）
+# tools/wf-watchdog.sh — Workflow 看門狗（CLAUDE.md §2、rev4:L-104/rev4:L-112）
 #
 # 用法：Monitor 工具 command 欄填 `bash tools/wf-watchdog.sh [冒煙token]`
 #   ★必與 Workflow launch 同一回合原子成對發射（兩 call 間零其他動作）。
@@ -8,7 +8,7 @@
 #   首行 byte 數＋冒煙 token 命中數）→ 靜默迴圈，僅 stall／runaway 告警時輸出並退出。
 # 完成通知一到請 TaskStop 本 Monitor（否則正常完成 ~13min 後誤觸 stall）。
 set -u
-# ★L-142：本檔含中文字串——mac（實證 mac2、bash 5.3）部分 locale 下 bash 解析
+# ★rev4:L-142：本檔含中文字串——mac（實證 mac2、bash 5.3）部分 locale 下 bash 解析
 #   「$smoke（」類「變數名＋全形字」邊界會黏成未綁定變數名而炸；byte-wise 解析免疫。
 export LC_ALL=C
 TOKEN="${1:-}"
@@ -21,7 +21,7 @@ RUNAWAY=25     # 不重複 agent key 數；2× 單元理論上限（防呆③ AG
 
 # 專案 slug＝canonical path 之 / 與 _ 全轉 -（Claude Code projects 目錄命名規則）。
 # ★realpath 解析綁定路徑：primary working dir 可能是 /home/… 綁定（pwd 給非 canonical、
-#  slug 對不上 -mnt-d-… projects 目錄名→找不到 wf；B-070、006 orchestration 實測）。
+#  slug 對不上 -mnt-d-… projects 目錄名→找不到 wf；rev4:B-070、rev4:006 orchestration 實測）。
 CANON=$(realpath "$PWD" 2>/dev/null || pwd)
 SLUG=$(printf '%s' "$CANON" | sed 's|[/_]|-|g')
 sleep 10
@@ -47,7 +47,7 @@ while true; do
   sleep 60
   now=$(date +%s)
   # 最新 mtime（epoch）：GNU find -printf 先試（Linux）；macOS BSD find 無 -printf→
-  # 落空時以 BSD stat -f '%m' 兜底（L-139：勿反序——GNU stat -f 是檔案系統狀態、%m=掛載點）
+  # 落空時以 BSD stat -f '%m' 兜底（rev4:L-139：勿反序——GNU stat -f 是檔案系統狀態、%m=掛載點）
   newest=$(find "$DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1); newest=${newest%.*}
   if [ -z "${newest:-}" ]; then
     newest=$(find "$DIR" -type f -exec stat -f '%m' {} + 2>/dev/null | sort -n | tail -1)

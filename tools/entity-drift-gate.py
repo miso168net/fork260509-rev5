@@ -3,7 +3,7 @@
 """tools/entity-drift-gate.py — entity×schema 快照漂移閘（python 標準庫、單檔、自帶測試）
 
 子命令：
-  check   entity 漂移比對（B-110 階段 0；零 docker、秒級、掛 pre-commit）：
+  check   entity 漂移比對（rev4:B-110 階段 0；零 docker、秒級、掛 pre-commit）：
           左源＝docs/ops/reference-src/schema-snapshot.json 的 columns 節（已 commit
           快照）、右源＝rust-api/entity/src/*.rs（排除 lib.rs）——雙向表／欄完整性
           ＋型別（TYPE_MAP）＋可空性（Option vs nullable）比對
@@ -13,10 +13,10 @@
 （快照缺席或 JSON 壞、columns 節空或缺、entity 目錄缺席、解析 0 表、豁免後比對面為空、
 未知 rust 型別）2＋補救提示；用法錯誤 64（EX_USAGE、usage 走 stderr）。
 
-skip-list＝casbin_rule（ADR 0015：該表委派 casbin adapter 建基底、不入我方 entity
-治理比對）——雙向豁免、check 輸出一行 SKIP 註記指名 ADR 0015。
+skip-list＝casbin_rule（rev4:ADR 0015：該表委派 casbin adapter 建基底、不入我方 entity
+治理比對）——雙向豁免、check 輸出一行 SKIP 註記指名 rev4:ADR 0015。
 
-明確不驗三項（各有去處）：欄序（ADR 0021 歸 schema-gate gate2）、default（entity 面
+明確不驗三項（各有去處）：欄序（rev4:ADR 0021 歸 schema-gate gate2）、default（entity 面
 無此資訊）、index/constraint（schema-gate gate1 轄區）。
 
 check 入口無條件合成 self-test（照 tools/wire-schema.py check_self_test 模式）：合成
@@ -42,7 +42,7 @@ SNAPSHOT_REL = os.path.join("docs", "ops", "reference-src", "schema-snapshot.jso
 # 右源＝entity worktree（lib.rs 為模組匯出、非 entity、排除）。
 ENTITY_DIR_REL = os.path.join("rust-api", "entity", "src")
 
-# skip-list（ADR 0015）：casbin_rule 委派 adapter 建基底、雙向豁免。
+# skip-list（rev4:ADR 0015）：casbin_rule 委派 adapter 建基底、雙向豁免。
 SKIP_TABLES = ("casbin_rule",)
 
 # rust 基礎型別 → 快照正規化型別容許集（快照型別先去長度修飾再查）。
@@ -249,7 +249,7 @@ def cmd_check(root=REPO_ROOT):
         print(f"[check] ✗ {ex}", file=sys.stderr)
         return 2
     for t in skipped:
-        print(f"[check] SKIP {t}（ADR 0015：委派 adapter 建基底、不入 entity 治理比對）")
+        print(f"[check] SKIP {t}（rev4:ADR 0015：委派 adapter 建基底、不入 entity 治理比對）")
     if findings:
         print(f"[check] ✗ {len(findings)} 條 entity×快照 漂移：", file=sys.stderr)
         for f in findings:
@@ -455,7 +455,7 @@ class TestUnknownTypeFailLoud(unittest.TestCase):
 
 
 class TestSkipList(unittest.TestCase):
-    """casbin_rule 雙向豁免（ADR 0015）＋豁免後比對面為空＝GateError。"""
+    """casbin_rule 雙向豁免（rev4:ADR 0015）＋豁免後比對面為空＝GateError。"""
 
     CASBIN_SNAP = [{"table": "casbin_rule", "column": "id", "ordinal": 1,
                     "type": "bigint", "nullable": False, "default": None}]
@@ -609,7 +609,7 @@ class TestCmdCheck(unittest.TestCase):
             with contextlib.redirect_stdout(out):
                 self.assertEqual(cmd_check(root=d), 0)
             self.assertIn("SKIP casbin_rule", out.getvalue())
-            self.assertIn("ADR 0015", out.getvalue())
+            self.assertIn("rev4:ADR 0015", out.getvalue())
 
     def test_missing_snapshot_rc2_with_remedy(self):
         with tempfile.TemporaryDirectory() as d:

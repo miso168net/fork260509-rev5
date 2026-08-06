@@ -2,7 +2,7 @@
 
 > **用途**：seed 定稿制之過目素材（brainstorm §0 拍板甲）。user 逐表過目、逐筆調整（id 重編／刪列／改值／加列、連動同步）；定稿後本檔＝seed 基線權威、轉錄進 data-model，m002 施工以此為準。
 > **produced**: 2026-08-05｜重放容器 postgres:18.4-alpine（獨立一次性、零 host 埠）｜build/runner rev4-admin-rust-api:dev (cargo 1.96.1)
-> **來源**：rev4 migration m001–m015 原始碼（rev4 repo @ 2b8a101、working tree 乾淨）抄至 scratchpad 重放（拷貝例外射程、ADR 0001 決定 3；rev4 側零寫入）。
+> **來源**：rev4 migration rev4:m001–rev4:m015 原始碼（rev4 repo @ 2b8a101、working tree 乾淨）抄至 scratchpad 重放（拷貝例外射程、ADR 0001 決定 3；rev4 側零寫入）。
 > **雙源互證**：重放庫結構快照 vs rev4 已入版 schema-snapshot.json＝**columns／indexes／constraints 三節全等**（重放環境無失真）。
 > **機器權威**：同目錄 `seed-net-effect.json`（本檔由其機器渲染；如有出入以 json 為準）。
 

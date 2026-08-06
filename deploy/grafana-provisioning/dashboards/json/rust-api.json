@@ -38,7 +38,7 @@
       "id": 2,
       "type": "stat",
       "title": "判決計數 allow / deny (累計)",
-      "description": "casbin_enforce_total{decision}；fail-closed DB-error 不計入（research R3a）。",
+      "description": "casbin_enforce_total{decision}；fail-closed DB-error 不計入（rev4:research R3a）。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -612,7 +612,7 @@
       "id": 12,
       "type": "stat",
       "title": "撤銷名單命中 (denylist_hit_total by source)",
-      "description": "denylist_hit_total{source=redis|pg}；enforce_mw 命中／PG-fallback 分支累計（B-065）。pre-register 顯式 0、重啟後序列仍在。",
+      "description": "denylist_hit_total{source=redis|pg}；enforce_mw 命中／PG-fallback 分支累計（rev4:B-065）。pre-register 顯式 0、重啟後序列仍在。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -673,7 +673,7 @@
       "id": 13,
       "type": "stat",
       "title": "軟區命中 (throttle_soft_zone_total)",
-      "description": "throttle_soft_zone_total；登入節流軟區（警戒未壓制）命中累計（B-074；captcha_forced 不計入）。",
+      "description": "throttle_soft_zone_total；登入節流軟區（警戒未壓制）命中累計（rev4:B-074；captcha_forced 不計入）。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -738,7 +738,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "設定讀取頻次 (enforce_settings_select_total rate)",
-      "description": "rate(enforce_settings_select_total[5m])；ttl_from_settings 呼叫頻次（B-065 負載能見度：TTL 快取失效＝頻次飆升訊號）。",
+      "description": "rate(enforce_settings_select_total[5m])；ttl_from_settings 呼叫頻次（rev4:B-065 負載能見度：TTL 快取失效＝頻次飆升訊號）。",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

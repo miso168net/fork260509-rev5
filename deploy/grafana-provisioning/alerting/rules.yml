@@ -1,21 +1,21 @@
-# 016-observability T011 起造：告警 as-code（契約＝specs/016-observability/contracts/alerting-delivery.md）。
-# 現況＝告警六組 13 條：016 五組 11 條＋017-audit-retention T010 第六組 2 條（⑥/⑥b 新增、
-# ⑤/⑤b expr 收斂 reaper_job matcher；契約＝specs/017-audit-retention/contracts/alerting-retention.md）。
-# 母版＝rev3 as-built baseline 三條（rustapi-down／exporter-down／high-5xx）＋016 新增八條。
+# rev4:016-observability rev4:T011 起造：告警 as-code（契約＝specs/rev4:016-observability/contracts/alerting-delivery.md）。
+# 現況＝告警六組 13 條：rev4:016 五組 11 條＋rev4:017-audit-retention rev4:T010 第六組 2 條（⑥/⑥b 新增、
+# ⑤/⑤b expr 收斂 reaper_job matcher；契約＝specs/rev4:017-audit-retention/contracts/alerting-retention.md）。
+# 母版＝rev3 as-built baseline 三條（rustapi-down／exporter-down／high-5xx）＋rev4:016 新增八條。
 #
 # 通則：
 # - 評估鏈一律 A（datasource instant query）→ B（reduce last）→ C（threshold、condition）——
 #   annotation 可引用 $values.B（reduce 節點保證在 $values 可見；純 A→C 形對 range query 不保證）。
 # - noDataState 分族：down 類＝Alerting（無 up 資料＝target 沒了）；事件/比率/心跳類＝OK
-#   （無資料＝健康；防雷⑨ idle 誤紅——spec US1-AC5 零 idle 誤報）。
+#   （無資料＝健康；防雷⑨ idle 誤紅——spec rev4:US1-AC5 零 idle 誤報）。
 # - execErrState=Alerting（rule 評估錯誤值得標示）；datasourceUid 對齊 datasources/ 顯式 uid
 #   （prometheus／loki）；prometheus job 名（rust-api/postgres/redis）＝up selector 錨、不可漂。
-# - ★annotation 契約（FR-011／US1-AC6）：僅規則名／計數（$values.B）／時戳類——絕不內嵌
+# - ★annotation 契約（rev4:FR-011／rev4:US1-AC6）：僅規則名／計數（$values.B）／時戳類——絕不內嵌
 #   原始 log 行、不含個資（loki 類 query 全為 count_over_time 數值聚合、結構上不可能帶出 log 行）。
-# - LogQL 形（②③b③d）：rust-api 為 tracing-subscriber JSON log（T006）——loki `| json` 攤平後
+# - LogQL 形（②③b③d）：rust-api 為 tracing-subscriber JSON log（rev4:T006）——loki `| json` 攤平後
 #   事件欄位以 fields_ 前綴露出（fields_suppressed／fields_degraded）、target 頂層露出；
 #   `__error__=""` 守門排除攤平失敗行。selector 錨＝{service="rust-api", compose_project="rev5-admin"}
-#   （alloy relabel KEEP rev5-admin、T010 as-built 實查 stream label）。
+#   （alloy relabel KEEP rev5-admin、rev4:T010 as-built 實查 stream label）。
 apiVersion: 1
 
 groups:
@@ -133,7 +133,7 @@ groups:
       # ══ ①c high-5xx：5xx 比率 > 5%（預設、承 rev3 as-built）、for 5m ══
       # ★防雷⑨：noDataState=OK＋`or vector(0)`＋clamp_min——idle/零 5xx 時 ratio 回空向量、
       #   若 noData=Alerting 會誤升 Firing（false positive）；rev3 baseline 原樣照搬（指標名
-      #   axum_http_requests_total 與 rev4 T008 axum-prometheus 層同名、零適配）。
+      #   axum_http_requests_total 與 rev4:T008 axum-prometheus 層同名、零適配）。
       - uid: obs016-high-5xx
         title: high-5xx
         condition: C
@@ -188,7 +188,7 @@ groups:
 
       # ══ ② throttle-suppressed 節流壓制中：loki、security.throttle suppressed 量級事件、
       #    評估窗內任一即紅（spec Clarifications 拍板）══
-      # ★窗長＝5m（T014 施工冒煙定值；定值依據：①壓制麵包屑節奏 ≤1 warn/60s/key（throttle/mod.rs
+      # ★窗長＝5m（rev4:T014 施工冒煙定值；定值依據：①壓制麵包屑節奏 ≤1 warn/60s/key（throttle/mod.rs
       #   suppressed_breadcrumb）＋rule 評估 interval 1m＋alloy→loki 攝取延遲、5m 窗保證事件不落隙；
       #   ②轉紅後維持紅 ≥4m、維運者可見窗充足；③query 嚴格 >0 判紅、idle 空向量走 noDataState=OK
       #   ＝零誤紅。冒煙實測：事件落 loki 後下一輪評估即 Firing（延遲 <1m）。）
@@ -249,7 +249,7 @@ groups:
       # ══ ③a throttle-degraded 節流降級：throttle_degraded_total 任一 label 增長即紅（島 E1）══
       # ★14 label 全覆蓋：帳號維七源（redis_lock/redis_captcha/db_count/db_write/redis_unlock_marker/
       #   settings_default/redis_lock_set）＋IP 維五源（redis_lock_ip/redis_unlock_marker_ip/db_count_ip/
-      #   redis_lock_set_ip/settings_default_ip）＋020 信箱驗證二源（emailverify_redis/emailverify_smtp
+      #   redis_lock_set_ip/settings_default_ip）＋rev4:020 信箱驗證二源（emailverify_redis/emailverify_smtp
       #   ——後者含 user 可觸發之不可投遞位址、判讀口徑見 RUNBOOK Gmail 節）——obs.rs
       #   pre_register_metrics 全數 pre-register 0、本 rule 不設 source selector＝任何值（含未來新增）
       #   增長皆命中；sum by (source) 保留降級源維度。
@@ -530,11 +530,11 @@ groups:
       # ══ ⑤ reaper-heartbeat-timeout：time() - reaper_last_success_timestamp{mode="execute", reaper_job="token-reap"} > 172800 ══
       # ★門檻 172800 = 2 × 86400（REAPER_INTERVAL_SECS 預設一日）——寫死＋互設註解錨（三檔同步：
       #   本檔＋compose 兩檔 reaper 段）：調 REAPER_INTERVAL_SECS MUST 同步改⑤/⑥兩門檻（維持 2×
-      #   關係）。健康判定僅認 mode="execute"（FR-010⑤：dry-run 心跳不算數）。
-      # ★017 T010 射程收斂：expr 補 reaper_job="token-reap" matcher——與⑥（audit-retention 組）
+      #   關係）。健康判定僅認 mode="execute"（rev4:FR-010⑤：dry-run 心跳不算數）。
+      # ★rev4:017 rev4:T010 射程收斂：expr 補 reaper_job="token-reap" matcher——與⑥（audit-retention 組）
       #   射程互斥；舊組殘留序列（無 reaper_job label）不 match＝不誤紅
-      #   （契約＝specs/017-audit-retention/contracts/alerting-retention.md）。
-      # ★noDataState=OK：未部署 jobs profile＝零序列＝視為健康、不誤紅（spec US1-AC4；
+      #   （契約＝specs/rev4:017-audit-retention/contracts/alerting-retention.md）。
+      # ★noDataState=OK：未部署 jobs profile＝零序列＝視為健康、不誤紅（spec rev4:US1-AC4；
       #   「僅 dry-run 在而 execute 缺席」的誤配案由 ⑤b 承載、本 rule 不管）。
       - uid: obs016-reaper-heartbeat-timeout
         title: reaper-heartbeat-timeout
@@ -589,11 +589,11 @@ groups:
                   type: query
 
       # ══ ⑤b reaper-mode-misconfig：dry-run 序列存在且 execute 序列缺席即紅（token-reap 組）══
-      # 堵「常駐空轉假健康」（spec US1-AC4 誤配案）：`unless ignoring(mode)`——dry-run 心跳在而
+      # 堵「常駐空轉假健康」（spec rev4:US1-AC4 誤配案）：`unless ignoring(mode)`——dry-run 心跳在而
       #   execute 心跳不在→回傳 dry-run 序列（timestamp 恆 > 0）→轉紅；execute 在（正常）或
       #   兩者皆無（未部署）→空向量→noDataState=OK＝綠。mode 字面錨＝contracts/reaper-cli.md
-      #   （mode=dry-run／mode=execute）。正向與誤配全驗歸 US3/T026。
-      # ★017 T010 射程收斂：expr 兩側補 reaper_job="token-reap"——`ignoring(mode)` 對 reaper_job
+      #   （mode=dry-run／mode=execute）。正向與誤配全驗歸 rev4:US3/rev4:T026。
+      # ★rev4:017 rev4:T010 射程收斂：expr 兩側補 reaper_job="token-reap"——`ignoring(mode)` 對 reaper_job
       #   參與匹配＝per-job 配對、與⑥b 射程互斥。
       - uid: obs016-reaper-mode-misconfig
         title: reaper-mode-misconfig
@@ -648,7 +648,7 @@ groups:
                   type: query
 
       # ══ ⑥ audit-retention-heartbeat-timeout：time() - reaper_last_success_timestamp{mode="execute", reaper_job="audit-retention"} > 172800 ══
-      # ★017 T010 新增（契約＝specs/017-audit-retention/contracts/alerting-retention.md）：鏡像⑤全結構。
+      # ★rev4:017 rev4:T010 新增（契約＝specs/rev4:017-audit-retention/contracts/alerting-retention.md）：鏡像⑤全結構。
       # ★門檻 172800 = 2 × 86400（REAPER_INTERVAL_SECS 預設一日）——與⑤共用同一互錨（三檔同步：
       #   本檔＋compose 兩檔 reaper 段）：調 REAPER_INTERVAL_SECS MUST 同步改⑤/⑥兩門檻（維持 2× 關係）。
       # ★noDataState=OK：未起 jobs profile／零序列＝視為健康、不誤紅（⑤ 拍板沿用）。
@@ -705,9 +705,9 @@ groups:
                   type: query
 
       # ══ ⑥b audit-retention-mode-misconfig：dry-run 序列存在且 execute 序列缺席即紅（audit-retention 組）══
-      # ★017 T010 新增：鏡像⑤b 全結構、matcher 收斂 reaper_job="audit-retention"——`ignoring(mode)`
+      # ★rev4:017 rev4:T010 新增：鏡像⑤b 全結構、matcher 收斂 reaper_job="audit-retention"——`ignoring(mode)`
       #   對 reaper_job 參與匹配＝per-job 配對、與⑤b 射程互斥。復歸機制＝execute 心跳 PUT 整組
-      #   替換汰換本組 dry-run 序列（契約＝specs/017-audit-retention/contracts/alerting-retention.md）。
+      #   替換汰換本組 dry-run 序列（契約＝specs/rev4:017-audit-retention/contracts/alerting-retention.md）。
       - uid: obs017-audit-retention-mode-misconfig
         title: audit-retention-mode-misconfig
         condition: C

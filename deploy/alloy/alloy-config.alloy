@@ -1,16 +1,16 @@
-// 016-observability T010：grafana Alloy docker-SD log 採集（rev3 018 as-built 逐檔適配）。
+// rev4:016-observability rev4:T010：grafana Alloy docker-SD log 採集（rev3:018 as-built 逐檔適配）。
 // 改名／改形點：① compose project rev3-admin→rev5-admin；② docker API host 由
-//   unix:///var/run/docker.sock 改 tcp://socket-proxy:2375（FR-015：alloy 非 root、
+//   unix:///var/run/docker.sock 改 tcp://socket-proxy:2375（rev4:FR-015：alloy 非 root、
 //   不掛 sock、僅經 deny-by-default 白名單代理）。其餘防雷姿態照搬。
 // ★ relabel KEEP rule 限本工作區（compose project=rev5-admin）、漏 keep ⇒ 採到並存其他
-//   workspace 的容器 log（FR-007 違反；本機 rev3-admin 全套並行運行＝活對照）。
+//   workspace 的容器 log（rev4:FR-007 違反；本機 rev3-admin 全套並行運行＝活對照）。
 
 // 從 socket-proxy 發現所有容器（proxy 白名單放行 containers/json＋networks 等唯讀端點）。
 discovery.docker "containers" {
 	host = "tcp://socket-proxy:2375"
 }
 
-// relabel：① KEEP 限 compose project=rev5-admin（FR-007）；② 抽 service／container／compose_project 標籤。
+// relabel：① KEEP 限 compose project=rev5-admin（rev4:FR-007）；② 抽 service／container／compose_project 標籤。
 discovery.relabel "containers" {
 	targets = discovery.docker.containers.targets
 

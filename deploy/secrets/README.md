@@ -1,21 +1,21 @@
 # deploy/secrets — Secret 管理說明
 
-★**019 起本目錄只剩 `README.md`（本檔）與 `*.txt.example` 範本**——機密**明文實值已遷出 repo**，
-落點＝`SECRETS_DIR`，**取值口徑三級**（唯一權威清單＝`specs/019-secrets-sops/contracts/secret-pipeline.md`
-P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但為空」≠「未設」＝吵鬧失敗、不代猜）
+★**rev4:019 起本目錄只剩 `README.md`（本檔）與 `*.txt.example` 範本**——機密**明文實值已遷出 repo**，
+落點＝`SECRETS_DIR`，**取值口徑三級**（唯一權威清單＝`specs/rev4:019-secrets-sops/contracts/secret-pipeline.md`
+rev4:P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但為空」≠「未設」＝吵鬧失敗、不代猜）
 ②repo 根 `.env` **只嚴格解析 `SECRETS_DIR=` 一行**（明令禁整檔 `source`；行形偵測與 compose 等寬
 ＝接受 BOM／`export ` 前綴／等號兩側空白／CRLF，值校驗才收窄）③皆缺**才**回退本目錄
-＝`deploy/secrets`。拍板預設值＝`$HOME/.cache/fork260509-rev4/secrets`（ADR 0084 統一樹；`.env.example` 有註解範例）。
-唯一例外＝`tools/bootstrap.sh` 依 P5.1 分工**只讀 `.env`、不吃環境變數**（體檢用途）。
+＝`deploy/secrets`。拍板預設值＝`$HOME/.cache/fork260509-rev5/secrets`（rev4:ADR 0084 統一樹；`.env.example` 有註解範例）。
+唯一例外＝`tools/bootstrap.sh` 依 rev4:P5.1 分工**只讀 `.env`、不吃環境變數**（體檢用途）。
 **權威來源＝ `deploy/secrets.dev.enc.yaml`**（10 key 密文、**tracked**、以 SOPS+age 加密）；
 營運全程序＝`docs/ops/RUNBOOK.md` §15。
 
 **請勿將真實 secret 值 commit 進版本庫。**（三層掃描防線會擋，但擋不住已經進歷史的東西。）
 
-★**本檔刻意不附落點解析片段**（019 U6 quality 第 3 輪移除）：下列命令全是腳本呼叫、**腳本自己按上述
-三級口徑解析**，貼進 shell 前不必先設變數。文件裡貼一段可複製的 `grep .env` 片段＝多一支不受 P5.1
+★**本檔刻意不附落點解析片段**（rev4:019 U6 quality 第 3 輪移除）：下列命令全是腳本呼叫、**腳本自己按上述
+三級口徑解析**，貼進 shell 前不必先設變數。文件裡貼一段可複製的 `grep .env` 片段＝多一支不受 rev4:P5.1
 消費者清單管束的**影子解析器**——移除的那段不讀環境變數（違反①）、且缺 UTF-8 BOM 與 CR 剝除＝
-偵測窄於 compose，於 BOM 形 `.env` 會**靜默回退**到 019 後已零 `.txt` 的本目錄（L-175／L-178 實證：
+偵測窄於 compose，於 BOM 形 `.env` 會**靜默回退**到 rev4:019 後已零 `.txt` 的本目錄（rev4:L-175／rev4:L-178 實證：
 回退恰是「看起來全綠」的方向）。人要在 shell 裡取得落點路徑時，**唯一權威片段住
 `docs/ops/RUNBOOK.md` §7 抬頭**——它刻意不設回退、取值失敗即印 `FAIL`（該節下表 `ALTER USER`
 讀到空字串會把密碼改成空）。
@@ -47,7 +47,7 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 > 檔案權限：腳本對落點設 **目錄 700／檔案 644**（644 是必要的——grafana UID 472、
 > postgres-exporter 65534、redis-exporter 59000 三個非 root service 要讀 `/run/secrets/*`；
 > 設 600 會在開 obs／metrics 軌時才炸）。落點在原生 Linux 檔系統（ext4）上時權限**確實生效**；
-> 只有回退到本目錄（`/mnt/*` drvfs／9p）時 `chmod` 為 no-op、顯示恆 `777`——**那正是 019 把
+> 只有回退到本目錄（`/mnt/*` drvfs／9p）時 `chmod` 為 no-op、顯示恆 `777`——**那正是 rev4:019 把
 > 落點遷出 repo 的理由之一**。
 
 > `--force` 風險：覆寫 leaf 後，正在運行的 stack 必須 **`docker compose up -d --force-recreate`**
@@ -67,15 +67,15 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
 | `redis_password.txt` | leaf（hex 24） | ✓ | redis＋healthcheck＋redis-exporter（metrics 軌） | command 內 `cat /run/secrets/redis_password`（requirepass）／exporter 側 sh-wrapper `cat` 後 `export REDIS_PASSWORD` |
 | `jwt_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_JWT_JWT_SECRET_FILE` |
 | `refresh_token_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_JWT_REFRESH_TOKEN_SECRET_FILE` |
-| `captcha_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_CAPTCHA_SECRET_FILE`（007 captcha challenge HS256 密鑰） |
-| `reaper_password.txt` | leaf（hex 24） | ✓ | 設密部署腳本（016；**不進 compose**） | psql `ALTER ROLE reaper LOGIN PASSWORD ...`（stdin heredoc、密碼絕不進 migration） |
-| `grafana_admin_password.txt` | leaf（base64 24） | ✓ | grafana（016、profiles:obs/metrics） | `GF_SECURITY_ADMIN_PASSWORD: $__file{/run/secrets/grafana_admin_password}`（grafana file provider） |
-| `smtp_password.txt` | leaf（base64 24） | ✓ | rust-api | `APP_SMTP_PASSWORD_FILE`（020 SMTP 寄信；dev 亂數不消費——dev 走 mailpit 無認證；prod 真值＝Gmail app password、填法依 RUNBOOK Gmail 節） |
-| `email_verify_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_EMAIL_VERIFY_SECRET_FILE`（020 信箱驗證憑據 HS256 密鑰——與 jwt／refresh／captcha 隔離的第四把） |
+| `captcha_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_CAPTCHA_SECRET_FILE`（rev4:007 captcha challenge HS256 密鑰） |
+| `reaper_password.txt` | leaf（hex 24） | ✓ | 設密部署腳本（rev4:016；**不進 compose**） | psql `ALTER ROLE reaper LOGIN PASSWORD ...`（stdin heredoc、密碼絕不進 migration） |
+| `grafana_admin_password.txt` | leaf（base64 24） | ✓ | grafana（rev4:016、profiles:obs/metrics） | `GF_SECURITY_ADMIN_PASSWORD: $__file{/run/secrets/grafana_admin_password}`（grafana file provider） |
+| `smtp_password.txt` | leaf（base64 24） | ✓ | rust-api | `APP_SMTP_PASSWORD_FILE`（rev4:020 SMTP 寄信；dev 亂數不消費——dev 走 mailpit 無認證；prod 真值＝Gmail app password、填法依 RUNBOOK Gmail 節） |
+| `email_verify_secret.txt` | leaf（base64 48） | ✓ | rust-api | `APP_EMAIL_VERIFY_SECRET_FILE`（rev4:020 信箱驗證憑據 HS256 密鑰——與 jwt／refresh／captcha 隔離的第四把） |
 | `database_url.txt` | composite | — | rust-api、migrate | `APP_DATABASE_URL_FILE`（migrate 真連庫；server 驗在場＋非空＋非佔位） |
 | `redis_url.txt` | composite | — | rust-api | `APP_REDIS_URL_FILE` |
-| `reaper_database_url.txt` | composite | — | reaper sidecar（016） | `APP_DATABASE_URL_FILE`（最小權限 DB 身分 reaper 連線） |
-| `alert_webhook_url.txt` | user 自填 | ✓ | grafana（016） | alerting provisioning `settings.url: $__file{/run/secrets/alert_webhook_url}` |
+| `reaper_database_url.txt` | composite | — | reaper sidecar（rev4:016） | `APP_DATABASE_URL_FILE`（最小權限 DB 身分 reaper 連線） |
+| `alert_webhook_url.txt` | user 自填 | ✓ | grafana（rev4:016） | alerting provisioning `settings.url: $__file{/run/secrets/alert_webhook_url}` |
 
 ### alert_webhook_url 特例（user 自填）
 
@@ -84,7 +84,7 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
   re-encrypt 回加密檔**。
 - `--force` **不重置**此檔（保護已填真值）；要重置＝刪檔重跑腳本。
 - **解密不覆寫**：`decrypt-secrets.sh` 發現落點現值 ≠ 加密檔內值時，**另存 `.txt.new` 並警示**、
-  原檔一個 byte 都不動（守衛全文＝`specs/019-secrets-sops/contracts/secret-pipeline.md` §P4.5）。
+  原檔一個 byte 都不動（守衛全文＝`specs/rev4:019-secrets-sops/contracts/secret-pipeline.md` rev4:§P4.5）。
 - 佔位值在場**仍會過 preflight**——preflight 檢的是「在位／非空／零 CR 零 LF／composite 與 leaf
   逐位元組一致」，**不判斷值是否為真實 URL**；佔位期間告警投遞必失敗、屬預期（投遞失敗不影響
   規則狀態與業務）。
@@ -93,7 +93,7 @@ P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯出但
   provisioning 的 `$__file` 注入，見上方對照表該列），黑名單住 server config、跑不到不消費的檔；
   ②守衛實作是**前綴**比對（`value.starts_with("CHANGE-ME")`）而腳本佔位字面以 `https://` 起頭
   （`https://CHANGE-ME.invalid/...`），即使被讀也必不命中。故留著佔位值**不會有任何東西出聲**，
-  唯一徵狀是告警投遞靜默失敗——**填真值全靠人記得**（此缺口已登記 B-119）。
+  唯一徵狀是告警投遞靜默失敗——**填真值全靠人記得**（此缺口已登記 rev4:B-119）。
 
 ## Dual-write 不變式
 

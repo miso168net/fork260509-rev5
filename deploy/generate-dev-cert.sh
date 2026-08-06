@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/generate-dev-cert.sh — dev TLS 憑證生成（hybrid CA；001-compose-stack）
+# deploy/generate-dev-cert.sh — dev TLS 憑證生成（hybrid CA；rev4:001-compose-stack）
 # 用法：./deploy/generate-dev-cert.sh [--force]
 #
 # Hybrid 模式：
@@ -8,7 +8,7 @@
 #
 # 設計：
 #   - openssl 全跑 alpine/openssl 容器——host 除 docker 外零依賴。
-#     （輔助映像沿 latest 浮動 tag＝拍板豁免 ADR 0022；勿改釘數字版。）
+#     （輔助映像沿 latest 浮動 tag＝拍板豁免 rev4:ADR 0022；勿改釘數字版。）
 #   - RSA 2048／SAN＝localhost＋127.0.0.1
 #   - 外部 CA 路線：fullchain.pem ＝ leaf + intermediate
 #   - 自簽路線：fullchain.pem ＝ leaf only（root 已是 ca.pem）

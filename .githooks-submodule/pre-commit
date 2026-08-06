@@ -1,5 +1,5 @@
 #!/bin/sh
-# 兩源倉（base-web／rust-api）專用 pre-commit — 僅 Betterleaks 樣式掃描（019 scan-gates §S1）。
+# 兩源倉（base-web／rust-api）專用 pre-commit — 僅 Betterleaks 樣式掃描（rev4:019 rev4:scan-gates §S1）。
 # ★零 python 依賴、毫秒級、不 source 任何 lib（scan-range.sh 只承載 pre-push 面）；
 #   不觸發上游 husky／pnpm 鏈。寄宿外層 repo、由 bootstrap 設 core.hooksPath 指到本目錄
 #   （per-machine、源倉樹零改動）；config 以 dirname 自我定位取外層 .gitleaks.toml

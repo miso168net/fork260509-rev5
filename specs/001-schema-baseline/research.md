@@ -10,7 +10,7 @@
   runtime-tokio-rustls, cli；entity＝macros, with-chrono, with-json, with-ipnetwork）、
   `casbin` 2.20.0（default-features=false）、`async-trait` 0.1.89、`tokio` 1.52.3。
   **不引入 `argon2`**（rev4 migration 有、rev5 不需——Q1 拍板 PHC 寫死常數、無 runtime 雜湊）。
-- **Rationale**: ①rust 1.96.1 已由 001-compose-stack 移植定版（deploy/Dockerfile.rust-api
+- **Rationale**: ①rust 1.96.1 已由 rev4:001-compose-stack 移植定版（deploy/Dockerfile.rust-api
   `FROM rust:1.96.1-slim`、Debian trixie 對齊義務註解在案）——toolchain 非本刀新拍板；
   ②其餘 pins 全數為 rev4 workspace 註解載明之 user 拍板值（「完整三段版號釘死」制度）、
   已驗證組合、與 dev 映像同代；③版本紀律（CLAUDE.md §6）之「雙源對照」以 rev4 lockfile
@@ -44,12 +44,12 @@
 - **Rationale**: 明示 id＋setval 使重放結果與凍結 fixtures 逐列全等（含 sequence 落值）
   ——SC-001 字面成立；單支 m001／m002 對齊「壓平」語意與 migration 短編號紀律（下一刀
   自 m003 起編）。
-- **Alternatives considered**: 隱式 id（吃 nextval、沿 rev4 m002 形）——放棄：決定性繫於
+- **Alternatives considered**: 隱式 id（吃 nextval、沿 rev4:m002 形〔rev4 隱式 id 語境、非 rev5 m002〕）——放棄：決定性繫於
   插入順序、且 fixtures 的 id 已定稿，明示更可稽核。
 
 ## R4 reaper DB role／GRANTs 不入基線
 
-- **Decision**: rev4 m012／m013 的 reaper role（NOLOGIN）＋恰好集 GRANTs **不入** rev5 基線。
+- **Decision**: rev4:m012／rev4:m013 的 reaper role（NOLOGIN）＋恰好集 GRANTs **不入** rev5 基線。
 - **Rationale**: spec 範圍聲明之忠實射程＝「型別／nullable／default／約束／索引」＋seed
   （表資料）——DB role／GRANT 屬 cluster 級運維工件、不在三節快照面，亦非 seed；其歸屬
   域＝observability／audit-retention（隨該域刀重進場、provenance rev4:ADR 0072）。基線閘
@@ -64,7 +64,7 @@
   --data-only` normalize 版：COPY 段整列排序、保留 setval 行）＋`provenance.md`（產製
   日期／映像／來源 SHA／比對紀錄）。凍結後永不改寫。
 - **Rationale**: 三 json 與照相管線同構＝gate1 直接可比、零轉換層；data-only dump 天然
-  含 COPY 資料與 setval（sequence 落值入比對面）；rev4 的 varchar 長度 sidecar（B-055）
+  含 COPY 資料與 setval（sequence 落值入比對面）；rev4 的 varchar 長度 sidecar（rev4:B-055）
   不需要——本格式 `format_type` 已含長度修飾、無資訊損失。
 - **Alternatives considered**: 全 pg_dump（含 DDL）當唯一 fixture——放棄：DDL 文字形對
   重排噪音敏感、且結構面已有三 json 全等比對，重複承載。
@@ -76,7 +76,7 @@
   非容差剝除、未登記漂移一律紅）；gate2 欄序＋seed（欄序 vs data-model §2 定稿逐表全等、
   casbin_rule 欄序豁免；seed vs fixtures/seed.sql 未排序逐列 diff、COPY 段整列排序
   normalize、★禁全檔排序後雜湊）；audit archetype（archetype-map.json 15 表 × §I.6 四變體
-  規則逐表驗）。rev4 白名單三段鑿洞模型（ADR 0032/0039/0064 殘留）**整組移除**；
+  規則逐表驗）。rev4 白名單三段鑿洞模型（rev4:ADR 0032/rev4:0039/rev4:0064 殘留）**整組移除**；
   check 入口無條件合成 self-test（沿 entity-drift-gate 模式：健康對必綠＋注入假漂移必紅、
   self-test 敗＝rc 2 不讀真檔）。退出碼語意沿 repo 工具慣例（0 綠／1 漂移／2 環境結構
   異常／64 用法）。rename map 對賬僅用於「vs rev4 快照」的血緣核對場景（工具內建
@@ -102,7 +102,7 @@
 - **Decision**: 15 個 entity 檔（含 casbin_rule.rs——drift 比對豁免該表、但 entity 面
   完整）＋lib.rs 匯出；sea-orm features 恰四項（macros／with-chrono→timestamptz／
   with-json→jsonb／with-ipnetwork→inet，承 rev4 R6）；欄名＝rename 後 rev5 定稿名。
-  全新打字（§I.5、參照 rev4 對照驗證但不拷貝）；entity-drift-gate 既建（B-110 階段 0）
+  全新打字（§I.5、參照 rev4 對照驗證但不拷貝）；entity-drift-gate 既建（rev4:B-110 階段 0）
   ——快照就位後 pre-commit 自動恢復實跑、毋需改 hook。
 - **Rationale**: entity-drift 左源＝rev5 快照（rename 後欄名）→ entity 必同名，否則
   drift 紅；casbin_rule entity 面在場（rev4 同形）供後續 server 刀消費。

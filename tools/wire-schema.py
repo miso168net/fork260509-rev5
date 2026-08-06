@@ -5,7 +5,7 @@
 子命令：
   extract   base-web 容器內 npx 抽取 typings → draft-07 JSON Schema 快照，
             原子替換寫 rust-api/server/tests/fixtures/wire-schema.json（需 stack 在跑）
-  check     重抽 typings 至暫存路徑、與工作樹快照 byte 比對（B-128 drift 閘；絕不覆寫
+  check     重抽 typings 至暫存路徑、與工作樹快照 byte 比對（rev4:B-128 drift 閘；絕不覆寫
             快照）。--staged-gate＝pre-commit 專用收窄：staged base-web gitlink 區間零
             typings 變動即跳過。容器不可用＝警告＋0 放行；容器可用但重抽失敗／不一致＝2
   test      跑自帶測試（unittest、離線可跑）
@@ -15,7 +15,7 @@
 （無產生時點欄位、同源重抽 byte 一致）。唯讀鐵則：npx 一次性、不碰 base-web 工作樹／
 package.json／pnpm lock；前端 porcelain 前後皆空。用法錯誤走 exit 64（EX_USAGE）。
 
-lineage：specs/003-wire-foundation/（契約＝contracts/contract-machinery.md §1、機器基準＝
+lineage：specs/rev4:003-wire-foundation/（契約＝contracts/contract-machinery.md §1、機器基準＝
 data-model.md §3、抽取工具實測與釘版＝research.md R1）。
 """
 import contextlib
@@ -31,9 +31,9 @@ import unittest.mock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# 抽取工具釘版（research R1；npx 一次性、不進任何 manifest）。
+# 抽取工具釘版（rev4:research R1；npx 一次性、不進任何 manifest）。
 TSJS_VERSION = "0.67.4"
-# typings 抽取檔集（research R1：api 四檔＋common.d.ts 的 utility 命名空間）。
+# typings 抽取檔集（rev4:research R1：api 四檔＋common.d.ts 的 utility 命名空間）。
 TYPINGS_GLOB = "src/typings/{common,api/*}.d.ts"
 # 抽取型別選擇（全型別）與旗標（容忍 .d.ts 單編噪音＋required 欄完整）。
 TSJS_TYPE = "*"
@@ -55,7 +55,7 @@ class ExtractError(Exception):
 
 
 def build_npx_command():
-    """組裝容器內 npx 抽取命令字串（釘版、檔集、型別、旗標——research R1 逐字）。"""
+    """組裝容器內 npx 抽取命令字串（釘版、檔集、型別、旗標——rev4:research R1 逐字）。"""
     return (
         f'npx -y typescript-json-schema@{TSJS_VERSION} '
         f'"{TYPINGS_GLOB}" "{TSJS_TYPE}" ' + " ".join(TSJS_FLAGS)
@@ -132,7 +132,7 @@ def cmd_extract():
 
 
 # ---------------------------------------------------------------------------
-# check 子命令（B-128 快照 drift 閘）
+# check 子命令（rev4:B-128 快照 drift 閘）
 # ---------------------------------------------------------------------------
 
 # --staged-gate 收窄的 typings 抽取面（＝TYPINGS_GLOB 對應 pathspec）。
@@ -205,7 +205,7 @@ def staged_typings_verdict(run_outer=_run_capture, run_baseweb=_run_git_baseweb)
 
 def cmd_check(staged_gate=False, run=_run_capture, run_outer=_run_capture,
               run_baseweb=_run_git_baseweb, output_path=OUTPUT_PATH):
-    """check 子命令：重抽 typings 至暫存路徑、與工作樹快照 byte 比對（B-128 drift 閘）。
+    """check 子命令：重抽 typings 至暫存路徑、與工作樹快照 byte 比對（rev4:B-128 drift 閘）。
 
     絕不覆寫 OUTPUT_PATH；比對工作樹檔、勿讀 git blob（快照剛改未 commit 的中間態會誤紅）。
     fail 語意（user 親決 2026-08-01）：容器不可用→警告＋0 放行；容器可用但重抽失敗→2。"""
@@ -295,7 +295,7 @@ class TestCommandAssembly(unittest.TestCase):
         self.assertIn(f'"{TSJS_TYPE}"', cmd)
         self.assertIn("--ignoreErrors", cmd)
         self.assertIn("--required", cmd)
-        # 完整逐字（釘版契約＝research R1 實測命令形）。
+        # 完整逐字（釘版契約＝rev4:research R1 實測命令形）。
         self.assertEqual(
             cmd,
             'npx -y typescript-json-schema@0.67.4 '
@@ -368,7 +368,7 @@ class TestAtomicWrite(unittest.TestCase):
 
 
 class TestSnapshotsMatch(unittest.TestCase):
-    """check 比對純函式紅綠（B-128；亦為入口合成 self-test 的直接對象）。"""
+    """check 比對純函式紅綠（rev4:B-128；亦為入口合成 self-test 的直接對象）。"""
 
     def test_identical_bytes_match(self):
         payload = b'{"definitions":{"A":{}}}'

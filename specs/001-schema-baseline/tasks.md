@@ -121,7 +121,7 @@ protected 明示／setval×4），重放與 seed-decision.json 逐列全等。
 - [x] T011 [US3] 整組重建 `tools/schema-gate.py`（契約＝contracts/gates.md 逐條）：
       gate1 凍結＋演進帳合成全等／gate2 欄序（parse data-model §2；casbin_rule 豁免）＋
       seed（pg_dump normalize：COPY 段整列排序、★禁全檔排序後雜湊）／audit archetype
-      （15 表×四變體規則）；rev4 白名單模型（ADR 0032/0039/0064 殘留＋specs/002 字面）
+      （15 表×四變體規則）；rev4 白名單模型（rev4:ADR 0032/rev4:0039/rev4:0064 殘留＋specs/002 字面）
       整組移除；check 入口無條件合成 self-test；`test` 子命令含四類 negative 注入
       （結構／欄序／seed 值／sequence 落值各≥1、全紅）＋登記檔壞形自測（knife 格式錯／
       kind 非枚舉／id 非遞增各≥1 例、斷言 rc 2 指名）——驗收＝`test` 全綠＋fixtures

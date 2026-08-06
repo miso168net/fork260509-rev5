@@ -35,7 +35,7 @@
 
 作為 workspace 維護者，我要 rev5 資料庫結構基線＝rev4 終態 15 表壓平、且欄序／欄名／型別依親排
 定稿（brainstorm §5，含 rename map 4 組與定稿差異——授權偏離集詳 data-model §4），使後續一切功能刀都建立在單一權威
-schema 起點上；rev4 的後續 delta（m003～m015）不搬（淨效果已含於終態），rev5 第一支 delta 自
+schema 起點上；rev4 的後續 delta（rev4:m003～rev4:m015）不搬（淨效果已含於終態），rev5 第一支 delta 自
 m003 起編。
 
 **Why this priority**: 沒有結構基線，rust-api 首批程式工件與一切後續刀都無地基；定稿制（而非
@@ -162,7 +162,7 @@ SDD clarify 步、user 親自定稿不可代勞。依賴 US1 的素材產製鏈�
 **基線定稿**
 
 - **FR-001**: rev5 資料庫基線 MUST 為 rev4 終態 15 表之壓平：結構基線（m001）＋seed 基線
-  （m002）兩支；rev4 的 m003～m015 delta 不搬；rev5 第一支後續 delta 自 m003 起編
+  （m002）兩支；rev4 的 rev4:m003～rev4:m015 delta 不搬；rev5 第一支後續 delta 自 m003 起編
   （migration 短編號紀律）。
 - **FR-002**: 14 親排表之欄序／欄名／型別 MUST 逐欄轉錄 brainstorm §5 定稿至 data-model 凍結，
   含 rename map 節（4 組、全在 sys_operation_log）與定稿差異節（授權偏離集：region 新增、
