@@ -23,9 +23,9 @@ rev4:P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯�
 ## 取得機密的方式（三條路徑，依情境擇一）
 
 ```bash
-./deploy/decrypt-secrets.sh                # ★主路徑：自加密檔還原 10 支（9 leaf＋alert_webhook_url）
+python3 deploy/decrypt-secrets.py           # ★主路徑：自加密檔還原 10 支（9 leaf＋alert_webhook_url）
 ./deploy/generate-secrets.sh --compose-only # 由 leaf 重組 3 支 composite（缺 leaf＝報錯退出、絕不代生成）
-./deploy/preflight-secrets.sh               # 上機前把關（缺檔／CR／LF／composite drift 一律非零退出）
+python3 deploy/preflight-secrets.py         # 上機前把關（缺檔／CR／LF／composite drift 一律非零退出）
 ```
 
 - **新機／落點被清空** → 上列三行依序跑（`decrypt` 需互動輸入 identity 的 passphrase）。
@@ -41,7 +41,7 @@ rev4:P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯�
 
 > ★**與加密檔的關係**：`generate` 產的是**落點明文**，加密檔**不會自己跟著變**。任何以
 > `generate --force`／單支重生做的輪替，**做完必依 RUNBOOK §15.4 re-encrypt 回
-> `deploy/secrets.dev.enc.yaml`**；漏此步＝輪替值與加密檔脫鉤，下次 `decrypt-secrets.sh`
+> `deploy/secrets.dev.enc.yaml`**；漏此步＝輪替值與加密檔脫鉤，下次 `decrypt-secrets.py`
 > 會判 DIFF 而產出 `.txt.new`（不覆寫），他機拉下來拿到的仍是舊值。
 
 > 檔案權限：腳本對落點設 **目錄 700／檔案 644**（644 是必要的——grafana UID 472、
@@ -83,7 +83,7 @@ rev4:P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯�
   真實 webhook URL 由 user 直接編輯落點的 `alert_webhook_url.txt` 填入，**填完必依 RUNBOOK §15.4
   re-encrypt 回加密檔**。
 - `--force` **不重置**此檔（保護已填真值）；要重置＝刪檔重跑腳本。
-- **解密不覆寫**：`decrypt-secrets.sh` 發現落點現值 ≠ 加密檔內值時，**另存 `.txt.new` 並警示**、
+- **解密不覆寫**：`decrypt-secrets.py` 發現落點現值 ≠ 加密檔內值時，**另存 `.txt.new` 並警示**、
   原檔一個 byte 都不動（守衛全文＝`specs/rev4:019-secrets-sops/contracts/secret-pipeline.md` rev4:§P4.5）。
 - 佔位值在場**仍會過 preflight**——preflight 檢的是「在位／非空／零 CR 零 LF／composite 與 leaf
   逐位元組一致」，**不判斷值是否為真實 URL**；佔位期間告警投遞必失敗、屬預期（投遞失敗不影響
@@ -103,7 +103,7 @@ rev4:P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯�
 | `redis_url.txt` | `redis://:<pw>@redis:6379` | `redis_password.txt`（byte-identical） |
 | `reaper_database_url.txt` | `postgres://reaper:<pw>@postgres:5432/soybean_admin_rust` | `reaper_password.txt`（byte-identical） |
 
-不變式（`generate-secrets.sh` 保證、`preflight-secrets.sh` 把關）：
+不變式（`generate-secrets.sh` 保證、`preflight-secrets.py` 把關）：
 
 - **dual-write**：composite 內嵌密碼與對應 leaf byte-identical；leaf 重生（或被單獨改動）
   → composite 連動重寫，不留兩處不一致。判定走 `printf '%s' | cmp -s -`（**逐位元組**，

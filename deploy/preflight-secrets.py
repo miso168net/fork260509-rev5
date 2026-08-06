@@ -133,7 +133,7 @@ def collect_perm_rows(secrets_dir):
 def perm_hits(secrets_dir, dir_mode, rows):
     """rev4:B-123 權限面三斷言（純判定）：目錄 mode 700／檔 mode 644／檔 owner 非 root。
 
-    縱深防禦、超出契約 rev4:P5.6 要求面。decrypt-secrets.sh 每次寫出即自證此形
+    縱深防禦、超出契約 rev4:P5.6 要求面。decrypt-secrets.py 每次寫出即自證此形
     （rev4:P4.4／rev4:P4.6 目錄 700、rev4:P4.7 檔 644），但落點檔被人手改（chmod 600、
     目錄 777、sudo 建檔）後現檢照樣全綠——而那正是 rev4:P4.5／rev4:P4.7 自陳「只在開
     obs／metrics 軌時才炸」的失敗形。本斷言把它前移到 up 之前指名。
@@ -238,7 +238,7 @@ def cmd_check(root=None, env=None):
         for m in missing:
             print(f"   - {m}")
         print("")
-        print("→ SOPS 管線重建：./deploy/decrypt-secrets.sh（10 支）→ "
+        print("→ SOPS 管線重建：python3 deploy/decrypt-secrets.py（10 支）→ "
               "./deploy/generate-secrets.sh --compose-only（3 composite）。")
         print("  （無加密檔情境仍可 ./deploy/generate-secrets.sh 一鍵生成 dev 亂數、缺的才補。）")
         return 1
@@ -266,13 +266,13 @@ def cmd_check(root=None, env=None):
     if cr:
         print("FAIL：下列 secret 檔含 CR 字元（內容劣化、值進連線字串即靜默壞）："
               + " ".join(cr))
-        print("→ 重跑 ./deploy/decrypt-secrets.sh（printf 管線寫檔、零 CR）後再驗。")
+        print("→ 重跑 python3 deploy/decrypt-secrets.py（寫出即零 CR）後再驗。")
         return 1
     if nl:
         print("FAIL：下列 secret 檔含換行字元（printf '%s' 寫檔形應零換行；尾端換行會讓 "
               "composite")
         print("      一致性檢查失明、容器拿到與 composite 不符的值）：" + " ".join(nl))
-        print("→ 重跑 ./deploy/decrypt-secrets.sh（10 支）＋ "
+        print("→ 重跑 python3 deploy/decrypt-secrets.py（10 支）＋ "
               "./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。")
         return 1
 

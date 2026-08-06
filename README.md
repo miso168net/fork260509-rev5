@@ -55,7 +55,7 @@ fork260509-rev5/
 
 1. `bash tools/bootstrap.sh`
 2. `bash deploy/generate-secrets.sh`
-3. `bash deploy/preflight-secrets.sh`
+3. `python3 deploy/preflight-secrets.py`
 4. `bash deploy/generate-dev-cert.sh`（★非可選——缺憑證 up 即 front-nginx 死循環；自簽 ca.pem 記得 trust 進 OS）
 5. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait`
 
