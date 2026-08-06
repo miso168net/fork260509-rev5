@@ -164,6 +164,7 @@ run_tool_test tools/wire-schema.py
 run_tool_test tools/secret-value-guard.py
 run_tool_test tools/entity-drift-gate.py
 run_tool_test deploy/preflight-secrets.py
+run_tool_test deploy/decrypt-secrets.py
 python3 "$ROOT/tools/fork-delta-lint.py" || die "fork-delta-lint 未過——見上方指名"
 ok "fork-delta-lint 全綠（self-test＋實掃）"
 # entity 漂移閘實跑（rev4:B-110；worktree 已於上方重建、entity 檔必在——零 docker、秒級）
