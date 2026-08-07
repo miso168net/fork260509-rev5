@@ -32,6 +32,9 @@ user 核可 2026-08-08；本 spec 之唯一輸入。直接輸入含 BACKLOG B-01
   （FR-019）→ A: **`2222` 業務驗證失敗**（HTTP 200 信封）：未知鍵＝payload 內容非法、
   與其餘 registry 拒收形同組、前端單一錯誤提示路徑；`4040` 之資源定位語意與「鍵在 body、
   路徑固定」的 wire 形不符。rev4 若採他碼＝以本拍板為準、記拍板差異點（ADR 0019 清單）。
+- （plan 期拍板補記 2026-08-08）Q: gen.msg_dict Day-1 豁免兩表假設不一致如何收？→
+  A: **甲案——改謂詞續留豁免**（ADR 0020）：解除謂詞改「兩語皆含 backend 樹」、en-us.ts
+  本刀零改動、字典生成器不接通；msg-dict 真表與兩語鍵集斷言延前端 i18n 接線刀。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -167,7 +170,8 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 - **msg 訊息鍵未命中前端字典**：前端 graceful fallback（憲法 §I.3 既定），本刀 msg 一律
   穩定 i18n key、不回人話字串。
 - **不認識的 header**：一律忽略（憲法 §II #1），契約測試不因多餘 header 改變行為。
-- **值長度上限**：值域宣告涵蓋長度面（varchar 落庫），超長屬範圍驗證拒收、非截斷。
+- **值長度**：本刀不設字串長度上限（庫真表 setting_value／description 皆無長度上限之
+  varchar；enum 值域自然限長、number 由範圍限長）——「超長拒收」非本刀驗證面。
 - **4 保留碼**：`7778`／`8889`／`9998`／`9999` 後端從不發出（憲法 §I.3），契約測試斷言
   本刀零發出。
 
@@ -180,11 +184,14 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 - **FR-001**: rust-api server 首批程式工件 MUST 使六業務件 `up -d --wait` 起得齊（migrate
   啟動閘之後 server 常駐、容器健康判定可過）；RUNBOOK §1 步 5 的「B12 之前跑不完」已知態
   註記 MUST 同刀撤除。
-- **FR-002**: 路由 MUST 收斂單檔 ROUTES 常量（K1-07）；本刀業務 route 恰兩條＝
-  `GET /systemManage/getSystemSettings`＋`POST /systemManage/updateSystemSetting`
-  （路徑與方法由 casbin seed 政策列 66／67 錨定；本刀 MUST NOT 動 casbin seed）；
-  信封例外端點（/health plain text，憲法 §I.3 例外集）隨 server 就位供健康判定；
-  gen.router Day-1 豁免 MUST 依到期即紅下架、routes 參考真表恢復重算。
+- **FR-002**: 路由 MUST 收斂單檔 ROUTES 常量（K1-07）；本刀 route 集＝業務 2＋信封
+  例外 2 恰四條：業務＝`GET /systemManage/getSystemSettings`＋
+  `POST /systemManage/updateSystemSetting`（路徑與方法由 casbin seed 政策列 66／67
+  錨定；本刀 MUST NOT 動 casbin seed）；信封例外＝`/health`（plain text "ok"）＋
+  `/metrics`（Prometheus exposition）皆 MUST 隨 server 就位（憲法 §I.3 例外集恰二；
+  /metrics 為觀測 stack 既設刮取面——rustapi-down 告警 noDataState=Alerting、缺席＝
+  恆紅；兩端點驗收＝dev 直連埠直打）；gen.router Day-1 豁免 MUST 依到期即紅下架、
+  routes 參考真表恢復重算。
 
 **讀端**
 
@@ -199,9 +206,10 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 - **FR-005**: 寫端 MUST 為單鍵更新：以 setting_key 定位、提交新值；成功→`0000`、落庫、
   回讀一致。可更新欄集＝setting_value（必）＋description（三態，FR-011）；setting_key／
   setting_type 不可經寫端變更；無新增鍵／刪除鍵端點（16 鍵集合凍結）。
-- **FR-006**: registry MUST 為每鍵顯式宣告型別與值域：型別集以現庫 16 鍵定形（int-range／
-  enum-switch 兩型起步、可擴）；每 number 鍵 MUST 有顯式範圍宣告（逐鍵值域數字＝plan／
-  data-model 凍結）；registry 未宣告之鍵＝未知鍵拒收。
+- **FR-006**: registry MUST 為每鍵顯式宣告型別與值域：型別集以現庫 16 鍵定形——字面＝
+  setting_type DB 真值 `number`（區間型）／`enum:on,off`（開關型）兩型起步、可擴；每
+  `number` 鍵 MUST 有顯式範圍宣告（逐鍵值域數字＝plan／data-model 凍結）；registry
+  未宣告之鍵＝未知鍵（拒收碼面見 FR-007）。
 - **FR-007**: 驗證失敗 MUST 不寫入：型別不符／超範圍／enum 外值／未知鍵→`2222`＋穩定
   i18n key 明細、庫中原值保留；每一拒收形 MUST 有契約測試案。
 - **FR-008**: number 型值 MUST 正規化落庫（等價非正規字面→單一正規形；正規形定義隨 plan
@@ -251,11 +259,14 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
   | NOT NULL 欄顯式清空 | `2222` | 200 |
   | 授權拒絕（政策無授） | `5003` | 403 |
   | 庫中未知 setting_type（fail-loud） | `5000` | 200 |
-  | 未認證（`Authorization` 標頭缺席） | `8888`（Clarify Q2；rev4 對應語意 plan 期複核） | 200 |
+  | 未認證（`Authorization` 標頭缺席／非 Bearer 形） | `8888`（Clarify Q2；rev4 對應語意 plan 期複核） | 200 |
+  | 路由未匹配（router fallback、非本刀業務路徑） | `4040` | 404 |
 
   4 保留碼 MUST 斷言本刀零發出；msg MUST 為穩定 i18n key。
-- **FR-020**: i18n 字典兩側源 MUST 就位：base-web zh-tw 語言檔建檔＋接字典生成器（FR-026
-  起手項）；本刀新增之 msg key MUST 進兩側源。
+- **FR-020**: i18n 契約兩側源 MUST 就位——兩側＝**後端 msg key 構造點**與 **base-web
+  zh-tw 語言檔**（Lint24 契約面）；本刀新增之 msg key MUST 與 zh-tw 語言檔增鍵同單元
+  落地（少鍵＝缺譯紅、多鍵＝孤兒紅）。en-us 側依 ADR 0020 本刀零改動、字典生成器不
+  接通（gen.msg_dict 豁免改謂詞續留）；兩語鍵集斷言延前端 i18n 接線刀。
 
 **資料面（B-014）**
 
@@ -277,15 +288,17 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 
 **治理起手與收刀 DoD**
 
-- **FR-026**: 起手 tasks MUST 含（先於 server 首支 .rs 之 commit）：①建 base-web zh-tw
-  語言檔＋接字典生成器 ②下架 lint24.day1 與 gen.router 兩筆到期豁免 ③gen.msg_dict 豁免
-  與 lint24 謂詞的兩表假設不一致一併釐清（處置＝下架或修謂詞、依釐清結果）。
+- **FR-026**: 起手 tasks MUST 含（收攏於 server .rs 落地後之**首次傘狀 commit**——
+  組合拳形；lint24.day1／gen.router 解除謂詞皆看檔案系統、真攔截點＝傘狀 pre-commit，
+  故該次 commit 前傘狀 commit 一律凍結）：①建 base-web zh-tw 語言檔（起手鍵集＝後端
+  實發集∪Lint24 內部鍵白名單）②下架 lint24.day1 與 gen.router 兩筆到期豁免
+  ③gen.msg_dict 解除謂詞改「兩語皆含 backend 樹」、豁免續留（ADR 0020 甲案）。
 - **FR-027**: B-028 量測 MUST 跑兩輪：第一輪起手態（動工前、容器內冷編＋單檔增量）、
   第二輪 server 依賴進場後；數據落帳依 RUNBOOK §12.1 形制；收刀時 B-028 條目改寫留
   DDL 半條、勿整列刪。
 - **FR-028**: K1 承襲盤點（brainstorm §2 表＝B-001 要求①）MUST 於 plan Constitution Check
-  後回填「實際消費對照表」（B-001 要求②）；據此評估承襲盤點機器閘實需、結論留帳（實作
-  若判要做＝B12 後維護批、不入本刀）。
+  後回填「實際消費對照表」（B-001 要求②）；據此評估承襲盤點機器閘實需、結論留帳——
+  落帳去處＝BACKLOG B-001 條目改寫＋收刀事件（實作若判要做＝B12 後維護批、不入本刀）。
 - **FR-029**: 收刀 DoD MUST 全綠：契約測試（per route＋registry 紅綠矩陣＋三態案＋授權
   拒絕案）＋entity-drift＋schema-gate 三閘＋lint 全量；US1～US5 驗收場景全數對應至少
   一測試案。
@@ -296,8 +309,9 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
   setting_value NOT NULL、description nullable、六審計欄 archetype A）；現庫 16 鍵＝
   number 型 10 鍵（節流窗／密碼長度／逾時等）＋enum:on,off 型 6 鍵（密碼複雜度開關／
   single_session_default 等）；鍵集合本刀凍結、僅值可變。
-- **設定值 registry**: per-key 型別與值域宣告表（int-range／enum-switch 兩型起步、可擴）；
-  驗證的唯一權威、未宣告鍵拒收；逐鍵值域數字隨 plan 凍結。
+- **設定值 registry**: per-key 型別與值域宣告表（`number` 區間型／`enum:on,off` 開關型
+  兩型起步、可擴；字面＝setting_type DB 真值）；驗證的唯一權威、未宣告鍵拒收；逐鍵
+  值域數字隨 plan 凍結。
 - **wire 契約物**: typings 新檔（權威）＋自其抽出之 JSON Schema 快照＋契約測試 fixtures；
   信封與 13 碼矩陣照憲法 §I.3 凍結面消費。
 - **casbin 政策（seed 現況、本刀不動）**: 設定域三列皆僅 R_SUPER（讀 66／寫 67／menu 69、
@@ -313,7 +327,7 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 ### Measurable Outcomes
 
 - **SC-001**: 讀端端到端：R_SUPER 讀回 16 鍵、與 seed 定稿逐鍵全等（key／type／value／
-  description 四欄）；R_ADMIN 讀被拒且 data 零內容。
+  description 四欄）；授權拒絕面統一歸 SC-004。
 - **SC-002**: 寫端往返：合法更新（number 與 enum 各至少 1 例）後回讀＝新值、audit 欄成對
   非空；number 非正規字面落庫為正規形。
 - **SC-003**: registry 紅綠矩陣全數正確：兩型各有合法過／非法拒對、未知鍵拒、未知型
@@ -324,9 +338,10 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
   setting_value 顯式清空拒收——四案各有契約測試。
 - **SC-006**: 契約覆蓋自證：兩業務 route 皆有契約測試案，抽掉任一 route 之案 coverage
   gate 即紅（negative 自證）；4 保留碼零發出斷言在案。
-- **SC-007**: DoD 鏈全綠：六業務件 `up -d --wait` 起得齊＋RUNBOOK §1 已知態註記撤除＋
-  三筆 Day-1 豁免處置完畢（lint24.day1／gen.router 下架、gen.msg_dict 依釐清結果）後
-  全量 lint 零紅＋entity-drift 綠＋schema-gate 三閘綠。
+- **SC-007**: DoD 鏈全綠：六業務件 `up -d --wait` 起得齊（`/health` 直打回 "ok"、
+  `/metrics` exposition 可取得）＋RUNBOOK §1 已知態註記撤除＋三筆 Day-1 豁免處置完畢
+  （lint24.day1／gen.router 下架、gen.msg_dict 改謂詞續留＝ADR 0020）後全量 lint 零紅＋
+  entity-drift 綠＋schema-gate 三閘綠。
 - **SC-008**: B-028 兩輪量測數據落帳（RUNBOOK §12.1 形制）；K1 實際消費對照表回填在案
   （B-001 要求②）。
 

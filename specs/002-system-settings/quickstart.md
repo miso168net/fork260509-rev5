@@ -39,7 +39,6 @@ curl -ks $BASE/systemManage/getSystemSettings | python3 -m json.tool
 ## 3. 寫端往返（US2/US3/US5）
 
 ```bash
-AUTH='-H "Authorization: Bearer dev-super" -H "Content-Type: application/json"'
 U=$BASE/systemManage/updateSystemSetting
 # 合法＋正規化：正號字面棄除、落庫為 "10"
 curl -ks $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
@@ -60,6 +59,10 @@ curl -ks $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/j
 ## 4. 測試與閘（US 全；DoD）
 
 ```bash
+# /health 與 /metrics（★dev 直連埠 22079 直打——nginx /health 為自答塊、/api/metrics
+# 為 404 擋塊（憲法 §II #3）、經 front-nginx 皆打不到 server，屬預期）
+curl -s http://127.0.0.1:22079/health          # 預期 ok
+curl -s http://127.0.0.1:22079/metrics | head  # 預期 Prometheus exposition
 # 契約快照（typings 變動後重抽；本刀首抽）
 python3 tools/wire-schema.py extract && python3 tools/wire-schema.py check
 # 容器內全測（serial）：純函式紅綠＋oneshot 契約＋真 DB integration

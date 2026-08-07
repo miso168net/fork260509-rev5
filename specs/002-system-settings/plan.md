@@ -34,7 +34,7 @@ description、未知型 5000、未認證 8888、dev-only 查表 identity、無 o
 
 **Constraints**: 憲法 §I.3 wire 凍結面（信封／13 碼 reuse／msg=key）；§I.5 rev4 參照紀律（重打字消化＋註解重寫＋R3 防回歸清單）；§I.6 審計欄 facade 顯式成對寫；rust 全程 serial 容器內；review agent 只讀不寫
 
-**Scale/Scope**: 4 routes／16 keys／2 DTO／6 AppError 變體；server crate 首落地＋傘狀 wire-schema.py＋base-web 3 新檔（typings/service/zh-tw.ts）
+**Scale/Scope**: 4 routes（業務 2＋信封例外 2）／16 keys／2 DTO／6 AppError 變體；server crate 首落地＋base-web 3 新檔（typings/service/zh-tw.ts；wire-schema.py 既有、僅複核）
 
 ## Constitution Check
 
@@ -44,7 +44,7 @@ description、未知型 5000、未認證 8888、dev-only 查表 identity、無 o
 2. **base-web inline？**：PASS——恰三新檔（rev5-settings.d.ts／rev5-settings.ts／zh-tw.ts）、零既有檔改動。前二在 §III.1 ADAPT／WRAPPER 軌道；zh-tw.ts 屬治理契約既定錨點（啟動書 Day-1⑦跨端契約閘＋MSG_DICT_LOCALES 常量自創世錨定該路徑），純新增檔不觸 §III.2「base-web inline」授權射程，依 §III fork-delta 新增型紀律檔頭一行 `[rev5-inline …+]` 標記；en-us.ts 零改動（ADR 0020 甲案、user 拍板 2026-08-08）。
 3. **menu Casbin enforce？**：PASS——不動 sys_menu／casbin seed；manage_system-settings 選單既 seed 且僅 R_SUPER；404 已知態持續（ADR 0018）。
 4. **wire 對齊 §I.3？**：PASS——信封三欄宣告序／code string／business error HTTP 200（例外僅 4040/5003）／13 碼全 reuse 零新碼／4 保留碼＋3 未進場碼構造層不可發出（R3-9）／msg=穩定 i18n key＋Lint24 閉環／2^53 守衛通用件承襲；id 欄無（PK=string）；PageRes 不適用（R3-10）。
-5. **前代拷貝？**：PASS——rust 應用碼全程重打字消化＋註解 rev5 語境重寫（rev4 出處帶 `rev4:` 前綴）；sea-orm-adapter 已 vendored（001、§I.5 例外）；wire-schema.py＝傘狀治理工具（§I.5 射程外）仍 rev5 座標重寫；防回歸＝R3 十二筆差異清單烤進實作單元 prompt。
+5. **前代拷貝？**：PASS——rust 應用碼全程重打字消化＋註解 rev5 語境重寫（rev4 出處帶 `rev4:` 前綴）；sea-orm-adapter 已 vendored（001、§I.5 例外）；wire-schema.py＝傘狀治理工具、rev5 創世已入版（本刀僅複核適用性、零拷貝面）；防回歸＝R3 差異清單烤進實作單元 prompt。
 6. **§II 拍板抵觸？**：PASS——#1 unknown header 忽略（contract case 附斷言）；#2 dynamic route mode 不觸；#3 route path 不帶 `/api` 前綴（front-nginx strip）。
 7. **§III ★軌道？**：PASS——零 inline＝不觸 ★軌道；首個 ★軌道（view／i18n runtime 接線）依 ADR 0018/0020 延前端刀。
 8. **新建業務表？**：PASS——零 migration（表＋seed 001 已在）；DDL 冒出＝FR-023 走 RUNBOOK §10 三步。
@@ -113,7 +113,7 @@ base-web/                          # worktree（rev5-admin-base-web）
     ├── service/api/rev5-settings.ts   # WRAPPER 軌道新檔
     └── locales/langs/zh-tw.ts         # 治理契約錨點新檔（backend.* 起手鍵集＝R3-12）
 
-tools/wire-schema.py               # 傘狀治理工具（extract／check／test；R5）
+tools/wire-schema.py               # 傘狀治理工具（既有、本刀複核適用性；R5）
 tools/docs-sync.py                 # gen.msg_dict 謂詞修改＋lint24.day1／gen.router 下架（FR-026）
 ```
 

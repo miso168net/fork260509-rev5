@@ -53,8 +53,8 @@ lettre／toml／arc-swap／once_cell／futures-util／xdb。
 | `server/src/obs.rs` | 同 | recorder＋render＋axum-prometheus layer（R6） |
 | `server/tests/health.rs`／`contract.rs`／`wire_schema.rs` | 同 | oneshot 契約形＋case registry 覆蓋閘雙向＋快照裁判承襲縮編 |
 | `server/tests/entity_access_lint.rs` | 同 | handler 零 `entity::` 機器強制承襲（工程自拍：防線值高、成本低） |
-| rev4 傘狀 `tools/wire-schema.py`（640 行） | rev5 傘狀 `tools/wire-schema.py` | 治理工具（§I.5 射程外＝rust-api 樹；仍重寫 rev5 座標：分支名／worktree 路徑／容器名） |
-| base-web `src/typings/api/rev4-system-settings.d.ts` | `rev5-settings.d.ts` | 承襲；UpdateReq 加 description 三態（R3-1） |
+| rev4 傘狀 `tools/wire-schema.py`（640 行） | rev5 傘狀 `tools/wire-schema.py` | ★rev5 已在版（創世 c5b4d7c 入版、rev5 座標、pre-commit 已接 `--staged-gate`）——本刀僅複核適用性、勿重寫 |
+| base-web `src/typings/api/rev4-system-settings.d.ts` | `rev5-settings.d.ts` | 承襲；UpdateReq 加 description 三態（R3-1）。★源倉＝fork260509-soybean-admin-base、分支 origin/rev4-admin-base-web（下同） |
 | base-web `src/service/api/rev4-system-settings.ts` | `rev5-settings.ts` | 承襲（直接路徑 import、不經 barrel） |
 
 rev4:004-system-settings 之 SDD 產物（rev4 傘狀 repo specs/ 下）＝設計語境參考；
@@ -95,7 +95,8 @@ enum:on,off 6 鍵值域自含於 setting_type 字面。canonical 規則承襲：
 
 ## R5 契約機器化管線（K1-25）
 
-- **Decision**: 沿 rev4 三件形——①傘狀 `tools/wire-schema.py`（extract＝base-web 容器內
+- **Decision**: 沿 rev4 三件形——①傘狀 `tools/wire-schema.py`（★已隨 rev5 創世入版、
+  本刀僅複核；extract＝base-web 容器內
   npx 抽 typings→draft-07 快照、原子替換寫 `rust-api/server/tests/fixtures/wire-schema.json`；
   check＝重抽 byte 比對 drift 閘＋`--staged-gate` pre-commit 收窄；test＝自帶 unittest）
   ②`server/tests/wire_schema.rs`（jsonschema 0.46.9 dev-dep 對快照 definitions 建
@@ -112,8 +113,16 @@ enum:on,off 6 鍵值域自含於 setting_type 字面。canonical 規則承襲：
 起而 `/metrics` 缺＝scrape fail＝告警恆紅，故 `/metrics` 必本刀掛。拍板：recorder＋
 render（metrics-exporter-prometheus、default off、/metrics 由 axum route 吐）＋
 axum-prometheus layer（axum_http_* 三序列——5xx 比率告警與 rust-api dashboard 即接資料；
-成本＝一 layer＋已驗證版本組）。`/health`＝plain text "ok"（front-nginx healthcheck 經
-proxy 打 `/health` grep ok；rust-api 自身 healthcheck＝dev override TCP 探針）。
+成本＝一 layer＋已驗證版本組）。`/health`＝plain text "ok"（★消費面實查更正：
+front-nginx healthcheck 打的是 nginx **自答塊**（`_locations.inc` return 200 "ok"、
+不轉發）、rust-api 自身 healthcheck＝dev override TCP 探針——/health 端點在本 stack
+無 healthcheck 消費者、屬信封例外契約端點，驗收＝dev 直連埠 22079 直打）。
+
+## R11 併發語意複核（spec Assumptions 指派項）
+
+rev4 `update_by_key`＝單鍵原子 UPDATE、無樂觀鎖、last-write-wins（updated_at 非版本欄、
+僅審計時戳）；rev5 沿用（16 鍵低頻治理面、單管理者情境）。本刀不驗併發；結論落此、
+T031 DoD 記帳。
 
 ## R7 測試分層（沿 rev4 實形）
 

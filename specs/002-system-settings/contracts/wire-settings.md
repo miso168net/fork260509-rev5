@@ -25,9 +25,10 @@ data-model §1/§2（本檔不重複）。
 |---|---|---|---|
 | settingValue 型別不符／超範圍／enum 外值 | 2222 | biz.systemSettings.invalidValue | 200 |
 | settingValue 顯式 null（NOT NULL 欄清空） | 2222 | biz.systemSettings.invalidValue | 200 |
-| settingKey 不在 registry 宣告集（含軟刪防禦態） | 2222 | biz.systemSettings.notFound | 200 |
+| settingKey 不在 registry 宣告集（含軟刪防禦態——判定落點＝facade filter） | 2222 | biz.systemSettings.notFound | 200 |
+| settingKey 或 settingValue 欄缺席／型別非 string／JSON 反序列化失敗 | 2222 | biz.systemSettings.invalidValue | 200 |
 | 越權（政策無授，R_ADMIN 組合） | 5003 | system.forbidden | 403 |
-| 未認證（無 `Authorization` 標頭／token 不在 dev 表） | 8888 | auth.session.reLogin | 200 |
+| 未認證（無 `Authorization` 標頭／非 Bearer 形／token 不在 dev 表） | 8888 | auth.session.reLogin | 200 |
 | 庫中 setting_type 未知型 | 5000 | system.internal | 200 |
 
 ## §3 碼面斷言（contract test 消費）
