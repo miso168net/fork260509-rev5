@@ -48,7 +48,7 @@ python3 tools/docs-sync.py lint || exit 1
 #   deploy/ 的機密管線腳本轉 python 後同列本名冊；本行與 docs-sync 的 TOOLS_PY、
 #   tools/bootstrap.sh 的 run_tool_test 三處手抄，由 docs-sync 自測對賬（漏接線即紅）。
 staged=$(git diff --cached --name-only)
-for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py; do
+for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py; do
   if echo "$staged" | grep -qxF "$t"; then
     python3 "$t" test || exit 1
   fi

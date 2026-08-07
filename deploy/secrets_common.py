@@ -4,7 +4,8 @@
 實作自 tools/secret-value-guard.py 既有已測版本原樣提出，判定邏輯零變更：移植品的
 「怪寫法」（寬進窄出、空字串吵鬧失敗）是前代刻意防禦，動它之前先查由來（L-004）。
 
-★消費者限四支（ADR 0010；批③ B-037 增 generate-secrets）：deploy/generate-secrets、
+★消費者限五支（ADR 0010；批③ B-037 增 generate-secrets 與 setup-reaper-role）：
+deploy/generate-secrets、deploy/setup-reaper-role、
 deploy/preflight-secrets、deploy/decrypt-secrets、
 tools/secret-value-guard。tools/bootstrap.sh 的落點解析刻意窄（只讀 .env）——驗證器
 不與被驗證者共用底座，**永不併庫**（ADR 0010 後果欄）。

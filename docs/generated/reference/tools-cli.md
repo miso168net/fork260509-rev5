@@ -1,7 +1,7 @@
 <!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # reference/tools-cli — 治理工具命令真表
 
-來源＝治理工具名冊 11 支掃源（python 9 支＝分派表字串比較字面、去重排序；bash 2 支＝存在與檔頭用法行）。消費者＝lint Lint19 命令形條款（語料＝CLAUDE.md／README.md／docs/ops/RUNBOOK.md 三件活手冊）＋人讀。
+來源＝治理工具名冊 12 支掃源（python 10 支＝分派表字串比較字面、去重排序；bash 2 支＝存在與檔頭用法行）。消費者＝lint Lint19 命令形條款（語料＝CLAUDE.md／README.md／docs/ops/RUNBOOK.md 三件活手冊）＋人讀。
 
 ## tools/docs-sync.py
 - 語言：python
@@ -36,6 +36,10 @@
 - 子命令：`test`
 
 ## deploy/generate-secrets.py
+- 語言：python
+- 子命令：`test`
+
+## deploy/setup-reaper-role.py
 - 語言：python
 - 子命令：`test`
 
