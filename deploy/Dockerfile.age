@@ -1,0 +1,28 @@
+# deploy/Dockerfile.age — age／age-keygen 產鑰工具映像（一次性輔助工具＝ADR 0011 ③ 類首例）
+#
+# ★為何存在：host 端不再需要 age 二進位——`deploy/generate-age-key.sh` 的下載膠水
+#   （雙平台資產名 case＋release API digest 現查＋快取層）整段蒸發，改由本映像供給。
+#
+# ★版本策略＝ADR 0011 ③ 類：低頻單發、產物格式穩定、工具版本與產物壽命脫鉤 → 沿 latest，
+#   **版本不落任何字面**（不產生「改版須同刀改兩處」的同步義務；①②類的釘版一律不受影響）。
+# ★防「假 latest」：這裡的 `@latest` 與浮動 tag 只是 **build 當下**的最新，docker 層快取會把
+#   它凍住——故呼叫端每次使用都 `docker build --pull --no-cache`（膠水寫在產鑰腳本內、
+#   非本檔責任）。離線／限流時退回本地既有映像並印警示、不得靜默（同 ADR 0011）。
+# ★latest 不等於免驗：go install 走 module sumdb（sum.golang.org）校驗——絕不設
+#   GONOSUMDB／GONOSUMCHECK／GOFLAGS=-mod=mod 之類把校驗關掉的環境變數。
+# ★本檔一律以**空 context** build（呼叫端 `docker build ... -t <tag> - < deploy/Dockerfile.age`）：
+#   .dockerignore 只在 context root 生效，deploy/ 下沒有那一份，故拿 deploy/ 當 context 會把
+#   deploy/secrets/（明文回退落點）與 deploy/dev-certs/（真私鑰）整包送進 build daemon。
+#   ★因此本檔**不得**新增任何 COPY-from-context 指令（COPY --from=builder 不受此限）。
+
+FROM golang:alpine AS builder
+# CGO 顯式關閉：靜態產物才能原樣 COPY 進 runtime（builder 與 runtime 皆 alpine／musl，
+# 但顯式關比依賴「映像內恰好沒有 C 編譯器」這種隱性條件穩）。
+ENV CGO_ENABLED=0
+RUN go install filippo.io/age/cmd/age@latest \
+ && go install filippo.io/age/cmd/age-keygen@latest
+
+FROM alpine
+# 只帶兩個二進位：無 go toolchain、無原始碼、無快取層。
+COPY --from=builder /go/bin/age /usr/local/bin/age
+COPY --from=builder /go/bin/age-keygen /usr/local/bin/age-keygen
