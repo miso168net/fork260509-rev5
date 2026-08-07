@@ -163,6 +163,7 @@ run_tool_test tools/schema-gate.py
 run_tool_test tools/wire-schema.py
 run_tool_test tools/secret-value-guard.py
 run_tool_test tools/entity-drift-gate.py
+run_tool_test tools/wf-watchdog.py
 run_tool_test deploy/preflight-secrets.py
 run_tool_test deploy/decrypt-secrets.py
 run_tool_test deploy/generate-secrets.py

@@ -19,7 +19,8 @@ def main() -> int:
             "additionalContext": (
                 "⚠️ Workflow 已發射——看門狗 Monitor 必須與 launch 同一回合原子成對"
                 "（CLAUDE.md §2、rev4:L-112）。若本回合尚未掛：立即以 Monitor"
-                "（command: bash tools/wf-watchdog.sh <冒煙token>）補掛、再做其他事。"
+                "（command: python3 tools/wf-watchdog.py <冒煙token> [wf目錄|runId]）補掛、"
+                "再做其他事。"
                 "完成通知一到→TaskStop 該 Monitor。"
             ),
         }

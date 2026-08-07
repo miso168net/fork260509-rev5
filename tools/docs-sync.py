@@ -1940,10 +1940,11 @@ def compute_snapshot_reference(root):
 # 取兩者聯集，漏一處就是靜默恆綠，而防名冊縮水正是本名冊存在的唯一理由。
 TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
             "tools/wire-schema.py", "tools/secret-value-guard.py",
-            "tools/entity-drift-gate.py", "deploy/preflight-secrets.py",
-            "deploy/decrypt-secrets.py", "deploy/generate-secrets.py",
-            "deploy/setup-reaper-role.py", "deploy/backup-db.py")
-TOOLS_SH = ("bootstrap", "wf-watchdog")
+            "tools/entity-drift-gate.py", "tools/wf-watchdog.py",
+            "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
+            "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
+            "deploy/backup-db.py")
+TOOLS_SH = ("bootstrap",)
 # ★轉換窗口共存名單（TOOLS_PY_SH_TWIN、ADR 0010）已於 B-037 U3 隨最後三支舊 .sh 退役而**整
 # 條下架**——該機制與其到期即紅守衛（check_twin_window）自註解即預告收攏終點，名單清空即
 # 無存在理由。此後舊名禁令對 deploy 條目一律嚴格形：`deploy/generate-secrets.sh` 這類殘留
@@ -3228,8 +3229,9 @@ def lint_empty_sets(root, tracked=None, cache=None, exemptions=None):
 #   deploy/generate-age-key.sh＝恆 `bash` 前綴（檔頭用法行與 RUNBOOK §12／§15.2 皆
 #     `bash deploy/generate-age-key.sh`）；
 #   tools/bootstrap.sh＝恆 `bash tools/bootstrap.sh`（CLAUDE.md §3、RUNBOOK §12、hooks 檢修
-#     指引同形）；tools/wf-watchdog.sh＝恆 `bash` 前綴（檔頭用法行＝Monitor command 欄填
-#     `bash tools/wf-watchdog.sh [冒煙token]`、CLAUDE.md §2 同形）。
+#     指引同形）；tools/wf-watchdog.py＝恆 `python3` 前綴（檔頭用法行＝Monitor command 欄填
+#     `python3 tools/wf-watchdog.py <冒煙token> [wf目錄|runId]`、CLAUDE.md §2 同形；
+#     B-005 轉 python 後比照 deploy/ 四支、不帶 exec bit）。
 EXEC_BIT_ROSTER = (
     ".githooks/pre-commit", ".githooks/pre-push",
     ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
@@ -7496,6 +7498,7 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/wire-schema.py", ("extract",)),
                ("tools/secret-value-guard.py", ("check",)),
                ("tools/entity-drift-gate.py", ("check",)),
+               ("tools/wf-watchdog.py", ("test",)),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
@@ -7508,9 +7511,8 @@ def _tools_fixture(d):
     for rel, subs in _FAKE_TOOLS:
         body = "".join(_FAKE_EQ.format(s) for s in subs) or "# 無分派表、直跑\n"
         _wfile(d, rel, "#!/usr/bin/env python3\n" + body)
-    _wfile(d, "tools/bootstrap.sh", "#!/usr/bin/env bash\n# 用途：體檢（無用法行）\n")
-    _wfile(d, "tools/wf-watchdog.sh",
-           "#!/usr/bin/env bash\n# 用法：bash tools/wf-watchdog.sh\n")
+    # ★檔頭刻意不含「用法」二字：讓唯一的 bash 名冊工具走 placeholder 分支（同真 repo 現況）
+    _wfile(d, "tools/bootstrap.sh", "#!/usr/bin/env bash\n# 用途：體檢\n")
 
 
 class TestToolsCliTruthTable(unittest.TestCase):
@@ -7551,16 +7553,17 @@ class TestToolsCliTruthTable(unittest.TestCase):
                          ("tools/docs-sync.py", "tools/fork-delta-lint.py",
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
+                          "tools/wf-watchdog.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
                           "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
                           "deploy/backup-db.py"))
-        self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
+        self.assertEqual(TOOLS_SH, ("bootstrap",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
         self.assertEqual(len(heads), 13, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 13 支掃源（python 11 支", md)
+        self.assertIn("來源＝治理工具名冊 13 支掃源（python 12 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -7574,7 +7577,7 @@ class TestToolsCliTruthTable(unittest.TestCase):
                 self.assertIn(f"## tools/{name}.sh\n", md)
             self.assertIn("`generate`｜`lint`", md)
             self.assertIn("直跑", md)                      # fork-delta-lint 無子命令
-            self.assertIn("用法：bash tools/wf-watchdog.sh", md)
+            self.assertIn(f"（檔頭前 {SH_USAGE_HEAD} 行無「用法」註解行）", md)
 
     def test_compute_fails_loud_on_missing_python_tool(self):
         """python 工具缺席＝真表無源→fail-loud（不得靜默產空表、否則命令形恆綠）。"""
@@ -7588,10 +7591,11 @@ class TestToolsCliTruthTable(unittest.TestCase):
         """bash 工具缺席＝真表如實記「否」（判定歸 Lint19、生成面不炸）。"""
         with tempfile.TemporaryDirectory() as d:
             _tools_fixture(d)
-            os.remove(os.path.join(d, "tools/wf-watchdog.sh"))
             rows = {r["rel"]: r for r in compute_tools_cli(d)}
-            self.assertFalse(rows["tools/wf-watchdog.sh"]["exists"])
             self.assertTrue(rows["tools/bootstrap.sh"]["exists"])
+            os.remove(os.path.join(d, "tools/bootstrap.sh"))
+            rows = {r["rel"]: r for r in compute_tools_cli(d)}
+            self.assertFalse(rows["tools/bootstrap.sh"]["exists"])
 
     def test_compute_generated_wires_tools_cli(self):
         """★接線層：真表若沒進 compute_generated，check 就對不到賬、G7 靜默下線。"""
@@ -7606,7 +7610,7 @@ class TestCmdFormLint(unittest.TestCase):
             "tools/wire-schema.py": {"extract", "test"},
             "tools/fork-delta-lint.py": set(),
             "deploy/preflight-secrets.py": {"test"}}
-    SH = {"tools/bootstrap.sh": True, "tools/wf-watchdog.sh": True}
+    SH = {"tools/bootstrap.sh": True}
     RUNBOOK_REL = "docs/ops/RUNBOOK.md"
 
     def _f(self, text, rel=None):
@@ -7672,18 +7676,31 @@ class TestCmdFormLint(unittest.TestCase):
     def test_old_sh_name_without_sh_is_error(self):
         """②舊名禁令（bash 面）：TOOLS_SH 名冊各支不帶 .sh 的路徑形命中即 ERROR
         （rev4:B-127、防他機肌肉記憶回寫）。"""
-        for text in ("新機初始化跑 `bash tools/bootstrap`\n",
-                     "Monitor command 欄填 `bash tools/wf-watchdog <token>`\n"):
-            f = self._f(text)
-            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
-            self.assertIn("舊名", f[0]["msg"])
-            self.assertIn(".sh", f[0]["msg"])
+        f = self._f("新機初始化跑 `bash tools/bootstrap`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("舊名", f[0]["msg"])
+        self.assertIn(".sh", f[0]["msg"])
 
     def test_new_sh_name_does_not_trip_old_sh_name_ban(self):
         """`tools/bootstrap.sh` 內含舊名前綴子字串——負向前瞻（排除 .sh）沒掛好即全庫誤紅
         （rev4:B-111 同型邊界：舊名為新名前綴）。"""
         self.assertEqual(self._f("`bash tools/bootstrap.sh`\n"), [])
-        self.assertEqual(self._f("`bash tools/wf-watchdog.sh <token>`\n"), [])
+
+    def test_retired_watchdog_sh_name_is_error(self):
+        """★B-005 退役嚴格形（比照 deploy 四支之 test_retired_sh_name_is_error）：
+        wf-watchdog 轉 python 後 .sh 實體已刪、TOOLS_SH 名冊已摘——文件殘留的舊 bash 命令形
+        改由 TOOLS_PY 舊名禁令（缺 .py 後綴即紅）接手；少了本案，摘名冊那步就沒有任何斷言
+        證明「殘留舊命令形仍會被擋」（摘完即對 wf-watchdog 全放行也全綠）。
+        ★舊路徑字面以串接構造——收刀驗收含「全 repo grep 舊檔名零命中」。"""
+        retired = "tools/wf-watchdog" + ".sh"
+        self.assertFalse(os.path.exists(os.path.join(ROOT, retired)),
+                         msg=f"{retired} 仍在庫＝退役未落實，本案前提失效")
+        for text in (f"Monitor command 欄填 `bash {retired} <token>`\n",
+                     "Monitor command 欄填 `bash tools/wf-watchdog <token>`\n"):
+            f = self._f(text)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=f"{text}｜{f}")
+            self.assertIn("舊名", f[0]["msg"])
+            self.assertIn(".py", f[0]["msg"])
 
     def test_non_lowercase_token_treated_as_argument(self):
         """後隨 token 非小寫字母起首（佔位符）＝引數、僅驗工具存在、不驗子命令。"""
@@ -7834,12 +7851,11 @@ class TestCmdFormLint(unittest.TestCase):
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
 
     def test_bash_tools_existence_only(self):
-        """③bash 兩支僅驗檔存在：在＝過、不在＝ERROR。"""
+        """③bash 工具僅驗檔存在：在＝過、不在＝ERROR。"""
         self.assertEqual(self._f("`bash tools/bootstrap.sh`\n"), [])
         self.assertEqual(
-            check_cmd_forms({self.RUNBOOK_REL: "`bash tools/wf-watchdog.sh <token>`\n"},
-                            self.SUBS,
-                            {"tools/bootstrap.sh": True, "tools/wf-watchdog.sh": False}
+            check_cmd_forms({self.RUNBOOK_REL: "`bash tools/bootstrap.sh`\n"},
+                            self.SUBS, {"tools/bootstrap.sh": False}
                             )[0]["level"], ERROR)
 
     def test_corpus_is_exactly_three_live_manuals(self):

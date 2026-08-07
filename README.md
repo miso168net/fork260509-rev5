@@ -32,7 +32,7 @@ fork260509-rev5/
 │   ├── entity-drift-gate.py         entity↔schema 快照漂移閘
 │   ├── fork-delta-lint.py           base-web 原行紀律閘（fork-delta）
 │   ├── secret-value-guard.py        機密值比對 pre-commit 防線（機密管線的治理端消費者）
-│   └── wf-watchdog.sh               workflow 編排看門狗（刻意 bash＝Monitor 直呼）
+│   └── wf-watchdog.py               workflow 編排看門狗（stall／runaway 保險絲、可鎖定目標 run）
 ├── deploy/                          營運面：dev stack 部署資產＋機密管線（管「跑起來的系統」）
 │   ├── secrets_common.py            落點解析共用庫（消費者五支＝下列四支 CLI＋secret-value-guard）
 │   ├── preflight-secrets.py         機密上機前把關（缺檔／CR·LF／composite drift）
