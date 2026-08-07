@@ -1941,7 +1941,7 @@ def compute_snapshot_reference(root):
 TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
             "tools/wire-schema.py", "tools/secret-value-guard.py",
             "tools/entity-drift-gate.py", "deploy/preflight-secrets.py",
-            "deploy/decrypt-secrets.py")
+            "deploy/decrypt-secrets.py", "deploy/generate-secrets.py")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
 # ★轉換窗口共存名單（ADR 0010）：python 版已上線、舊 bash 版尚未刪，兩實體同時在庫。
 # 舊名禁令對這些條目必須連 `.sh` 一併排除，否則三件活手冊裡合法的
@@ -1950,8 +1950,9 @@ TOOLS_SH = ("bootstrap", "wf-watchdog")
 # ★解除不靠人記得＝check_twin_window（比照 LINT25_EXEMPTIONS 第三欄「到期即紅」）：舊 .sh
 # 實體不在庫而項仍列於此＝豁免已到期，Lint19 即刻 ERROR 指名該下架。
 # ★收攏實績：decrypt 一項已於 B-036 U2（刪 deploy/decrypt-secrets.sh）摘除、本守衛首次真實
-# 走完這條路；preflight 一項待 B-037 刪 .sh 時同法摘除，屆時名單清空、本守衛與其自測同刀下架。
-TOOLS_PY_SH_TWIN = ("deploy/preflight-secrets.py",)
+# 走完這條路；preflight 與 generate 兩項待 B-037 U3 刪 .sh 時同法摘除，屆時名單清空、本守衛
+# 與其自測同刀下架。
+TOOLS_PY_SH_TWIN = ("deploy/preflight-secrets.py", "deploy/generate-secrets.py")
 TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
 SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
 # ★語料寫死三件活手冊（現在式）：NOTES 屬未來式帳（可合法提及尚未存在的子命令、clarify
@@ -7433,7 +7434,8 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/secret-value-guard.py", ("check",)),
                ("tools/entity-drift-gate.py", ("check",)),
                ("deploy/preflight-secrets.py", ("test",)),
-               ("deploy/decrypt-secrets.py", ("test",)))
+               ("deploy/decrypt-secrets.py", ("test",)),
+               ("deploy/generate-secrets.py", ("test",)))
 
 
 def _tools_fixture(d):
@@ -7479,7 +7481,7 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
-    def test_tools_roster_is_pinned_and_table_renders_ten_sections(self):
+    def test_tools_roster_is_pinned_and_table_renders_eleven_sections(self):
         """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（rev4:SC-006 失守）＋該工具的 Lint19 子命令比對與舊名禁令一併靜默下線。
@@ -7488,15 +7490,17 @@ class TestToolsCliTruthTable(unittest.TestCase):
                          ("tools/docs-sync.py", "tools/fork-delta-lint.py",
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
-                          "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py"))
+                          "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
+                          "deploy/generate-secrets.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
-        self.assertEqual(TOOLS_PY_SH_TWIN, ("deploy/preflight-secrets.py",))
+        self.assertEqual(TOOLS_PY_SH_TWIN,
+                         ("deploy/preflight-secrets.py", "deploy/generate-secrets.py"))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 10, msg=str(heads))
+        self.assertEqual(len(heads), 11, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 10 支掃源（python 8 支", md)
+        self.assertIn("來源＝治理工具名冊 11 支掃源（python 9 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
