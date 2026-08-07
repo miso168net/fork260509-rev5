@@ -9378,6 +9378,229 @@ class TestGateWiring(unittest.TestCase):
             self.assertTrue(ln.rstrip().endswith("|| exit 1"), msg=f"守門動作漏退出碼保護：{ln}")
 
 
+# --- pre-push 防線測試矩陣共用 fixture（B-039 U1；rev4:019 rev4:scan-gates §S3）---
+
+PP_HOOK_OUTER = ".githooks/pre-push"
+PP_HOOK_SUB = ".githooks-submodule/pre-push"
+PP_LIB = ".githooks/lib/scan-range.sh"
+PP_ORIGIN_REF = "refs/remotes/origin/main"
+# ★fixture 的 oid 一律合成假值：40 位十六進位形、與真 repo 任何物件無關（同理，本節不放
+#   任何可被掃描規則命中的機密樣本——樁掃描器不讀 git 物件，rc 由環境變數指定）。
+PP_ZERO = "0" * 40
+PP_LOCAL = "a1" * 20
+PP_REMOTE = "b2" * 20
+PP_FORCE = "c3" * 20
+# 樁 betterleaks（走 PATH 注入，比照 STUB_TOOL 慣例）：把收到的 argv（去 argv[0]）記進
+# PP_LOG；退出碼取 PP_RC，但 PP_HIT_ON 非空且出現在 argv 時改回 2——多行 stdin 要能只讓
+# 其中一行命中，才驗得到「命中不中斷後續行」。
+PP_STUB = ("#!/usr/bin/env python3\n"
+           "import os, sys\n"
+           "args = ' '.join(sys.argv[1:])\n"
+           "open(os.environ['PP_LOG'], 'a').write(args + '\\n')\n"
+           "hit = os.environ.get('PP_HIT_ON')\n"
+           "sys.exit(2 if hit and hit in args else int(os.environ.get('PP_RC', '0')))\n")
+
+
+class TestPrePushMatrix(unittest.TestCase):
+    """★pre-push 防線（機密掃描第二層）行為矩陣（B-039 U1；rev4:019 rev4:scan-gates §S3）。
+    防線＝兩支 4 行轉接頭（.githooks/pre-push、.githooks-submodule/pre-push）＋唯一有真
+    演算法的 .githooks/lib/scan-range.sh；守的是「pre-commit 被 --no-verify 繞過後」的補攔
+    ＝災難路徑，立案前零自動化測試、零實戰史。
+
+    ★★本矩陣＝**現行為基準**：每一格釘死的是「今天實際怎麼跑」，不是「應該怎麼跑」。
+    日後任何改寫（換判定形式、換 shell、改範圍推導）以此矩陣為基準——翻轉任何一格都必須
+    是刻意決策並在該案 docstring 留下新理由，不得順手改綠。
+
+    形狀：TestGateWiring 用 staged 檔案觸發 pre-commit，本節改以 stdin 餵 pre-push 協定行＋
+    PATH 注入樁掃描器，fixture 形狀不同故另立一類（同檔、同「樁工具乾跑真 hook 檔文」先例）。
+    沙盒建在系統 tmp（native fs、非 drvfs）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        # realpath：hook 內 `cd -- $(dirname $0) && pwd` 回實體路徑，期望 argv 要對得上。
+        cls.d = d = os.path.realpath(cls._tmp.name)
+        cls.head = _init_outer(d)
+        for rel in (PP_HOOK_OUTER, PP_HOOK_SUB, PP_LIB):
+            text = _read(ROOT, rel)
+            assert text is not None, f"{rel} 讀不到——pre-push 防線無源"
+            _wfile(d, rel, text)          # ★乾跑真 hook 檔文，不重寫等價品
+        # 兩支轉接頭的 SCAN_CONFIG 都算到 `$HOOK_DIR/../.gitleaks.toml`＝沙盒根同一檔。
+        _wfile(d, ".gitleaks.toml", "[extend]\n  useDefault = true\n")
+        cls.bin = os.path.join(d, "stub-bin")
+        _wfile(d, "stub-bin/betterleaks", PP_STUB)
+        os.chmod(os.path.join(cls.bin, "betterleaks"), 0o755)
+        # 穩態 fixture：origin 有遠端追蹤 ref（新分支走「只掃 origin 未見過的 commit」形）。
+        # 零 ref 退階形由 …_falls_back_… 專案另測＝成對紅綠、防分支被拆或反向寫死。
+        _git(d, "update-ref", PP_ORIGIN_REF, cls.head)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def _run(self, hook_rel, stdin, rc=0, hit_on="", shell="sh"):
+        """乾跑真 pre-push 檔文：stdin 餵 git pre-push 協定行，回（退出碼, 樁掃描器收到的
+        argv 行序, stderr）。shell 預設 sh＝hook shebang（本機 dash）＝git 實際用的解譯器。"""
+        log = os.path.join(self.d, "prepush.log")
+        open(log, "w").close()
+        env = dict(os.environ, PATH=self.bin + os.pathsep + os.environ["PATH"],
+                   PP_LOG=log, PP_RC=str(rc), PP_HIT_ON=hit_on, PWD=self.d)
+        r = subprocess.run([shell, hook_rel], cwd=self.d, input=stdin,
+                           capture_output=True, encoding="utf-8", errors="replace", env=env)
+        with open(log, encoding="utf-8") as fh:
+            return r.returncode, fh.read().splitlines(), r.stderr
+
+    def _argv(self, hook_rel, opts):
+        """期望的樁 argv：釘住 --config 顯式帶（缺席即靜默降級成內建規則、見 pre-commit
+        同款案）、--redact 不可省、--exit-code 2 決定下方 rc 分流語意，以及推導出的範圍。"""
+        cfg = os.path.join(self.d, os.path.dirname(hook_rel), "..", ".gitleaks.toml")
+        return f"git --config {cfg} --redact --verbose --exit-code 2 --log-opts={opts}"
+
+    # 四情境 ×（stdin 行, 期望 --log-opts；None＝該行不得到達掃描器）。
+    def _cells(self):
+        return (
+            ("①新分支首推（remote oid 全零）",
+             f"refs/heads/feat {PP_LOCAL} refs/heads/feat {PP_ZERO}\n",
+             f"{PP_LOCAL} --not --remotes=origin"),
+            ("②刪分支（local oid 全零）",
+             f"(delete) {PP_ZERO} refs/heads/old {PP_REMOTE}\n", None),
+            ("③force push（常規 oid、hook 不區分）",
+             f"refs/heads/main {PP_FORCE} refs/heads/main {PP_REMOTE}\n",
+             f"{PP_REMOTE}..{PP_FORCE}"),
+            ("④常規推進",
+             f"refs/heads/main {PP_LOCAL} refs/heads/main {PP_REMOTE}\n",
+             f"{PP_REMOTE}..{PP_LOCAL}"),
+        )
+
+    def test_matrix_four_stdin_forms_by_three_scanner_rcs(self):
+        """★矩陣本體 12 格 × 兩支 hook：四 stdin 情境 × 樁掃描器三 rc。
+        rc 語意以實查為準（lib 帶 `--exit-code 2`）：0＝乾淨放行／2＝機密命中→擋＋「機密
+        命中」訊息／其餘非零＝掃描器本身異常→**同樣擋**＋另一則可辨識訊息（fail-closed：
+        工具壞掉不得變成放行）。②刪分支＝掃描器零呼叫，故三 rc 全放行——這正是「無內容
+        可掃就別掃」與「rc 分流」兩件事互不干擾的釘子。"""
+        for hook in (PP_HOOK_OUTER, PP_HOOK_SUB):
+            for name, line, opts in self._cells():
+                for rc, want_exit, want_msg in ((0, 0, ""), (2, 1, "機密命中"),
+                                                (1, 1, "掃描器本身異常")):
+                    with self.subTest(hook=hook, 情境=name, rc=rc):
+                        code, calls, err = self._run(hook, line, rc=rc)
+                        if opts is None:
+                            self.assertEqual((code, calls, err), (0, [], ""))
+                            continue
+                        self.assertEqual(calls, [self._argv(hook, opts)])
+                        self.assertEqual(code, want_exit)
+                        if want_msg:
+                            self.assertIn(want_msg, err)
+                        else:
+                            self.assertEqual(err, "")
+
+    def test_new_branch_falls_back_to_whole_branch_when_origin_has_no_refs(self):
+        """契約表第三列（新分支首推的退階）：origin 一個遠端追蹤 ref 都沒有時，lib 不走排除
+        形、改掃整條分支（`--log-opts=<local-oid>`）。
+        ★理由以實測為準（git 2.43.0、零 refs/remotes/origin/*）：`git log <oid> --not
+        --remotes=origin` rc=0 且照列出全部 commit＝**純 no-op**，掃描面與退階形等價——退階
+        分支是防禦性冗餘，不是在閃避什麼未定義行為。故本案釘的是「lib 今天選了哪條分支」
+        這件可觀測事實（而非兩形不等價）；日後要合併掉該分支得是刻意決策、附新理由。
+        與矩陣①成對＝有 ref 走排除形、零 ref 走整條形（兩向紅綠）。"""
+        _git(self.d, "update-ref", "-d", PP_ORIGIN_REF)
+        try:
+            code, calls, _ = self._run(
+                PP_HOOK_OUTER, f"refs/heads/feat {PP_LOCAL} refs/heads/feat {PP_ZERO}\n")
+            self.assertEqual((code, calls), (0, [self._argv(PP_HOOK_OUTER, PP_LOCAL)]))
+        finally:
+            _git(self.d, "update-ref", PP_ORIGIN_REF, self.head)
+
+    def test_empty_oid_field_is_treated_as_all_zero_frozen_baseline(self):
+        """★★已知怪分支＝基準（本刀最重要的一格）：lib 用 `case "$oid" in *[!0]*)` 判「非
+        全零」，而**空字串**沒有任何字元、比不中 `*[!0]*`，於是落 `*)`＝被當成全零。
+        後果分兩面，皆為現行為、皆在此釘死：
+          ‧ local oid 欄空（stdin 只有 1 欄）→ 整行當「刪分支」跳過，掃描器零呼叫；
+          ‧ remote oid 欄空（stdin 只有 2 欄）→ 當「新分支首推」走排除形。
+        ★直譯改寫會反向：把它寫成 set／字串比對形（如 `[ "$oid" = "000…0" ] && continue`）
+        時，空字串**不等於**全零字串→不再跳過→改成去呼叫掃描器（範圍還是空的）。本案即
+        為此而立；日後任何改寫以此為基準，要翻轉須是刻意決策。
+        （第一子案刻意用 rc=2＝「掃到就命中」的樁，證明不是靠掃描器回 0 才綠、是根本沒被呼叫。）"""
+        code, calls, err = self._run(PP_HOOK_OUTER, "refs/heads/feat\n", rc=2)
+        self.assertEqual((code, calls, err), (0, [], ""))
+        code, calls, _ = self._run(PP_HOOK_OUTER, f"refs/heads/feat {PP_LOCAL}\n")
+        self.assertEqual(
+            (code, calls),
+            (0, [self._argv(PP_HOOK_OUTER, f"{PP_LOCAL} --not --remotes=origin")]))
+
+    def test_empty_and_blank_stdin_scan_nothing(self):
+        """零行 stdin（無事可推）與空白行：`[ -z "$sr_local_ref" ] && continue` 吃掉空白行，
+        零行則迴圈根本不進。三形皆放行且掃描器零呼叫（樁設 rc=2＝一被呼叫就會擋，故本案
+        綠＝真的沒呼叫）。"""
+        for label, stdin in (("零行", ""), ("空白行", "\n"),
+                             ("多空白行", "\n\n"), ("純空白字元行", "   \n")):
+            with self.subTest(stdin=label):
+                self.assertEqual(self._run(PP_HOOK_OUTER, stdin, rc=2)[:2], (0, []))
+
+    def test_multi_ref_stdin_scans_every_line_and_never_short_circuits(self):
+        """多行 stdin（一次 push 多 ref）：逐行推導、順序即 stdin 序；中間夾的刪分支行被
+        跳過不佔位；★某行命中後**不中斷**——後續行照掃、退出碼在迴圈結束才以累計的
+        sr_status 收（改成命中即 break／return 會少掃、本案即紅）。"""
+        stdin = (f"refs/heads/a {PP_LOCAL} refs/heads/a {PP_REMOTE}\n"
+                 f"refs/heads/gone {PP_ZERO} refs/heads/gone {PP_REMOTE}\n"
+                 f"refs/heads/b {PP_FORCE} refs/heads/b {PP_ZERO}\n"
+                 f"refs/heads/c {PP_REMOTE} refs/heads/c {PP_LOCAL}\n")
+        code, calls, err = self._run(PP_HOOK_OUTER, stdin, hit_on=PP_FORCE)
+        self.assertEqual(calls, [
+            self._argv(PP_HOOK_OUTER, f"{PP_REMOTE}..{PP_LOCAL}"),
+            self._argv(PP_HOOK_OUTER, f"{PP_FORCE} --not --remotes=origin"),
+            self._argv(PP_HOOK_OUTER, f"{PP_LOCAL}..{PP_REMOTE}"),
+        ])
+        self.assertEqual(code, 1)
+        self.assertIn("refs/heads/b", err)          # 訊息指名是哪個 ref 中的
+
+    def test_last_line_without_trailing_newline_is_dropped(self):
+        """★現行為釘死、非缺陷判定：`while read` 對缺結尾換行的末行回非零，迴圈體不執行
+        ＝該 ref 完全不掃。git pre-push 協定每行必帶換行，生產面不可達，故不修（防線本體
+        本刀一字不動）。與帶換行的同一行成對＝差一個 \\n 就從放行變成擋。日後若改寫成
+        `while read … || [ -n "$sr_local_ref" ]`，本案會翻轉——以此矩陣為基準。"""
+        line = f"refs/heads/main {PP_LOCAL} refs/heads/main {PP_REMOTE}"
+        self.assertEqual(self._run(PP_HOOK_OUTER, line, rc=2)[:2], (0, []))
+        self.assertEqual(self._run(PP_HOOK_OUTER, line + "\n", rc=2)[0], 1)
+
+    def test_matrix_is_shell_agnostic(self):
+        """矩陣以 sh（＝hook shebang、本機 dash、git 實際用的解譯器）跑；若 dash 與 bash 對
+        `*[!0]*` 或 `read` 的語意分歧，矩陣就只對其中一支成立。故把最吃 shell 語意的三案
+        在 bash 下重跑、釘住兩殼結論一致。"""
+        for label, stdin, want in (
+                ("空 local oid", "refs/heads/feat\n", []),
+                ("常規推進", f"refs/heads/main {PP_LOCAL} refs/heads/main {PP_REMOTE}\n",
+                 [self._argv(PP_HOOK_OUTER, f"{PP_REMOTE}..{PP_LOCAL}")]),
+                ("新分支首推", f"refs/heads/feat {PP_LOCAL} refs/heads/feat {PP_ZERO}\n",
+                 [self._argv(PP_HOOK_OUTER, f"{PP_LOCAL} --not --remotes=origin")])):
+            with self.subTest(情境=label):
+                self.assertEqual(self._run(PP_HOOK_OUTER, stdin, shell="bash")[:2],
+                                 (0, want))
+
+    def test_both_pre_push_hooks_are_thin_adapters_over_the_single_lib(self):
+        """★檔文守衛（黑箱乾跑殺不死的部分）：兩支 pre-push 是轉接頭，演算法只有一份。
+        ★先釘一件實測結論、免得誤傳災難路徑：source 路徑打錯**不是** fail-open——dash
+        （＝shebang 的 sh）因 `.` 屬 special builtin、失敗即整殼收攤 exit 2；bash 續行後撞
+        `scan_push_ranges: command not found`、由 `|| exit 1` 收 exit 1。兩殼皆非零＝
+        fail-closed，且此時黑箱矩陣當場全紅（該 hook 12 格全滅）。故本案守的不是「靜默放行」
+        這個不存在的盲區，而是以下三件黑箱替代不了的：
+        ①兩支的 source 相對路徑契約**各自不同**（外層 `lib/…`／源倉 `../.githooks/lib/…`）：
+          黑箱只能證明「source 得到了某個檔」，釘不住哪一支該用哪一形——沙盒佈局換一種擺法
+          就可能兩形皆綠，唯檔文能鎖死契約。
+        ②`scan_push_ranges || exit 1` 的退出碼保護（同 pre-commit 通則）：今天它是末行、退出
+          碼本就直通，實測拔掉 `|| exit 1` 黑箱兩形皆 rc=1＝**測不出**；它守的是日後在其後
+          插入任何一行時不致把非零吞掉。此格是純檔文格。
+        ③轉接頭內不得自己呼叫 betterleaks＝防第二份演算法長出來、兩支行為漂移（新演算法可
+          與單一 lib 形行為一致，黑箱同樣殺不死）。"""
+        want_source = {PP_HOOK_OUTER: '. "$HOOK_DIR/lib/scan-range.sh"',
+                       PP_HOOK_SUB: '. "$HOOK_DIR/../.githooks/lib/scan-range.sh"'}
+        for rel, src in want_source.items():
+            text = _read(ROOT, rel) or ""
+            self.assertIn(src, text, msg=f"{rel} 的 lib source 行不見了或相對契約被改")
+            self.assertIn('SCAN_CONFIG="$HOOK_DIR/../.gitleaks.toml"', text)
+            self.assertIn("scan_push_ranges || exit 1", text)
+            self.assertNotIn("betterleaks", text)
+
+
 SNAP_COLS = [
     {"table": "sys_user", "column": "id", "ordinal": 1, "type": "bigint",
      "nullable": False, "default": None},
