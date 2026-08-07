@@ -100,7 +100,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
 | `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔；passphrase **只輸入一次**（腳本對每個 recipient 提示自動代餵；`RV5_DECRYPT_MANUAL=1`＝逐次手打退路） | 否（需 docker＋互動 tty） |
-| `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需真 tty；age 缺席時需網路） |
+| `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢；age 走容器＝`deploy/Dockerfile.age`，每次產鑰 `docker build --pull --no-cache` 取真最新）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需 docker＋真 tty；build 需網路，離線退回本機既有映像＋警示） |
 
 退出碼注意：schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
 不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
@@ -122,11 +122,13 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
   逐條機制→工具源碼與 `python3 tools/docs-sync.py test` 自測敘述；創世期具名豁免
   （DAY1_EXEMPTIONS）逐筆帶解除謂詞、到期即紅。
-- **機密工具鏈釘版**：Betterleaks **1.7.3**（原生二進位、bootstrap 存在性斷言同值）／sops
-  容器 **v3.13.3-alpine**（index digest＝
+- **機密工具鏈釘版**（＝ADR 0011 ② 類「機密管線常駐件」全員）：Betterleaks **1.7.3**（原生
+  二進位、bootstrap 存在性斷言同值）／sops 容器 **v3.13.3-alpine**（index digest＝
   `sha256:ae501277bf742f1662e0f881f43dd8fd6798b489a8058e921dbf6cda597140ea`、寫死於容器
-  wrapper 常數）／age **v1.3.1**（一次性產鑰工具、不常駐：官方 release 二進位以 release API
-  digest 欄位驗 sha256、取用完畢即清理）。
+  wrapper 常數）。★age **不在本表**：它是 ADR 0011 ③ 類一次性輔助工具（低頻單發、產物格式
+  穩定），沿 **latest**、版本不落任何字面——每次產鑰以 `docker build --pull --no-cache`
+  重建 `deploy/Dockerfile.age` 取真最新（防浮動 tag 被 docker 層快取凍成「假 latest」），
+  離線／限流時退回本機既有映像並印警示、不靜默；完整性面走 go module sumdb 校驗。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）
 
@@ -192,7 +194,12 @@ host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。★**打�
 
 **步驟 1【新成員做】產 identity**：`bash deploy/generate-age-key.sh`（產到預設
 `~/.config/sops/age/keys.txt`、passphrase 加殼；覆蓋前有閘——**覆蓋＝永久銷毀既有私鑰、
-其密文即刻不可解**）。
+其密文即刻不可解**）。host 端不需要 age 二進位：腳本每次都重建 `deploy/Dockerfile.age`
+（ADR 0011 ③ 類、沿 latest）；離線時退回本機既有映像並印警示，首次產鑰則必須能連外一次。
+　★**passphrase 提示文字看不見**：age 跑在容器裡，提示與產物併成同一個 pty 流被腳本捕捉
+　（同 §15.1 的併流限制）。腳本會先印預告，之後**畫面停住就是在等你打字**，打完 Enter、
+　共兩次（設定＋確認），輸入不回顯屬正常。★**絕不空答**：空答會讓 age 自動生成一組只印在
+　那條看不見的流裡的 passphrase＝這把鑰匙沒有人能解開——腳本偵測到即擋下、不落檔。
 　★**註記：該機已有前代 identity 時（跨代並存機）＝保留舊鑰、另產第二把**。腳本有覆蓋閘會擋下
 　（`FAIL：… 已存在——覆蓋＝永久銷毀該私鑰`），**絕不可繞過**：覆蓋掉前代私鑰＝該代密文從此
 　不可解、不可逆。正解：

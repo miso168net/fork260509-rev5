@@ -4,7 +4,7 @@
 # ＝RUNBOOK §15.2 步驟 1 的**機器化版本**：守衛與自檢內建，消除「手冊裡的可執行片段與實作
 #   各寫一份而漂移」那類失效（rev4:L-199）。手冊仍保留同口徑的 inline 形作為本腳本不可用時的退路。
 #
-# 用法（自 repo 根跑；本腳本不讀寫 repo 內任何檔，故不強制 CWD）：
+# 用法（不強制 CWD——Dockerfile 以本腳本所在目錄定位）：
 #   bash deploy/generate-age-key.sh                            # 第一把：產到預設 ~/.config/sops/age/keys.txt
 #   bash deploy/generate-age-key.sh keys-fork260509-rev5.txt   # 同機第二把：同目錄**非預設**長檔名
 #     （★跨代並存機的正解——該機已有前代 identity 時走這條，見 §15.2 步驟 1 註記）
@@ -12,32 +12,28 @@
 # 何時用：①新機／新成員加入（§15.2 步驟 1）②換機重建 ③撤銷演練需第二把（§15.3 準則 5）
 #   ④金鑰或 passphrase 遺失後重新加入（§15.5）。
 #
-# ★passphrase 只在你腦中：本腳本**不接受、不記錄、不回顯**——由 age 自己向 /dev/tty 索取。
+# ★passphrase 只在你腦中：本腳本**不接受、不記錄、不回顯**——由 age 自己向容器 tty 索取。
 #   遺失＝該 identity 永久失效、其加密的密文不可解（離線備份義務**含 passphrase 本身**、§15.5）。
-# ★需真終端（`age -p` 走 /dev/tty）；非互動情境**吵鬧失敗且零副作用**。
+# ★需真終端（`age -p` 要 tty）；非互動情境**吵鬧失敗且零副作用**。
 # ★同機第二把務必用非預設檔名：金鑰一律落 ~/.config/sops/age。取 keys-fork260509-rev5.txt
 #   這個名時 wrapper 會**自動選它**（單檔掛到容器內預設尋鑰路徑、容器內恰一把 identity），
 #   解密毋須帶任何環境變數；用其他檔名（如 §15.3 撤銷演練鑰）則以 RV5_AGE_KEY_FILE 給
 #   **host 端絕對路徑**覆寫（§15.2 步驟 1 註記）。
 # ★檔名取 **repo 目錄名**（`keys-fork260509-rev5.txt`）而非短代號：跨代並存的機器上短代號家族
 #   必撞名——此即 rev4:0084 付過代價換來的命名紀律（同源＝SECRETS_DIR 亦以 repo 目錄名為根）。
+# ★age 走容器（deploy/Dockerfile.age）＝ADR 0011 ③ 類一次性輔助工具：沿 latest、版本不落字面，
+#   每次產鑰 `docker build --pull --no-cache` 取真最新（防「假 latest」被 docker 層快取凍住）；
+#   host 端零 age 依賴、容器零落地檔（產物由 host shell 收 stdout、rev4:P1.6 同慣例）。
 set -euo pipefail
 
-# ---- 版本釘定（★與 RUNBOOK §12「機密工具鏈釘版」欄同步：改版須同刀改兩處；
-#      docs-sync 有斷言釘住兩處相等，單邊改即紅）----
-AGE_VERSION=v1.3.1
-case "$(uname -s)-$(uname -m)" in                 # ★雙平台（rev5：macOS arm64 與 WSL2 x86-64 皆為工作環境）
-  Linux-x86_64)  AGE_ASSET="age-$AGE_VERSION-linux-amd64.tar.gz" ;;
-  Darwin-arm64)  AGE_ASSET="age-$AGE_VERSION-darwin-arm64.tar.gz" ;;
-  *) echo "FAIL：未支援平台 $(uname -s)-$(uname -m)——請對照官方 release 資產名補 case 分支" >&2; exit 1 ;;
-esac   # digest 走 release API 現查資產名對應欄位、隨資產名自動跟隨（勿另立靜態對照常數）
-
-# ★暫存目錄名＝**repo 目錄名**（非 compose project name `rev5-admin`、非刀號）：同一台機器
-#   並存 fork260509-rev1~rev5 五代與其他專案（work260730-rev1 等），repo 名才是零撞名的穩定
-#   識別。★host 暫存／落點統一為 `~/.cache/fork260509-rev5/` 一棵樹（secrets／
-#   decrypt.XXXXXX／merge.XXXXXX／keygen 四層；承 rev4:ADR 0084、rev4:B-125 先例）——
-#   本腳本用 keygen 層（age 二進位快取＋公鑰捕捉 pub.txt）。★與 rev4 錯開＝兩代快取不互踩。
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/fork260509-rev5/keygen"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ★映像 tag 取 **repo 目錄名**（非 compose project name `rev5-admin`、非刀號）：image tag 是
+#   機器全域識別字，同機並存 fork260509-rev1~rev5 與其他專案時短代號必撞名——撞名後
+#   `--no-cache` 重建會靜默覆蓋他人 tag、離線退回分支會靜默沿用他人映像（rev4:0084 命名紀律；
+#   同源＝SECRETS_DIR／`~/.cache/fork260509-rev5/`／金鑰檔名 keys-fork260509-rev5.txt）。
+AGE_IMAGE="fork260509-rev5/age:local"
+BEGIN_MARK="-----BEGIN AGE ENCRYPTED FILE-----"
+END_MARK="-----END AGE ENCRYPTED FILE-----"
 KEYDIR="$HOME/.config/sops/age"
 KEYNAME="${1:-keys.txt}"
 KEYS="$KEYDIR/$KEYNAME"
@@ -49,33 +45,21 @@ case "$KEYNAME" in
     exit 1 ;;
 esac
 
-# ---- 取得 age（一次性工具、不常駐）：PATH → 本機 cache → 自官方 release 下載＋digest 驗證 ----
-if command -v age >/dev/null 2>&1 && command -v age-keygen >/dev/null 2>&1; then
-  AGE_BIN=$(command -v age); AGE_KEYGEN=$(command -v age-keygen)
-  echo "age 來源＝PATH（$("$AGE_BIN" --version)）"
-elif [ -x "$CACHE/age/age" ] && [ -x "$CACHE/age/age-keygen" ]; then
-  AGE_BIN="$CACHE/age/age"; AGE_KEYGEN="$CACHE/age/age-keygen"
-  echo "age 來源＝$CACHE/age（$("$AGE_BIN" --version)）"
-else
-  echo "age 不在 PATH 也不在 $CACHE ——自官方 release 取得 $AGE_VERSION 並驗 digest…"
-  mkdir -p "$CACHE"
-  ( cd "$CACHE"
-    curl -sfL "https://api.github.com/repos/FiloSottile/age/releases/tags/$AGE_VERSION" -o api.json
-    curl -sfLO "https://github.com/FiloSottile/age/releases/download/$AGE_VERSION/$AGE_ASSET"
-    # ★age **無 checksums 檔**：完整性以 release API 的 digest 欄位**現查值**比對（勿沿用任何舊記值）
-    python3 - "$AGE_ASSET" <<'PY'
-import hashlib, json, sys
-asset = sys.argv[1]
-meta = json.load(open("api.json"))
-want = next((a.get("digest", "") for a in meta["assets"] if a["name"] == asset), "")
-want = want.replace("sha256:", "")
-got = hashlib.sha256(open(asset, "rb").read()).hexdigest()
-print(f"digest 現查＝{want[:16]}…｜實得＝{got[:16]}…｜相符＝{got == want and bool(want)}")
-sys.exit(0 if (want and got == want) else 1)
-PY
-    tar xzf "$AGE_ASSET" )
-  AGE_BIN="$CACHE/age/age"; AGE_KEYGEN="$CACHE/age/age-keygen"
-  echo "age 已取得（$("$AGE_BIN" --version)）"
+# ---- 取工具映像（ADR 0011 ③ 類：每次 build --pull --no-cache＝真最新；離線退回既有映像＋警示）----
+# ★build context 必須為**空**——故以 stdin 餵 Dockerfile（`-` ＝零位元組 context）而非給目錄：
+#   .dockerignore 只在 **context root** 生效，deploy/ 下沒有那一份，repo 根那份（明文封殺
+#   deploy/secrets/＝compose 明文回退落點、deploy/dev-certs/＝本機真私鑰）因此完全不適用；
+#   若把 deploy/ 當 context，legacy builder（DOCKER_BUILDKIT=0／舊 engine）會把整棵目錄含上述
+#   兩處打包上傳 daemon。本 Dockerfile 零 COPY-from-context，空 context 亦讓日後誤加
+#   COPY 立即紅、不會悄悄把機密拉進來。
+if ! docker build --pull --no-cache -t "$AGE_IMAGE" - < "$SCRIPT_DIR/Dockerfile.age"; then
+  if docker image inspect "$AGE_IMAGE" >/dev/null 2>&1; then
+    echo "警示：映像重建失敗（離線／限流？）——沿用本機既有 $AGE_IMAGE，其 age 未必是最新版。" >&2
+  else
+    echo "FAIL：映像重建失敗、本機亦無既有 $AGE_IMAGE ——首次產鑰需能連外重建一次：" >&2
+    echo "        docker build --pull --no-cache -t $AGE_IMAGE - < deploy/Dockerfile.age" >&2
+    exit 1
+  fi
 fi
 
 # ---- 覆蓋前最後一道閘（★RUNBOOK §15.2：覆蓋＝永久銷毀既有私鑰、其密文即刻不可解）----
@@ -91,48 +75,66 @@ if [ -e "$KEYS" ]; then
   exit 1
 fi
 
+# rev4:P1.2 同構：stdin 有 tty 才配 -i -t（age -p 需真 tty；非互動時吵鬧失敗且零副作用）
+TTY_FLAGS=()
+if [ -t 0 ]; then
+  TTY_FLAGS=(-i -t)
+fi
+
 echo
 echo "即將產生金鑰到 $KEYS ——age 會要求輸入 passphrase 兩次（設定＋確認）。"
 echo "★該 passphrase 只存在你腦中；★絕不要貼進任何對話或訊息。"
+echo "★★提示文字看不見（容器 pty 把提示與資料併成同一流、由本腳本捕捉；rev4:P1.2 同病）："
+echo "  畫面停住即是在等你打字，打完 Enter、共兩次；輸入不回顯屬正常。"
+echo "★絕不空答：空答會讓 age 自動生成一組你看不到的 passphrase（本腳本偵測到即擋下）。"
 echo
 
-# ---- 產鑰（★先寫 .new 再 mv：絕不簡寫成 `age-keygen | age -p > "$KEYS"`——shell 會在 age
-#      起跑「之前」就截斷目標檔，passphrase 打錯／Ctrl-C／取不到 tty 時檔案已成 0 byte，
-#      在已持鑰的機器上照打即不可逆銷毀唯一私鑰）----
-PUB="$CACHE/pub.txt"
-mkdir -p "$CACHE"
-if ( set -o pipefail; umask 077; "$AGE_KEYGEN" 2>"$PUB" | "$AGE_BIN" -p > "$KEYS.new" ); then
-  mv "$KEYS.new" "$KEYS"
-  chmod 600 "$KEYS"
-else
-  rm -f "$KEYS.new"
-  echo "FAIL：產鑰未完成（passphrase 中斷／取不到 tty）——既有檔一 byte 未動、殘檔已清" >&2
+# ---- 產鑰（容器內管線；產物只走 stdout、容器零落地檔）----
+if ! RAW=$(docker run --rm "${TTY_FLAGS[@]}" "$AGE_IMAGE" sh -c 'age-keygen | age -p -a'); then
+  echo "FAIL：產鑰未完成（passphrase 中斷／兩次不一致／取不到 tty）——既有檔一 byte 未動、未落任何檔。" >&2
+  echo "      ★捕捉流一律不回印（pty 回顯萬一沒關會夾帶 passphrase）；要看 age 原文請手動重現：" >&2
+  echo "        docker run --rm -it $AGE_IMAGE sh -c 'age-keygen | age -p -a'" >&2
   exit 1
 fi
 
-# ---- 產物自檢（★布林形、只印 True/False 與 byte 數，絕不印內容 byte；rev4:L-193）----
-python3 - "$KEYS" "$PUB" <<'PY'
-import sys
-keys, pub = sys.argv[1], sys.argv[2]
-b = open(keys, "rb").read()
-armored = b.startswith(b"age-encryption.org/v1")
-# 明文私鑰前綴以**執行期串接**構造，避免本檔自身命中機密掃描規則（同 secret-value-guard 慣例）
-plaintext = b.startswith(b"AGE-SECRET-" + b"KEY-")
-print(f"自檢｜passphrase 加殼＝{armored}｜明文私鑰形＝{plaintext}"
-      f"｜尾端無 CR＝{b[-1:] != b'\\r'}｜bytes={len(b)}")
-if plaintext or not armored:
-    print("FAIL：產物不是 passphrase 加殼形（應以 age-encryption.org/v1 開頭）"
-          "——passphrase 那步沒生效；刪檔重做", file=sys.stderr)
-    sys.exit(1)
-has_pub = any(l.startswith("Public key:") for l in open(pub, encoding="utf-8"))
-print(f"自檢｜公鑰行已捕捉＝{has_pub}")
-sys.exit(0 if has_pub else 1)
-PY
+# ---- pty 併流正規化：剝 CR → 以 armored 區塊界線萃取私鑰、Public key 行另捕為公鑰，餘行丟棄 ----
+RAW=${RAW//$'\r'/}
+if printf '%s' "$RAW" | grep -q "autogenerated passphrase"; then
+  echo "FAIL：偵測到空答——age 已自動生成一組 passphrase，而該串只印在你看不到的併流裡＝" >&2
+  echo "      這把鑰匙沒有人能解開。未落任何檔；請重跑並在兩次提示都實際輸入。" >&2
+  exit 1
+fi
+# ★取首個命中即 exit（不接 `| head -1`：pipefail 下 head 早退會讓上游吃 SIGPIPE、整段被 set -e 幹掉）
+PUBKEY=$(printf '%s\n' "$RAW" | awk 'match($0, /Public key: age1[0-9a-z]+/) { print substr($0, RSTART + 12, RLENGTH - 12); exit }')
+ARMOR=$(printf '%s\n' "$RAW" | awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+  !on { i = index($0, b); if (!i) next; on = 1; $0 = substr($0, i) }
+  { j = index($0, e); if (j) { print substr($0, 1, j + length(e) - 1); exit } print }')
+if [ -z "$ARMOR" ] || [ -z "$PUBKEY" ]; then
+  echo "FAIL：捕捉流裡找不到 armored 私鑰區塊或 Public key 行——未落任何檔；請手動重現查 age 原文。" >&2
+  exit 1
+fi
 
+# ---- 落檔（★先寫 .new 再 mv：任何中途失敗都不會讓半截內容成為 $KEYS）----
+( umask 077; printf '%s\n' "$ARMOR" > "$KEYS.new" )
+mv "$KEYS.new" "$KEYS"
+chmod 600 "$KEYS"
+
+# ---- 產物自檢（★布林形、只印 True/False 與 byte 數，絕不印內容 byte；rev4:L-193）----
+# ★不另驗「明文私鑰形」：首行等於 armored 起始界線即蘊含它不是明文私鑰行，該檢查恆為 False
+FIRST=$(head -1 "$KEYS"); LAST=$(tail -1 "$KEYS")
+CR=$(tr -cd '\r' < "$KEYS" | wc -c | tr -d ' '); BYTES=$(wc -c < "$KEYS" | tr -d ' ')
+[ "$FIRST" = "$BEGIN_MARK" ] && [ "$LAST" = "$END_MARK" ] && ARMORED=True || ARMORED=False
+echo "自檢｜passphrase 加殼＝$ARMORED｜CR 數＝$CR（應 0）｜bytes=$BYTES｜公鑰行已捕捉＝True"
+if [ "$ARMORED" != True ] || [ "$CR" != 0 ]; then
+  echo "FAIL：產物不是 armored passphrase 加殼形（應以 $BEGIN_MARK 起首、$END_MARK 收尾、零 CR）" >&2
+  echo "      ——passphrase 那步或萃取沒生效；刪檔重做" >&2
+  exit 1
+fi
 echo "權限｜檔 mode=$(stat -c '%a' "$KEYS" 2>/dev/null || stat -f '%A' "$KEYS")（應 600）｜目錄 mode=$(stat -c '%a' "$KEYDIR" 2>/dev/null || stat -f '%A' "$KEYDIR")（應 700）"
+
 echo
 echo "===== 完成。下面這一行是你的**公鑰**（非機密、可貼訊息交付管理者） ====="
-cat "$PUB"
+echo "Public key: $PUBKEY"
 echo "======================================================================"
 echo
 echo "接著（§15.2 步驟 3~4）：管理者把該公鑰加進 .sops.yaml 的 age: 清單 →"
