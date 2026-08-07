@@ -1942,7 +1942,7 @@ TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate
             "tools/wire-schema.py", "tools/secret-value-guard.py",
             "tools/entity-drift-gate.py", "deploy/preflight-secrets.py",
             "deploy/decrypt-secrets.py", "deploy/generate-secrets.py",
-            "deploy/setup-reaper-role.py")
+            "deploy/setup-reaper-role.py", "deploy/backup-db.py")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
 # ★轉換窗口共存名單（TOOLS_PY_SH_TWIN、ADR 0010）已於 B-037 U3 隨最後三支舊 .sh 退役而**整
 # 條下架**——該機制與其到期即紅守衛（check_twin_window）自註解即預告收攏終點，名單清空即
@@ -7396,7 +7396,8 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
-               ("deploy/setup-reaper-role.py", ("test",)))
+               ("deploy/setup-reaper-role.py", ("test",)),
+               ("deploy/backup-db.py", ("dump", "restore", "test")))
 
 
 def _tools_fixture(d):
@@ -7448,14 +7449,15 @@ class TestToolsCliTruthTable(unittest.TestCase):
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
-                          "deploy/generate-secrets.py", "deploy/setup-reaper-role.py"))
+                          "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
+                          "deploy/backup-db.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 12, msg=str(heads))
+        self.assertEqual(len(heads), 13, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 12 支掃源（python 10 支", md)
+        self.assertIn("來源＝治理工具名冊 13 支掃源（python 11 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""

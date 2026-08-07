@@ -42,6 +42,7 @@ fork260509-rev5/
 │   ├── sops.sh                      sops 官方容器 wrapper（digest 釘版、exec 薄殼）
 │   ├── generate-age-key.sh          age 產鑰（容器化＝ADR 0011 ③類 latest）
 │   ├── generate-dev-cert.sh         dev TLS 憑證（容器化 openssl）
+│   ├── backup-db.py                 DB 備份／還原（pg_dump 走容器；不吃 secrets_common、落點 $HOME 防跨代撞名、RUNBOOK §6）
 │   ├── Dockerfile.age、Dockerfile.rust-api    建置檔
 │   ├── secrets.dev.enc.yaml         機密密文（sops age、tracked）
 │   ├── secrets/                     明文落點說明（README＋.example；實值 gitignored）

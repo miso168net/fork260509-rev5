@@ -46,7 +46,68 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 
 ## 6. 備份與還原
 
-（本章隨對應刀補實文；創世期無內容。）
+★**命令驗證狀態**：§6.1／§6.2 全序列**已於 2026-08-07 真還原演練實跑**（紀錄＝§6.3）；
+§6.4 原地還原命令形**未實跑**——破壞性操作、須 operator 明確同意後另行執行。
+
+### 6.1 備份（pg_dump 走容器、host 除 docker 外零依賴）
+
+```bash
+python3 deploy/backup-db.py dump
+```
+
+自 dev stack 的 postgres 容器 `pg_dump` 整庫（plain SQL）、落
+`$HOME/backups-fork260509-rev5/`（檔名帶 UTC 時戳、絕不覆寫既有檔）。**落點紀律**＝
+$HOME 下以 repo 目錄名為根（`SECRETS_DIR` 同款命名、rev4:0084 防跨代撞名）、絕不落 repo 內。
+★本工具**零機密處理**：不碰 age 私鑰、不碰 `$SECRETS_DIR` 明文——機密檔與資料卷的**配對
+備份＝第二段**（排程化亦同，BACKLOG B-023）、明確不在本章。★界線另一條：plain `pg_dump`
+只含單一 database、**不含 cluster 級 globals（role 定義與其密碼）**——現況零 role GRANT
+故全新 cluster 可直灌；日後 reaper role 建立後 dump 會帶 `GRANT … TO reaper`，還原目標
+須先建該 role（否則 `ON_ERROR_STOP` 停在首個 GRANT）。
+
+### 6.2 還原演練（scratch 容器、★非破壞——既有容器與卷零觸碰）
+
+```bash
+docker run -d --name rev5-admin-drill-pg -v rev5-admin-drill-pg-data:/var/lib/postgresql \
+  -e POSTGRES_USER=soybean -e POSTGRES_PASSWORD=drill-scratch \
+  -e POSTGRES_DB=soybean_admin_rust postgres:18.4-alpine
+until docker exec rev5-admin-drill-pg pg_isready -U soybean -d soybean_admin_rust >/dev/null 2>&1; do sleep 1; done
+python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>" --container rev5-admin-drill-pg
+python3 deploy/backup-db.py dump --container rev5-admin-drill-pg
+```
+
+驗證＝normalize 後逐位元比對（剝 pg_dump 隨機 token 行、與 schema-gate normalize 同則）＋
+唯讀抽驗（對 scratch 庫 `psql -Atc` 數列數對照現庫）：
+
+```bash
+grep -v -e '^\\restrict ' -e '^\\unrestrict ' "$HOME/backups-fork260509-rev5/<原 dump>" > tmp/a.norm
+grep -v -e '^\\restrict ' -e '^\\unrestrict ' "$HOME/backups-fork260509-rev5/<re-dump>" > tmp/b.norm
+cmp tmp/a.norm tmp/b.norm && echo 逐位元相等
+```
+
+收尾清理**只准刪演練自建、名稱帶 drill 者**（既有 stack 的容器與卷絕不動）：
+
+```bash
+docker rm -f rev5-admin-drill-pg && docker volume rm rev5-admin-drill-pg-data
+rm tmp/a.norm tmp/b.norm
+```
+
+### 6.3 演練紀錄
+
+- **2026-08-07**（B-023 第一段收單演練）：現庫 dump（60791 bytes）→ 全新 scratch 容器＋卷
+  （`rev5-admin-drill-pg`／`rev5-admin-drill-pg-data`）restore rc=0 → re-dump normalize 後
+  `cmp` **逐位元相等**（sha256 同值）＋唯讀抽驗（sys_user 3／sys_menu 78／sys_role 3／
+  public 表 16、兩庫同值）→ scratch 清理；docker 容器與卷名冊演練前後 diff 零增減。
+
+### 6.4 原地還原（★破壞性——覆寫 dev stack 既有庫；未實跑、須 operator 明確同意後執行）
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres dropdb -U soybean --force soybean_admin_rust
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres createdb -U soybean soybean_admin_rust
+python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>" --container rev5-admin-postgres-1
+```
+
+`dropdb` 起即無回頭路——執行前先照 §6.1 再留一份新 dump；還原後跑
+`python3 tools/schema-gate.py check` 三閘綠＝驗收。
 
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
@@ -314,13 +375,14 @@ rm -f tmp/plain.yaml
 
 ### 15.5 金鑰／passphrase 遺失與災難復原
 
-私鑰檔與 passphrase **缺一即不可解**，故離線備份義務**含 passphrase 本身**。三種情境：
+私鑰檔與 passphrase **缺一即不可解**，故離線備份義務**含 passphrase 本身**。四種情境：
 
 | 情境 | 處置 |
 |---|---|
 | 自己這把失效、**他人尚可解** | 走 §15.2 產新鑰重新加入；舊 identity 依 §15.3 撤銷 |
 | 自己這把失效、**唯一 identity** | 密文永久不可解（無後門、設計如此）→ 下一列 |
 | **全部 identity 皆失去** | `python3 deploy/generate-secrets.py --force` 重產全部亂數機密（dev 值本就是亂數、無歷史價值）→ 依 §15.4 回寫新密文 → `.sops.yaml` 換成新 recipient。★**人工真值必須在原始來源重新取得**（SMTP app password 回 Gmail 重簽、`alert_webhook_url` 回告警平台重取）——這些不是亂數，重產不回來 |
+| **成員離開／持鑰人失聯**、其 identity 仍有效 | 走 §15.3 撤銷該公鑰；★準則 1＝**只 re-key 不換值＝形式撤銷**——對方曾解過就已握有明文，撤銷**必連帶輪替機密值本身**（依 §15.6 輪替表換 9 支 leaf＋`--compose-only` 重組；★人工真值——SMTP app password 與 `alert_webhook_url`——`--force` 不重置，須回原始來源重取，同 §15.6 第三列警語） |
 
 舊密文留在 git 史不必也無法移除——沒有任何 identity 能解它。
 
