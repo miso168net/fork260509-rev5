@@ -59,7 +59,10 @@
     now；`*_by` bigint 可空）；活性唯一驗則＝map `active_unique` 列出的**索引名**逐支
     在場且定義含 `WHERE (deleted_at IS NULL)`（sys_user 兩支：user_name＋lower(user_email)；
     sys_ip_rule 複合 (wbip_cidr, wbip_type)；PK 總體唯一者豁免、active_unique=null）。
-  - 變體 B：`updated_*`／`deleted_*` **不在場**（在場即紅）；created_at NN。
+  - 變體 B：禁欄＝**前綴判準**（ADR 0016）——欄名以 `updated_`／`deleted_` 起首即紅
+    （防 updated_time／deleted_flag 之類變名欄繞過 append-only 保證）；合法 payload 欄
+    走工具內具名豁免清單 `AUDIT_B_EXEMPT`（`{(表, 欄): 理由}`、Day-1 空集、每筆必附
+    理由）正規出口；created_at NN。
   - 變體 C：子型規則**硬編碼於工具**（沿 rev4 已驗證先例；map 之 note＝人讀註記、非機器
     判準）——sys_user_role＝零審計欄 join；sys_token＝created_at NN＋created_by NN＋
     status；sys_pwd_custody＝複合 PK (user_id, created_by) 極簡三欄；
@@ -83,3 +86,18 @@
 每支帶 migration 的刀收刀前 MUST：跑 refresh（快照前進）＋ schema-evolution.json 登記
 （該刀全部結構／seed 變更）＋三閘綠。此條入 `docs/ops/RUNBOOK.md` migration 操作節
 （rev4 紅燈裸奔兩刀教訓、K1-39）。
+
+## 6. doccheck 文件面對賬（B-010；三閘之外的離線子命令）
+
+- **對賬面**：data-model.md **§2 逐欄五元組**（ordinal／column／type／NN／default）vs
+  `fixtures/columns.json`（casbin_rule 依 §7／欄序豁免名冊不在 §2、自 fixtures 面排除）；
+  **§6 索引與約束定義** vs `fixtures/{indexes,constraints}.json`（全表）。文件單邊被改
+  ＝紅、逐項指名——補「§2 型別/NULL/default 三欄與 §6 定義從未進機器比對面」缺口。
+- **解析紀律**（兩個已實證陷阱、負向測試釘死）：§2 default 欄「——」＝無 default
+  （None、非字面）；§6 條目行可帶尾註（條目正則不錨行尾）。宣告欄數／支數逐表自檢＋
+  §6 總計行自檢，防靜默漏列。
+- **運行面**：離線零 docker、只讀 repo 檔；退出碼同 §0（0 全等／1 差異／2 環境或結構
+  異常）；★**不入 pre-commit 常跑鏈**（護效能預算 B-007）——手動／review 輪跑。精確界線：
+  schema-gate.py 本體 staged 時，pre-commit 條件觸發的工具自測含「真 repo doccheck 綠」
+  一案、仍會帶到（成本併入自測、實測毫秒級）；反面＝單改 data-model.md 不觸發本檢查，
+  文件單邊漂移於下一次手動／review 輪才被抓（設計取捨、非缺陷）。

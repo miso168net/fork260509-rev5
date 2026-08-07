@@ -130,7 +130,8 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 2. 登記 `docs/ops/reference-src/schema-evolution.json` —— 該刀**全部**結構／seed 變更逐筆入帳
    （kind 枚舉恰八值、每筆帶來源刀編號；刪除性演進〔drop_*〕不入登記檔——屬拍板級、
    走新 ADR 基線翻案；seed 面合成現況：add_table 與帶 default／NOT NULL 之 add_column
-   落 rc 2 fail-loud 指引擴充——斷言完備化由 BACKLOG B-006 承載、首筆真登記前完備）
+   落 rc 2 fail-loud 指引擴充；壞形登記由啟動斷言七條攔下——含 kind×detail 必備鍵表，
+   契約＝`specs/001-schema-baseline/contracts/schema-evolution.md` §2、每跑必驗 rc 2）
 3. `python3 tools/schema-gate.py check` —— 三閘綠（gate1 結構／gate2 欄序＋seed／audit
    archetype）；未登記漂移一律紅、「migration 已跑、登記缺席」＝gate1 紅之常態語意；
    一次性 pristine 場景加 `--container <容器名>`（預設＝compose dev stack）；判讀提示：
@@ -154,6 +155,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
 | `python3 tools/schema-gate.py test` | 自測 | 否 |
+| `python3 tools/schema-gate.py doccheck` | data-model §2/§6 文件面 vs 凍結 fixtures 對賬（B-010；離線、不入 pre-commit 常跑鏈——手動／review 輪跑） | 否 |
 | `python3 tools/wire-schema.py extract` / `check` / `test` | 容器內抽 typings→wire-schema.json 快照／快照 drift 比對（`--staged-gate`＝pre-commit 收窄形）／自測 | extract **是**、check 未起→警告放行 |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點：staged 增量對既存明文結構性失明（rev4:L-190）、本旗標補盤點面——導入既有 repo 與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量；增量面＝pre-commit 自動跑裸 check） | 否 |

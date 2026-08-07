@@ -13,7 +13,7 @@
 
 ## tools/schema-gate.py
 - 語言：python
-- 子命令：`check`｜`test`
+- 子命令：`check`｜`doccheck`｜`test`
 
 ## tools/wire-schema.py
 - 語言：python
