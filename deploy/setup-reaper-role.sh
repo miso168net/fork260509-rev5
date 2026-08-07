@@ -60,7 +60,7 @@ case "$SECRETS_DIR" in /*) ;; *) SECRETS_DIR="$PWD/$SECRETS_DIR" ;; esac
 
 PW_FILE="$SECRETS_DIR/reaper_password.txt"
 if [ ! -s "$PW_FILE" ]; then
-  echo "錯誤：$PW_FILE 缺席或為空（先跑 deploy/decrypt-secrets.sh；無加密檔情境＝generate-secrets.sh）" >&2
+  echo "錯誤：$PW_FILE 缺席或為空（先跑 python3 deploy/decrypt-secrets.py；無加密檔情境＝generate-secrets.sh）" >&2
   exit 1
 fi
 PW="$(cat "$PW_FILE")"

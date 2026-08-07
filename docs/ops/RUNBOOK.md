@@ -99,7 +99,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
-| `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔 | 否（需 docker＋互動 tty） |
+| `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔；passphrase **只輸入一次**（腳本對每個 recipient 提示自動代餵；`RV5_DECRYPT_MANUAL=1`＝逐次手打退路） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢＋自動取 age 並驗 digest）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需真 tty；age 缺席時需網路） |
 
 退出碼注意：schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
@@ -169,16 +169,24 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 3. **加密不需私鑰、解密才需**：age 加密只用公鑰——§15.4 的回寫與 §15.7 步驟 3 全程無 passphrase；
    只有 `-d`／`updatekeys` 需要。
 
-★**輸入 passphrase 的時機**：`python3 deploy/decrypt-secrets.py` 把 sops 提示行與解密輸出收進
-同一條容器 pty 流，畫面上常看不到提示——看到腳本自己印的預告行後、**等容器起來再輸入**；
-搶在容器接管 tty 之前打字＝該串字被 host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。
-★**次數＝recipient 數**（每個 recipient 各索一次、皆同一個 passphrase；`decrypt-secrets.py`
-會自密文現算後印在預告行）。實測（2026-08-06、單檔掛載×2 recipient）：恰 2 次，且**單次提示
-內無重試迴圈**——passphrase 打錯即該 masterkey 失敗、不會再問一次。★**打太晚同樣會外洩**：
-sops 已結束才輸入的那一次落到 host shell，畫面會留下 `<你打的字>: command not found` 並進
+★**輸入 passphrase：只有一次**（預設姿態＝自動應答，安全姿態拍板見 ADR 0013）。
+`python3 deploy/decrypt-secrets.py` 把 sops 提示行與解密輸出收進同一條容器 pty 流，畫面上常
+看不到提示，故改由腳本代勞：它先向你要一次 passphrase（不回顯），其後**每偵測到一個提示就
+餵一次**、次數邊讀邊數不預測（L-005）；identity 無 passphrase 殼＝零提示直通，此時直接按
+Enter 即可。★時機仍看腳本自己印的**預告行**：預告行出現後再輸入；搶在它之前打字＝該串字被
+host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。本管線零 gpg 前置（passphrase 由
+sops 內嵌 age 直讀容器內 `/dev/tty`）——提示異常不要往 gpg-agent／pinentry 方向查。
+
+★**逐次手打退路＝`RV5_DECRYPT_MANUAL=1`**（嚴格判 `1`；災難復原路徑不鎖死）。走這條時下列
+四條全數適用，也正是 ADR 0013 記在退路帳上的風險面：★**次數＝recipient 數**（每個 recipient
+各索一次、皆同一個 passphrase；`decrypt-secrets.py` 會自密文現算後印在預告行）。實測
+（2026-08-06、單檔掛載×2 recipient、逐次手打姿態）：恰 2 次，且**單次提示內無重試迴圈**
+——passphrase 打錯即該 masterkey 失敗、不會再問一次。★**打太早會外洩**：本路徑無代餵、字得
+直接進容器，故預告行印出後仍須**等容器接管 tty 再輸入**；搶在容器接管之前打字＝該串字被
+host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。★**打太晚同樣會外洩**：sops 已結束才
+輸入的那一次落到 host shell，畫面會留下 `<你打的字>: command not found` 並進
 `~/.bash_history`——徵狀就是「我輸的次數比預告多」；處置＝`history -d <行號>`＋清 scrollback。
-本管線零 gpg 前置（passphrase 由 sops 內嵌 age 直讀容器內 `/dev/tty`）——提示異常不要往
-gpg-agent／pinentry 方向查。
+★**絕不空答**：任一次空答即以 `passphrase can't be empty` 整體失敗（判讀＝§15.2）。
 
 ### 15.2 加人四步（新成員／新機器）
 
@@ -230,11 +238,15 @@ commit＋push（分開推會出現「清單有你、密文還沒給你」的中�
   重產鑰也不會好（新鑰同樣不在清單裡）。等管理者完成加人再 `git pull` 重跑。
 - `Group 0` **已含新成員的公鑰**卻仍失敗 → 才輪到查這端：passphrase 打錯、或用到別把
   identity（見步驟 1 註記的檔名口徑）。
-- `Group 0` 已含新成員公鑰、且錯誤是 **`passphrase can't be empty`** → **不是鑰匙問題，是
-  提示不只一次而有一次被空答**。sops 對**每個 recipient** 各索一次 passphrase（容器內若還有
-  他代的鑰，還要再乘上鑰匙數），而提示被暫存檔捕捉、畫面上看不見。處置＝把 rev5 那把改名為
-  `keys-fork260509-rev5.txt`（wrapper 即改走單檔掛載、次數收斂為 recipient 數），並依
-  `decrypt-secrets.py` 預告行印出的次數**每一次都輸入**、絕不空答。
+- `Group 0` 已含新成員公鑰、且錯誤是 **`passphrase can't be empty`** → **不是鑰匙問題，是有
+  一次提示收到了空字串**。判讀不變，成因隨互動路徑分流：
+  - **自動路徑（預設）**：你在腳本那一問直接按了 Enter，空字串隨後被餵給每個提示、sops 遂
+    整體失敗。重跑並確實輸入即可（真的零提示的鑰不會走到這個錯誤）。
+  - **`RV5_DECRYPT_MANUAL=1` 逐次手打**：提示不只一次而有一次被空答。sops 對**每個 recipient**
+    各索一次 passphrase（容器內若還有他代的鑰，還要再乘上鑰匙數），而提示被暫存檔捕捉、
+    畫面上看不見。處置＝把 rev5 那把改名為 `keys-fork260509-rev5.txt`（wrapper 即改走單檔
+    掛載、次數收斂為 recipient 數），並依 `decrypt-secrets.py` 預告行印出的次數**每一次都
+    輸入**、絕不空答。
 
 前兩種的頭一種是流程未完成、不是故障；`WARN … encrypted identity … didn't match file's
 recipients` 一行同樣只是這件事的複述——它在多 recipient 下屬**正常過程訊息**（試到不是你那把

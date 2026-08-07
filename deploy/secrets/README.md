@@ -28,7 +28,8 @@ python3 deploy/decrypt-secrets.py           # ★主路徑：自加密檔還原 
 python3 deploy/preflight-secrets.py         # 上機前把關（缺檔／CR／LF／composite drift 一律非零退出）
 ```
 
-- **新機／落點被清空** → 上列三行依序跑（`decrypt` 需互動輸入 identity 的 passphrase）。
+- **新機／落點被清空** → 上列三行依序跑（`decrypt` 需互動輸入**一次** identity 的 passphrase
+  ——腳本自動代餵各 recipient 提示；`RV5_DECRYPT_MANUAL=1` 走逐次手打退路）。
 - **零機密傳遞**：全程只需 repo 內密文 ＋ 一把已授權的 age 私鑰；**沒有任何一步需要有人把明文
   值交給另一個人**（加人程序＝RUNBOOK §15.2）。
 
