@@ -18,13 +18,21 @@
   B′ 私鑰＝passphrase 加殼 identity → sops 對**每個 recipient** 各索一次 passphrase
   （皆為同一把鑰的同一個 passphrase）。★勿假設「恰跳 1 次」——那是單 recipient 時代的
   舊值，加人當日即失效（L-005）；次數由本腳本自密文現算後印在預告行。
-  ★提示行與解密輸出同流被暫存檔捕捉（wrapper -t＝容器 pty、docker 單流輸出）——畫面可能
-  不顯示提示，依本腳本印出的預告直接輸入 passphrase 後按 Enter 即可。
-  ★互動姿態＝**逐次手打**（維持現狀）；「只打一次」屬 B-036，本刀不做。
+  ★提示行與解密輸出同流被暫存檔捕捉（wrapper -t＝容器 pty、docker 單流輸出）——畫面
+  未必顯示提示，故「盲打、次數靠猜」正是 L-005 的病灶。
+  ★互動姿態＝**自動應答**（B-036）：passphrase 只自 /dev/tty 收**一次**（不回顯），其後
+  由本腳本在 pty 上偵測到提示字樣才代餵、每現一次餵一次——**次數由機器數、絕不預測**，
+  L-005 那條「寫死當時基數」的失效路徑從根上消滅；不需 passphrase 的鑰則零提示直通。
+  ★退路：RV5_DECRYPT_MANUAL=1 → 回到逐次手打（災難復原路徑不鎖死；本值只認 "1"）。
+  ★安全代價：暴露面由「鍵盤→容器直達」變成「經本腳本記憶體」。passphrase 絕不進 argv／
+  環境變數／磁碟／log，用畢即零填其位元組緩衝（python 的 str 不可變、CPython 不保證即刻
+  回收其緩衝——該層只能盡力而為，本檔如實記載此極限、不宣稱做不到的清零）。另備回顯守衛：
+  passphrase 字面一旦現身暫存流，該流整段不倒流給 operator、暫存清空、指名失敗。
 
 子命令：
   （無參數）  解密本體：tty 守衛 → repo 根守衛 → 落點解析 → 落點 0700 自證 →
-              暫存落點安全自證 → sops 解密 → JSON 拆 key → key 數／名稱斷言 →
+              暫存落點安全自證 → 預告行 →（自動路徑：getpass 一次 → pty 代餵）
+              sops 解密 → 回顯守衛 → JSON 拆 key → key 數／名稱斷言 →
               既有 .txt.new 提醒 → 逐檔寫入（644、無尾端換行、不覆寫 DIFF）
   test        跑自帶測試（unittest、離線、stdlib-only、不需 docker；一律隔離暫存目錄，
               絕不讀寫真機密落點、絕不觸碰真密文）
@@ -52,16 +60,22 @@
 WRITTEN／DIFF 行、完成行走 stdout；一切 FAIL 與 WARN 走 stderr。
 """
 import contextlib
+import getpass
 import importlib.util
 import io
 import json
 import os
 import platform
+import pty
 import re
+import select
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import termios
+import time
 import unittest
 import unittest.mock
 
@@ -103,6 +117,21 @@ RE_RECIPIENT = re.compile(r"^[ \t]*recipient: age1", re.M)
 RE_ANSI_CSI = re.compile("\x1b\\[[0-9;]*[A-Za-z]")
 # JSON 物件起點候選＝行首左大括號（sops --output-type json 頂層物件恆自行首起）。
 RE_JSON_START = re.compile(r"^\{", re.M)
+
+# ---- 自動應答 driver 的常數（B-036）----
+# sops／age 索 passphrase 的提示字樣。★刻意只取共同前綴、不整句釘死「Enter passphrase for
+# identity: 」：識別字愈長愈綁死該版 sops 的措辭尾巴，而本偵測若失配，失效方向是「等不到
+# 提示→整體逾時吵鬧失敗」（見 DRIVER_TOTAL_SEC），不是靜默少餵一次。
+PROMPT_MARK = "Enter passphrase"
+# 手動退路開關（只認 "1"；其他值一律走自動路徑）
+MANUAL_ENV = "RV5_DECRYPT_MANUAL"
+# ★下列四個時間邊界一律寫死在本檔常數、**絕不取自環境變數或命令列**：安全邊界與不可信
+#   輸入同源＝邊界可被外部關掉（"逾時上限取自 env、env 沒設就 None、比較恆為 False" 這條
+#   靜默失效路徑）。要調就改本檔並附測試。
+DRIVER_SELECT_SEC = 0.5      # 單次 select 等待（＝逾時判定的顆粒度）
+DRIVER_TOTAL_SEC = 300.0     # 整體上限（含 docker 拉映像／容器啟動；逾時＝終結子行程）
+DRIVER_SETTLE_SEC = 0.05     # 見提示到餵入之間的沉澱（見 run_sops_auto 的回顯競態註）
+DRIVER_GRACE_SEC = 3.0       # SIGTERM 後等收屍的寬限，逾時改 SIGKILL
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +251,23 @@ def redact_stream(text):
             continue
         kept.append(line)
     return kept, redacted
+
+
+def echo_hit(raw_text, passphrase):
+    """回顯守衛純判定（B-036）：passphrase 字面是否現身於暫存流。
+
+    ★為何需要：自動路徑把 passphrase 寫進 pty，line discipline 的本地回顯若沒關（或容器內
+    sops 尚未關），這串位元組會原樣回吐到 master 端、落進暫存流——而暫存流在失敗路徑是要
+    redact 後倒給 operator 的（redact_stream 濾的是**資料行**，攔不住混在提示行尾的回顯）。
+    ★判準對**正規化前後兩形**都看：CR→行界與剝 ANSI CSI 都可能把回顯切斷或接合，只驗一形
+    會有一邊漏網。
+    ★已知代價（如實記載、不假裝沒有）：若某支機密的值恰等於 passphrase，本判準會把一次
+    正常解密判成回顯而擋下。該情形本身即「passphrase 同時是機密值」的異常，指名擋下比放行
+    正確；operator 走 RV5_DECRYPT_MANUAL=1 退路即可繼續。
+    """
+    if not passphrase:
+        return False
+    return passphrase in raw_text or passphrase in normalize_stream(raw_text)
 
 
 def recipient_count(enc_text):
@@ -369,6 +415,208 @@ def run_sops(root, raw_path):
 
 
 # ---------------------------------------------------------------------------
+# 自動應答 driver（B-036：passphrase 只打一次）
+# ---------------------------------------------------------------------------
+
+def _reap(pid, block):
+    """收屍 → 退出碼；尚未結束（block=False）或已被別處收走一律回 None。
+
+    ★退出碼取 os.waitstatus_to_exitcode：被訊號打死者回負值，與 subprocess.run().returncode
+    同形——手動路徑與自動路徑的 rc 語意因此一致（本檔對 sops 的退出碼是原樣沿用）。
+    """
+    try:
+        done, status = os.waitpid(pid, 0 if block else os.WNOHANG)
+    except ChildProcessError:
+        return None
+    if done != pid:
+        return None
+    return os.waitstatus_to_exitcode(status)
+
+
+def _terminate_child(pid):
+    """終結 pty 子行程並收屍（盡力而為）→ 退出碼（收不到屍回 None）。
+
+    ★為何必須主動終結：pty.fork() 的子行程自成 session（setsid），host 終端的 Ctrl-C
+    只送 SIGINT 給**本行程**、不會沿著 pty 傳下去——不收拾就留下孤兒 `docker run`
+    （容器還活著，--rm 也不會清）。SIGINT handler 與逾時兩路都走本函式。
+    ★sops.sh 以 `exec docker run` 收尾＝子行程 pid 就是 docker run 本身，SIGTERM 打中它
+    即由 docker 轉送容器並依 --rm 清掉；SIGTERM 寬限內沒死才升級 SIGKILL。
+    """
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.kill(pid, sig)
+        except ProcessLookupError:
+            return _reap(pid, False)
+        deadline = time.monotonic() + DRIVER_GRACE_SEC
+        while time.monotonic() < deadline:
+            code = _reap(pid, False)
+            if code is not None:
+                return code
+            time.sleep(0.05)
+    return None
+
+
+def run_sops_auto(root, raw_path, passphrase):
+    """自動應答解密：pty 下起 wrapper、偵測到提示才代餵 passphrase → (退出碼, 錯誤訊息)。
+
+    與 run_sops 同一條流：pty 下 wrapper 見 stdin 是 tty → 配 -i -t → 容器 pty 單流輸出，
+    故正規化與拆 key 兩段（normalize_stream／extract_payload）原樣沿用、一個字不改。
+    ★餵入判準＝**偵測到提示字樣才餵、每現一次餵一次**；提示總數由本迴圈邊讀邊數，
+    絕不預先算「該餵幾次」（L-005：寫死當時基數的預期，在基數變動當天靜默失效）。
+    ★計數方式＝每收一段就把**累積流**正規化後重數 PROMPT_MARK 出現次數：提示可能被拆成
+    好幾次 read 送達（pty 非行緩衝）、也可能夾 CRLF 與 ANSI CSI，只看單段會漏數。
+    ★零提示路徑（identity 無 passphrase 殼、sops 根本不索）必須自然通過：本迴圈不等待
+    提示、也不因「一次都沒餵」判異常——子行程結束（master 端 EOF／EIO）即收尾。
+    ★DRIVER_SETTLE_SEC：sops 是「先印提示、再關回顯」，我們見到提示到寫入之間有一道
+    理論競態（真實路徑上還隔著 docker CLI 與容器 pty 兩跳、實務上不會輸）；沉澱一下純屬
+    便宜保險，真正的兜底是 echo_hit 回顯守衛。
+    """
+    pid, master_fd = pty.fork()
+    if pid == 0:                                  # ---- 子行程：stdio 皆為 pty slave ----
+        try:
+            os.chdir(root)
+            os.execv(SOPS_REL, [SOPS_REL, "-d", "--output-type", "json", ENC_REL])
+        except BaseException:                     # noqa: BLE001（exec 失敗一律以 127 現形）
+            pass
+        os._exit(127)
+
+    # ★關掉 pty 的本地回顯：line discipline 預設 ECHO on，代餵的位元組會被原樣回吐到
+    #   master 端而落進暫存流（實測）。真實路徑上 docker -t 會自行把終端切 raw、容器內
+    #   sops 亦以 term.ReadPassword 關回顯，故本行主要防的是「wrapper 不經 docker」之形
+    #   與 docker 尚未接手前的空窗。★tcsetattr 打在 master fd 上即作用於該 pty 對的
+    #   line discipline（Linux）。拿不到 termios 不該讓解密停擺——回顯守衛是兜底。
+    try:
+        attrs = termios.tcgetattr(master_fd)
+        attrs[3] &= ~termios.ECHO
+        termios.tcsetattr(master_fd, termios.TCSANOW, attrs)
+    except (termios.error, OSError):
+        pass
+
+    # ★passphrase 只在本函式內以 bytearray 持有（可就地零填）；絕不進 argv／環境變數／
+    #   磁碟／log。呼叫端那個 str 的緩衝由 CPython 管、清不掉——A7 的極限在此如實記載。
+    pw_buf = bytearray((passphrase + "\n").encode("utf-8"))
+    chunks, fed, err, code, aborted = [], 0, None, None, []
+
+    def _on_sigint(_sig, _frm):
+        aborted.append(_terminate_child(pid))
+
+    prev_handler = signal.signal(signal.SIGINT, _on_sigint)
+    deadline = time.monotonic() + DRIVER_TOTAL_SEC
+    try:
+        while True:
+            if time.monotonic() >= deadline:
+                err = (f"pty 驅動逾時（上限 {DRIVER_TOTAL_SEC:.0f} 秒）——已終結子行程"
+                       "（不留孤兒 docker run）。常見成因＝docker 拉映像卡住，或提示字樣"
+                       f"與本腳本偵測的「{PROMPT_MARK}」不再相符（sops 換版）。")
+                code = _terminate_child(pid)
+                break
+            try:
+                ready, _w, _x = select.select([master_fd], [], [], DRIVER_SELECT_SEC)
+            except (OSError, ValueError):
+                break
+            if not ready:
+                continue
+            try:
+                chunk = os.read(master_fd, 65536)
+            except OSError:
+                chunk = b""            # 子行程結束後 master 端讀出 EIO＝本平台的 EOF 形
+            if not chunk:
+                break
+            chunks.append(chunk)
+            hits = normalize_stream(
+                b"".join(chunks).decode("utf-8", "replace")).count(PROMPT_MARK)
+            while fed < hits:
+                time.sleep(DRIVER_SETTLE_SEC)
+                try:
+                    os.write(master_fd, pw_buf)
+                except OSError:
+                    break              # 子行程已走＝沒人要餵了，交給 EOF 分支收尾
+                fed += 1
+    finally:
+        for i in range(len(pw_buf)):                 # 就地零填（A7 唯一做得到的那層）
+            pw_buf[i] = 0
+        signal.signal(signal.SIGINT, prev_handler)
+        with open(raw_path, "wb") as fh:             # 暫存流原樣落檔，交給後段正規化拆 key
+            fh.write(b"".join(chunks))
+        with contextlib.suppress(OSError):
+            os.close(master_fd)
+        if code is None and aborted:
+            code = aborted[0]
+            err = err or "已收到 Ctrl-C（SIGINT）——子行程已終結收屍、不留孤兒 docker run。"
+        if code is None:
+            # EOF 之後子行程通常已結束；仍以寬限內輪詢取代無界 waitpid，避免病態情形掛死。
+            wait_until = time.monotonic() + DRIVER_GRACE_SEC
+            while code is None and time.monotonic() < wait_until:
+                code = _reap(pid, False)
+                if code is None:
+                    time.sleep(0.05)
+            if code is None:
+                code = _terminate_child(pid)
+    return (1 if code is None else code), err
+
+
+def _auto_decrypt(root, raw_path):
+    """自動路徑外殼：取 passphrase（恰一次）→ driver → 回顯守衛
+    → (退出碼, 訊息清單, 暫存流可否倒流)。
+
+    ★passphrase 的生存期壓在本函式內：不回傳、不入 argv／環境變數／磁碟／log，
+    用畢即刪參照。★getpass.getpass 自 /dev/tty 讀且不回顯；取不到 tty＝吵鬧失敗零副作用
+    （呼叫端已先過 rev4:P4.2 tty 守衛，本層是第二道）。
+    """
+    try:
+        passphrase = getpass.getpass("identity passphrase（不回顯；只需這一次）：")
+    except Exception as ex:                          # noqa: BLE001（真因照印、不吞）
+        return 1, [f"FAIL：無法自 /dev/tty 取得 passphrase（{ex}）。",
+                   f"      處置＝在真實終端執行，或設 {MANUAL_ENV}=1 走逐次手打退路。"], False
+    try:
+        rc, err = run_sops_auto(root, raw_path, passphrase)
+        with open(raw_path, encoding="utf-8", errors="replace") as fh:
+            leaked = echo_hit(fh.read(), passphrase)
+    finally:
+        passphrase = None
+        del passphrase
+    if leaked:
+        with open(raw_path, "wb"):
+            pass                                     # 暫存整段清空（不倒流、不留檔）
+        return 1, ["FAIL：解密輸出含 passphrase 字面——輸出整段已抑制、暫存已清空"
+                   "（本訊息本身絕不含 passphrase）。",
+                   "      成因＝pty 回顯未關、或 sops／wrapper 把輸入回吐；此形下任何倒流"
+                   "都可能把 passphrase 印上 operator 畫面與 log。",
+                   f"      處置＝設 {MANUAL_ENV}=1 走逐次手打退路，並回報本情形。"], False
+    return rc, ([f"FAIL：{err}"] if err else []), True
+
+
+def _announce(count, manual):
+    """預告行（B-036：語意隨互動路徑分流；user 可見行為）→ 只印，不回傳。
+
+    ★flush：stdout 非 tty（如 | tee）時 python 是 block-buffered、bash echo 則無條件即寫——
+    tty 守衛只看 stdin，stdout 進管線時預告若卡在 buffer，operator 面對空白終端盲等
+    passphrase（L-005 那類事故）；sops 起跑前必須先清空本流。
+    """
+    if manual:
+        # 措辭用「每 recipient 一次」而非硬報數：wrapper 走目錄掛載回退分支時容器內可能不只
+        # 一把 identity、實際次數更多，現算值僅為正常（單檔掛載）情形之下界。
+        if count >= 1:
+            print(f"即將解密（{MANUAL_ENV}=1 逐次手打）：sops 會**對每個 recipient 各索一次**"
+                  f" identity passphrase（皆為同一個）——本密文有 {count} 個 recipient，"
+                  f"故正常會問 {count} 次。")
+        else:
+            print(f"即將解密（{MANUAL_ENV}=1 逐次手打）：sops 會要求輸入 identity passphrase"
+                  "（可能不只一次）。")
+        print("★提示可能不顯示於畫面——**每一次**都要輸入後按 Enter；"
+              "★任一次空答即以 passphrase can't be empty 整體失敗"
+              "（判讀＝RUNBOOK §15.2 失敗訊息判讀）。", flush=True)
+        return
+    if count >= 1:
+        print("即將解密：**只需輸入一次**——腳本會對每個 recipient 提示代餵"
+              f"（本密文 {count} 個 recipient）。")
+    else:
+        print("即將解密：**只需輸入一次**——腳本會對每個 passphrase 提示代餵。")
+    print("★次數由腳本邊讀邊數、不預測（L-005）；不需 passphrase 的鑰則零提示直通、"
+          f"此時直接按 Enter 即可。★要回到逐次手打請設 {MANUAL_ENV}=1 重跑。", flush=True)
+
+
+# ---------------------------------------------------------------------------
 # 本體
 # ---------------------------------------------------------------------------
 
@@ -410,38 +658,45 @@ def cmd_decrypt(root=None, env=None):
             print(line, file=sys.stderr)
         return 1
 
+    # 互動姿態分流（B-036）：只認 "1"，其他值（含未設、空字串、"0"、"true"）一律自動路徑。
+    manual = env.get(MANUAL_ENV) == "1"
+
     tmp_dir, fails = prepare_tmp_dir(env)
     try:
         if fails:
             for line in fails:
                 print(line, file=sys.stderr)
             return 1
-        return _decrypt_into(root, secrets_dir, tmp_dir)
+        return _decrypt_into(root, secrets_dir, tmp_dir, manual)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def _decrypt_into(root, secrets_dir, tmp_dir):
-    """暫存落點就緒後的後半段（解密→拆 key→斷言→寫入）。"""
+def _decrypt_into(root, secrets_dir, tmp_dir, manual):
+    """暫存落點就緒後的後半段（預告→解密→拆 key→斷言→寫入）。
+
+    manual=True＝逐次手打（RV5_DECRYPT_MANUAL=1 退路，＝B-036 之前的行為）；
+    False＝自動應答 driver。★分流只在「預告行措辭」與「怎麼把 passphrase 送進 sops」兩點；
+    其後每一段（拆 key／斷言／CR-LF 護欄／.new 判定／寫入／redact）兩路完全共用——互動姿態
+    換了，落點口徑與各道護欄一個字都不動。
+    """
     raw_path = os.path.join(tmp_dir, "raw.out")
 
     with open(os.path.join(root, ENC_REL), encoding="utf-8", errors="replace") as fh:
         count = recipient_count(fh.read())
-    # 措辭用「每 recipient 一次」而非硬報數：wrapper 走目錄掛載回退分支時容器內可能不只
-    # 一把 identity、實際次數更多，現算值僅為正常（單檔掛載）情形之下界。
-    if count >= 1:
-        print(f"即將解密：sops 會**對每個 recipient 各索一次** identity passphrase"
-              f"（皆為同一個）——本密文有 {count} 個 recipient，故正常會問 {count} 次。")
-    else:
-        print("即將解密：sops 會要求輸入 identity passphrase（可能不只一次）。")
-    # ★flush：stdout 非 tty（如 | tee）時 python 是 block-buffered、bash echo 則無條件即寫——
-    #   tty 守衛只看 stdin，stdout 進管線時預告若卡在 buffer，operator 面對空白終端盲等
-    #   passphrase（L-005 那類事故）；sops 起跑前必須先清空本流。
-    print("★提示可能不顯示於畫面——**每一次**都要輸入後按 Enter；"
-          "★任一次空答即以 passphrase can't be empty 整體失敗"
-          "（判讀＝RUNBOOK §15.2 失敗訊息判讀）。", flush=True)
+    _announce(count, manual)
 
-    rc = run_sops(root, raw_path)
+    if manual:
+        rc, fails, raw_usable = run_sops(root, raw_path), [], True
+    else:
+        rc, fails, raw_usable = _auto_decrypt(root, raw_path)
+    for line in fails:
+        print(line, file=sys.stderr)
+    if not raw_usable:
+        return 1                       # 回顯守衛／取不到 tty：暫存整段不倒流、零寫入
+    if fails and rc == 0:
+        rc = 1                         # driver 層異常但子行程回 0＝仍屬失敗，不得放行
+
     with open(raw_path, encoding="utf-8", errors="replace") as fh:
         raw = fh.read()
     if rc != 0:
@@ -521,6 +776,64 @@ def _payload_json(values, indent="\t", eol="\n"):
 
 def _plain_values():
     return {k: "FAKE-" + k + "-value" for k in EXPECTED_KEYS}
+
+
+# 假 passphrase（同上，執行期串接）與樁要印的提示行——提示字面刻意由 PROMPT_MARK 接出
+# 真實尾巴，讓「偵測樣式改短／改長」與「樁印的東西」保持同一個來源。
+_TEST_PASSPHRASE = "FAKE-" + "b036-" + "passphrase"
+_STUB_PROMPT = PROMPT_MARK + " for identity: "
+
+
+def _stub_source(body):
+    """假 sops 樁原始碼（落 <root>/deploy/sops.sh＝driver 實際叫用的相對路徑）。"""
+    return "\n".join(["#!/usr/bin/env python3",
+                      "# -*- coding: utf-8 -*-",
+                      "import json, os, select, sys, time"] + body) + "\n"
+
+
+def _stub_prompt_loop(root, prompts, echo_back=False, timed=False):
+    """N 次提示 →（可選：把收到的東西回吐）→ 合成 JSON；收到什麼只記次數。
+
+    timed=True＝提示後以 0.6 秒為限等 stdin（手動路徑沒有代餵者，無界 readline 會掛死
+    測試；本形讓「沒人餵」成為有界的可觀測結果）。
+    ★收完 passphrase 後樁補印 `ESC[2K` 加換行——這是**實測過的真流形**（同 TestExtractPayload
+    的 noisy 案，出自 sops／age 讀完密語後的清行），不是為了好過。少了它，JSON 的左大括號
+    會黏在提示行尾、extract_payload 的行首判準吃不到——樁必須把這個真條件也帶進來。
+    """
+    return _stub_source([
+        "MARK = " + json.dumps(_STUB_PROMPT),
+        "PW = " + json.dumps(_TEST_PASSPHRASE),
+        "REC = " + json.dumps(os.path.join(root, "stub-record.json")),
+        "N, ECHO, TIMED = " + f"{prompts}, {bool(echo_back)!r}, {bool(timed)!r}",
+        "got = []",
+        "for _ in range(N):",
+        "    sys.stdout.write(MARK)",
+        "    sys.stdout.flush()",
+        "    if TIMED and not select.select([sys.stdin], [], [], 0.6)[0]:",
+        "        got.append('')",
+        "    else:",
+        "        got.append(sys.stdin.readline().rstrip('\\r\\n'))",
+        "    sys.stdout.write('\\x1b[2K\\n')",
+        "    if ECHO:",
+        "        sys.stdout.write('debug echo: ' + got[-1] + '\\n')",
+        "    sys.stdout.flush()",
+        "with open(REC, 'w') as _fh:",
+        "    json.dump({'prompts': N, 'match': sum(1 for g in got if g == PW),",
+        "               'nonempty': sum(1 for g in got if g)}, _fh)",
+        "sys.stdout.write(" + json.dumps(_payload_json(_plain_values())) + ")",
+        "sys.stdout.flush()",
+    ])
+
+
+def _stub_hang(root):
+    """吐一行雜訊後長睡不退、且**永不印提示**的樁（逾時與孤兒收拾用）。"""
+    return _stub_source([
+        "with open(" + json.dumps(os.path.join(root, "stub.pid")) + ", 'w') as _fh:",
+        "    _fh.write(str(os.getpid()))",
+        "sys.stdout.write('stub-alive-no-prompt\\n')",
+        "sys.stdout.flush()",
+        "time.sleep(600)",
+    ])
 
 
 class TestRosterPinned(unittest.TestCase):
@@ -1130,6 +1443,8 @@ class TestDecryptIntoWiring(unittest.TestCase):
     fail 條件式一樣是零防線（實測：把 `newlines` 自條件式拿掉，純判定案全數照綠）。本類把
     「判定 → rc → 落點實際產出」串成一條，斷言一律看**落點檔**而非訊息字串。
     ★離線：run_sops 以 mock 換成「把合成 JSON 寫進 raw_path」，不需 docker、不觸真密文。
+    ★本類固定走 manual=True（＝run_sops 那條）：驗的是**後半段共用管線**，與互動姿態無關；
+    自動路徑的同一條管線另由 TestAutoDriver 以真 pty ＋假 sops 樁覆蓋。
     """
 
     def _dir(self):
@@ -1152,7 +1467,7 @@ class TestDecryptIntoWiring(unittest.TestCase):
         out, err = io.StringIO(), io.StringIO()
         with unittest.mock.patch(f"{__name__}.run_sops", side_effect=fake_sops), \
              contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            rc = _decrypt_into(root, secrets_dir, tmp_dir)
+            rc = _decrypt_into(root, secrets_dir, tmp_dir, manual=True)
         return rc, sorted(n for n in os.listdir(secrets_dir) if n.endswith(".txt")), err.getvalue()
 
     def test_healthy_payload_writes_full_roster(self):
@@ -1177,6 +1492,256 @@ class TestDecryptIntoWiring(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(names, [])
         self.assertIn("smtp_password", err)
+
+
+class TestEchoHit(unittest.TestCase):
+    """回顯守衛純判定（B-036）。"""
+
+    def test_plain_hit(self):
+        self.assertTrue(echo_hit("noise " + _TEST_PASSPHRASE + " tail", _TEST_PASSPHRASE))
+
+    def test_hit_survives_ansi_normalization(self):
+        """容器 pty 的清行序列可能插進回顯中段——只驗原文一形會漏網，故兩形都看。"""
+        chopped = _TEST_PASSPHRASE[:4] + "\x1b[2K" + _TEST_PASSPHRASE[4:]
+        self.assertFalse(_TEST_PASSPHRASE in chopped)     # 原文形確實不命中
+        self.assertTrue(echo_hit(chopped, _TEST_PASSPHRASE))
+
+    def test_clean_stream_is_not_a_hit(self):
+        self.assertFalse(echo_hit(_payload_json(_plain_values()), _TEST_PASSPHRASE))
+
+    def test_empty_passphrase_never_hits(self):
+        """★空 passphrase 不得讓守衛恆真（空字串是任何字串的子串）——那會把零提示直通路徑
+        （identity 無 passphrase 殼、operator 直接按 Enter）整條靜默打死。"""
+        self.assertFalse(echo_hit("anything at all", ""))
+
+
+class TestAnnounce(unittest.TestCase):
+    """預告行分流（B-036；★user 可見行為，措辭即契約）。"""
+
+    def _say(self, count, manual):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            _announce(count, manual)
+        return out.getvalue()
+
+    def test_auto_says_single_entry_with_live_recipient_count(self):
+        text = self._say(3, manual=False)
+        self.assertIn("只需輸入一次", text)
+        self.assertIn("3 個 recipient", text)          # 現算、不寫死（L-005）
+        self.assertNotIn("**每一次**都要輸入", text)
+
+    def test_auto_zero_recipient_form_omits_the_count(self):
+        text = self._say(0, manual=False)
+        self.assertIn("只需輸入一次", text)
+        self.assertNotIn("0 個 recipient", text)
+
+    def test_manual_keeps_the_per_prompt_wording(self):
+        """退路的預告必須保留「每一次都要輸入」——手動路徑真的會逐次問。"""
+        text = self._say(2, manual=True)
+        self.assertIn("**每一次**都要輸入", text)
+        self.assertIn("會問 2 次", text)
+        self.assertNotIn("只需輸入一次", text)
+
+
+class TestTerminateChild(unittest.TestCase):
+    """孤兒收拾（B-036）：pty 子行程自成 session、host 的 Ctrl-C 不會傳下去，故必須主動終結。
+
+    ★以樁驗證（真 docker run 不進自測射程）：pty.fork 起一支長睡子行程，_terminate_child
+    後該 pid 必須既不存在、也沒留成殭屍（收屍成功＝waitpid 已取走）。
+    """
+
+    def test_long_running_child_is_killed_and_reaped(self):
+        pid, master_fd = pty.fork()
+        if pid == 0:
+            try:
+                os.execv(sys.executable, [sys.executable, "-c", "import time; time.sleep(600)"])
+            except BaseException:                        # noqa: BLE001
+                pass
+            os._exit(127)
+        try:
+            code = _terminate_child(pid)
+        finally:
+            with contextlib.suppress(OSError):
+                os.close(master_fd)
+        self.assertIsNotNone(code)                       # 收不到屍才回 None
+        with self.assertRaises(ChildProcessError):
+            os.waitpid(pid, os.WNOHANG)                  # 已無此子行程＝沒留殭屍
+
+
+class TestManualEnvDispatch(unittest.TestCase):
+    """RV5_DECRYPT_MANUAL 判讀（B-036）：只認 "1"，其餘一律自動路徑。
+
+    ★只驗分流參數、不起 sops：把 _decrypt_into 換成錄音機，讓「哪個值走哪條」成為確定性
+    斷言；兩支安全自證也一併換掉——本案要量的是判讀，不該摻進落點／暫存的 fs 性質。
+    """
+
+    def _seen(self, env_value):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        os.makedirs(os.path.join(root, "deploy"))
+        for rel in (".sops.yaml", ENC_REL):
+            with open(os.path.join(root, rel), "w", encoding="utf-8") as fh:
+                fh.write("# fixture\n")
+        env = {"SECRETS_DIR": os.path.join(root, "sec")}
+        if env_value is not None:
+            env[MANUAL_ENV] = env_value
+        seen = []
+
+        def recorder(_root, _secrets_dir, _tmp_dir, manual):
+            seen.append(manual)
+            return 0
+
+        def fake_tmp(_env):
+            d = tempfile.mkdtemp()
+            self.addCleanup(shutil.rmtree, d, True)
+            return d, []
+
+        prev_umask = os.umask(0o022)
+        os.umask(prev_umask)
+        prev_cwd_fd = os.open(".", os.O_RDONLY)
+        try:
+            os.chdir(root)
+            with unittest.mock.patch(f"{__name__}._decrypt_into", side_effect=recorder), \
+                 unittest.mock.patch(f"{__name__}.prepare_secrets_dir", return_value=([], None)), \
+                 unittest.mock.patch(f"{__name__}.prepare_tmp_dir", side_effect=fake_tmp), \
+                 unittest.mock.patch("sys.stdin", _StubStdin(True)), \
+                 contextlib.redirect_stdout(io.StringIO()), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                cmd_decrypt(root=root, env=env)
+        finally:
+            os.fchdir(prev_cwd_fd)
+            os.close(prev_cwd_fd)
+            os.umask(prev_umask)
+        return seen
+
+    def test_literal_one_selects_the_manual_path(self):
+        self.assertEqual(self._seen("1"), [True])
+
+    def test_every_other_value_falls_back_to_auto(self):
+        """★只認 "1"：真值化判讀（"0"／"false" 也算開）會讓退路在打錯字時被誤啟用，
+        而退路正是「盲打次數」那條已知會誤導 operator 的路（L-005）。"""
+        for value in (None, "", "0", "01", "1 ", "true", "yes", "TRUE"):
+            self.assertEqual(self._seen(value), [False], msg=repr(value))
+
+
+class TestAutoDriver(unittest.TestCase):
+    """自動應答 driver（B-036）：真 pty ＋假 sops 樁，離線、不需 docker、不觸真密文。
+
+    ★樁落在 <root>/deploy/sops.sh——driver 叫用的就是這個相對路徑，故「wrapper 怎麼被起」
+    也在射程內，且不必另開注入面（不開 CLI／環境變數面是本刀的硬約束）。
+    ★getpass 一律 mock 成固定假字串；真 /dev/tty 面不強求自動化。
+    ★樁只把**次數**寫進記錄檔（prompts／match／nonempty），連假 passphrase 都不落磁碟。
+    """
+
+    def _dir(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def _root(self, recipients=1):
+        root = self._dir()
+        os.makedirs(os.path.join(root, "deploy"))
+        with open(os.path.join(root, ENC_REL), "w", encoding="utf-8") as fh:
+            fh.write("          recipient: age1fixture\n" * recipients)
+        return root
+
+    def _install(self, root, src):
+        path = os.path.join(root, "deploy", "sops.sh")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(src)
+        os.chmod(path, 0o755)
+
+    def _record(self, root):
+        with open(os.path.join(root, "stub-record.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def _run(self, root, manual=False):
+        secrets_dir, tmp_dir = self._dir(), self._dir()
+        out, err = io.StringIO(), io.StringIO()
+        with unittest.mock.patch("getpass.getpass",
+                                 return_value=_TEST_PASSPHRASE) as getpass_mock, \
+             contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = _decrypt_into(root, secrets_dir, tmp_dir, manual=manual)
+        return {"rc": rc, "out": out.getvalue(), "err": err.getvalue(),
+                "getpass_calls": getpass_mock.call_count, "tmp_dir": tmp_dir,
+                "names": sorted(n for n in os.listdir(secrets_dir) if n.endswith(".txt"))}
+
+    def test_two_prompts_are_fed_from_one_getpass(self):
+        root = self._root(recipients=2)
+        self._install(root, _stub_prompt_loop(root, 2))
+        r = self._run(root)
+        self.assertEqual(r["getpass_calls"], 1)          # ★user 端恰一次
+        self.assertEqual(self._record(root), {"prompts": 2, "match": 2, "nonempty": 2})
+        self.assertEqual(r["rc"], 0)
+        self.assertEqual(r["names"], sorted(k + ".txt" for k in EXPECTED_KEYS))
+        # ★預告行的**接線**也要驗：_announce 兩形都寫對了，但 _decrypt_into 把旗標傳反，
+        #   operator 看到的仍是「每一次都要輸入」——純函式案對這條結構性失明。
+        self.assertIn("只需輸入一次", r["out"])
+
+    def test_zero_prompt_stream_passes_straight_through(self):
+        """★identity 無 passphrase 殼＝sops 根本不索：driver 不得因「等不到提示」誤判，
+        子行程正常結束即收尾（合成密文機器驗收走的就是這條主幹）。"""
+        root = self._root()
+        self._install(root, _stub_prompt_loop(root, 0))
+        r = self._run(root)
+        self.assertEqual(self._record(root), {"prompts": 0, "match": 0, "nonempty": 0})
+        self.assertEqual(r["rc"], 0)
+        self.assertEqual(r["names"], sorted(k + ".txt" for k in EXPECTED_KEYS))
+
+    def test_feed_count_tracks_prompts_and_is_never_predicted(self):
+        """★L-005 防復發：餵幾次由**流裡數到幾次提示**決定，與密文 recipient 現算數無關。
+        故意讓兩者不一致（recipient 1、提示 3）——任何「照 recipient 數預餵」的實作在此即紅。"""
+        root = self._root(recipients=1)
+        self._install(root, _stub_prompt_loop(root, 3))
+        r = self._run(root)
+        self.assertEqual(self._record(root), {"prompts": 3, "match": 3, "nonempty": 3})
+        self.assertEqual(r["rc"], 0)
+
+    def test_silent_child_hits_the_timeout_and_leaves_no_orphan(self):
+        """提示永不出現且子行程不退出 → 逾時觸發、子行程被終結收屍（不留孤兒 docker run）。
+        ★上限常數以測試層 mock 縮短：生產面寫死本檔常數，不開環境變數／args 面。"""
+        root = self._root()
+        self._install(root, _stub_hang(root))
+        with unittest.mock.patch(f"{__name__}.DRIVER_TOTAL_SEC", 1.5):
+            r = self._run(root)
+        self.assertNotEqual(r["rc"], 0)
+        self.assertIn("逾時", r["err"])
+        self.assertEqual(r["names"], [])
+        with open(os.path.join(root, "stub.pid"), encoding="utf-8") as fh:
+            child_pid = int(fh.read())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(child_pid, 0)
+
+    def test_echoed_passphrase_suppresses_the_stream_and_fails_loud(self):
+        """樁把收到的 passphrase 回吐進輸出流 → 回顯守衛觸發：整段不倒流、暫存清空、
+        零寫入退出，且**訊息本身不含 passphrase**。"""
+        root = self._root()
+        self._install(root, _stub_prompt_loop(root, 1, echo_back=True))
+        r = self._run(root)
+        self.assertEqual(r["rc"], 1)
+        self.assertEqual(r["names"], [])
+        self.assertIn("已抑制", r["err"])
+        self.assertNotIn(_TEST_PASSPHRASE, r["err"])
+        self.assertNotIn(_TEST_PASSPHRASE, r["out"])
+        self.assertEqual(os.path.getsize(os.path.join(r["tmp_dir"], "raw.out")), 0)
+
+    def test_manual_path_never_feeds_but_auto_does(self):
+        """RV5_DECRYPT_MANUAL=1 的退路：同一支樁在手動路徑收不到代餵、也不取 passphrase
+        進記憶體。★對照組（同樁走自動路徑即收到）是必要的——沒有它，match=0 也可能只是
+        樁壞了。"""
+        manual_root = self._root()
+        self._install(manual_root, _stub_prompt_loop(manual_root, 1, timed=True))
+        manual = self._run(manual_root, manual=True)
+        self.assertEqual(manual["getpass_calls"], 0)
+        self.assertEqual(self._record(manual_root)["match"], 0)
+        self.assertIn("**每一次**都要輸入", manual["out"])
+
+        auto_root = self._root()
+        self._install(auto_root, _stub_prompt_loop(auto_root, 1, timed=True))
+        auto = self._run(auto_root)
+        self.assertEqual(auto["getpass_calls"], 1)
+        self.assertEqual(self._record(auto_root)["match"], 1)
+        self.assertEqual(auto["rc"], 0)
 
 
 # ---------------------------------------------------------------------------
