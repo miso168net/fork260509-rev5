@@ -9,9 +9,11 @@
         `--container` 指向一次性 pristine 容器（fixtures 產製／演進帳往返驗證場景）。
   test  跑自帶測試（unittest、離線、零 docker）——含 SC-002 四類 negative 注入
         （結構／欄序／seed 值／sequence 落值）與登記檔壞形自測。
+  doccheck  data-model.md 文件面（§2 欄五元組＋§6 索引約束）vs 凍結 fixtures 機器對賬
+        （B-010；離線零 docker、不讀庫；★不入 pre-commit 常跑鏈——手動／review 輪跑）。
 
 契約＝specs/001-schema-baseline/contracts/gates.md（行為）＋contracts/schema-evolution.md
-（登記檔形＋啟動斷言六條）＋contracts/fixtures.md（凍結面）。零容差語意：一切比對＝全等，
+（登記檔形＋啟動斷言七條）＋contracts/fixtures.md（凍結面）。零容差語意：一切比對＝全等，
 「容差」唯一合法形＝演進帳登記（docs/ops/reference-src/schema-evolution.json）。
 
 三閘：
@@ -45,6 +47,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -70,6 +73,20 @@ DEF_KEYS = frozenset({"table", "name", "definition"})
 # 登記檔（contracts/schema-evolution.md）：kind 枚舉恰八值；id／knife／date 格式
 KINDS = ("add_table", "add_column", "alter_column", "add_index", "add_constraint",
          "seed_add", "seed_update", "seed_delete")
+# 斷言⑦（B-006；contracts/schema-evolution.md §2 第 7 條）：kind×detail 必備鍵表——八 kind
+# 逐 kind 定形、load_ledger 啟動即驗（原合成期 _need 臨時檢查升格為啟動斷言；_need 留作
+# 直呼合成路徑的兜底）。需比對面在場的值域斷言（pk 欄名 ⊆ COPY 欄集、同名 index/
+# constraint 重複登記攔）歸合成期驗、同樣 GateError→rc 2。
+DETAIL_KEYS = {
+    "add_table": ("columns",),
+    "add_column": ("column", "type", "nullable"),
+    "alter_column": ("column",),
+    "add_index": ("name", "definition"),
+    "add_constraint": ("name", "definition"),
+    "seed_add": ("pk", "values"),
+    "seed_update": ("pk", "set"),
+    "seed_delete": ("pk",),
+}
 RE_ENTRY_ID = re.compile(r"^E-\d{3}$")
 RE_KNIFE = re.compile(r"^\d{3}-[a-z0-9-]+$")
 RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -80,6 +97,14 @@ LABELS = ("A 業務全六欄", "B append-only", "C join·狀態機", "D 治理")
 CREATED_BY_NN = ("sys_access_log", "sys_token", "sys_pwd_custody", "sys_user_email_verify")
 AUDIT_SIX = ("created_at", "created_by", "updated_at", "updated_by",
              "deleted_at", "deleted_by")
+# 變體 B 禁欄判準＝前綴通配（ADR 0016、gates.md §3）：updated_／deleted_ 起首即紅——
+# 防變名欄（updated_time／deleted_flag 之類）繞過 append-only 保證（憲法 §I.6）。
+AUDIT_B_FORBIDDEN_PREFIXES = ("updated_", "deleted_")
+# 具名豁免清單（ADR 0016 正規出口；沿 CREATED_BY_NN 具名慣例）：合法 payload 欄
+# （例：日後稽核表 updated_fields jsonb 記變更欄集）加列於此、Day-1 空集。
+# 格式＝{(表名, 欄名): "理由"}；加列程序＝隨引入該欄之刀同 commit 加列＋附理由字串
+# （誤攔勿就地退回具名判準——等於白拍 ADR 0016），review 輪隨審計欄語意演進複核。
+AUDIT_B_EXEMPT = {}
 ORDER_EXEMPT = ("casbin_rule",)   # 委派建表、欄序不入親排（data-model §7）
 
 # rename map（data-model §3、4 組、全在 sys_operation_log）：僅供 vs rev4 快照血緣對賬
@@ -191,8 +216,60 @@ def _load_json(path, what):
         raise GateError(f"{what} JSON 壞形：{ex}") from None
 
 
+def _assert_detail(e):
+    """斷言⑦：kind×detail 必備鍵（表＝DETAIL_KEYS）＋逐 kind 值形檢——任一敗＝GateError
+    （呼叫端轉 rc 2）；contracts/schema-evolution.md §2 第 7 條。"""
+    kind, d, eid = e["kind"], e["detail"], e["id"]
+    for k in DETAIL_KEYS[kind]:
+        if k not in d:
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid}（{kind}）detail 缺必備鍵 {k}"
+                            f"（必備鍵表＝{'＋'.join(DETAIL_KEYS[kind])}）")
+
+    def _nonempty_str(key):
+        if not isinstance(d[key], str) or not d[key]:
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid}（{kind}）detail.{key} 須為非空字串"
+                            f"（得 {d[key]!r}）")
+
+    if kind == "add_table":
+        cols = d["columns"]
+        if not isinstance(cols, list) or not cols:
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid} add_table columns 須為全欄非空清單")
+        for i, c in enumerate(cols):
+            if not isinstance(c, dict) or any(k not in c for k in
+                                              ("column", "type", "nullable")):
+                raise GateError(f"登記檔啟動斷言⑦敗：{eid} add_table columns[{i}] 須為含"
+                                " column＋type＋nullable 之物件")
+    elif kind == "add_column":
+        _nonempty_str("column")
+        _nonempty_str("type")
+        if not isinstance(d["nullable"], bool):
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid} add_column nullable 須為布林"
+                            f"（得 {d['nullable']!r}）")
+    elif kind == "alter_column":
+        _nonempty_str("column")
+        if not any(k in d for k in ("type", "nullable", "default")):
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid} alter_column 須帶 type／nullable"
+                            "／default 至少一項（零改動項＝空登記、必屬筆誤）")
+    elif kind in ("add_index", "add_constraint"):
+        _nonempty_str("name")
+        _nonempty_str("definition")
+    elif kind == "seed_add":
+        if not isinstance(d["pk"], list) or not d["pk"] \
+                or any(not isinstance(x, str) or not x for x in d["pk"]):
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid} seed_add pk 須為主鍵欄名非空清單")
+        if not isinstance(d["values"], dict) or not d["values"]:
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid} seed_add values 須為物件"
+                            "（欄:值 全欄）")
+    else:   # seed_update／seed_delete
+        if not isinstance(d["pk"], dict) or not d["pk"]:
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid}（{kind}）pk 須為非空物件（欄:值）")
+        if kind == "seed_update" and (not isinstance(d["set"], dict) or not d["set"]):
+            raise GateError(f"登記檔啟動斷言⑦敗：{eid} seed_update set 須為非空物件"
+                            "（欄:值）")
+
+
 def load_ledger(root):
-    """演進登記檔＋啟動斷言六條（contracts/schema-evolution.md §2）；任一敗＝GateError。"""
+    """演進登記檔＋啟動斷言七條（contracts/schema-evolution.md §2）；任一敗＝GateError。"""
     path = os.path.join(root, LEDGER)
     data = _load_json(path, "演進登記檔 schema-evolution.json")
     # ① 頂層鍵恰集＋型別
@@ -231,6 +308,8 @@ def load_ledger(root):
                             f"（得 {e['date']!r}）")
         if not isinstance(e["detail"], dict):
             raise GateError(f"登記檔啟動斷言②敗：{e['id']} detail 須為物件")
+        # ⑦ kind×detail 必備鍵表＋值形（B-006）
+        _assert_detail(e)
         nums.append(int(e["id"][2:]))
     # ③ 全檔唯一、遞增、永不回收（next_id＝最大號＋1）
     if len(set(nums)) != len(nums):
@@ -311,29 +390,10 @@ def load_archetype_map(root):
 
 
 def parse_data_model_order(text):
-    """data-model §2 →「表→定稿欄名序」；宣告欄數 vs 解析列數自檢（防靜默漏列）。"""
-    m = re.search(r"^## 2\. .*?$(.*?)^## 3\. ", text, re.M | re.S)
-    if not m:
-        raise GateError("data-model §2 段落定位失敗（## 2. … ## 3. 邊界不在）")
-    tables, declared, cur = {}, {}, None
-    for line in m.group(1).splitlines():
-        h = re.match(r"^### (\w+)（(\d+) 欄", line)
-        if h:
-            cur = h.group(1)
-            declared[cur] = int(h.group(2))
-            tables[cur] = []
-            continue
-        if cur and line.startswith("|"):
-            cells = [c.strip() for c in line.split("|")[1:-1]]
-            if len(cells) >= 2 and cells[0].isdigit():
-                tables[cur].append(cells[1])
-    for t, n in declared.items():
-        if len(tables[t]) != n:
-            raise GateError(f"data-model §2 解析自檢敗：{t} 宣告 {n} 欄、解析得 "
-                            f"{len(tables[t])}")
-    if len(tables) != 14:
-        raise GateError(f"data-model §2 解析自檢敗：期望 14 親排表、解析得 {len(tables)}")
-    return tables
+    """data-model §2 →「表→定稿欄名序」＝parse_data_model_five 的投影（單一解析源：
+    §2 版面一變只改一處，防 gate2 欄序面與 doccheck 面各自漂移；自檢同在該支）。"""
+    return {t: [r[1] for r in rows]
+            for t, rows in parse_data_model_five(text).items()}
 
 
 def load_data_model_order(root):
@@ -359,6 +419,133 @@ def load_sequence_roster(root):
     if len(set(names)) != len(names):
         raise GateError("seed-decision.json sequences 名冊重複")
     return sorted(names)
+
+
+# ---------------------------------------------------------------------------
+# doccheck（B-010）：data-model 文件面 vs 凍結 fixtures 機器對賬（離線、零 docker）
+# ---------------------------------------------------------------------------
+
+RE_DM6_HEAD = re.compile(r"^(索引|約束)（(\d+)）：")
+# ★條目正則不錨行尾：§6 條目行可帶尾註（實例＝sys_operation_log_real_ip_not_null 行帶
+# 「（★§4 定稿差異新增、rev4 無）」）——嚴格行尾錨會少數一條（B-010 已實證陷阱②）。
+RE_DM6_ITEM = re.compile(r"^- `([^`]+)`：`([^`]+)`")
+
+
+def parse_data_model_five(text):
+    """data-model §2 →「表→[(ordinal, column, type, nullable, default)…]」；§2 唯一
+    解析源（gate2 欄序面＝parse_data_model_order 投影本支；本支五元組、doccheck 消費）；
+    宣告欄數 vs 解析列數逐表自檢（防靜默漏列）。
+    ★default 欄「——」＝無 default（None）——取字面比對即全表假紅（B-010 已實證陷阱①）。"""
+    m = re.search(r"^## 2\. .*?$(.*?)^## 3\. ", text, re.M | re.S)
+    if not m:
+        raise GateError("data-model §2 段落定位失敗（## 2. … ## 3. 邊界不在）")
+    tables, declared, cur = {}, {}, None
+    for line in m.group(1).splitlines():
+        h = re.match(r"^### (\w+)（(\d+) 欄", line)
+        if h:
+            cur = h.group(1)
+            declared[cur] = int(h.group(2))
+            tables[cur] = []
+            continue
+        if cur and line.startswith("|"):
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if len(cells) >= 5 and cells[0].isdigit():
+                tables[cur].append((int(cells[0]), cells[1], cells[2],
+                                    cells[3] != "NN",
+                                    None if cells[4] in ("——", "") else cells[4]))
+    for t, n in declared.items():
+        if len(tables[t]) != n:
+            raise GateError(f"data-model §2 解析自檢敗：{t} 宣告 {n} 欄、解析得 "
+                            f"{len(tables[t])}")
+    if len(tables) != 14:
+        raise GateError(f"data-model §2 解析自檢敗：期望 14 親排表、解析得 {len(tables)}")
+    return tables
+
+
+def parse_data_model_defs(text):
+    """data-model §6 →（索引 {(表,名):定義}, 約束 {(表,名):定義}）；宣告支數 vs 解析數
+    逐表逐節自檢＋總計行自檢（防尾註陷阱之外的任何靜默漏列）。"""
+    m = re.search(r"^## 6\. .*?$(.*?)^## 7\. ", text, re.M | re.S)
+    if not m:
+        raise GateError("data-model §6 段落定位失敗（## 6. … ## 7. 邊界不在）")
+    body = m.group(1)
+    tm = re.search(r"總計：索引 (\d+) 支、約束 (\d+) 條", body)
+    if not tm:
+        raise GateError("data-model §6 總計行（索引 N 支、約束 N 條）定位失敗")
+    idx, con = {}, {}
+    cur, mode, want, seen = None, None, 0, 0
+
+    def _selfcheck():
+        if mode is not None and seen != want:
+            raise GateError(f"data-model §6 解析自檢敗：{cur} {mode}宣告 {want} 條、"
+                            f"解析得 {seen}")
+
+    for ln in body.splitlines():
+        h = re.match(r"^### (\w+)\s*$", ln)
+        if h:
+            _selfcheck()
+            cur, mode, want, seen = h.group(1), None, 0, 0
+            continue
+        hm = RE_DM6_HEAD.match(ln)
+        if hm:
+            _selfcheck()
+            mode, want, seen = hm.group(1), int(hm.group(2)), 0
+            continue
+        im = RE_DM6_ITEM.match(ln)
+        if im:
+            if not cur or not mode:
+                raise GateError(f"data-model §6 條目行落在表／節之外：{ln[:60]}")
+            store = idx if mode == "索引" else con
+            key = (cur, im.group(1))
+            if key in store:
+                raise GateError(f"data-model §6 重複條目：{key}")
+            store[key] = im.group(2)
+            seen += 1
+    _selfcheck()
+    if (len(idx), len(con)) != (int(tm.group(1)), int(tm.group(2))):
+        raise GateError(f"data-model §6 解析自檢敗：總計宣告索引 {tm.group(1)}／約束 "
+                        f"{tm.group(2)}、解析得 {len(idx)}／{len(con)}")
+    return idx, con
+
+
+def doccheck_findings(five, idx_doc, con_doc, fixtures):
+    """B-010 對賬核心（純函數）：§2 五元組 vs fixtures/columns（ORDER_EXEMPT 表依
+    data-model §7 不在 §2、自 fixtures 面排除——勿誤報）；§6 vs fixtures/{indexes,
+    constraints}（全表、含 casbin_rule）。文件單邊被改＝紅、逐項指名。"""
+    fnd = []
+    fx_five = {}
+    for r in fixtures["columns"]:
+        if r["table"] in ORDER_EXEMPT:
+            continue
+        fx_five.setdefault(r["table"], {})[r["column"]] = (
+            r["ordinal"], r["type"], r["nullable"], r["default"])
+    doc_five = {t: {r[1]: (r[0], r[2], r[3], r[4]) for r in rows}
+                for t, rows in five.items()}
+    for t in sorted(set(doc_five) - set(fx_five)):
+        fnd.append(f"[doccheck·§2] {t}｜文件有、fixtures 無")
+    for t in sorted(set(fx_five) - set(doc_five)):
+        fnd.append(f"[doccheck·§2] {t}｜fixtures 有、文件無")
+    for t in sorted(set(doc_five) & set(fx_five)):
+        am, bm = doc_five[t], fx_five[t]
+        for c in sorted(set(am) - set(bm)):
+            fnd.append(f"[doccheck·§2] {t}.{c}｜文件有、fixtures 無")
+        for c in sorted(set(bm) - set(am)):
+            fnd.append(f"[doccheck·§2] {t}.{c}｜fixtures 有、文件無")
+        for c in sorted(set(am) & set(bm)):
+            if am[c] != bm[c]:
+                fnd.append(f"[doccheck·§2] {t}.{c}｜(ordinal,type,nullable,default) "
+                           f"文件={am[c]}、fixtures={bm[c]}")
+    for what, doc in (("indexes", idx_doc), ("constraints", con_doc)):
+        fx = {(r["table"], r["name"]): r["definition"] for r in fixtures[what]}
+        for k in sorted(set(doc) - set(fx)):
+            fnd.append(f"[doccheck·§6] {what}/{k[0]}/{k[1]}｜文件有、fixtures 無")
+        for k in sorted(set(fx) - set(doc)):
+            fnd.append(f"[doccheck·§6] {what}/{k[0]}/{k[1]}｜fixtures 有、文件無")
+        for k in sorted(set(doc) & set(fx)):
+            if doc[k] != fx[k]:
+                fnd.append(f"[doccheck·§6] {what}/{k[0]}/{k[1]}｜定義異：文件="
+                           f"{doc[k]!r}、fixtures={fx[k]!r}")
+    return fnd
 
 
 # ---------------------------------------------------------------------------
@@ -414,9 +601,15 @@ def synth_expected(fixtures, entries):
                     hit[0][k] = d[k]
         elif kind == "add_index":
             _need(d, ("name", "definition"), eid)
+            if any(r["table"] == t and r["name"] == d["name"] for r in idxs):
+                raise GateError(f"演進帳 {eid} add_index：{t}/{d['name']} 同名 index 重複"
+                                "登記——比對面 (table,name) 鍵合併會吞漂移、不得靜默")
             idxs.append({"table": t, "name": d["name"], "definition": d["definition"]})
         elif kind == "add_constraint":
             _need(d, ("name", "definition"), eid)
+            if any(r["table"] == t and r["name"] == d["name"] for r in cons):
+                raise GateError(f"演進帳 {eid} add_constraint：{t}/{d['name']} 同名 "
+                                "constraint 重複登記——比對面鍵合併會吞漂移、不得靜默")
             cons.append({"table": t, "name": d["name"], "definition": d["definition"]})
         # seed_add／seed_update／seed_delete：gate2 seed 面合成（apply_seed_entries）
     return {
@@ -624,14 +817,34 @@ def apply_seed_entries(norm_text, entries):
             return all(vals[cols.index(k)] == copy_literal(v)
                        for k, v in pk_map.items())
 
+        # 值域斷言（B-006、斷言⑦同源；直呼合成路徑兜底）：pk/set/values 型別＋pk ⊆ COPY
+        # 欄集——前世逸出裸例外（ValueError／AttributeError／TypeError）、今 GateError→rc 2。
+        # ★缺鍵情形一併由本塊攔下（seed 三 kind 原 _need 呼點已被完全遮蔽、故移除）。
         if kind == "seed_add":
-            _need(d, ("pk", "values"), eid)
+            if not isinstance(d.get("values"), dict):
+                raise GateError(f"演進帳 {eid} seed_add：values 須為物件（欄:值 全欄）")
+            if not isinstance(d.get("pk"), list) or not d["pk"]:
+                raise GateError(f"演進帳 {eid} seed_add：pk 須為主鍵欄名非空清單")
+            bad = sorted(set(d["pk"]) - set(cols))
+            if bad:
+                raise GateError(f"演進帳 {eid} seed_add：pk 欄 {bad} 不在 {t} COPY 欄集"
+                                f"（欄集＝{cols}）")
+        else:
+            if not isinstance(d.get("pk"), dict) or not d["pk"]:
+                raise GateError(f"演進帳 {eid} {kind}：pk 須為非空物件（欄:值）")
+            bad = sorted(set(d["pk"]) - set(cols))
+            if bad:
+                raise GateError(f"演進帳 {eid} {kind}：pk 欄 {bad} 不在 {t} COPY 欄集"
+                                f"（欄集＝{cols}）")
+            if kind == "seed_update" and (not isinstance(d.get("set"), dict)
+                                          or not d["set"]):
+                raise GateError(f"演進帳 {eid} seed_update：set 須為非空物件（欄:值）")
+        if kind == "seed_add":
             if set(d["values"]) != set(cols):
                 raise GateError(f"演進帳 {eid} seed_add：values 欄集 ≠ {t} COPY 欄集"
                                 f"（差集 {sorted(set(cols) ^ set(d['values']))}）")
             rows.append("\t".join(copy_literal(d["values"][c]) for c in cols))
         elif kind == "seed_update":
-            _need(d, ("pk", "set"), eid)
             hits = [i for i, r in enumerate(rows) if _match(r, d["pk"])]
             if len(hits) != 1:
                 raise GateError(f"演進帳 {eid} seed_update：{t} pk={d['pk']} 命中 "
@@ -643,7 +856,6 @@ def apply_seed_entries(norm_text, entries):
                 vals[cols.index(k)] = copy_literal(v)
             rows[hits[0]] = "\t".join(vals)
         else:  # seed_delete
-            _need(d, ("pk",), eid)
             hits = [i for i, r in enumerate(rows) if _match(r, d["pk"])]
             if len(hits) != 1:
                 raise GateError(f"演進帳 {eid} seed_delete：{t} pk={d['pk']} 命中 "
@@ -748,10 +960,13 @@ def audit_archetype(map_rows, actual_cols, actual_idxs, actual_cons):
                     fnd.append(f"[audit] {t}｜索引 {iname} 定義缺 WHERE "
                                f"(deleted_at IS NULL)：{definition!r}")
         elif label == "B append-only":
-            for bad in ("updated_at", "updated_by", "deleted_at", "deleted_by"):
-                if bad in tc:
-                    fnd.append(f"[audit] {t}｜變體 B 禁欄 {bad} 在場（append-only "
-                               "不可竄改、憲法 §I.6）")
+            # 前綴判準（ADR 0016）：updated_*／deleted_* 起首即紅；豁免走 AUDIT_B_EXEMPT
+            for bad in sorted(tc):
+                if bad.startswith(AUDIT_B_FORBIDDEN_PREFIXES) \
+                        and (t, bad) not in AUDIT_B_EXEMPT:
+                    fnd.append(f"[audit] {t}｜變體 B 禁欄 {bad} 在場（前綴判準 "
+                               "updated_*／deleted_*、append-only 不可竄改、憲法 §I.6；"
+                               "合法 payload 欄走 AUDIT_B_EXEMPT 具名豁免＋理由）")
             _check_col(fnd, t, tc, "created_at", TS_TZ, nn=True, default="now()")
             _check_col(fnd, t, tc, "created_by", "bigint")
         elif label == "C join·狀態機":
@@ -1029,6 +1244,42 @@ def cmd_check(root=REPO_ROOT, container=None, user=DB_USER, db=DB_NAME,
 
 
 # ---------------------------------------------------------------------------
+# doccheck 子命令（B-010；離線、不讀庫；★不入 pre-commit 常跑鏈——護 B-007 效能預算，
+# 手動／review 輪跑）
+# ---------------------------------------------------------------------------
+
+def cmd_doccheck(root=REPO_ROOT):
+    """data-model 文件面 vs 凍結 fixtures 機器對賬；rc：0 全等／1 對賬差異／2 環境或
+    結構異常（fixtures 缺、段落定位失敗、解析自檢敗）。"""
+    try:
+        fixtures = load_fixtures(root)
+        path = os.path.join(root, DATA_MODEL)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        except FileNotFoundError:
+            raise GateError(f"data-model.md 缺席（{path}）") from None
+        five = parse_data_model_five(text)
+        idx_doc, con_doc = parse_data_model_defs(text)
+        findings = doccheck_findings(five, idx_doc, con_doc, fixtures)
+    except GateError as ex:
+        print(f"[doccheck] ✗ {ex}", file=sys.stderr)
+        return 2
+    if findings:
+        print(f"[doccheck] ✗ {len(findings)} 項文件面 vs fixtures 對賬差異（文件單邊"
+              "被改＝紅；fixtures 屬凍結面、受損自 git 還原絕不重產）：", file=sys.stderr)
+        for x in findings:
+            print(f"    DOC-DRIFT {x}", file=sys.stderr)
+        return 1
+    n_cols = sum(len(v) for v in five.values())
+    print(f"[doccheck] ✓ §2 五元組：{len(five)} 親排表 {n_cols} 欄 vs fixtures/columns "
+          f"全等（{'、'.join(ORDER_EXEMPT)} 依 §7 豁免）")
+    print(f"[doccheck] ✓ §6 索引 {len(idx_doc)} 支／約束 {len(con_doc)} 條 vs "
+          "fixtures/{indexes,constraints} 全等")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # 自帶測試（unittest、離線——不觸 docker、不讀實庫）
 # ---------------------------------------------------------------------------
 
@@ -1110,7 +1361,7 @@ class TestNegativeInjection(unittest.TestCase):
 
 
 class TestLedgerAssertions(unittest.TestCase):
-    """登記檔啟動斷言六條（contracts/schema-evolution.md §2）＝rc 2 fail-loud。"""
+    """登記檔啟動斷言七條（contracts/schema-evolution.md §2）＝rc 2 fail-loud。"""
 
     def _load(self, data):
         with tempfile.TemporaryDirectory() as d:
@@ -1163,6 +1414,135 @@ class TestLedgerAssertions(unittest.TestCase):
                 fh.write("{broken")
             with self.assertRaisesRegex(GateError, "JSON 壞形"):
                 load_ledger(d)
+
+
+# 斷言⑦測試樣本：八 kind 各一筆合法 detail（缺鍵樣本＝逐 kind 刪首個必備鍵派生）。
+_LEGAL_DETAIL = {
+    "add_table": {"columns": [{"column": "id", "type": "bigint", "nullable": False,
+                               "default": None}]},
+    "add_column": {"column": "x", "type": "text", "nullable": True, "default": None,
+                   "position": "末位"},
+    "alter_column": {"column": "x", "nullable": False},
+    "add_index": {"name": "i_x", "definition": "CREATE INDEX i_x ON public.t (x)"},
+    "add_constraint": {"name": "c_x", "definition": "CHECK (x > 0)"},
+    "seed_add": {"pk": ["id"], "values": {"id": 1}},
+    "seed_update": {"pk": {"id": 1}, "set": {"name": "v"}},
+    "seed_delete": {"pk": {"id": 1}},
+}
+
+
+class TestDetailKeyTable(unittest.TestCase):
+    """斷言⑦（kind×detail 必備鍵表、B-006）：八 kind 各一筆合法／缺鍵樣本＝16 案
+    （方法由下方 setattr 迴圈逐 kind 生成）。"""
+
+    def _load(self, kind, detail):
+        with tempfile.TemporaryDirectory() as d:
+            _write_ledger(d, {"next_id": 2,
+                              "entries": [_entry(kind=kind, detail=detail)]})
+            return load_ledger(d)
+
+
+def _mk_legal(kind):
+    def test(self):
+        got = self._load(kind, json.loads(json.dumps(_LEGAL_DETAIL[kind])))
+        self.assertEqual(got["entries"][0]["kind"], kind)
+    test.__doc__ = f"斷言⑦：{kind} 合法樣本必過。"
+    return test
+
+
+def _mk_missing(kind):
+    key = DETAIL_KEYS[kind][0]
+
+    def test(self):
+        detail = json.loads(json.dumps(_LEGAL_DETAIL[kind]))
+        del detail[key]
+        if not detail:                    # 空 detail 會先撞斷言②——補墊鍵讓⑦說話
+            detail = {"pad": 1}
+        with self.assertRaisesRegex(GateError, "斷言⑦.*" + key):
+            self._load(kind, detail)
+    test.__doc__ = f"斷言⑦：{kind} 缺必備鍵 {key} 必紅。"
+    return test
+
+
+for _k in KINDS:
+    setattr(TestDetailKeyTable, f"test_legal_{_k}", _mk_legal(_k))
+    setattr(TestDetailKeyTable, f"test_missing_{_k}", _mk_missing(_k))
+
+
+class TestDetailBadForms(unittest.TestCase):
+    """B-006 四壞形改判 rc 2：前世逸出裸例外（ValueError／AttributeError／TypeError→
+    解譯器崩潰、殼層收 rc 1）——契約 gates.md §0 rc 語意＝1 漂移／2 環境或結構異常，
+    壞形屬後者。紅綠方向：改判前本組全紅（裸例外非 GateError）、改判後全綠。
+    ★壞形①另帶 seed_add 姊妹案：契約「`pk`／`set`／`values` 欄名 ⊆ COPY 欄集」括號只
+    豁免 `values` 的「恰等」強度、未豁免 `pk`——seed_add 分支同須驗，否則契約過度宣稱。"""
+
+    def setUp(self):
+        self.norm = normalize_seed_dump(_ST_DUMP)
+
+    def test_bad1_pk_col_not_in_copy_set(self):
+        """壞形①：pk 欄名 ∉ COPY 欄集（前世 cols.index 拋 ValueError）。"""
+        e = _entry(kind="seed_update", table="t_ok",
+                   detail={"pk": {"ghost": 1}, "set": {"name": "z"}})
+        with self.assertRaisesRegex(GateError, "不在 t_ok COPY 欄集"):
+            apply_seed_entries(self.norm, [e])
+
+    def test_bad1b_seed_add_pk_col_not_in_copy_set(self):
+        """壞形①姊妹案：seed_add 之 pk 欄名 ∉ COPY 欄集（values 欄集合法亦須紅）——
+        補檢前靜默通過（契約寫 A、工具驗 B），補檢後 GateError→rc 2。"""
+        e = _entry(kind="seed_add", table="t_ok",
+                   detail={"pk": ["ghost_col"], "values": {"id": 9, "name": "z"}})
+        with self.assertRaisesRegex(GateError, "不在 t_ok COPY 欄集"):
+            apply_seed_entries(self.norm, [e])
+
+    def test_bad1c_seed_add_pk_not_list(self):
+        """壞形①旁支：seed_add pk 非清單（直呼合成路徑兜底——否則 set() 逐字元拆解、
+        錯誤訊息失真）。"""
+        e = _entry(kind="seed_add", table="t_ok",
+                   detail={"pk": "id", "values": {"id": 9, "name": "z"}})
+        with self.assertRaisesRegex(GateError, "pk 須為主鍵欄名非空清單"):
+            apply_seed_entries(self.norm, [e])
+
+    def test_bad2_pk_not_object(self):
+        """壞形②：pk 非物件（前世 pk_map.items() 拋 AttributeError）；load 斷言⑦同攔。"""
+        e = _entry(kind="seed_update", table="t_ok",
+                   detail={"pk": [{"id": 1}], "set": {"name": "z"}})
+        with self.assertRaisesRegex(GateError, "pk 須為非空物件"):
+            apply_seed_entries(self.norm, [e])
+        with tempfile.TemporaryDirectory() as d:
+            _write_ledger(d, {"next_id": 2, "entries": [e]})
+            with self.assertRaisesRegex(GateError, "斷言⑦"):
+                load_ledger(d)
+
+    def test_bad3_set_not_object(self):
+        """壞形③：set 非物件（前世 d["set"].items() 拋 AttributeError）。"""
+        e = _entry(kind="seed_update", table="t_ok",
+                   detail={"pk": {"id": 1}, "set": ["name"]})
+        with self.assertRaisesRegex(GateError, "set 須為非空物件"):
+            apply_seed_entries(self.norm, [e])
+
+    def test_bad4_values_not_object(self):
+        """壞形④：seed_add values 非物件（前世 set(d["values"]) 拋 TypeError）。"""
+        e = _entry(kind="seed_add", table="t_ok",
+                   detail={"pk": ["id"], "values": 7})
+        with self.assertRaisesRegex(GateError, "values 須為物件"):
+            apply_seed_entries(self.norm, [e])
+
+
+class TestDuplicateRegistration(unittest.TestCase):
+    """B-006 值域斷言：同名 index/constraint 重複登記攔——前世 synth 靜默附掛、compare
+    面 (table,name) 字典鍵合併＝重複被吞、閘照綠。"""
+
+    def test_add_index_duplicate(self):
+        e = _entry(kind="add_index", table="t_ok",
+                   detail={"name": "t_ok_pkey", "definition": "CREATE INDEX x"})
+        with self.assertRaisesRegex(GateError, "重複登記"):
+            synth_expected(_st_fixtures(), [e])
+
+    def test_add_constraint_duplicate(self):
+        e = _entry(kind="add_constraint", table="t_ok",
+                   detail={"name": "t_ok_pkey", "definition": "PRIMARY KEY (id)"})
+        with self.assertRaisesRegex(GateError, "重複登記"):
+            synth_expected(_st_fixtures(), [e])
 
 
 class TestFixturesMissing(unittest.TestCase):
@@ -1266,6 +1646,87 @@ class TestPgDumpArgv(unittest.TestCase):
                          ["docker", "exec", "-e", "PGTZ=UTC", "-i", "pristine-pg"])
 
 
+class TestCmdCheckGreenPath(unittest.TestCase):
+    """B-013 缺口①：cmd_check 綠路徑離線全程（照相→合成→三閘→四行摘要→rc 0）。樁沿
+    TestPgDumpArgv fake_run 法：按 SQL 常數分派 fixtures 三節 JSON、pg_dump 回凍結
+    seed.sql。★驗 SQL 分派正確＋四行摘要格式計數＋rc 0；比對器邏輯歸 check_self_test
+    承載、此處刻意不重驗（分工）。凍結基線複製入暫存 root＋空演進帳＝真登記檔日後長
+    entries 也不影響本測（凍結面永不改寫、字面計數可釘）。"""
+
+    _COPY = ("specs/001-schema-baseline/fixtures/columns.json",
+             "specs/001-schema-baseline/fixtures/indexes.json",
+             "specs/001-schema-baseline/fixtures/constraints.json",
+             "specs/001-schema-baseline/fixtures/seed.sql",
+             "specs/001-schema-baseline/data-model.md",
+             "specs/001-schema-baseline/seed-decision.json",
+             "docs/ops/reference-src/archetype-map.json")
+
+    def test_green_path_sql_dispatch_summary_rc0(self):
+        fx = load_fixtures(REPO_ROOT)
+        dispatch = {SQL_COLUMNS: fx["columns"], SQL_INDEXES: fx["indexes"],
+                    SQL_CONSTRAINTS: fx["constraints"]}
+        calls = []
+
+        class _R:
+            returncode, stderr = 0, ""
+
+            def __init__(self, out):
+                self.stdout = out
+
+        def fake_run(cmd, **kw):
+            if "pg_dump" in cmd:
+                calls.append("pg_dump")
+                return _R(fx["seed"])
+            sql = cmd[-1]
+            if sql not in dispatch:
+                raise AssertionError(f"樁收到未知 SQL（分派錯）：{sql[:80]}")
+            calls.append(sql)
+            return _R(json.dumps(dispatch[sql]))
+
+        with tempfile.TemporaryDirectory() as d:
+            for rel in self._COPY:
+                dst = os.path.join(d, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copyfile(os.path.join(REPO_ROOT, rel), dst)
+            _write_ledger(d, _VALID_LEDGER)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = cmd_check(root=d, run=fake_run)
+        self.assertEqual(rc, 0)
+        # SQL 分派：三查詢恰各一次、序＝columns→indexes→constraints，殿後 pg_dump
+        self.assertEqual(calls, [SQL_COLUMNS, SQL_INDEXES, SQL_CONSTRAINTS, "pg_dump"])
+        lines = out.getvalue().splitlines()
+        self.assertEqual(len(lines), 4)
+        self.assertTrue(all(ln.startswith("[check] ✓") for ln in lines), msg=lines)
+        self.assertIn("gate1 結構：columns 169／indexes 38／constraints 101 全等",
+                      lines[0])
+        self.assertIn("演進帳合成 0 筆", lines[0])
+        self.assertIn("gate2 欄序：14 親排表逐位全等", lines[1])
+        self.assertIn("casbin_rule 豁免", lines[1])
+        n = len(normalize_seed_dump(fx["seed"]).splitlines())
+        self.assertIn(f"gate2 seed：normalize 後 {n} 行逐列零差異（setval 名冊 11 支）",
+                      lines[2])
+        self.assertIn("audit archetype：15/15 綠", lines[3])
+
+
+class TestSnapshotIsomorphism(unittest.TestCase):
+    """B-013 缺口②：gate1 照相三 SQL 常數 vs tools/docs-sync.py refresh 三常數位元相等
+    ——兩工具刻意重複、「同構」宣稱的唯一機器載體（importlib 實載模組取常數值、
+    非讀源碼文字比對）。"""
+
+    def test_three_sql_constants_bit_identical(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "docs_sync_isomorphism_probe",
+            os.path.join(REPO_ROOT, "tools", "docs-sync.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for name in ("SQL_COLUMNS", "SQL_INDEXES", "SQL_CONSTRAINTS"):
+            self.assertEqual(globals()[name], getattr(mod, name),
+                             msg=f"{name} 兩工具位元不相等——gate1 照相與 refresh 快照"
+                                 "不再同構（單邊改動）")
+
+
 class TestDockerUnavailable(unittest.TestCase):
     """docker 不可執行（OSError；不在 PATH／CLI 缺）＝環境異常 GateError→rc 2——
     非 rc 1 漂移、非裸 traceback（契約 gates.md §0；RUNBOOK §12 依碼判讀之根據）。
@@ -1296,7 +1757,8 @@ class TestDataModelParse(unittest.TestCase):
     DM = ("## 2. 逐表欄序定稿\n\n### t_a（2 欄；變體 A）\n\n"
           "| # | 欄 | 型別 | NULL | default | 註 |\n|---|---|---|---|---|---|\n"
           "| 1 | id | bigint | NN | —— |  |\n| 2 | name | text | 可空 | —— |  |\n\n"
-          + "".join(f"### t_{c}（1 欄）\n\n| # | 欄 |\n|---|---|\n| 1 | id |\n\n"
+          + "".join(f"### t_{c}（1 欄）\n\n| # | 欄 | 型別 | NULL | default | 註 |\n"
+                    "|---|---|---|---|---|---|\n| 1 | id | bigint | NN | —— |  |\n\n"
                     for c in "bcdefghijklmn")
           + "## 3. rename map\n")
 
@@ -1349,6 +1811,46 @@ class TestAuditEngine(unittest.TestCase):
         self.assertTrue(any("created_by｜可空性顯式驗不符" in x for x in f))
 
 
+class TestAuditBForbiddenPrefix(unittest.TestCase):
+    """B-012（ADR 0016）變體 B 禁欄三向紅綠：①前綴新欄（updated_fields）紅——具名四欄
+    時代的漏網形；②具名豁免清單加列後綠——正規出口；③具名四欄仍紅——前綴判準涵蓋原
+    判準、守門不縮水。"""
+
+    A_MAP = [{"table": "t_log2", "label": "B append-only",
+              "active_unique": None, "note": ""}]
+
+    def _cols(self, extra):
+        return [
+            {"table": "t_log2", "column": "id", "ordinal": 1, "type": "bigint",
+             "nullable": False, "default": None},
+            {"table": "t_log2", "column": "created_at", "ordinal": 2, "type": TS_TZ,
+             "nullable": False, "default": "now()"},
+            {"table": "t_log2", "column": "created_by", "ordinal": 3, "type": "bigint",
+             "nullable": True, "default": None},
+            {"table": "t_log2", "column": extra, "ordinal": 4, "type": "jsonb",
+             "nullable": True, "default": None},
+        ]
+
+    def test_1_prefix_new_column_red(self):
+        for col in ("updated_fields", "deleted_flag"):
+            f = audit_archetype(self.A_MAP, self._cols(col), [], [])
+            self.assertTrue(any(f"禁欄 {col}" in x for x in f), msg=(col, f))
+
+    def test_2_exempt_listed_then_green(self):
+        key = ("t_log2", "updated_fields")
+        AUDIT_B_EXEMPT[key] = "測試豁免：payload 欄（jsonb 記變更欄集）——非審計欄"
+        try:
+            f = audit_archetype(self.A_MAP, self._cols("updated_fields"), [], [])
+            self.assertEqual([x for x in f if "禁欄" in x], [])
+        finally:
+            del AUDIT_B_EXEMPT[key]
+
+    def test_3_named_four_still_red(self):
+        for col in ("updated_at", "updated_by", "deleted_at", "deleted_by"):
+            f = audit_archetype(self.A_MAP, self._cols(col), [], [])
+            self.assertTrue(any(f"禁欄 {col}" in x for x in f), msg=(col, f))
+
+
 class TestMapAssertions(unittest.TestCase):
     def _map(self, tables):
         return {"lineage": "x", "usage": "y", "tables": tables}
@@ -1384,6 +1886,102 @@ class TestMapAssertions(unittest.TestCase):
                           "system_settings"])
 
 
+class TestDocCheck(unittest.TestCase):
+    """B-010：data-model 文件面（§2 五元組／§6 索引約束）vs 凍結 fixtures 機器對賬——
+    兩個已實證解析陷阱之負向測試＋比對器非恆綠自證＋今日真 repo 基線全綠。"""
+
+    DM2 = ("## 2. 逐表欄序定稿\n\n### t_a（2 欄）\n\n"
+           "| # | 欄 | 型別 | NULL | default | 註 |\n|---|---|---|---|---|---|\n"
+           "| 1 | id | bigint | NN | nextval('s'::regclass) |  |\n"
+           "| 2 | memo | text | 可空 | —— |  |\n\n"
+           + "".join(f"### t_{c}（1 欄）\n\n| # | 欄 | 型別 | NULL | default | 註 |\n"
+                     "|---|---|---|---|---|---|\n| 1 | id | bigint | NN | —— |  |\n\n"
+                     for c in "bcdefghijklmn")
+           + "## 3. rename map\n")
+
+    DM6 = ("## 6. 索引與約束\n\n總計：索引 1 支、約束 2 條（含 NOT NULL 逐欄形）。\n\n"
+           "### t_a\n\n索引（1）：\n\n"
+           "- `t_a_pkey`：`CREATE UNIQUE INDEX t_a_pkey ON public.t_a USING btree (id)`\n"
+           "\n約束（2）：\n\n"
+           "- `t_a_pkey`：`PRIMARY KEY (id)`\n"
+           "- `t_a_real_ip_not_null`：`NOT NULL real_ip`（★§4 定稿差異新增、rev4 無）\n\n"
+           "## 7. casbin_rule\n")
+
+    def _fx(self):
+        cols = [{"table": "t_a", "column": "id", "ordinal": 1, "type": "bigint",
+                 "nullable": False, "default": "nextval('s'::regclass)"},
+                {"table": "t_a", "column": "memo", "ordinal": 2, "type": "text",
+                 "nullable": True, "default": None}]
+        for c in "bcdefghijklmn":
+            cols.append({"table": f"t_{c}", "column": "id", "ordinal": 1,
+                         "type": "bigint", "nullable": False, "default": None})
+        return {"columns": cols,
+                "indexes": [{"table": "t_a", "name": "t_a_pkey",
+                             "definition": "CREATE UNIQUE INDEX t_a_pkey ON public.t_a"
+                                           " USING btree (id)"}],
+                "constraints": [{"table": "t_a", "name": "t_a_pkey",
+                                 "definition": "PRIMARY KEY (id)"},
+                                {"table": "t_a", "name": "t_a_real_ip_not_null",
+                                 "definition": "NOT NULL real_ip"}]}
+
+    def test_missing_fixtures_root_is_rc2(self):
+        """負向：fixtures 缺席＝環境／結構異常 rc 2（GateError 路徑、非裸例外）。"""
+        with tempfile.TemporaryDirectory() as td, \
+                contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cmd_doccheck(root=td), 2)
+
+    def test_trap1_dash_default_is_none(self):
+        """陷阱①：§2 default 欄「——」＝無 default（None）——取字面比對即全表假紅。"""
+        five = parse_data_model_five(self.DM2)
+        self.assertEqual(five["t_a"][1], (2, "memo", "text", True, None))
+        self.assertEqual(five["t_a"][0],
+                         (1, "id", "bigint", False, "nextval('s'::regclass)"))
+
+    def test_trap2_trailing_note_parsed(self):
+        """陷阱②：§6 條目行可帶尾註（實例＝sys_operation_log_real_ip_not_null 行帶
+        「（★§4 定稿差異新增、rev4 無）」）——嚴格行尾錨會少數一條、宣告支數自檢連帶炸。"""
+        idx, con = parse_data_model_defs(self.DM6)
+        self.assertEqual(len(idx), 1)
+        self.assertEqual(con[("t_a", "t_a_real_ip_not_null")], "NOT NULL real_ip")
+
+    def test_declared_count_mismatch_fail_loud(self):
+        with self.assertRaisesRegex(GateError, "自檢敗"):
+            parse_data_model_defs(self.DM6.replace("約束（2）", "約束（3）"))
+
+    def test_comparator_red_on_single_field(self):
+        """比對器非恆綠自證：單格改動即紅、逐項指名（§2 型別格＋§6 定義文字各一）。"""
+        five = parse_data_model_five(self.DM2)
+        idx, con = parse_data_model_defs(self.DM6)
+        fx = self._fx()
+        self.assertEqual(doccheck_findings(five, idx, con, fx), [])   # 健康對綠
+        fx["columns"][0]["type"] = "integer"
+        f = doccheck_findings(five, idx, con, fx)
+        self.assertTrue(any("[doccheck·§2] t_a.id" in x for x in f), msg=f)
+        fx2 = self._fx()
+        fx2["constraints"][0]["definition"] = "PRIMARY KEY (memo)"
+        f2 = doccheck_findings(five, idx, con, fx2)
+        self.assertTrue(any("[doccheck·§6] constraints/t_a/t_a_pkey" in x
+                            for x in f2), msg=f2)
+
+    def test_order_exempt_not_false_reported(self):
+        """casbin_rule 依 §7／ORDER_EXEMPT 本就不在 §2——fixtures 面豁免、勿誤報。"""
+        five = parse_data_model_five(self.DM2)
+        idx, con = parse_data_model_defs(self.DM6)
+        fx = self._fx()
+        fx["columns"].append({"table": "casbin_rule", "column": "id", "ordinal": 1,
+                              "type": "bigint", "nullable": False, "default": None})
+        self.assertEqual([x for x in doccheck_findings(five, idx, con, fx)
+                          if "§2" in x], [])
+
+    def test_real_repo_green_rc0(self):
+        """今日基線必須全綠（偵查離線實證：§2 14 表 158 欄、§6 索引 38／約束 101 全等）。"""
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(cmd_doccheck(REPO_ROOT), 0)
+        self.assertIn("§2 五元組：14 親排表 158 欄", out.getvalue())
+        self.assertIn("§6 索引 38 支／約束 101 條", out.getvalue())
+
+
 class TestConstantsPinned(unittest.TestCase):
     """治理常數字面釘死（慣例承 entity-drift-gate TestWhitelist）：常數縮水＝斷言跟縮
     的套套邏輯在此擋。"""
@@ -1406,6 +2004,28 @@ class TestConstantsPinned(unittest.TestCase):
             "operator_real_ip": "real_ip", "operator_peer_ip": "peer_ip",
             "operator_x_forwarded_for": "x_forwarded_for",
             "operator_ip_confidence": "ip_confidence"})
+
+    def test_detail_keys_and_audit_b_pinned(self):
+        """B-006／B-012 治理常數逐字釘死——TestDetailKeyTable 樣本與豁免出口皆由其派生，
+        縮水即套套邏輯（實證：DETAIL_KEYS 縮鍵後 _assert_detail 逸出裸 KeyError 回 rc 1
+        形而 85 案全綠）；AUDIT_B_EXEMPT 每筆形制機器強制（(表,欄) tuple＋非空理由）。"""
+        self.assertEqual(DETAIL_KEYS, {
+            "add_table": ("columns",),
+            "add_column": ("column", "type", "nullable"),
+            "alter_column": ("column",),
+            "add_index": ("name", "definition"),
+            "add_constraint": ("name", "definition"),
+            "seed_add": ("pk", "values"),
+            "seed_update": ("pk", "set"),
+            "seed_delete": ("pk",),
+        })
+        self.assertEqual(AUDIT_B_FORBIDDEN_PREFIXES, ("updated_", "deleted_"))
+        self.assertEqual(AUDIT_B_EXEMPT, {})   # Day-1 空集；加列＝同 commit 改本案＋附理由
+        for key, reason in AUDIT_B_EXEMPT.items():
+            self.assertIsInstance(key, tuple)
+            self.assertEqual(len(key), 2)
+            self.assertTrue(all(isinstance(x, str) and x for x in key))
+            self.assertTrue(isinstance(reason, str) and reason.strip())
 
     def test_paths_are_001_coordinates(self):
         """rev4 世代座標（specs/rev4:002）整組清償：路徑常數一律 001。"""
@@ -1430,6 +2050,10 @@ class TestUsage(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(main(["schema-gate.py", "check", "--container"]), 64)
 
+    def test_doccheck_extra_arg_exit64(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["schema-gate.py", "doccheck", "x"]), 64)
+
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -1449,6 +2073,10 @@ def main(argv):
     if cmd == "test":
         result = unittest.main(argv=[argv[0]], exit=False, verbosity=1).result
         return 0 if result.wasSuccessful() else 1
+    if cmd == "doccheck":
+        if len(argv) > 2:
+            return usage(f"doccheck 不收引數（得 {argv[2:]}）")
+        return cmd_doccheck()
     if cmd == "check":
         container, user, db = None, DB_USER, DB_NAME
         args = argv[2:]

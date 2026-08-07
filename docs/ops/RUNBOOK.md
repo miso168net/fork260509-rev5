@@ -46,7 +46,68 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 
 ## 6. 備份與還原
 
-（本章隨對應刀補實文；創世期無內容。）
+★**命令驗證狀態**：§6.1／§6.2 全序列**已於 2026-08-07 真還原演練實跑**（紀錄＝§6.3）；
+§6.4 原地還原命令形**未實跑**——破壞性操作、須 operator 明確同意後另行執行。
+
+### 6.1 備份（pg_dump 走容器、host 除 docker 外零依賴）
+
+```bash
+python3 deploy/backup-db.py dump
+```
+
+自 dev stack 的 postgres 容器 `pg_dump` 整庫（plain SQL）、落
+`$HOME/backups-fork260509-rev5/`（檔名帶 UTC 時戳、絕不覆寫既有檔）。**落點紀律**＝
+$HOME 下以 repo 目錄名為根（`SECRETS_DIR` 同款命名、rev4:0084 防跨代撞名）、絕不落 repo 內。
+★本工具**零機密處理**：不碰 age 私鑰、不碰 `$SECRETS_DIR` 明文——機密檔與資料卷的**配對
+備份＝第二段**（排程化亦同，BACKLOG B-023）、明確不在本章。★界線另一條：plain `pg_dump`
+只含單一 database、**不含 cluster 級 globals（role 定義與其密碼）**——現況零 role GRANT
+故全新 cluster 可直灌；日後 reaper role 建立後 dump 會帶 `GRANT … TO reaper`，還原目標
+須先建該 role（否則 `ON_ERROR_STOP` 停在首個 GRANT）。
+
+### 6.2 還原演練（scratch 容器、★非破壞——既有容器與卷零觸碰）
+
+```bash
+docker run -d --name rev5-admin-drill-pg -v rev5-admin-drill-pg-data:/var/lib/postgresql \
+  -e POSTGRES_USER=soybean -e POSTGRES_PASSWORD=drill-scratch \
+  -e POSTGRES_DB=soybean_admin_rust postgres:18.4-alpine
+until docker exec rev5-admin-drill-pg pg_isready -U soybean -d soybean_admin_rust >/dev/null 2>&1; do sleep 1; done
+python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>" --container rev5-admin-drill-pg
+python3 deploy/backup-db.py dump --container rev5-admin-drill-pg
+```
+
+驗證＝normalize 後逐位元比對（剝 pg_dump 隨機 token 行、與 schema-gate normalize 同則）＋
+唯讀抽驗（對 scratch 庫 `psql -Atc` 數列數對照現庫）：
+
+```bash
+grep -v -e '^\\restrict ' -e '^\\unrestrict ' "$HOME/backups-fork260509-rev5/<原 dump>" > tmp/a.norm
+grep -v -e '^\\restrict ' -e '^\\unrestrict ' "$HOME/backups-fork260509-rev5/<re-dump>" > tmp/b.norm
+cmp tmp/a.norm tmp/b.norm && echo 逐位元相等
+```
+
+收尾清理**只准刪演練自建、名稱帶 drill 者**（既有 stack 的容器與卷絕不動）：
+
+```bash
+docker rm -f rev5-admin-drill-pg && docker volume rm rev5-admin-drill-pg-data
+rm tmp/a.norm tmp/b.norm
+```
+
+### 6.3 演練紀錄
+
+- **2026-08-07**（B-023 第一段收單演練）：現庫 dump（60791 bytes）→ 全新 scratch 容器＋卷
+  （`rev5-admin-drill-pg`／`rev5-admin-drill-pg-data`）restore rc=0 → re-dump normalize 後
+  `cmp` **逐位元相等**（sha256 同值）＋唯讀抽驗（sys_user 3／sys_menu 78／sys_role 3／
+  public 表 16、兩庫同值）→ scratch 清理；docker 容器與卷名冊演練前後 diff 零增減。
+
+### 6.4 原地還原（★破壞性——覆寫 dev stack 既有庫；未實跑、須 operator 明確同意後執行）
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres dropdb -U soybean --force soybean_admin_rust
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres createdb -U soybean soybean_admin_rust
+python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>" --container rev5-admin-postgres-1
+```
+
+`dropdb` 起即無回頭路——執行前先照 §6.1 再留一份新 dump；還原後跑
+`python3 tools/schema-gate.py check` 三閘綠＝驗收。
 
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
@@ -69,7 +130,8 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 2. 登記 `docs/ops/reference-src/schema-evolution.json` —— 該刀**全部**結構／seed 變更逐筆入帳
    （kind 枚舉恰八值、每筆帶來源刀編號；刪除性演進〔drop_*〕不入登記檔——屬拍板級、
    走新 ADR 基線翻案；seed 面合成現況：add_table 與帶 default／NOT NULL 之 add_column
-   落 rc 2 fail-loud 指引擴充——斷言完備化由 BACKLOG B-006 承載、首筆真登記前完備）
+   落 rc 2 fail-loud 指引擴充；壞形登記由啟動斷言七條攔下——含 kind×detail 必備鍵表，
+   契約＝`specs/001-schema-baseline/contracts/schema-evolution.md` §2、每跑必驗 rc 2）
 3. `python3 tools/schema-gate.py check` —— 三閘綠（gate1 結構／gate2 欄序＋seed／audit
    archetype）；未登記漂移一律紅、「migration 已跑、登記缺席」＝gate1 紅之常態語意；
    一次性 pristine 場景加 `--container <容器名>`（預設＝compose dev stack）；判讀提示：
@@ -93,6 +155,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
 | `python3 tools/schema-gate.py test` | 自測 | 否 |
+| `python3 tools/schema-gate.py doccheck` | data-model §2/§6 文件面 vs 凍結 fixtures 對賬（B-010；離線、不入 pre-commit 常跑鏈——手動／review 輪跑） | 否 |
 | `python3 tools/wire-schema.py extract` / `check` / `test` | 容器內抽 typings→wire-schema.json 快照／快照 drift 比對（`--staged-gate`＝pre-commit 收窄形）／自測 | extract **是**、check 未起→警告放行 |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點：staged 增量對既存明文結構性失明（rev4:L-190）、本旗標補盤點面——導入既有 repo 與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量；增量面＝pre-commit 自動跑裸 check） | 否 |
@@ -116,7 +179,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
   （staged 區間零 typings 變動即跳過）；rust-api pin bump 或 schema 快照
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
   `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
-  全跑工具名冊全部 test。全鏈計時兩級：超 20 秒 WARN、超 45 秒 ERROR（調整走 ADR）。
+  全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
 - **lint 條款**：全 24 條（範圍 Lint03~Lint25；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
@@ -129,6 +192,87 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
   穩定），沿 **latest**、版本不落任何字面——每次產鑰以 `docker build --pull --no-cache`
   重建 `deploy/Dockerfile.age` 取真最新（防浮動 tag 被 docker 層快取凍成「假 latest」），
   離線／限流時退回本機既有映像並印警示、不靜默；完整性面走 go module sumdb 校驗。
+
+### 12.1 效能預算（B-007：觀測基準與預算分攤、非機器閘）
+
+- **兩級門檻語意**：pre-commit 全鏈牆鐘超 **20s**＝警戒（列示放行、劣化趨勢訊號）、超
+  **45s**＝硬擋（狀態型：`--no-verify` 只延後、下次 commit 仍提醒）。★數字權威＝
+  `.githooks/pre-commit` 常數 `PRECOMMIT_WARN_SEC`／`PRECOMMIT_FAIL_SEC`（本節僅引用；
+  調整走 ADR、不得就地改數字）。機器閘只有這一道**全鏈 45s**；本節其餘數字全屬觀測基準
+  與預算分攤、無機器強制。
+- **量測法**（K3-162 紅線、rev4 實證；出處＝docs/brainstorms/000-doc-architecture.md）：
+  `time.perf_counter` 直接包被測**整命令**（subprocess）、每命令連跑 ≥3 次取**中位數**；
+  合計＝逐支中位數加總。★**禁整鏈前後差量歸因單閘**——WSL2 全鏈牆鐘變異可達 ±1.5s、
+  rev4 曾量出負值；整鏈計時只用於「有無數量級劣化」粗判。可複製命令形（輸出＝runs 三值
+  ＋median；argv 換成被測整命令即可逐支複測）：
+
+```bash
+python3 - <<'EOF'
+import statistics, subprocess, time
+argv = ["python3", "tools/docs-sync.py", "lint"]   # ←換成被測整命令
+ts = []
+for _ in range(3):
+    t0 = time.perf_counter()
+    r = subprocess.run(argv, capture_output=True)   # 不 check：紅燈現場也要量得到值
+    ts.append(time.perf_counter() - t0)
+print(f"runs={[f'{t:.3f}' for t in ts]} median={statistics.median(ts):.3f}s rc={r.returncode}")
+EOF
+```
+
+- **本批終態實測**（2026-08-08、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝python 工具
+  ——betterleaks 樣式掃描為原生二進位、不在本表量測面；另三支 **gitlink 觸發段**——
+  fork-delta-lint〔pre-commit 自註 drvfs 約 9s〕／wire-schema check --staged-gate／
+  entity-drift-gate check——屬另一觸發維度亦不在本表，收刀簿記型 commit（pin bump＋
+  多工具 staged）之真實最壞須在情境 B 上再加約 9s+）。**單跑上限推導＝該列中位數 ×3
+  進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
+  ≈3 倍）；下限 1s 吸收 drvfs 抖動的次秒級絕對尖峰；一律以 WSL2（慢端）實測定值——
+  APFS 同工具快一個量級（pre-commit 註解既載事實），故上限對兩平台皆有餘裕。
+
+  情境 A＝基礎鏈（無 gitlink、無 tools staged）：
+
+  | 段 | 中位數 | 單跑上限 |
+  |---|---|---|
+  | `python3 tools/secret-value-guard.py check` | 0.179s | 1s |
+  | `python3 tools/docs-sync.py check` | 1.004s | 4s |
+  | `python3 tools/docs-sync.py lint` | 5.858s | 18s |
+  | **基礎鏈合計** | **7.041s** | **22s**（＝合計中位數 ×3；非逐列上限加總 23s、以本值為權威） |
+
+  情境 B＝理論最壞 staged（pre-commit 名冊 11 支工具本體全 staged、條件自測全中）＝
+  基礎鏈＋11 支 test：
+
+  | 支 | 自測案數 | 中位數 | 單跑上限 |
+  |---|---|---|---|
+  | `python3 tools/docs-sync.py test` | 469 | 11.893s | 36s |
+  | `python3 tools/schema-gate.py test` | 88 | 0.362s | 2s |
+  | `python3 tools/wire-schema.py test` | 27 | 0.191s | 1s |
+  | `python3 tools/secret-value-guard.py test` | 56 | 0.420s | 2s |
+  | `python3 tools/entity-drift-gate.py test` | 45 | 0.153s | 1s |
+  | `python3 deploy/preflight-secrets.py test` | 30 | 0.120s | 1s |
+  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.367s | 8s |
+  | `python3 deploy/generate-secrets.py test` | 35 | 1.769s | 6s |
+  | `python3 deploy/setup-reaper-role.py test` | 32 | 0.604s | 2s |
+  | `python3 deploy/backup-db.py test` | 17 | 1.645s | 5s |
+  | `python3 tools/wf-watchdog.py test` | 23 | 0.211s | 1s |
+  | **11 支 test 合計** | **893** | **19.735s** | — |
+
+  **情境 B 合計＝26.776s**（7.041＋19.735；越 20s 警戒、未破 45s 硬擋——合計面守門
+  仍＝全鏈 45s、不另定上限）。
+- **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
+  無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
+  docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit
+  1779d17 後／單元③ commit 6a6378e 後，基礎鏈＋docs-sync／schema-gate／backup-db 三支
+  test 合計粗判）＝**20.9s**／**17.6s**。可比面趨勢（本節立意所在）：基礎鏈同情境自
+  001 收刀約 1s 成長至約 7s（主因＝lint 條款成長至全 24 條）、距 20s 警戒餘約 3 倍
+  ——下一批續比此值。
+- **一致性核**：最大單支上限（docs-sync test 36s）＋基礎鏈實測 7.041s ≈43s、仍在全鏈
+  45s 內——常見情境（單支工具 staged）下觀測上限先於機器硬擋喊人。逐支上限**加總**
+  （基礎鏈 22s＋11 支 65s＝87s）遠超 45s——單跑上限是逐支劣化偵測基準、非「全數同時
+  到頂仍過鏈閘」的保證；理論最壞情境的守門仍＝全鏈 45s。
+- **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
+  rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
+  劣化理由。
+- **維護紀律**：新工具入 pre-commit 名冊時，本表**須同步加列**（量測＋定上限）；名冊
+  變動而本表未動＝表已過期。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）
 
@@ -150,14 +294,20 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 `.sops.yaml` 逐把相符）；§15.7 步驟 1 的解密需 passphrase
 （僅存持鑰者腦中）故**未實跑**，其正規化片段與 `deploy/decrypt-secrets.py` 的
 `normalize_stream` **同形**（CR→行界＋剝 ANSI CSI、同序；語意等價、非逐字複本）——該函式
-每次 decrypt 都在實跑。
+每次 decrypt 都在實跑。2026-08-08（B-041 第三把離線復原鑰）：`updatekeys` **第二次真實
+實跑**（recipient 2→3、diff 性質同上逐項相符）；`deploy/decrypt-secrets.py` 以
+`RV5_AGE_KEY_FILE` 指向復原鑰**端到端實跑**（3 recipient 自動代餵、10 支 WRITTEN）
+＝復原鑰可解實證。
 
 ### 15.1 資產、工具與不可省紀律
 
 資產三件：`deploy/secrets.dev.enc.yaml`（密文、**tracked**、承載 10 支＝9 leaf＋
 `alert_webhook_url`）／`.sops.yaml`（recipient 公鑰清單、tracked）／
 `~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**；
-跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。
+跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。另有第三把**離線復原鑰**
+（B-041、ADR 0015 子題三）：私鑰檔＋passphrase **離線保管、不駐任何開發機**——封「雙持鑰人
+同失 passphrase＝密文永久不可解」死路；災難動用＝`RV5_AGE_KEY_FILE` 給其檔案的 host 絕對
+路徑後照常跑 `python3 deploy/decrypt-secrets.py`。
 工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版、自動選鑰）、`python3 deploy/decrypt-secrets.py`
 （密文→`$SECRETS_DIR/*.txt`）、`python3 deploy/generate-secrets.py`（產亂數）、
 `python3 deploy/preflight-secrets.py`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
@@ -178,6 +328,9 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 Enter 即可。★時機仍看腳本自己印的**預告行**：預告行出現後再輸入；搶在它之前打字＝該串字被
 host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。本管線零 gpg 前置（passphrase 由
 sops 內嵌 age 直讀容器內 `/dev/tty`）——提示異常不要往 gpg-agent／pinentry 方向查。
+★**互動探查／解回驗收也走 `decrypt-secrets.py`、勿裸 `./deploy/sops.sh -d`**：裸 -d 對每個
+recipient 各索一次 passphrase，且 stdout 重導向＋`-t` 並存時提示與資料**同流**（wrapper 檔頭
+既載）——重導向到 /dev/null 連提示一起隱形、盲打必敗（2026-08-08 B-041 驗收實撞）。
 
 ★**逐次手打退路＝`RV5_DECRYPT_MANUAL=1`**（嚴格判 `1`；災難復原路徑不鎖死）。走這條時下列
 四條全數適用，也正是 ADR 0013 記在退路帳上的風險面：★**次數＝recipient 數**（每個 recipient
@@ -314,13 +467,14 @@ rm -f tmp/plain.yaml
 
 ### 15.5 金鑰／passphrase 遺失與災難復原
 
-私鑰檔與 passphrase **缺一即不可解**，故離線備份義務**含 passphrase 本身**。三種情境：
+私鑰檔與 passphrase **缺一即不可解**，故離線備份義務**含 passphrase 本身**。四種情境：
 
 | 情境 | 處置 |
 |---|---|
 | 自己這把失效、**他人尚可解** | 走 §15.2 產新鑰重新加入；舊 identity 依 §15.3 撤銷 |
 | 自己這把失效、**唯一 identity** | 密文永久不可解（無後門、設計如此）→ 下一列 |
 | **全部 identity 皆失去** | `python3 deploy/generate-secrets.py --force` 重產全部亂數機密（dev 值本就是亂數、無歷史價值）→ 依 §15.4 回寫新密文 → `.sops.yaml` 換成新 recipient。★**人工真值必須在原始來源重新取得**（SMTP app password 回 Gmail 重簽、`alert_webhook_url` 回告警平台重取）——這些不是亂數，重產不回來 |
+| **成員離開／持鑰人失聯**、其 identity 仍有效 | 走 §15.3 撤銷該公鑰；★準則 1＝**只 re-key 不換值＝形式撤銷**——對方曾解過就已握有明文，撤銷**必連帶輪替機密值本身**（依 §15.6 輪替表換 9 支 leaf＋`--compose-only` 重組；★人工真值——SMTP app password 與 `alert_webhook_url`——`--force` 不重置，須回原始來源重取，同 §15.6 第三列警語） |
 
 舊密文留在 git 史不必也無法移除——沒有任何 identity 能解它。
 

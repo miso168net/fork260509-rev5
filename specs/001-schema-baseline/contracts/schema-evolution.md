@@ -37,6 +37,23 @@
 4. `knife` 格式 `^\d{3}-[a-z0-9-]+$`（來源刀編號＝feature branch 名）。
 5. `kind` 入枚舉；`date` 格式 `YYYY-MM-DD`。
 6. `kind=drop_*` 不存在——刪除性演進＝拍板級、走新 ADR＋基線翻案，不入登記檔。
+7. **kind×detail 必備鍵表**（B-006；工具載體＝`DETAIL_KEYS`、逐鍵一致）——缺鍵或值形
+   壞＝rc 2：
+
+   | kind | detail 必備鍵 | 值形斷言 |
+   |---|---|---|
+   | `add_table` | `columns` | 全欄非空清單、每欄含 `column`＋`type`＋`nullable` 之物件 |
+   | `add_column` | `column`＋`type`＋`nullable` | `column`／`type` 非空字串；`nullable` 布林 |
+   | `alter_column` | `column` | 非空字串；另須帶 `type`／`nullable`／`default` 至少一項 |
+   | `add_index` | `name`＋`definition` | 皆非空字串 |
+   | `add_constraint` | `name`＋`definition` | 皆非空字串 |
+   | `seed_add` | `pk`＋`values` | `pk`＝主鍵欄名非空清單；`values`＝非空物件（欄:值 全欄） |
+   | `seed_update` | `pk`＋`set` | 皆非空物件（欄:值） |
+   | `seed_delete` | `pk` | 非空物件（欄:值） |
+
+   需比對面在場的值域斷言歸合成期驗、同樣 rc 2：`pk`／`set`／`values` 欄名 ⊆ 該表
+   COPY 欄集（`seed_add` 之 `values` 欄集恰等 COPY 欄集）；同名 index／constraint
+   （table×name）重複登記攔——比對面字典鍵合併會吞漂移、不得靜默。
 
 ## 3. 生命週期
 

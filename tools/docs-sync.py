@@ -1940,10 +1940,11 @@ def compute_snapshot_reference(root):
 # 取兩者聯集，漏一處就是靜默恆綠，而防名冊縮水正是本名冊存在的唯一理由。
 TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
             "tools/wire-schema.py", "tools/secret-value-guard.py",
-            "tools/entity-drift-gate.py", "deploy/preflight-secrets.py",
-            "deploy/decrypt-secrets.py", "deploy/generate-secrets.py",
-            "deploy/setup-reaper-role.py")
-TOOLS_SH = ("bootstrap", "wf-watchdog")
+            "tools/entity-drift-gate.py", "tools/wf-watchdog.py",
+            "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
+            "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
+            "deploy/backup-db.py")
+TOOLS_SH = ("bootstrap",)
 # ★轉換窗口共存名單（TOOLS_PY_SH_TWIN、ADR 0010）已於 B-037 U3 隨最後三支舊 .sh 退役而**整
 # 條下架**——該機制與其到期即紅守衛（check_twin_window）自註解即預告收攏終點，名單清空即
 # 無存在理由。此後舊名禁令對 deploy 條目一律嚴格形：`deploy/generate-secrets.sh` 這類殘留
@@ -2425,7 +2426,8 @@ def _arch_changed_sections(book_a, book_b):
 
 def lint_arch_impact(root):
     """Lint06：(a) 全 feature_close arch_impact §N 須為活書現存節；
-    (b) 僅最新 feature_close：merge→簿記活書變動節集與 arch_impact 雙向相等。回 findings。
+    (b) 僅最新 feature_close：merge^1→簿記活書變動節集與 arch_impact 雙向相等
+    （左源＝merge^1:BOOK、ADR 0017「本刀影響」語意）。回 findings。
 
     (b) 現況側綁定該刀「簿記狀態」（非恆前進工作樹）：
       - 簿記尚未 commit（HEAD＝該刀 merge）＝pre-commit 閘時刻，as-built 僅在工作樹→讀工作樹；
@@ -2455,7 +2457,12 @@ def lint_arch_impact(root):
         m_sha = git_out(["rev-parse", "--verify", m], root) if isinstance(m, str) else None
         head = git_out(["rev-parse", "--verify", "HEAD"], root)
         head_par = git_out(["rev-parse", "--verify", "HEAD^"], root)
-        book_m = git_out(["show", f"{m}:{BOOK}"], root) if isinstance(m, str) else None
+        # ★比對左源＝merge^1 版活書（ADR 0017）：「本刀影響」語意＝刀內活書變動∪簿記時
+        #   變動——左源若取 merge 版，刀內 commit 的變動在 merge 時已含、merge→簿記零
+        #   delta 會被誤判「無實際變動」（001 實撞、被迫記 arch_impact=none）。
+        # ★前提：收刀恆 merge --no-ff 單親 merge；非單親（octopus）下 merge^1 語意不定、
+        #   日後改收刀方式須連動本閘（新 ADR）。
+        book_m = git_out(["show", f"{m}^1:{BOOK}"], root) if isinstance(m, str) else None
         book_now = None
         if m_sha is not None and head is not None and m_sha.strip() == head.strip():
             # State 1：pre-commit 簿記（HEAD＝merge、as-built 尚未落地、僅在工作樹）→ 讀工作樹
@@ -2467,17 +2474,19 @@ def lint_arch_impact(root):
         if book_m is None or book_now is None:
             out.append(finding(SKIP, "Lint06", where,
                                "最新刀的 merge 與現況 HEAD 對不上簿記狀態（HEAD 已前進超過"
-                               "簿記，或 merge SHA／該版活書取不到）——arch_impact 雙向"
+                               "簿記，或 merge SHA／merge^1 版活書取不到）——arch_impact 雙向"
                                "比對跳過（fail-safe：現況側無對應基準，比了會誤報）"))
         if book_m is not None and book_now is not None:
             claimed = _arch_impact_nums(latest.get("arch_impact"))
             changed = _arch_changed_sections(book_m, book_now)
             for n in sorted(claimed - changed):
                 out.append(finding(ERROR, "Lint06", where,
-                                   f"最新刀宣稱 arch_impact §{n} 但 merge→簿記活書該節無實際變動"))
+                                   f"最新刀宣稱 arch_impact §{n} 但 merge^1→簿記活書該節"
+                                   "無實際變動"))
             for n in sorted(changed - claimed):
                 out.append(finding(ERROR, "Lint06", where,
-                                   f"最新刀簿記活書 §{n} 內容有變動但 arch_impact 未宣稱"))
+                                   f"最新刀 merge^1→簿記活書 §{n} 內容有變動但 arch_impact"
+                                   " 未宣稱"))
     return out
 
 
@@ -2884,7 +2893,10 @@ def lint_events_sha(root, cache=None):
         if t is None:
             out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
                                f"merge SHA {sha[:12]} 在外層不可解析——帳本每列 SHA 須對得上"
-                               " git 物件（抄錯／造假／事後改史即紅）"))
+                               " git 物件（抄錯／造假／事後改史即紅）——補救分兩支：該列尚未"
+                               "進 git 史（工作樹／staged）→以真實 merge commit SHA 覆寫該列；"
+                               "已進 git 史→依 ADR 0012 決定 5（events.jsonl 既有列絕不編輯）"
+                               "append 新事件更正、不得回改舊列"))
         elif t != "commit":
             out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
                                f"merge SHA {sha[:12]} 解得物件型別 {t}、非 commit"))
@@ -3217,8 +3229,9 @@ def lint_empty_sets(root, tracked=None, cache=None, exemptions=None):
 #   deploy/generate-age-key.sh＝恆 `bash` 前綴（檔頭用法行與 RUNBOOK §12／§15.2 皆
 #     `bash deploy/generate-age-key.sh`）；
 #   tools/bootstrap.sh＝恆 `bash tools/bootstrap.sh`（CLAUDE.md §3、RUNBOOK §12、hooks 檢修
-#     指引同形）；tools/wf-watchdog.sh＝恆 `bash` 前綴（檔頭用法行＝Monitor command 欄填
-#     `bash tools/wf-watchdog.sh [冒煙token]`、CLAUDE.md §2 同形）。
+#     指引同形）；tools/wf-watchdog.py＝恆 `python3` 前綴（檔頭用法行＝Monitor command 欄填
+#     `python3 tools/wf-watchdog.py <冒煙token> [wf目錄|runId]`、CLAUDE.md §2 同形；
+#     B-005 轉 python 後比照 deploy/ 四支、不帶 exec bit）。
 EXEC_BIT_ROSTER = (
     ".githooks/pre-commit", ".githooks/pre-push",
     ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
@@ -5841,7 +5854,7 @@ BOOK_3SEC = "# 活書\n\n## §1 甲\n一\n## §2 乙\n二\n## §3 丙\n三\n"
 
 
 class TestLintArchImpact(unittest.TestCase):
-    """Lint06：arch_impact 節存在性（a）＋最新刀 merge→HEAD 雙向（b）。"""
+    """Lint06：arch_impact 節存在性（a）＋最新刀 merge^1→簿記雙向（b、ADR 0017）。"""
 
     def test_changed_sections_content_diff(self):
         a = "## §5 X\naaa\n## §6 Y\nbbb\n"
@@ -5884,8 +5897,12 @@ class TestLintArchImpact(unittest.TestCase):
             f = lint_arch_impact(d)
             self.assertTrue(any("§99" in x["msg"] and x["code"] == "Lint06" for x in f))
 
-    def _git_repo(self, d, arch_impact, commit_bookkeeping=True):
-        """建 git repo：commit1＝merge M（活書 v1）；簿記 as-built（活書僅改 §5 內容）＋events 寫工作樹。
+    def _git_repo(self, d, arch_impact, commit_bookkeeping=True, book_at="bookkeeping"):
+        """建 git repo：commit0＝merge 前基底 P（＝merge^1、比對左源）；commit1＝merge M；
+        簿記 as-built＋events 寫工作樹。活書 §5 變動落點由 book_at 三擇一：
+          "bookkeeping"＝M 版活書仍＝基底版、簿記時才改 §5（原骨架語意）；
+          "feature"＝§5 變動隨刀內 commit 已含於 M、merge→簿記零活書 delta（001 同型）；
+          "none"＝全程零活書變動。
         commit_bookkeeping=True→再 commit 成簿記 commit（post-commit 態、HEAD＝簿記）；
         False→as-built／events 留工作樹不 commit（pre-commit 閘態、HEAD 仍＝merge M）。回 lint_arch_impact。"""
         env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
@@ -5896,16 +5913,25 @@ class TestLintArchImpact(unittest.TestCase):
                                text=True, env=env)
             assert r.returncode == 0, r.stderr
             return r.stdout
+
+        def w_book(text):
+            with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+                fh.write(text)
+        v0 = "## §5 A\nold5\n## §6 B\nold6\n"
+        v1 = "## §5 A\nNEW5\n## §6 B\nold6\n"
         g("init", "-q", "-b", "main")
         os.makedirs(os.path.join(d, "docs/arc42"))
         os.makedirs(os.path.join(d, "docs/ops"))
-        with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
-            fh.write("## §5 A\nold5\n## §6 B\nold6\n")
+        w_book(v0)
+        g("add", "-A")
+        g("commit", "-qm", "base-P")            # merge^1＝比對左源基準
+        w_book(v1 if book_at == "feature" else v0)
+        with open(os.path.join(d, "feature.txt"), "w", encoding="utf-8") as fh:
+            fh.write("刀內變更佔位（保 merge commit 非空）\n")
         g("add", "-A")
         g("commit", "-qm", "merge-M")
         m = g("rev-parse", "HEAD").strip()
-        with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
-            fh.write("## §5 A\nNEW5\n## §6 B\nold6\n")  # 簿記僅改 §5 內容
+        w_book(v0 if book_at == "none" else v1)  # 簿記態活書
         ev = {"type": "feature_close", "feature": "001-x", "merge": m,
               "date": "2026-07-10", "summary": "s", "pins": {"web": "a", "api": "b"},
               "adrs": [], "arch_impact": arch_impact, "backlog_add": [], "backlog_done": []}
@@ -5917,8 +5943,74 @@ class TestLintArchImpact(unittest.TestCase):
         return lint_arch_impact(d)
 
     def test_bidirectional_clean(self):
+        # 兼 ADR 0017 驗收案 (c)：簿記時才改活書的變動仍正確納入（基準改 merge^1 後不漏）。
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(self._git_repo(d, ["§5"]), [])
+
+    def test_bidirectional_in_feature_change_counts(self):
+        # ADR 0017 驗收案 (a)＝001 同型紅綠案：§5 變動隨刀內 commit 已含於 merge M、
+        # merge→簿記零活書 delta。舊基準（左源＝merge:BOOK）此案紅——被誤判
+        # 「宣稱 §5 但無實際變動」、只能違實記 arch_impact=none（001 實撞）；
+        # 新基準（左源＝merge^1:BOOK、「本刀影響」語意）判有影響→宣稱 §5 應綠。
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, ["§5"], book_at="feature"), [])
+
+    def test_bidirectional_no_change_verdict_unchanged(self):
+        # ADR 0017 驗收案 (b)：全程零活書變動——零宣稱＝綠、假宣稱＝紅，判定不因基準改動而變。
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(self._git_repo(d, [], book_at="none"), [])
+
+    def test_bidirectional_no_change_false_claim_still_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = self._git_repo(d, ["§5"], book_at="none")
+            l6 = [x for x in f if x["code"] == "Lint06" and x["level"] == ERROR]
+            self.assertEqual(len(l6), 1, msg=str(f))
+            self.assertIn("§5", l6[0]["msg"])
+
+    def test_bidirectional_true_merge_parent_order_pinned(self):
+        """真雙親 --no-ff merge 釘死「^1＝default 側」語意（ADR 0017 註解前提的可執行
+        斷言；線性 fixture 下 ^1／^2 不可區分——復核補強）：default 側先落一筆與本刀
+        無關的 §6 變動（在 ^1 內、不得入差集）、feature 側改 §5——誤取 ^2（feature tip）
+        為左源時差集變 {§6}、本案即紅；誤用舊基準（merge:BOOK）差集變空、本案亦紅。"""
+        with tempfile.TemporaryDirectory() as d:
+            env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                       GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+            def g(*args):
+                r = subprocess.run(["git", *args], cwd=d, capture_output=True,
+                                   text=True, env=env)
+                assert r.returncode == 0, r.stderr
+                return r.stdout
+
+            def w_book(text):
+                with open(os.path.join(d, BOOK), "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            base5, base6 = "## §5 A\nold5\np1\np2\np3\n", "## §6 B\nold6\n"
+            g("init", "-q", "-b", "main")
+            os.makedirs(os.path.join(d, "docs/arc42"))
+            os.makedirs(os.path.join(d, "docs/ops"))
+            w_book(base5 + base6)
+            g("add", "-A")
+            g("commit", "-qm", "base")
+            g("checkout", "-qb", "feat")
+            w_book(base5.replace("old5", "NEW5") + base6)
+            g("add", "-A")
+            g("commit", "-qm", "feature-§5")
+            g("checkout", "-q", "main")
+            w_book(base5 + base6.replace("old6", "NEW6"))
+            g("add", "-A")
+            g("commit", "-qm", "default-side-§6")
+            g("merge", "-q", "--no-ff", "-m", "merge-M", "feat")
+            m = g("rev-parse", "HEAD").strip()
+            ev = {"type": "feature_close", "feature": "001-x", "merge": m,
+                  "date": "2026-07-10", "summary": "s",
+                  "pins": {"web": "a", "api": "b"}, "adrs": [],
+                  "arch_impact": ["§5"], "backlog_add": [], "backlog_done": []}
+            with open(os.path.join(d, EVENTS), "w", encoding="utf-8") as fh:
+                fh.write(_jl(ev))
+            g("add", "-A")
+            g("commit", "-qm", "bookkeeping")
+            self.assertEqual(lint_arch_impact(d), [])
 
     def test_bidirectional_precommit_clean(self):
         # pre-commit 閘時刻（HEAD＝merge、as-built 僅在工作樹）：宣稱 §5＝實改 §5→應綠。
@@ -7065,6 +7157,19 @@ class TestEventsShaProof(unittest.TestCase):
             self.assertIn("merge", f[0]["msg"])
             self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
 
+    def test_merge_unresolvable_message_has_remedy(self):
+        """B-002：merge 不可解的紅訊息必附去處，且去處必須分兩支——該列尚未進 git 史
+        （工作樹／staged 階段）＝以真實 merge commit SHA 覆寫該列；已進 git 史＝依
+        ADR 0012 決定 5（events.jsonl 既有列絕不編輯）append 新事件更正、不得回改舊列。
+        單支「覆寫」文案會教維運者對已入史列改史、直接違紀。"""
+        with tempfile.TemporaryDirectory() as d:
+            _outer, pins = self._fixture(d)
+            self._events(d, merge="0" * 39 + "1", pins=pins)
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            for needle in ("補救", "覆寫該列", "ADR 0012", "append 新事件", "不得回改"):
+                self.assertIn(needle, f[0]["msg"])
+
     def test_merge_resolvable_but_not_commit_is_error(self):
         """判定表第 1 列右欄：可解但非 commit 物件（此處為 blob）＝ERROR。"""
         with tempfile.TemporaryDirectory() as d:
@@ -7393,10 +7498,12 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/wire-schema.py", ("extract",)),
                ("tools/secret-value-guard.py", ("check",)),
                ("tools/entity-drift-gate.py", ("check",)),
+               ("tools/wf-watchdog.py", ("test",)),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
-               ("deploy/setup-reaper-role.py", ("test",)))
+               ("deploy/setup-reaper-role.py", ("test",)),
+               ("deploy/backup-db.py", ("dump", "restore", "test")))
 
 
 def _tools_fixture(d):
@@ -7404,9 +7511,8 @@ def _tools_fixture(d):
     for rel, subs in _FAKE_TOOLS:
         body = "".join(_FAKE_EQ.format(s) for s in subs) or "# 無分派表、直跑\n"
         _wfile(d, rel, "#!/usr/bin/env python3\n" + body)
-    _wfile(d, "tools/bootstrap.sh", "#!/usr/bin/env bash\n# 用途：體檢（無用法行）\n")
-    _wfile(d, "tools/wf-watchdog.sh",
-           "#!/usr/bin/env bash\n# 用法：bash tools/wf-watchdog.sh\n")
+    # ★檔頭刻意不含「用法」二字：讓唯一的 bash 名冊工具走 placeholder 分支（同真 repo 現況）
+    _wfile(d, "tools/bootstrap.sh", "#!/usr/bin/env bash\n# 用途：體檢\n")
 
 
 class TestToolsCliTruthTable(unittest.TestCase):
@@ -7447,15 +7553,17 @@ class TestToolsCliTruthTable(unittest.TestCase):
                          ("tools/docs-sync.py", "tools/fork-delta-lint.py",
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
+                          "tools/wf-watchdog.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
-                          "deploy/generate-secrets.py", "deploy/setup-reaper-role.py"))
-        self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
+                          "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
+                          "deploy/backup-db.py"))
+        self.assertEqual(TOOLS_SH, ("bootstrap",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 12, msg=str(heads))
+        self.assertEqual(len(heads), 13, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 12 支掃源（python 10 支", md)
+        self.assertIn("來源＝治理工具名冊 13 支掃源（python 12 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -7469,7 +7577,7 @@ class TestToolsCliTruthTable(unittest.TestCase):
                 self.assertIn(f"## tools/{name}.sh\n", md)
             self.assertIn("`generate`｜`lint`", md)
             self.assertIn("直跑", md)                      # fork-delta-lint 無子命令
-            self.assertIn("用法：bash tools/wf-watchdog.sh", md)
+            self.assertIn(f"（檔頭前 {SH_USAGE_HEAD} 行無「用法」註解行）", md)
 
     def test_compute_fails_loud_on_missing_python_tool(self):
         """python 工具缺席＝真表無源→fail-loud（不得靜默產空表、否則命令形恆綠）。"""
@@ -7483,10 +7591,11 @@ class TestToolsCliTruthTable(unittest.TestCase):
         """bash 工具缺席＝真表如實記「否」（判定歸 Lint19、生成面不炸）。"""
         with tempfile.TemporaryDirectory() as d:
             _tools_fixture(d)
-            os.remove(os.path.join(d, "tools/wf-watchdog.sh"))
             rows = {r["rel"]: r for r in compute_tools_cli(d)}
-            self.assertFalse(rows["tools/wf-watchdog.sh"]["exists"])
             self.assertTrue(rows["tools/bootstrap.sh"]["exists"])
+            os.remove(os.path.join(d, "tools/bootstrap.sh"))
+            rows = {r["rel"]: r for r in compute_tools_cli(d)}
+            self.assertFalse(rows["tools/bootstrap.sh"]["exists"])
 
     def test_compute_generated_wires_tools_cli(self):
         """★接線層：真表若沒進 compute_generated，check 就對不到賬、G7 靜默下線。"""
@@ -7501,7 +7610,7 @@ class TestCmdFormLint(unittest.TestCase):
             "tools/wire-schema.py": {"extract", "test"},
             "tools/fork-delta-lint.py": set(),
             "deploy/preflight-secrets.py": {"test"}}
-    SH = {"tools/bootstrap.sh": True, "tools/wf-watchdog.sh": True}
+    SH = {"tools/bootstrap.sh": True}
     RUNBOOK_REL = "docs/ops/RUNBOOK.md"
 
     def _f(self, text, rel=None):
@@ -7567,18 +7676,31 @@ class TestCmdFormLint(unittest.TestCase):
     def test_old_sh_name_without_sh_is_error(self):
         """②舊名禁令（bash 面）：TOOLS_SH 名冊各支不帶 .sh 的路徑形命中即 ERROR
         （rev4:B-127、防他機肌肉記憶回寫）。"""
-        for text in ("新機初始化跑 `bash tools/bootstrap`\n",
-                     "Monitor command 欄填 `bash tools/wf-watchdog <token>`\n"):
-            f = self._f(text)
-            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
-            self.assertIn("舊名", f[0]["msg"])
-            self.assertIn(".sh", f[0]["msg"])
+        f = self._f("新機初始化跑 `bash tools/bootstrap`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("舊名", f[0]["msg"])
+        self.assertIn(".sh", f[0]["msg"])
 
     def test_new_sh_name_does_not_trip_old_sh_name_ban(self):
         """`tools/bootstrap.sh` 內含舊名前綴子字串——負向前瞻（排除 .sh）沒掛好即全庫誤紅
         （rev4:B-111 同型邊界：舊名為新名前綴）。"""
         self.assertEqual(self._f("`bash tools/bootstrap.sh`\n"), [])
-        self.assertEqual(self._f("`bash tools/wf-watchdog.sh <token>`\n"), [])
+
+    def test_retired_watchdog_sh_name_is_error(self):
+        """★B-005 退役嚴格形（比照 deploy 四支之 test_retired_sh_name_is_error）：
+        wf-watchdog 轉 python 後 .sh 實體已刪、TOOLS_SH 名冊已摘——文件殘留的舊 bash 命令形
+        改由 TOOLS_PY 舊名禁令（缺 .py 後綴即紅）接手；少了本案，摘名冊那步就沒有任何斷言
+        證明「殘留舊命令形仍會被擋」（摘完即對 wf-watchdog 全放行也全綠）。
+        ★舊路徑字面以串接構造——收刀驗收含「全 repo grep 舊檔名零命中」。"""
+        retired = "tools/wf-watchdog" + ".sh"
+        self.assertFalse(os.path.exists(os.path.join(ROOT, retired)),
+                         msg=f"{retired} 仍在庫＝退役未落實，本案前提失效")
+        for text in (f"Monitor command 欄填 `bash {retired} <token>`\n",
+                     "Monitor command 欄填 `bash tools/wf-watchdog <token>`\n"):
+            f = self._f(text)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=f"{text}｜{f}")
+            self.assertIn("舊名", f[0]["msg"])
+            self.assertIn(".py", f[0]["msg"])
 
     def test_non_lowercase_token_treated_as_argument(self):
         """後隨 token 非小寫字母起首（佔位符）＝引數、僅驗工具存在、不驗子命令。"""
@@ -7729,12 +7851,11 @@ class TestCmdFormLint(unittest.TestCase):
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
 
     def test_bash_tools_existence_only(self):
-        """③bash 兩支僅驗檔存在：在＝過、不在＝ERROR。"""
+        """③bash 工具僅驗檔存在：在＝過、不在＝ERROR。"""
         self.assertEqual(self._f("`bash tools/bootstrap.sh`\n"), [])
         self.assertEqual(
-            check_cmd_forms({self.RUNBOOK_REL: "`bash tools/wf-watchdog.sh <token>`\n"},
-                            self.SUBS,
-                            {"tools/bootstrap.sh": True, "tools/wf-watchdog.sh": False}
+            check_cmd_forms({self.RUNBOOK_REL: "`bash tools/bootstrap.sh`\n"},
+                            self.SUBS, {"tools/bootstrap.sh": False}
                             )[0]["level"], ERROR)
 
     def test_corpus_is_exactly_three_live_manuals(self):
