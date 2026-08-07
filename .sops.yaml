@@ -3,11 +3,14 @@
 # rev4:P2.2 僅一條 creation_rules（first-match-wins、第二條起被靜默忽略）
 # rev4:P2.4 不設六個範圍選項任一：預設 unencrypted_suffix="_unencrypted"＝全加密
 # rev4:P2.5 連帶紀律：加密檔 key 名禁 _unencrypted 後綴（該後綴無法藉「不設定」規避）
-# recipient＝age 公鑰清單（YAML 清單形；公鑰非機密）。現行唯一 recipient＝rev5 maintainer 真鑰
-# （2026-08-04 創世產鑰、passphrase 僅存持鑰者腦中；★刻意不沿用 rev4 recipient——沿用＝rev4
-# 私鑰能解 rev5 密文、違世代錯開紀律）。加人→RUNBOOK §15。
+# recipient＝age 公鑰清單（YAML 清單形；公鑰非機密）。前兩把＝持鑰工程師 identity（2026-08-04
+# 創世產鑰＋2026-08-06 首次加人、passphrase 僅存持鑰者腦中；★刻意不沿用 rev4 recipient——沿用
+# ＝rev4 私鑰能解 rev5 密文、違世代錯開紀律）。第三把＝離線復原鑰（B-041、ADR 0015 子題三：
+# 私鑰與 passphrase 離線保管、不綁任何開發機——封「雙持鑰人同失 passphrase＝密文永久不可解」
+# 死路；災難動用＝RV5_AGE_KEY_FILE 指向復原鑰檔、見 RUNBOOK §15.5）。加人→RUNBOOK §15。
 creation_rules:
   - path_regex: ^deploy/secrets\.dev\.enc\.yaml$
     age:
       - age1h86rpwqkfcqptwldqulg6wekvldzek0h44fvm5u6msexmdc3q5ts7mp46f
       - age1wdnafv7jd7r0l7wvtl9lz60yu27shw4nay0fhugnad8tetfwh5pqs9z00u
+      - age1p6xfg77pte2mtzhgtn0h2m0rc9hja77sxwcmtzhecsexa5ahcgeszsh46s

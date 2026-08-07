@@ -294,14 +294,20 @@ EOF
 `.sops.yaml` 逐把相符）；§15.7 步驟 1 的解密需 passphrase
 （僅存持鑰者腦中）故**未實跑**，其正規化片段與 `deploy/decrypt-secrets.py` 的
 `normalize_stream` **同形**（CR→行界＋剝 ANSI CSI、同序；語意等價、非逐字複本）——該函式
-每次 decrypt 都在實跑。
+每次 decrypt 都在實跑。2026-08-08（B-041 第三把離線復原鑰）：`updatekeys` **第二次真實
+實跑**（recipient 2→3、diff 性質同上逐項相符）；`deploy/decrypt-secrets.py` 以
+`RV5_AGE_KEY_FILE` 指向復原鑰**端到端實跑**（3 recipient 自動代餵、10 支 WRITTEN）
+＝復原鑰可解實證。
 
 ### 15.1 資產、工具與不可省紀律
 
 資產三件：`deploy/secrets.dev.enc.yaml`（密文、**tracked**、承載 10 支＝9 leaf＋
 `alert_webhook_url`）／`.sops.yaml`（recipient 公鑰清單、tracked）／
 `~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**；
-跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。
+跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。另有第三把**離線復原鑰**
+（B-041、ADR 0015 子題三）：私鑰檔＋passphrase **離線保管、不駐任何開發機**——封「雙持鑰人
+同失 passphrase＝密文永久不可解」死路；災難動用＝`RV5_AGE_KEY_FILE` 給其檔案的 host 絕對
+路徑後照常跑 `python3 deploy/decrypt-secrets.py`。
 工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版、自動選鑰）、`python3 deploy/decrypt-secrets.py`
 （密文→`$SECRETS_DIR/*.txt`）、`python3 deploy/generate-secrets.py`（產亂數）、
 `python3 deploy/preflight-secrets.py`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
@@ -322,6 +328,9 @@ EOF
 Enter 即可。★時機仍看腳本自己印的**預告行**：預告行出現後再輸入；搶在它之前打字＝該串字被
 host shell 回顯成明文留在畫面與 scrollback（rev4:L-179）。本管線零 gpg 前置（passphrase 由
 sops 內嵌 age 直讀容器內 `/dev/tty`）——提示異常不要往 gpg-agent／pinentry 方向查。
+★**互動探查／解回驗收也走 `decrypt-secrets.py`、勿裸 `./deploy/sops.sh -d`**：裸 -d 對每個
+recipient 各索一次 passphrase，且 stdout 重導向＋`-t` 並存時提示與資料**同流**（wrapper 檔頭
+既載）——重導向到 /dev/null 連提示一起隱形、盲打必敗（2026-08-08 B-041 驗收實撞）。
 
 ★**逐次手打退路＝`RV5_DECRYPT_MANUAL=1`**（嚴格判 `1`；災難復原路徑不鎖死）。走這條時下列
 四條全數適用，也正是 ADR 0013 記在退路帳上的風險面：★**次數＝recipient 數**（每個 recipient
