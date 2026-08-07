@@ -8,8 +8,16 @@
   7a140f4／ab31065／08361f5；ADR 0010 轉換集收攏、ADR 0011 ③類首例落地、ADR 0013
   安全姿態入帳）。兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；
   setup-reaper 正向 ALTER ROLE 一輪待建 reaper role 之刀（rev4:m012 承襲、詳收刀事件）。
-- 下一步＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 直接輸入＝
-  B-014（entity Relation 補強）＋B-001（承襲盤點閘評估）＋K1 對應域條目；★開刀前宜先決
-  B-031（prod 是否入 roadmap）與 B-032（團隊組成前提），兩題影響刀序與範圍。
-- 維護批候選堆積：B-002/B-005/B-007/B-010/B-013/B-015（首個維護批）；
-  B-006（首筆真登記前）；B-011（postgres 升版前）。
+- **B12 前四題已拍板（2026-08-07、ADR 0014～0017）**：B-031＝prod 不入 rev5 roadmap
+  （各刀留 seam、region 欄 UI 先不做、輪替維持觸發式、多副本假設不成立）；B-032＝前提
+  未成立原樣過境（衍生 B-040/B-041）；B-012＝前綴通配＋具名豁免；B-015＝Lint06 基準改
+  merge^1。B-031/B-032 收單、B-012/B-015 施工併維護批。
+- 下一步＝**B12 前維護批**（輕量軌逐支）：①B-023 第一段（備份＋一次真還原演練）＋
+  B-040/B-041＋errata 三筆（README wf-watchdog「刻意 bash」標註 vs ADR 0010 矛盾、
+  B-022 條目改 rev5 實況、B-030⑧「單一來源」改 parity 檢查）→②schema-gate 群
+  （B-006＋B-013＋B-012 施工）→③docs-sync 群（B-002＋B-015 施工＋B-010）→④B-005→
+  ⑤B-007 壓軸定預算表。★中途量測：pre-commit 自測情境（現 27s）超 35s 即拆批。
+- 維護批後＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 第一題＝
+  功能域（含是否含 auth／是否含寫端——6 條 BACKLOG 分類繫於此）；直接輸入＝B-014＋
+  B-001＋K1 對應域條目；起手 tasks 必含 zh-tw.ts＋兩筆 Day-1 豁免下架（lint24.day1／
+  gen.router——server/src 第一支 .rs 落地即紅）＋B-028 起手量測。

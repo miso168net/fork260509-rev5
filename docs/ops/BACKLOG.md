@@ -1,4 +1,4 @@
-<!-- next: B-040 -->
+<!-- next: B-042 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -12,10 +12,10 @@
 - B-008｜四張 rev4 專屬管理頁 view 於 base-web 兌現——manage_system-settings／manage_policy-archive／manage_audit／manage_ip-rule（analyze D6：seed 選單與 casbin 政策隨 001 基線先行、`component` 指向之 view 於 rev5 base-web 尚不存在；期間該 4 項僅 R_SUPER 可見、點擊 404 屬已知態）｜各對應管理 UI 刀 brainstorm 直接輸入
 - B-010｜data-model §2/§6 文件面 vs 凍結 fixtures 機器對賬（001 收刀 holistic：§2 型別/NULL/default 三欄與 §6 索引約束定義從未進機器比對面——gate2 欄序只解析欄名、型別面錨 fixtures；文件單邊被改不會被抓；三輪 review 各自寫過一次性 parser 證明可落地）｜首個維護批評估
 - B-011｜gate2 seed normalize 擴充剝除 pg_dump 版本行與 Owner 註解行（001 收刀：比對面現含「Dumped from/by version 18.4」與 Owner 行——postgres 升版或 DB 身分再變即紅在純噪音、ADR 0008 那次即為 Owner 行連動重產 fixtures；契約級變更、gates.md §2＋fixtures 重產一次，宜與升版維護批同刀）｜postgres 升版前必做
-- B-012｜audit 變體 B 禁欄判準拍板：前綴通配（gates.md §3 字面 updated_*/deleted_*）vs 具名四欄（工具 L750 現況）——前綴守門強但可能誤攔未來合法欄名；二擇一屬拍板級（001 收刀 triage 判定不宜順手拍）｜下一支動 schema-gate 的刀
+- B-012｜audit 變體 B 禁欄判準施工——已拍板（ADR 0016）：前綴通配（updated_*/deleted_*）＋具名豁免清單出口；同刀把工具具名四欄實作與 gates.md §3 對齊＋成對紅綠測試｜首個維護批 schema-gate 群（與 B-006/B-013 同刀）
 - B-013｜schema-gate 測試覆蓋兩缺口：cmd_check 綠路徑離線測試（fake run 分派 fixtures 三節）＋照相三查詢與 docs-sync 逐字重複之「同構」機器斷言（讀源碼比對三常數位元相等）｜首個維護批
 - B-014｜entity 對應層後端首刀前補強：15 檔 Relation 空 enum（data-model §6 兩條 FK 未映射）＋ActiveModel 慣例面——本刀驗收（build 綠＋drift 綠）不需要、server 刀消費時變真風險｜後端首刀（B12）brainstorm 直接輸入
-- B-015｜Lint06 arch_impact 雙向比對基準疑與「活書隨刀改」流程矛盾（001 收刀實撞：§8 隨刀內 commit 新設、merge 時已含→merge→簿記零 delta→宣稱 §8 反被判「無實際變動」；工具比 merge:BOOK vs 簿記態、若語意為「本刀影響」應比 merge^1:BOOK——屬 lint 調規拍板；本次事件以 arch_impact=none＋notes 載實況通行）｜首個維護批
+- B-015｜Lint06 arch_impact 基準施工——已拍板（ADR 0017）：改 merge^1:BOOK vs 簿記態（「本刀影響」語意）；恆 --no-ff 單親前提寫死工具註解＋合成 fixture 紅綠測試（不得以實跑 lint 驗收）；CLAUDE.md §2 流程不動｜首個維護批 docs-sync 群
 - B-016｜稽核資料生命週期一次入設計：retention 水平線語意＋清理動作同交易自記稽核＋自動排程＋逐表門檻，不走「先手動清理、後補自動化」（前代同域四次拍板／一次正式翻案／一次違憲重拍；rev5 稽核表結構已隨 001 基線壓平落地、政策面尚未設計；詳＝啟動書 §5.2 K2-01、承 rev4:ADR 0058／rev4:0075／rev4:0076＋specs/rev4:017-audit-retention）｜稽核功能刀
 - B-017｜會話生命週期一次設計完整、直接以 DB-stateful rotation 終態起手（rotation＋reuse 偵測＋denylist 即時撤銷＋single-session＋精確 idle），不走「無狀態先行、下一刀翻案」兩段式（前代付兩次完整拍板＋一次破前刀交付契約；詳＝啟動書 §5.2 K2-02、承 rev4:ADR 0030→rev4:0033）｜auth 刀 brainstorm 直接輸入
 - B-018｜前端 demo 資產去留一次拍：alova 第二請求棧、替代登入表單殼（seed 側 demo 選單與授權已由憲法 §I.2＋ADR 0005 收；前代全量保留衍生兩支 won't-fix 決策＋清理需 seed 移除白名單；詳＝啟動書 §5.2 K2-03、承 rev4:ADR 0029／rev4:0035／rev4:0036）｜前端首刀 brainstorm 直接輸入
@@ -31,6 +31,6 @@
 - B-028｜後端開發體驗兩缺口：容器內 cargo build 時間基線量測（雙機冷編＋單檔增量，作為 dev profile debuginfo 裁剪的數據前提）＋sea-orm additive DDL 草稿生成輔助（entity 漂移閘已隨治理套件搬運兌現；詳＝啟動書 §5.2 K2-17、承 rev4:B-109／rev4:B-110）｜第一把 rust 功能刀起手順跑量測
 - B-029｜captcha 強化包：「答對但登入失敗即自動換題」收進首版前端行為；產圖對抗性（干擾強度、字型多樣）續留觸發制（詳＝啟動書 §5.2 K2-21、承 rev4:B-075）｜captcha 沿用刀首版收 UX 半條
 - B-030｜低位殘項群逐項內建 checklist：未刪選單列表分頁、契約測試對 query 零判別力、zh-cn 鍵集不在掃描面、320px 窄屏頁首溢出、自助頁雙卡同構重複、單一超管軟鎖自解的雞蛋相依、告警僅 webhook 單通道、機密清單三處人工同步（可考慮單一來源生成）（詳＝啟動書 §5.2 K2-22）｜重寫對應模組時逐項
-- B-031｜★拍板待答：prod 是否入 rev5 roadmap——若入，prod 部署包（部署 checklist＋CDN origin 防火牆鎖定、prod CSP 收緊、GeoIP 資料檔 COPY、加密檔分層與至少兩把 recipients、多副本 LB 拓樸）升格為正式刀與自動化驗收，而非散裝待辦（前代二十刀內零落地＝無 prod 資產與 CI 母體、結構性不可測；詳＝啟動書 §5.2 K2-10）｜user 拍板（B12 前後擇期）
-- B-032｜★拍板待答：團隊組成前提是否已變（「將來可能有非工程師」）——成立即重啟機密選型（工程師層維持 SOPS 密文入版控／非工程師層另設不持金鑰的 GUI 取用面，兩層間橋接角色是新的信任集中點須連同設計），明文「觸發即重啟選型、不是在現有方案上補 GUI」；個人密碼管理器四反轉條件原樣過境（詳＝啟動書 §5.2 K2-20、承 rev4:ADR 0083）。★觸發器狀態（2026-08-06）：四反轉條件中「**多人**」**已成立**——第二位工程師之 age 公鑰入 recipient 清單（RUNBOOK §15.2 加人流程首次真實執行）；「非工程師成員出現」仍未成立、故本題尚未觸發重啟選型。但原延後理由「單人工程師×passphrase 僅存腦中×離線備份已閉環」已半邊失效，衍生新子題＝**雙持鑰人的 passphrase 遺失／成員離開之復原路徑**（現行 RUNBOOK §15.5 三情境表以單人為假設）｜user 拍板
 - B-033｜樣板回灌帳（§3.2 條 16／Q14）：集中登記 docs-governance-template 的樣板缺陷與搬遷摩擦，rev5 收刀後一次批次回灌。已知內容＝①樣板 export 腳本未落致 rev5 手工搬運、樣板失去第一個真實檢驗機會 ②樣板 H 層把 Lint20 具名豁免表當既有設施而源碼實無（rev5 補建）③治理硬化四項顯式延後之邊界清單（lint 差分分級／ctags 符號漂移偵測／基線 freshness 提示／clean-tag 建置閘）應記其存在、防第三代重新發明（詳＝啟動書 §5.2 K2-18／K2-19）｜rev5 收刀後批次回灌
+- B-040｜RUNBOOK §15.5 補「成員離開／持鑰人失聯」情境列（指向 §15.3 撤銷準則——只 re-key 不換值＝形式撤銷、必連帶輪替機密值本身——與 §15.6 輪替表；ADR 0015 子題二）｜首個維護批第一支
+- B-041｜產第三把離線保管復原鑰（不綁任何開發機；B-038 產鑰工具→私鑰與 passphrase 離線保管→入 .sops.yaml recipients→updatekeys 回寫→解回驗收；封掉雙持鑰人同失 passphrase＝密文永久不可解之死路；ADR 0015 子題三）｜首個維護批第一支
