@@ -54,7 +54,7 @@ fork260509-rev5/
 首次啟動五步（每步陷阱與全部維運程序→[docs/ops/RUNBOOK.md](docs/ops/RUNBOOK.md)）：
 
 1. `bash tools/bootstrap.sh`
-2. `bash deploy/generate-secrets.sh`
+2. `python3 deploy/generate-secrets.py`
 3. `python3 deploy/preflight-secrets.py`
 4. `bash deploy/generate-dev-cert.sh`（★非可選——缺憑證 up 即 front-nginx 死循環；自簽 ca.pem 記得 trust 進 OS）
 5. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait`

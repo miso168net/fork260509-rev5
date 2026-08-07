@@ -61,7 +61,7 @@ except Exception as _ex:
 
 resolve_secrets_dir = _secrets_common.resolve_secrets_dir
 
-# 與 generate-secrets.sh 同一份十三機密清單（grafana_admin_password 僅 grafana
+# 與 generate-secrets.py 同一份十三機密清單（grafana_admin_password 僅 grafana
 # [profiles:obs,metrics] 消費、但一律生成納入預檢——免 --profile obs 時 compose 對缺檔自動
 # 建空目錄、grafana $__file{} 讀到空密碼、admin 登入靜默壞）。
 REQUIRED = ("postgres_password", "redis_password", "jwt_secret", "refresh_token_secret",
@@ -72,7 +72,7 @@ REQUIRED = ("postgres_password", "redis_password", "jwt_secret", "refresh_token_
 DIR_MODE_OK = "700"
 FILE_MODE_OK = "644"
 
-# composite↔leaf 期望值組合式（複用 generate-secrets.sh 之組合式；★兩處各寫一份、
+# composite↔leaf 期望值組合式（複用 generate-secrets.py 之組合式；★兩處各寫一份、
 # 不得順手合併——B-037 明載）。欄＝(composite 名, leaf 名, 位元組模板)。
 COMPOSITES = (
     ("database_url", "postgres_password",
@@ -83,7 +83,7 @@ COMPOSITES = (
 )
 
 # rev4:B-119：已知佔位字面清單（★WARN 不阻擋、rc 不因它非零——佔位期照設計是可過的合法
-# 狀態；升級成阻擋屬拍板級）。字面逐字取自 generate-secrets.sh 之 gen_placeholder 呼叫處
+# 狀態；升級成阻擋屬拍板級）。字面逐字取自 generate-secrets.py 之 gen_placeholder 呼叫處
 # （唯一佔位源頭）；三處同字面記帳見 ADR 0003（此＝提醒未填真值、彼＝不當機密）。
 PLACEHOLDER_LITERALS = ("https://CHANGE-ME.invalid/alert-webhook-placeholder",)
 
@@ -239,8 +239,9 @@ def cmd_check(root=None, env=None):
             print(f"   - {m}")
         print("")
         print("→ SOPS 管線重建：python3 deploy/decrypt-secrets.py（10 支）→ "
-              "./deploy/generate-secrets.sh --compose-only（3 composite）。")
-        print("  （無加密檔情境仍可 ./deploy/generate-secrets.sh 一鍵生成 dev 亂數、缺的才補。）")
+              "python3 deploy/generate-secrets.py --compose-only（3 composite）。")
+        print("  （無加密檔情境仍可 python3 deploy/generate-secrets.py 一鍵生成 dev 亂數、"
+              "缺的才補。）")
         return 1
 
     dir_mode, rows = collect_perm_rows(secrets_dir)
@@ -273,13 +274,14 @@ def cmd_check(root=None, env=None):
               "composite")
         print("      一致性檢查失明、容器拿到與 composite 不符的值）：" + " ".join(nl))
         print("→ 重跑 python3 deploy/decrypt-secrets.py（10 支）＋ "
-              "./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。")
+              "python3 deploy/generate-secrets.py --compose-only（3 composite）後再驗。")
         return 1
 
     drift = drift_hits(blobs)
     if drift:
         print("FAIL：composite 與 leaf 不一致（drift）：" + " ".join(drift))
-        print("→ 跑 ./deploy/generate-secrets.sh --compose-only 由 leaf 現值重組 composite。")
+        print("→ 跑 python3 deploy/generate-secrets.py --compose-only 由 leaf 現值重組 "
+              "composite。")
         return 1
 
     ph = placeholder_hits(blobs)
@@ -349,7 +351,7 @@ class TestRosterPinned(unittest.TestCase):
         self.assertEqual(len(REQUIRED), 13)
 
     def test_composite_formulas_are_pinned(self):
-        """三條組合式字面釘死（與 generate-secrets.sh 各寫一份、單邊改即真 stack 認證失敗）。"""
+        """三條組合式字面釘死（與 generate-secrets.py 各寫一份、單邊改即真 stack 認證失敗）。"""
         self.assertEqual(COMPOSITES, (
             ("database_url", "postgres_password",
              b"postgres://soybean:{}@postgres:5432/soybean_admin_rust"),
