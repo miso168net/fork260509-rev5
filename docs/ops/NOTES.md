@@ -8,16 +8,14 @@
   7a140f4／ab31065／08361f5；ADR 0010 轉換集收攏、ADR 0011 ③類首例落地、ADR 0013
   安全姿態入帳）。兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；
   setup-reaper 正向 ALTER ROLE 一輪待建 reaper role 之刀（rev4:m012 承襲、詳收刀事件）。
-- **B12 前四題已拍板（2026-08-07、ADR 0014～0017）**：B-031＝prod 不入 rev5 roadmap
-  （各刀留 seam、region 欄 UI 先不做、輪替維持觸發式、多副本假設不成立）；B-032＝前提
-  未成立原樣過境（衍生 B-040/B-041）；B-012＝前綴通配＋具名豁免；B-015＝Lint06 基準改
-  merge^1。B-031/B-032 收單、B-012/B-015 施工併維護批。
-- 下一步＝**B12 前維護批**（輕量軌逐支）：①B-023 第一段（備份＋一次真還原演練）＋
-  B-040/B-041＋errata 三筆（README wf-watchdog「刻意 bash」標註 vs ADR 0010 矛盾、
-  B-022 條目改 rev5 實況、B-030⑧「單一來源」改 parity 檢查）→②schema-gate 群
-  （B-006＋B-013＋B-012 施工）→③docs-sync 群（B-002＋B-015 施工＋B-010）→④B-005→
-  ⑤B-007 壓軸定預算表。★中途量測：pre-commit 自測情境（現 27s）超 35s 即拆批。
-- 維護批後＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 第一題＝
-  功能域（含是否含 auth／是否含寫端——6 條 BACKLOG 分類繫於此）；直接輸入＝B-014＋
-  B-001＋K1 對應域條目；起手 tasks 必含 zh-tw.ts＋兩筆 Day-1 豁免下架（lint24.day1／
-  gen.router——server/src 第一支 .rs 落地即紅）＋B-028 起手量測。
+- **B12 前維護批全數收單**（輕量軌、merge 4e97031、分支與單元 commit 詳收刀事件；
+  ADR 0014～0017 拍板同批落地）：B-002｜B-005｜B-006｜B-007｜B-010｜B-012｜B-013｜
+  B-015｜B-040｜B-041 十項關帳＋B-023 第一段（backup-db.py＋非破壞 scratch 還原演練）；
+  效能預算入 RUNBOOK §12.1（基礎鏈 7.0s／最壞 staged 26.8s、拆批未觸發）；第三把離線
+  復原鑰入列（recipient 2→3）；wf-watchdog 轉 python＋硬編目標參數。衍生 B-042。
+- 下一步＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 第一題＝
+  功能域（是否含 auth／是否含寫端——B-017｜B-020｜B-021｜B-022｜B-024｜B-026 併刀
+  與否繫於此）；
+  直接輸入＝B-014＋B-001＋K1 對應域條目；起手 tasks 必含 zh-tw.ts＋兩筆 Day-1 豁免
+  下架（lint24.day1／gen.router——server/src 第一支 .rs 落地即紅）＋B-028 起手量測；
+  R_SUPER 選單 4 項 404＝已知態（B-008）。
