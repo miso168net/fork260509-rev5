@@ -13,9 +13,12 @@
   B-015｜B-040｜B-041 十項關帳＋B-023 第一段（backup-db.py＋非破壞 scratch 還原演練）；
   效能預算入 RUNBOOK §12.1（基礎鏈 7.0s／最壞 staged 26.8s、拆批未觸發）；第三把離線
   復原鑰入列（recipient 2→3）；wf-watchdog 轉 python＋硬編目標參數。衍生 B-042。
-- 下一步＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 第一題＝
-  功能域（是否含 auth／是否含寫端——B-017｜B-020｜B-021｜B-022｜B-024｜B-026 併刀
-  與否繫於此）；
-  直接輸入＝B-014＋B-001＋K1 對應域條目；起手 tasks 必含 zh-tw.ts＋兩筆 Day-1 豁免
-  下架（lint24.day1／gen.router——server/src 第一支 .rs 落地即紅）＋B-028 起手量測；
-  R_SUPER 選單 4 項 404＝已知態（B-008）。
+- **B12 brainstorm 已完成**（docs/brainstorms/002-system-settings.md、2026-08-08）：
+  功能域＝系統設定（沿用 K1-08＋K1-27、auth 域全數續 defer）；前端腿＝typings＋
+  service 接線層（ADR 0018、零修憲、view 延 B-008、選單 404 已知態）；寫端＝含讀＋寫
+  （B-026 三態約定層與 B-024 授權 seam 入刀設計期定形）。
+- 下一步＝**手動 `/speckit-specify docs/brainstorms/002-system-settings.md`**（不自動
+  觸發——feature branch pre-hook 須在 specify 時建 002-system-settings 分支、否則
+  spec 落 default）→ SDD 五步照走。起手 tasks 必含 zh-tw.ts＋兩筆 Day-1 豁免下架
+  （lint24.day1／gen.router——server/src 第一支 .rs 落地即紅）＋B-028 起手量測
+  （第二輪在 server 依賴進場後）；clarify 候選四題已列 brainstorm 檔 §4。
