@@ -60,13 +60,13 @@ MIN_SECRET_LEN = 8
 EDGE_HIT = "E" * 8       # self-test 邊界紅樣本：恰達現行下界、必攔
 EDGE_SKIP = "E" * 7      # self-test 邊界綠樣本：恰低於現行下界、不比對
 
-# 佔位字面白名單（user 拍板 2026-08-04、ADR 0003）：generate-secrets.sh 的佔位值是**設計上
+# 佔位字面白名單（user 拍板 2026-08-04、ADR 0003）：generate-secrets.py 的佔位值是**設計上
 # 的公開字面**（.invalid TLD＋CHANGE-ME 自述；preflight 另以 PLACEHOLDER_LITERALS 提醒未填
 # 真值），同字面必然存在於產生器與 preflight 源碼——當機密比對＝結構性誤報（rev5 創世
 # commit 首暴；rev4 因 webhook 真值已填從未撞到）。現值 ∈ 本集合 → 該機密跳過比對、印
 # 跳過明細；填真值後（真值∉集合）自動納回比對。
 # ★逐字全等比對、不做前綴／樣式放寬——放寬即誤豁免面失控。
-# ★與 deploy/preflight-secrets.sh 的 PLACEHOLDER_LITERALS 同字面雙記帳（語意不同：彼＝
+# ★與 deploy/preflight-secrets.py 的 PLACEHOLDER_LITERALS 同字面雙記帳（語意不同：彼＝
 #   提醒未填真值、此＝不當機密）；改佔位值必須同刀改兩處＋本檔自測字面（ADR 0003 載明）。
 PLACEHOLDER_VALUES = frozenset({
     "https://CHANGE-ME.invalid/alert-webhook-placeholder",

@@ -24,7 +24,7 @@ rev4:P5.1）：①**環境變數優先**（與 compose 同口徑；★「已匯�
 
 ```bash
 python3 deploy/decrypt-secrets.py           # ★主路徑：自加密檔還原 10 支（9 leaf＋alert_webhook_url）
-./deploy/generate-secrets.sh --compose-only # 由 leaf 重組 3 支 composite（缺 leaf＝報錯退出、絕不代生成）
+python3 deploy/generate-secrets.py --compose-only # 由 leaf 重組 3 支 composite（缺 leaf＝報錯退出、絕不代生成）
 python3 deploy/preflight-secrets.py         # 上機前把關（缺檔／CR／LF／composite drift 一律非零退出）
 ```
 
@@ -36,8 +36,8 @@ python3 deploy/preflight-secrets.py         # 上機前把關（缺檔／CR／LF
 ### 亂數生成（僅限首建與輪替情境）
 
 ```bash
-./deploy/generate-secrets.sh          # 冪等：已存在跳過（SKIPPED）、缺則補（GENERATED）
-./deploy/generate-secrets.sh --force  # 亂數生成的十二支全重生（alert_webhook_url 不在範圍）
+python3 deploy/generate-secrets.py          # 冪等：已存在跳過（SKIPPED）、缺則補（GENERATED）
+python3 deploy/generate-secrets.py --force  # 亂數生成的十二支全重生（alert_webhook_url 不在範圍）
 ```
 
 > ★**與加密檔的關係**：`generate` 產的是**落點明文**，加密檔**不會自己跟著變**。任何以
@@ -59,7 +59,7 @@ python3 deploy/preflight-secrets.py         # 上機前把關（缺檔／CR／LF
 ## 十三機密對照表（secret 檔 ↔ 消費服務 ↔ env 變數）
 
 ★口徑：**13 檔**＝9 leaf＋3 composite＋1 user 自填；**12** 進 compose（`reaper_password` 不進、
-由 `setup-reaper-role.sh` 直讀）；**10** 入加密檔（9 leaf＋`alert_webhook_url`；composite 不進、
+由 `setup-reaper-role.py` 直讀）；**10** 入加密檔（9 leaf＋`alert_webhook_url`；composite 不進、
 由 `generate --compose-only` 重生）。引用機密數量時必言明是哪一個口徑。
 
 | secret 檔 | 類型 | 入加密檔 | 消費服務 | env 變數／注入方式 |
@@ -104,7 +104,7 @@ python3 deploy/preflight-secrets.py         # 上機前把關（缺檔／CR／LF
 | `redis_url.txt` | `redis://:<pw>@redis:6379` | `redis_password.txt`（byte-identical） |
 | `reaper_database_url.txt` | `postgres://reaper:<pw>@postgres:5432/soybean_admin_rust` | `reaper_password.txt`（byte-identical） |
 
-不變式（`generate-secrets.sh` 保證、`preflight-secrets.py` 把關）：
+不變式（`generate-secrets.py` 保證、`preflight-secrets.py` 把關）：
 
 - **dual-write**：composite 內嵌密碼與對應 leaf byte-identical；leaf 重生（或被單獨改動）
   → composite 連動重寫，不留兩處不一致。判定走 `printf '%s' | cmp -s -`（**逐位元組**，

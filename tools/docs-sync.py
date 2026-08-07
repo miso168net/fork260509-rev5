@@ -1944,19 +1944,10 @@ TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate
             "deploy/decrypt-secrets.py", "deploy/generate-secrets.py",
             "deploy/setup-reaper-role.py")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
-# ★轉換窗口共存名單（ADR 0010）：python 版已上線、舊 bash 版尚未刪，兩實體同時在庫。
-# 舊名禁令對這些條目必須連 `.sh` 一併排除，否則三件活手冊裡合法的
-# `bash deploy/preflight-secrets.sh` 會被判成「缺 .py 的舊名」（實測 README＋RUNBOOK 共 5 處
-# 誤紅）。舊 .sh 刪除的同一刀把該項自本名單摘除、禁令對該支自動收回嚴格形。
-# ★解除不靠人記得＝check_twin_window（比照 LINT25_EXEMPTIONS 第三欄「到期即紅」）：舊 .sh
-# 實體不在庫而項仍列於此＝豁免已到期，Lint19 即刻 ERROR 指名該下架。
-# ★收攏實績：decrypt 一項已於 B-036 U2（刪 deploy/decrypt-secrets.sh）摘除、本守衛首次真實
-# 走完這條路；preflight 與 generate 兩項待 B-037 U3 刪 .sh 時同法摘除，屆時名單清空、本守衛
-# 與其自測同刀下架。
-# ★setup-reaper-role 刻意**不入本名單**（B-037 U2 判斷、證據＝三件活手冊全文零命中
-# `setup-reaper-role`）：本豁免只為「文件裡合法的 `bash …-secrets.sh` 別誤紅」而存在，語料
-# 沒有該支的命令形就沒有誤紅面，加了等於憑空替它的 `.sh` 形開一張永久免檢票。
-TOOLS_PY_SH_TWIN = ("deploy/preflight-secrets.py", "deploy/generate-secrets.py")
+# ★轉換窗口共存名單（TOOLS_PY_SH_TWIN、ADR 0010）已於 B-037 U3 隨最後三支舊 .sh 退役而**整
+# 條下架**——該機制與其到期即紅守衛（check_twin_window）自註解即預告收攏終點，名單清空即
+# 無存在理由。此後舊名禁令對 deploy 條目一律嚴格形：`deploy/generate-secrets.sh` 這類殘留
+# 命令形指向不存在的檔，Lint19 當場紅（覆蓋案＝test_retired_sh_name_is_error）。
 TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
 SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
 # ★語料寫死三件活手冊（現在式）：NOTES 屬未來式帳（可合法提及尚未存在的子命令、clarify
@@ -2004,15 +1995,9 @@ RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*[/／]\s*`" + _RE_DIR_GUARD
                           + r"([a-z][a-z0-9-]*)(?=[`|/／])")
 
 
-def _twin_sh(rel):
-    """轉換窗口共存項的舊 bash 實體路徑（`….py` → `….sh`）。"""
-    return rel[:-len(".py")] + ".sh"
-
-
 def _old_py_name_alt(rel):
-    """舊名禁令的單一名冊項樣式＝去副檔名的路徑＋負向前瞻（共存項連 .sh 一併排除）。"""
-    tail = r"(?!\.(?:py|sh))" if rel in TOOLS_PY_SH_TWIN else r"(?!\.py)"
-    return re.escape(rel[:-len(".py")]) + tail
+    """舊名禁令的單一名冊項樣式＝去副檔名的路徑＋負向前瞻（只排除 .py 新名自身）。"""
+    return re.escape(rel[:-len(".py")]) + r"(?!\.py)"
 
 
 RE_CMD_OLD = re.compile(r"(" + "|".join(_old_py_name_alt(rel) for rel in TOOLS_PY) + r")\b")
@@ -2134,30 +2119,6 @@ def check_cmd_forms(texts, subs, sh_exists):
     return out
 
 
-def check_twin_window(twin_sh_exists):
-    """轉換窗口豁免的到期即紅守衛（純判定；twin_sh_exists＝{共存項: 舊 .sh 是否仍在庫}）。
-
-    ★TOOLS_PY_SH_TWIN 是一條**弱化舊名禁令**的具名豁免，解除條件＝該支舊 bash 實體被刪
-    （decrypt＝B-036 U2 已收攏、preflight＝B-037）。少了本守衛，解除全靠人記得：.sh 刪了而
-    名單沒清＝`.sh` 形永久免檢，文件裡殘留的 `bash …-secrets.sh` 指向不存在的檔案卻全庫零
-    告警（RE_CMD_SH 只涵蓋 TOOLS_SH、deploy/ 不在其中），正是舊名禁令要防的那一類。
-    名冊釘死斷言只擋名單縮水、擋不了
-    「該縮水時沒縮水」，故補這一半——四欄豁免表（LINT25_EXEMPTIONS／DAY1_EXEMPTIONS）
-    的「到期即紅」同族紀律。
-    """
-    out = []
-    for rel in TOOLS_PY_SH_TWIN:
-        if twin_sh_exists.get(rel, False):
-            continue
-        out.append(finding(
-            ERROR, "Lint19", _twin_sh(rel),
-            f"轉換窗口豁免已到期：TOOLS_PY_SH_TWIN 仍列「{rel}」，而共存前提的舊 bash 實體"
-            f"「{_twin_sh(rel)}」已不在庫——把該項自 TOOLS_PY_SH_TWIN 移除（刪 .sh 的同一刀"
-            "清名單），舊名禁令即收回嚴格形；留著＝該支的 `.sh` 形永久免檢，文件裡殘留的"
-            "舊 bash 命令形指向不存在的檔案卻零告警"))
-    return out
-
-
 def lint_cmd_forms(root):
     """Lint19：三件活手冊的 tools 命令形 vs tools-cli 真表（rev4:contracts G5）。"""
     try:
@@ -2166,12 +2127,10 @@ def lint_cmd_forms(root):
         return [finding(ERROR, "Lint19", "tools",
                         f"真表掃源失敗（{ex}）——命令形無比對基準，fail-closed")]
     texts = {rel: _read(root, rel) for rel in CMD_FORM_CORPUS}
-    out = check_cmd_forms(
+    return check_cmd_forms(
         {rel: t for rel, t in texts.items() if t is not None},
         {r["rel"]: set(r["subs"]) for r in rows if r["lang"] == "python"},
         {r["rel"]: r["exists"] for r in rows if r["lang"] == "bash"})
-    return out + check_twin_window(
-        {rel: os.path.exists(os.path.join(root, _twin_sh(rel))) for rel in TOOLS_PY_SH_TWIN})
 
 
 def parse_events_loose(text):
@@ -3243,11 +3202,11 @@ def lint_empty_sets(root, tracked=None, cache=None, exemptions=None):
 # 成員資格以叫用形為據（逐檔 grep 實證、2026-07-31 盤點）：
 #   .githooks/* 與 .githooks-submodule/* 四支＝git 經 core.hooksPath 直接 exec（外層
 #     hooksPath=.githooks、兩源倉 hooksPath 指 .githooks-submodule，皆 tools/bootstrap.sh 設定）；
-#   deploy/ 四支＝檔頭用法行自載直跑形：sops.sh「./deploy/sops.sh <sops 參數...>」（另
-#     deploy/decrypt-secrets.py 內以 ./deploy/sops.sh 直呼＝SOPS_REL）、generate-secrets.sh
-#     「./deploy/generate-secrets.sh [--force|--compose-only]」、preflight-secrets.sh
-#     「./deploy/preflight-secrets.sh」（另 deploy/secrets/README.md 同形）、
+#   deploy/ 兩支＝檔頭用法行自載直跑形：sops.sh「./deploy/sops.sh <sops 參數...>」（另
+#     deploy/decrypt-secrets.py 內以 ./deploy/sops.sh 直呼＝SOPS_REL）、
 #     generate-dev-cert.sh「./deploy/generate-dev-cert.sh [--force]」；
+#     ★generate-secrets.sh 與 preflight-secrets.sh 兩支已於 B-037 U3 退役（正典改
+#     python3 deploy/<name>.py、不帶 exec bit＝B-035 U2/U3 拍板），同刀摘出本名冊。
 #   tools/*.py 六支＝RUNBOOK §12 標頭明載「python 工具一律直跑或 python3 前綴」——直跑
 #     屬受支持介面形。
 # ★除外（叫用形不依賴 index exec bit；其 index 現值為何不在本條款管轄）：
@@ -3257,8 +3216,6 @@ def lint_empty_sets(root, tracked=None, cache=None, exemptions=None):
 #     `sh deploy/dev-webhook-sink.sh start|cat|stop`）；
 #   deploy/generate-age-key.sh＝恆 `bash` 前綴（檔頭用法行與 RUNBOOK §12／§15.2 皆
 #     `bash deploy/generate-age-key.sh`）；
-#   deploy/setup-reaper-role.sh＝恆 `bash` 前綴（README.md 起手式與 RUNBOOK §4／§7
-#     輪替表皆 `bash deploy/setup-reaper-role.sh`、檔頭無直跑用法行）；
 #   tools/bootstrap.sh＝恆 `bash tools/bootstrap.sh`（CLAUDE.md §3、RUNBOOK §12、hooks 檢修
 #     指引同形）；tools/wf-watchdog.sh＝恆 `bash` 前綴（檔頭用法行＝Monitor command 欄填
 #     `bash tools/wf-watchdog.sh [冒煙token]`、CLAUDE.md §2 同形）。
@@ -3266,7 +3223,6 @@ EXEC_BIT_ROSTER = (
     ".githooks/pre-commit", ".githooks/pre-push",
     ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
     "deploy/generate-dev-cert.sh",
-    "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
     "deploy/sops.sh",
     "tools/docs-sync.py", "tools/entity-drift-gate.py", "tools/fork-delta-lint.py",
     "tools/schema-gate.py", "tools/secret-value-guard.py", "tools/wire-schema.py",
@@ -7451,10 +7407,6 @@ def _tools_fixture(d):
     _wfile(d, "tools/bootstrap.sh", "#!/usr/bin/env bash\n# 用途：體檢（無用法行）\n")
     _wfile(d, "tools/wf-watchdog.sh",
            "#!/usr/bin/env bash\n# 用法：bash tools/wf-watchdog.sh\n")
-    # 轉換窗口共存項的舊 bash 實體：現庫實況＝兩實體同在，fixture 照樣造，否則每個吃
-    # 本 fixture 的案子都會多收一筆 check_twin_window 到期紅（造假故障）。
-    for rel in TOOLS_PY_SH_TWIN:
-        _wfile(d, _twin_sh(rel), "#!/usr/bin/env bash\n# 用法：bash 舊版（待 B-037 刪）\n")
 
 
 class TestToolsCliTruthTable(unittest.TestCase):
@@ -7498,9 +7450,6 @@ class TestToolsCliTruthTable(unittest.TestCase):
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
                           "deploy/generate-secrets.py", "deploy/setup-reaper-role.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
-        # ★setup-reaper-role 不在共存名單（B-037 U2）：三件活手冊零命令形＝零誤報面。
-        self.assertEqual(TOOLS_PY_SH_TWIN,
-                         ("deploy/preflight-secrets.py", "deploy/generate-secrets.py"))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
         self.assertEqual(len(heads), 12, msg=str(heads))
@@ -7590,26 +7539,20 @@ class TestCmdFormLint(unittest.TestCase):
         self.assertIn("deploy/preflight-secrets.py", f[0]["msg"])
         self.assertEqual(self._f("`python3 deploy/preflight-secrets.py test`\n"), [])
 
-    def test_transition_twin_sh_name_does_not_trip_old_name_ban(self):
-        """★轉換窗口共存（ADR 0010、TOOLS_PY_SH_TWIN）：python 版已上線而舊 bash 版依
-        B-037 才刪，`.sh` 實體還在庫，文件裡的 `bash deploy/preflight-secrets.sh` 是合法
-        現況——負向前瞻沒把 .sh 排掉即 README 與 RUNBOOK 共 5 處誤紅硬擋。副檔名全缺者
-        仍照抓（禁令本身不得因此被拆掉）。"""
-        self.assertEqual(self._f("`bash deploy/preflight-secrets.sh`\n"), [])
-        f = self._f("`bash deploy/preflight-secrets`\n")
-        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
-        self.assertIn("舊名", f[0]["msg"])
-
-    def test_retired_twin_sh_name_is_error_again(self):
-        """★窗口收攏後的另一半（B-036 U2 刪 deploy/decrypt-secrets.sh、同刀摘 TWIN 項）：
-        該支不再享豁免，舊名禁令收回嚴格形——文件裡殘留的 `bash deploy/decrypt-secrets.sh`
-        指向不存在的檔案、即刻 ERROR。上一案只證「窗口內不誤紅」，少了本案就沒有任何斷言
-        證明「窗口外真的會紅」，TWIN 名單永遠留著也全綠。"""
-        self.assertNotIn("deploy/decrypt-secrets.py", TOOLS_PY_SH_TWIN,
-                         msg="decrypt 已於 B-036 U2 收攏；仍列＝該支 .sh 形又變回免檢")
-        f = self._f("`bash deploy/decrypt-secrets.sh`\n")
-        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
-        self.assertIn("舊名", f[0]["msg"])
+    def test_retired_sh_name_is_error(self):
+        """★轉換窗口收攏後的嚴格形（TOOLS_PY_SH_TWIN 已隨 B-037 U3 整條下架）：四支舊 bash
+        實體全數退役（decrypt＝B-036 U2；preflight／generate／setup-reaper＝B-037 U3），舊名
+        禁令對 deploy 條目一律收回嚴格形——文件裡殘留的 `bash deploy/<name>.sh` 指向不存在
+        的檔案、即刻 ERROR。窗口期曾以具名豁免弱化本禁令，少了本案就沒有任何斷言證明豁免
+        真的收回了（弱化形留著也全綠）。副檔名全缺者照抓（禁令本體不得被拆）。"""
+        for name in ("decrypt-secrets", "preflight-secrets", "generate-secrets",
+                     "setup-reaper-role"):
+            self.assertFalse(os.path.exists(os.path.join(ROOT, "deploy", name + ".sh")),
+                             msg=f"{name}.sh 仍在庫＝退役未落實，本案前提失效")
+            for text in (f"`bash deploy/{name}.sh`\n", f"`bash deploy/{name}`\n"):
+                f = self._f(text)
+                self.assertEqual([x["level"] for x in f], [ERROR], msg=f"{text}｜{f}")
+                self.assertIn("舊名", f[0]["msg"])
 
     def test_continuation_token_never_swallows_a_deploy_command_form(self):
         """★續值排除前瞻改自名冊目錄現算（B-035 U2）：寫死 `tools/` 時，跨代碼段斜線形會
@@ -7822,23 +7765,6 @@ class TestCmdFormLint(unittest.TestCase):
             f = lint_cmd_forms(d)
             self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
             self.assertIn("fail-closed", f[0]["msg"])
-
-    def test_transition_twin_window_guard_expires_with_the_old_sh(self):
-        """★到期即紅守衛（比照 LINT25_EXEMPTIONS 第三欄）：TOOLS_PY_SH_TWIN 讓舊名禁令對該
-        支連 `.sh` 一併放行，共存前提＝舊 bash 實體還在庫。.sh 刪了而名單沒清＝該支 `.sh`
-        形永久免檢，殘留的舊 bash 命令形指向不存在的檔案卻零告警（RE_CMD_SH 只涵蓋
-        TOOLS_SH）。名冊釘死斷言只擋名單縮水、擋不了「該縮水時沒縮水」，本案即那一半。"""
-        self.assertTrue(TOOLS_PY_SH_TWIN, msg="共存名單已空＝窗口結束，本守衛與本案應同刀下架")
-        with tempfile.TemporaryDirectory() as d:
-            _tools_fixture(d)
-            self.assertEqual(lint_cmd_forms(d), [])          # 兩實體共存＝窗口內、不報
-            for rel in TOOLS_PY_SH_TWIN:
-                os.remove(os.path.join(d, _twin_sh(rel)))
-            f = lint_cmd_forms(d)
-            self.assertEqual([x["level"] for x in f], [ERROR] * len(TOOLS_PY_SH_TWIN), msg=str(f))
-            self.assertTrue(all(x["code"] == "Lint19" for x in f), msg=str(f))
-            self.assertEqual(f[0]["where"], _twin_sh(TOOLS_PY_SH_TWIN[0]))
-            self.assertIn("TOOLS_PY_SH_TWIN", f[0]["msg"])
 
     @unittest.skipUnless(_day1_pending(*CMD_FORM_CORPUS),
                          "Day 1 未達：解除＝三件活手冊全在（CLAUDE.md／README.md／RUNBOOK.md 隨 B5）★此前為假綠：檔案不存在即無命令形可驗、靜默通過")
@@ -8120,19 +8046,20 @@ class TestExecBitGuard(unittest.TestCase):
 
     def test_roster_is_pinned(self):
         """★名冊字面釘死（同 REFERENCE_SOURCES 慣例）：期望值取自被測常數＝套套邏輯，
-        名冊縮水時守衛靜默瘦身、零信號——字面列出十四筆，少一筆即紅。"""
+        名冊縮水時守衛靜默瘦身、零信號——字面列出十二筆，少一筆即紅。
+        ★十四→十二（B-037 U3）：generate-secrets.sh／preflight-secrets.sh 退役、正典改
+        python3 前綴的 .py 形（不帶 exec bit），叫用形不再依賴 index exec bit。"""
         self.assertEqual(EXEC_BIT_ROSTER, (
             ".githooks/pre-commit", ".githooks/pre-push",
             ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
             "deploy/generate-dev-cert.sh",
-            "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
             "deploy/sops.sh",
             "tools/docs-sync.py", "tools/entity-drift-gate.py",
             "tools/fork-delta-lint.py", "tools/schema-gate.py",
             "tools/secret-value-guard.py", "tools/wire-schema.py"))
 
     @unittest.skipUnless(_day1_pending(*EXEC_BIT_ROSTER),
-                         "Day 1 未達：解除＝EXEC_BIT_ROSTER 十四筆全在（deploy 四支隨 B5b 到位）")
+                         "Day 1 未達：解除＝EXEC_BIT_ROSTER 十二筆全在（deploy 兩支隨 B5b 到位）")
     def test_real_repo_roster_all_755(self):
         """★現庫名冊全 100755（條款上線即自紅＝名冊選錯或 index 已破戒）；真 repo 唯讀。"""
         self.assertEqual(lint_exec_bits(ROOT), [])
@@ -9064,9 +8991,14 @@ class TestLintSummary(unittest.TestCase):
             for _key, sub in PIN_KEYS:
                 _init_sub(d, sub)
             buf = io.StringIO()
-            with mock.patch.object(sys.modules[__name__], "ROOT", d):
-                with contextlib.redirect_stdout(buf):
-                    rc = cmd_lint()
+            # ★對 amend 開關密封：DOCS_SYNC_ADR_AMEND 是外部逐 commit 開關，amend commit 的
+            #   pre-commit 條件自測會在該環境下跑本案——本案釘的是無豁免基線的輸出形，
+            #   不 scrub 即被多出的 Lint08 跳過筆數污染（B-037 U3 收攏 commit 首暴）。
+            with mock.patch.dict(os.environ):
+                os.environ.pop("DOCS_SYNC_ADR_AMEND", None)
+                with mock.patch.object(sys.modules[__name__], "ROOT", d):
+                    with contextlib.redirect_stdout(buf):
+                        rc = cmd_lint()
             lines = buf.getvalue().splitlines()
             idx = [i for i, l in enumerate(lines) if l.startswith("lint：")]
             self.assertEqual(len(idx), 1, msg=str(lines))
@@ -9159,8 +9091,13 @@ class TestSkipInventory(unittest.TestCase):
             self.assertIn("DOCS_SYNC_ADR_AMEND", f[0]["msg"])
             with tempfile.TemporaryDirectory() as d2:
                 _init_outer(d2)
-                self.assertEqual(
-                    [x for x in run_lint(d2) if x["level"] == SKIP and x["code"] == "Lint08"], [])
+                # ★無豁免側必須自己清掉開關、不得繼承行程環境（amend commit 的 pre-commit
+                #   條件自測即帶著 DOCS_SYNC_ADR_AMEND=1 跑本案；B-037 U3 首暴）。
+                with mock.patch.dict(os.environ):
+                    os.environ.pop("DOCS_SYNC_ADR_AMEND", None)
+                    self.assertEqual(
+                        [x for x in run_lint(d2)
+                         if x["level"] == SKIP and x["code"] == "Lint08"], [])
 
     def test_arch_impact_bidirectional_skip_is_visible(self):
         """★Lint06(b)：現況側對不上簿記狀態時原為靜默跳過（fail-safe），改落明細。"""

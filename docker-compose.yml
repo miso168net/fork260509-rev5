@@ -340,7 +340,7 @@ services:
       # base 不給 target（沿 migrate 形）；dev override 提供 target＋entrypoint 姿態分派
     environment:
       # ★最小權限連線（rev4:FR-013／rev4:ADR 0072）：reaper_database_url＝reaper role 憑證（composite
-      #   secret；rev4:m012 建 role＋GRANT、deploy/setup-reaper-role.sh 設密）——絕不掛 database_url
+      #   secret；rev4:m012 建 role＋GRANT、deploy/setup-reaper-role.py 設密）——絕不掛 database_url
       #   （soybean 全權身分）。
       APP_DATABASE_URL_FILE: /run/secrets/reaper_database_url
       RUST_LOG: "info"
@@ -386,7 +386,7 @@ volumes:
 # 來源＝repo 根 .env（gitignored、bootstrap 代勞產生、值必須為絕對路徑字面；.env.example
 # 有產檔約束全文）；未設變數回退 ./deploy/secrets（#4 向後相容——忘設＝保護失效，由
 # preflight／bootstrap 斷言補償、ADR 誠實登記）。★reaper_password 不進 compose 是設計
-# （僅 deploy/setup-reaper-role.sh 直讀）、勿誤補。
+# （僅 deploy/setup-reaper-role.py 直讀）、勿誤補。
 secrets:
   postgres_password:
     file: ${SECRETS_DIR:-./deploy/secrets}/postgres_password.txt
@@ -409,7 +409,7 @@ secrets:
   alert_webhook_url:
     file: ${SECRETS_DIR:-./deploy/secrets}/alert_webhook_url.txt
   # rev4:016-observability rev4:T025：reaper 最小權限 DB 憑證（composite＝postgres://reaper:…；
-  # rev4:m012 建 role、deploy/setup-reaper-role.sh 設密；rev4:FR-013 密碼零進版本庫）
+  # rev4:m012 建 role、deploy/setup-reaper-role.py 設密；rev4:FR-013 密碼零進版本庫）
   reaper_database_url:
     file: ${SECRETS_DIR:-./deploy/secrets}/reaper_database_url.txt
   # rev4:020-email-verify：SMTP 密碼（dev 亂數 leaf 未消費；prod 真值＝Gmail app password、RUNBOOK §15.4 回寫）

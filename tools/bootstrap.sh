@@ -6,7 +6,7 @@
 #       pin 一致性；舊機重跑＝純體檢。任何斷言失敗→exit 2＋指名處置；分歧類問題只警告
 #       （⚠）不自動 reset、絕不半套。
 # 不含：機密實值（僅體檢 SECRETS_DIR 下缺檔；★rev4:019 起實值不再人對人交接——重建走
-#       python3 deploy/decrypt-secrets.py〔10 支〕＋ ./deploy/generate-secrets.sh --compose-only〔3 composite〕，
+#       python3 deploy/decrypt-secrets.py〔10 支〕＋ python3 deploy/generate-secrets.py --compose-only〔3 composite〕，
 #       見 deploy/secrets/README.md）；
 #       dev stack 起法（見 specs/001 quickstart）。
 # 測試掛點：RV5_BASEWEB_SRC_URL／RV5_RUSTAPI_SRC_URL 可覆寫 clone 來源（file:// 亦可）。
@@ -267,7 +267,7 @@ for ex in "$ROOT"/deploy/secrets/*.example; do
   [ -f "$SECRETS_DIR/$real_base" ] || missing="$missing $real_base"
 done
 if [ -n "$missing" ]; then
-  warn "SECRETS_DIR（${SECRETS_DIR}）缺實值檔：$missing —— 重建：python3 deploy/decrypt-secrets.py（10 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）；上機前把關＝preflight"
+  warn "SECRETS_DIR（${SECRETS_DIR}）缺實值檔：$missing —— 重建：python3 deploy/decrypt-secrets.py（10 支）＋ python3 deploy/generate-secrets.py --compose-only（3 composite）；上機前把關＝preflight"
 else
   ok "SECRETS_DIR（${SECRETS_DIR}）實值檔齊"
 fi

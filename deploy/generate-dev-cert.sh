@@ -30,7 +30,7 @@ CERT_DIR="$SCRIPT_DIR/dev-certs"
 mkdir -p "$CERT_DIR"
 
 # 憑證檔缺席時曾直接 up 的殘骸：compose file-bind 會在該路徑自動建出「目錄」——
-# 空目錄自動清除、非空指名退出（對齊 generate-secrets.sh 的自癒行為）
+# 空目錄自動清除、非空指名退出（對齊 generate-secrets.py 的自癒行為）
 for f in fullchain.pem privkey.pem; do
     if [ -d "$CERT_DIR/$f" ]; then
         rmdir "$CERT_DIR/$f" 2>/dev/null || {
@@ -122,7 +122,7 @@ else
 fi
 rm -f "$CERT_DIR/leaf.csr" "$CERT_DIR/ca.srl" "$CERT_DIR/leaf-only.pem"
 
-# 私鑰權限 600（對齊 generate-secrets.sh；WSL2 drvfs 上 chmod 為 no-op 但仍照做；
+# 私鑰權限 600（對齊 generate-secrets.py；WSL2 drvfs 上 chmod 為 no-op 但仍照做；
 # 外部 CA 路線 ca.key 由你維護、一併收緊無害）
 chmod 600 "$CERT_DIR/privkey.pem" 2>/dev/null || true
 [ -f "$CERT_DIR/ca.key" ] && chmod 600 "$CERT_DIR/ca.key" 2>/dev/null || true

@@ -222,7 +222,7 @@ def cmd_setup(root=None, env=None):
         pw = read_password(pw_file)
         if pw is None:
             print(f"錯誤：{pw_file} 缺席或為空（先跑 python3 deploy/decrypt-secrets.py；"
-                  "無加密檔情境＝generate-secrets.sh）", file=sys.stderr)
+                  "無加密檔情境＝generate-secrets.py）", file=sys.stderr)
             return 1
         set_password(pw, root)
         verify_login(pw, root)

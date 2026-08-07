@@ -17,7 +17,7 @@ secret-value-guard（三層掃描之值比對層）以「機密現值逐字比�
 
 guard 加常數 `PLACEHOLDER_VALUES`（frozenset、逐字全等比對、**不做前綴／樣式放寬**）：現值 ∈ 集合 → 該機密跳過比對並印跳過明細「佔位字面（公開、非機密）」；填真值後（真值∉集合）自動納回比對。`check` 與 `--full-tree` 兩消費點同源共用（`comparable_secrets` 單一判定面）。
 
-**三處同字面雙記帳（改佔位值必同刀齊改）**：①本白名單 ②`deploy/preflight-secrets.sh` 之 `PLACEHOLDER_LITERALS`（語意＝提醒未填真值）③guard 自測 `TestPlaceholderSkip._PH`（字面手寫釘死、不引用常數——套套邏輯戒律）。
+**三處同字面雙記帳（改佔位值必同刀齊改）**：①本白名單 ②`deploy/preflight-secrets.py` 之 `PLACEHOLDER_LITERALS`（語意＝提醒未填真值）③guard 自測 `TestPlaceholderSkip._PH`（字面手寫釘死、不引用常數——套套邏輯戒律）。
 
 **突變實證**：拔白名單項→佔位跳過測試翻紅＋live check 對兩腳本重新命中；近似形（差一字元）不豁免測試防樣式放寬。
 

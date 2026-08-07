@@ -98,7 +98,7 @@ except Exception as _ex:
 resolve_secrets_dir = _secrets_common.resolve_secrets_dir
 
 # 10 key 名單（＝deploy/secrets.dev.enc.yaml 全集；9 leaf＋alert_webhook_url；rev4:020 增
-# smtp_password／email_verify_secret；composite 三支由 generate-secrets.sh 自 leaf 重生、
+# smtp_password／email_verify_secret；composite 三支由 generate-secrets.py 自 leaf 重生、
 # 不進加密檔）。★次序即輸出次序與寫入次序。
 EXPECTED_KEYS = ("postgres_password", "redis_password", "jwt_secret", "refresh_token_secret",
                  "captcha_secret", "reaper_password", "grafana_admin_password",
@@ -758,7 +758,7 @@ def _decrypt_into(root, secrets_dir, tmp_dir, manual):
         print("      人工比對後：採加密檔值＝mv .new 蓋回；保留現值＝刪 .new 並依 RUNBOOK "
               "輪替程序回寫加密檔。", file=sys.stderr)
     print(f"完成：{secrets_dir} 之 {len(EXPECTED_KEYS)} 支 key 檔已就緒"
-          "（composite 另跑 ./deploy/generate-secrets.sh 重組）。")
+          "（composite 另跑 python3 deploy/generate-secrets.py --compose-only 重組）。")
     return 0
 
 

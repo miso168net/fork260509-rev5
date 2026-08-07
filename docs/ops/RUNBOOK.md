@@ -8,7 +8,7 @@
 ## 1. 快速啟動（新機五步）
 
 1. `bash tools/bootstrap.sh` —— 源倉＋worktree＋hooks＋secrets 體檢（幂等、可重跑）
-2. `bash deploy/generate-secrets.sh` —— 十三機密缺則補
+2. `python3 deploy/generate-secrets.py` —— 十三機密缺則補
 3. `python3 deploy/preflight-secrets.py` —— up 前預檢（全齊印 OK）
 4. `bash deploy/generate-dev-cert.sh` —— dev TLS 憑證。★非可選：front-nginx 恆 bind-mount
    兩支 pem、缺檔直接 up＝Docker 代建空目錄佔位→nginx PEM emerg 死循環（rev4:L-141；修復＝
@@ -157,7 +157,7 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 `~/.config/sops/age/keys.txt`（**私鑰＝passphrase 加殼**、目錄 700 檔 600、**永不進版控**；
 跨代並存機改用 `keys-fork260509-rev5.txt`＝§15.2 步驟 1 註記）。
 工具＝`./deploy/sops.sh`（官方容器 wrapper、digest 釘版、自動選鑰）、`python3 deploy/decrypt-secrets.py`
-（密文→`$SECRETS_DIR/*.txt`）、`bash deploy/generate-secrets.sh`（產亂數）、
+（密文→`$SECRETS_DIR/*.txt`）、`python3 deploy/generate-secrets.py`（產亂數）、
 `python3 deploy/preflight-secrets.py`（上機前體檢）、`bash deploy/generate-age-key.sh`（產 identity）。
 ★所有命令一律**自 repo 根**執行——wrapper 只掛載 `$PWD`，換目錄跑就找不到 `.sops.yaml`。
 
@@ -273,7 +273,7 @@ recipients` 一行同樣只是這件事的複述——它在多 recipient 下屬
 
 ### 15.4 值變更後回寫加密檔
 
-**何時**：跑過 `bash deploy/generate-secrets.sh --force`、單支重生（刪檔重跑）、或人工編輯
+**何時**：跑過 `python3 deploy/generate-secrets.py --force`、單支重生（刪檔重跑）、或人工編輯
 `$SECRETS_DIR/<name>.txt`（例：填 `alert_webhook_url` 真值、把 `smtp_password` 換成 Gmail
 app password）之後。**不需 passphrase**（見 §15.1 紀律 3）。
 
@@ -313,7 +313,7 @@ rm -f tmp/plain.yaml
 |---|---|
 | 自己這把失效、**他人尚可解** | 走 §15.2 產新鑰重新加入；舊 identity 依 §15.3 撤銷 |
 | 自己這把失效、**唯一 identity** | 密文永久不可解（無後門、設計如此）→ 下一列 |
-| **全部 identity 皆失去** | `bash deploy/generate-secrets.sh --force` 重產全部亂數機密（dev 值本就是亂數、無歷史價值）→ 依 §15.4 回寫新密文 → `.sops.yaml` 換成新 recipient。★**人工真值必須在原始來源重新取得**（SMTP app password 回 Gmail 重簽、`alert_webhook_url` 回告警平台重取）——這些不是亂數，重產不回來 |
+| **全部 identity 皆失去** | `python3 deploy/generate-secrets.py --force` 重產全部亂數機密（dev 值本就是亂數、無歷史價值）→ 依 §15.4 回寫新密文 → `.sops.yaml` 換成新 recipient。★**人工真值必須在原始來源重新取得**（SMTP app password 回 Gmail 重簽、`alert_webhook_url` 回告警平台重取）——這些不是亂數，重產不回來 |
 
 舊密文留在 git 史不必也無法移除——沒有任何 identity 能解它。
 
@@ -321,8 +321,8 @@ rm -f tmp/plain.yaml
 
 | 對象 | 產法 | 觸發 |
 |---|---|---|
-| 9 支 leaf（postgres／redis／jwt／refresh／captcha／reaper／grafana／smtp／email_verify） | `bash deploy/generate-secrets.sh --force`（全部重產）或刪單支檔後重跑（單支重生） | 疑似外洩、成員撤銷（§15.3 準則 1）、prod 上線前 |
-| 3 支 composite（`database_url`／`redis_url`／`reaper_database_url`） | `bash deploy/generate-secrets.sh --compose-only`（自 leaf 重組） | 對應 leaf 換過即須重組 |
+| 9 支 leaf（postgres／redis／jwt／refresh／captcha／reaper／grafana／smtp／email_verify） | `python3 deploy/generate-secrets.py --force`（全部重產）或刪單支檔後重跑（單支重生） | 疑似外洩、成員撤銷（§15.3 準則 1）、prod 上線前 |
+| 3 支 composite（`database_url`／`redis_url`／`reaper_database_url`） | `python3 deploy/generate-secrets.py --compose-only`（自 leaf 重組） | 對應 leaf 換過即須重組 |
 | `alert_webhook_url` | 人工填真值（`--force` **不**重置；重置法＝刪檔重跑） | 起 obs 軌前（BACKLOG 滯後卷） |
 | age identity | `bash deploy/generate-age-key.sh` | 成員異動、私鑰疑洩 |
 
