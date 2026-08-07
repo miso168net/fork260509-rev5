@@ -5,9 +5,10 @@
   K2 查用點＝BACKLOG 條目本文）。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 - **提前批進行中**（user 拍板：B12 前先清 bash→python 轉換帳、ADR 0010/0011）：B-035、
-  B-036 已收單（merge 2d22fb6、ebd327a）。下一步＝**B-037**（generate-secrets＋
-  setup-reaper 尾批、刪 preflight 舊 .sh 並清空 SH_TWIN；setup-reaper 效果等價需真 stack
-  人工一輪）；B-038（age 容器化）與 B-039（pre-push 測試矩陣）獨立、可插隊。
+  B-036、B-037 已收單（merge 2d22fb6、ebd327a、7a140f4；ADR 0010 轉換集全數收攏）。
+  剩兩刀皆獨立、任意序：**B-038**（age 產鑰容器化、ADR 0011 ③類首例）與 **B-039**
+  （pre-push 防線測試矩陣）。setup-reaper 正向 ALTER ROLE 一輪待建 reaper role 之刀補做
+  （rev4:m012 承襲、詳收刀事件）。
 - 提前批清完＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 直接輸入＝
   B-014（entity Relation 補強）＋B-001（承襲盤點閘評估）＋K1 對應域條目；★開刀前宜先決
   B-031（prod 是否入 roadmap）與 B-032（團隊組成前提），兩題影響刀序與範圍。
