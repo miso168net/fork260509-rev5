@@ -4,12 +4,11 @@
   已收單，創世 DoD 全數關帳；啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、
   K2 查用點＝BACKLOG 條目本文）。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
-- **提前批進行中**（user 拍板：B12 前先清 bash→python 轉換帳、ADR 0010/0011）：B-035、
-  B-036、B-037 已收單（merge 2d22fb6、ebd327a、7a140f4；ADR 0010 轉換集全數收攏）。
-  B-038 亦收單（merge ab31065）。提前批剩最後一刀＝**B-039**（pre-push 防線測試矩陣、
-  估 0.5 人日）。setup-reaper 正向 ALTER ROLE 一輪待建 reaper role 之刀補做
-  （rev4:m012 承襲、詳收刀事件）。
-- 提前批清完＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 直接輸入＝
+- **提前批（B-035～B-039、bash→python 轉換帳）全數收單**（merge 2d22fb6／ebd327a／
+  7a140f4／ab31065／08361f5；ADR 0010 轉換集收攏、ADR 0011 ③類首例落地、ADR 0013
+  安全姿態入帳）。兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；
+  setup-reaper 正向 ALTER ROLE 一輪待建 reaper role 之刀（rev4:m012 承襲、詳收刀事件）。
+- 下一步＝**B12 第一把功能刀**（後端首刀、spec-kit 流程原樣）。brainstorm 直接輸入＝
   B-014（entity Relation 補強）＋B-001（承襲盤點閘評估）＋K1 對應域條目；★開刀前宜先決
   B-031（prod 是否入 roadmap）與 B-032（團隊組成前提），兩題影響刀序與範圍。
 - 維護批候選堆積：B-002/B-005/B-007/B-010/B-013/B-015（首個維護批）；
