@@ -92,8 +92,14 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 
 - **兩段式 commit**：①worktree 內 commit → ②立即回外層 `git add base-web`（或 `rust-api`）
   bump pin＋外層 commit。pin bump 在單元邊界即時做、不延到收刀。
-- **session 健檢判讀**（SessionStart hook 自動注入）：pin 與 worktree HEAD 分歧一律走
-  「回外層更新 pin」方向，永不 `submodule update`。
+- **session 健檢判讀**（SessionStart hook 自動注入）：pin 與 worktree HEAD 分歧**先判方向**——
+  兩向處置相反、照錯邊會抹掉真 commit。①**worktree 在前**（本機剛在子庫 commit、pin 落後）→
+  回外層 `git add <子庫>` bump pin。②**pin 在前**（他機推了子庫 commit、外層 pull 帶進新 pin）→
+  在 **worktree 內**顯式前進：`git -C <子庫> fetch origin <長名>` →
+  `git -C <子庫> merge --ff-only <pin>`；★此時回外層 bump pin＝把 pin 倒回舊值、抹掉他人 commit。
+  機判：`git -C <子庫> merge-base --is-ancestor <worktree HEAD> <pin>` 成立＝②、反向成立＝①、
+  兩者皆不成立＝真分叉、停手問 user；pin object 不在本地（bad object）＝先 fetch 再判。
+  ★兩向皆**永不 `submodule update`**（會 reset worktree）。
 - **初始化／新機器**：clone 外層後跑 **`bash tools/bootstrap.sh`**（一鍵幂等：源倉 clone＋worktree
   重建＋hooks＋基線/pin 斷言＋fork-delta-lint＋secrets 體檢；舊機重跑＝純體檢、worktree 斷裂給
   自癒指引）。`git submodule update --init` 僅限唯讀快速看碼捷徑（fresh clone；worktree 模式下

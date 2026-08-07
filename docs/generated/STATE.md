@@ -11,7 +11,7 @@
 ## 帳面統計
 - ADR：13（accepted 13）
 - BACKLOG 待辦：31（next：B-040）｜滯後：1
-- LESSONS：7 筆（next：L-008）
+- LESSONS：8 筆（next：L-009）
 - events：14 筆（feature_close 1、misc 13）
 
 ## 最近事件（尾 3 筆、新在前）

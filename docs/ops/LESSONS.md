@@ -1,4 +1,4 @@
-<!-- next: L-008 -->
+<!-- next: L-009 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -64,3 +64,9 @@ L-003｜「移植清單照單施工」不等於「已拍板」＋勘誤不逐處
   ast 紅在 6164 行。防法：①整檔機械改動用 `str.replace` 或 `split("\n")`、絕不 `splitlines()`
   （它吃 \x1c\x1d\x1e\x85\u2028\u2029 全家）；②動含編碼樣本的檔前先掃 U+2028／U+2029 存量、
   改後以位置上下文縫回；③改完必 `ast.parse` 自證（本例即由此攔下、453 案測試復綠）。
+
+- **L-008**｜單向書寫的判讀規則在反向情境會導向破壞性操作。親歷：外層 pull 進他機 37 筆後
+  rust-api pin 分歧，四處文件（CLAUDE.md §3／SessionStart hook／bootstrap 註解與 warn）皆只寫
+  「一律回外層更新 pin」——該句為「worktree 在前」而寫；反向（pin 在前、worktree 落後）照做即把
+  pin 倒回舊值、抹掉他人 commit。防法：凡寫「一律 X」的處置規則，先問「反向情境存在嗎」，
+  存在就必須雙向寫並給機器判準（此處＝merge-base --is-ancestor 三態）。

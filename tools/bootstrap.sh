@@ -135,13 +135,13 @@ for hf in .githooks-submodule/pre-commit .githooks-submodule/pre-push; do
 done
 ok "hooks 標的檔內容＝HEAD 版本（pre-commit／pre-push 指紋一致）"
 
-# ── 4. pin 一致性（分歧只警告；判讀＝回外層更新 pin 方向、CLAUDE.md §3）──
+# ── 4. pin 一致性（分歧只警告；判讀＝先判方向、兩向處置相反，CLAUDE.md §3）──
 check_pin() { # $1=目錄名
   local pin head
   pin="$(git -C "$ROOT" rev-parse "HEAD:$1" 2>/dev/null || echo 'none')"
   head="$(git -C "$ROOT/$1" rev-parse HEAD)"
   [ "$pin" = "$head" ] && ok "$1 pin＝worktree HEAD（${head:0:7}）" \
-    || warn "$1 pin（${pin:0:7}）≠ worktree HEAD（${head:0:7}）——健檢判讀：一律回外層更新 pin 方向"
+    || warn "$1 pin（${pin:0:7}）≠ worktree HEAD（${head:0:7}）——先判方向（CLAUDE.md §3）：worktree 在前＝回外層 bump pin；pin 在前＝worktree 內 merge --ff-only 該 pin"
 }
 check_pin "base-web"
 check_pin "rust-api"
