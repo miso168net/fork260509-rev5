@@ -281,8 +281,9 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 **前端接線層（ADR 0018）**
 
 - **FR-024**: 前端腿 MUST 恰為兩新檔：typings 型別宣告檔＋service 接線檔（皆 rev5- 前綴、
-  §III.1 預設軌道、零 inline 改動、零修憲）；view 不入本刀（B-008）、manage_system-settings
-  選單點擊 404 已知態持續。
+  §III.1 預設軌道）；另加治理錨點一新檔＝zh-tw 語言檔（FR-020／FR-026 承載；§III 新增型
+  紀律、無★軌道需求＝釋義 ADR 0021、裸 object export 不接 runtime）；全程零 inline
+  改動、零修憲；view 不入本刀（B-008)、manage_system-settings 選單點擊 404 已知態持續。
 - **FR-025**: 接線層 MUST 完整可消費：兩端點各有型別完備的呼叫函式，未來 view 刀接上即用、
   不需回頭補型別。
 

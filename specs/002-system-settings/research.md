@@ -85,7 +85,12 @@ rev4:ADR 0026（registry）／rev4:ADR 0027（enforce seam）結論已透過實�
     續留、en-us.ts 零改動；BASE-WEB-I18N-WIRING ★軌道延前端 i18n 接線刀）。
 12. **msg key 沿 rev4 既有字面**：`biz.systemSettings.invalidValue`／`biz.systemSettings.notFound`／
     `system.internal`／`system.forbidden`／`system.notFound`／`auth.session.reLogin`／
-    `common.success`——zh-tw.ts 起手鍵集＝後端掃描面全集（Lint24 閉環）。
+    `common.success`——zh-tw.ts 起手鍵集＝後端實發集∪Lint24 白名單九鍵（Lint24 閉環、
+    data-model §6）。
+13. **zh-tw.ts＝無 Schema 標註孤立檔**（釋義 ADR 0021、user 拍板 2026-08-08）：rev4 靠
+    ★軌道對 app.d.ts inline（backend 型節＋LangType）並以 `App.I18n.Schema` 標註——
+    rev5 **不得帶回**；zh-tw.ts 裸 object export、不接 runtime；標型重構與 runtime
+    接線延前端 UI 刀★軌道。
 
 ## R4 registry 值域（→data-model §3 凍結）
 
