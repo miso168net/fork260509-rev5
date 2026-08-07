@@ -1943,13 +1943,15 @@ TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate
             "tools/entity-drift-gate.py", "deploy/preflight-secrets.py",
             "deploy/decrypt-secrets.py")
 TOOLS_SH = ("bootstrap", "wf-watchdog")
-# ★轉換窗口共存名單（ADR 0010）：python 版已上線、舊 bash 版依 B-037 才刪，兩實體同時在庫。
+# ★轉換窗口共存名單（ADR 0010）：python 版已上線、舊 bash 版尚未刪，兩實體同時在庫。
 # 舊名禁令對這些條目必須連 `.sh` 一併排除，否則三件活手冊裡合法的
 # `bash deploy/preflight-secrets.sh` 會被判成「缺 .py 的舊名」（實測 README＋RUNBOOK 共 5 處
-# 誤紅）。B-037 刪 .sh 時本名單清空、禁令自動收回嚴格形。
+# 誤紅）。舊 .sh 刪除的同一刀把該項自本名單摘除、禁令對該支自動收回嚴格形。
 # ★解除不靠人記得＝check_twin_window（比照 LINT25_EXEMPTIONS 第三欄「到期即紅」）：舊 .sh
 # 實體不在庫而項仍列於此＝豁免已到期，Lint19 即刻 ERROR 指名該下架。
-TOOLS_PY_SH_TWIN = ("deploy/preflight-secrets.py", "deploy/decrypt-secrets.py")
+# ★收攏實績：decrypt 一項已於 B-036 U2（刪 deploy/decrypt-secrets.sh）摘除、本守衛首次真實
+# 走完這條路；preflight 一項待 B-037 刪 .sh 時同法摘除，屆時名單清空、本守衛與其自測同刀下架。
+TOOLS_PY_SH_TWIN = ("deploy/preflight-secrets.py",)
 TOOLS_CLI_MD = f"{GENERATED_DIR}/reference/tools-cli.md"
 SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深＝內文敘述、非介面說明）
 # ★語料寫死三件活手冊（現在式）：NOTES 屬未來式帳（可合法提及尚未存在的子命令、clarify
@@ -2130,10 +2132,11 @@ def check_cmd_forms(texts, subs, sh_exists):
 def check_twin_window(twin_sh_exists):
     """轉換窗口豁免的到期即紅守衛（純判定；twin_sh_exists＝{共存項: 舊 .sh 是否仍在庫}）。
 
-    ★TOOLS_PY_SH_TWIN 是一條**弱化舊名禁令**的具名豁免，解除條件＝舊 bash 實體被刪
-    （B-037）。少了本守衛，解除全靠人記得：.sh 刪了而名單沒清＝`.sh` 形永久免檢，文件裡
-    殘留的 `bash …-secrets.sh` 指向不存在的檔案卻全庫零告警（RE_CMD_SH 只涵蓋 TOOLS_SH、
-    deploy/ 不在其中），正是舊名禁令要防的那一類。名冊釘死斷言只擋名單縮水、擋不了
+    ★TOOLS_PY_SH_TWIN 是一條**弱化舊名禁令**的具名豁免，解除條件＝該支舊 bash 實體被刪
+    （decrypt＝B-036 U2 已收攏、preflight＝B-037）。少了本守衛，解除全靠人記得：.sh 刪了而
+    名單沒清＝`.sh` 形永久免檢，文件裡殘留的 `bash …-secrets.sh` 指向不存在的檔案卻全庫零
+    告警（RE_CMD_SH 只涵蓋 TOOLS_SH、deploy/ 不在其中），正是舊名禁令要防的那一類。
+    名冊釘死斷言只擋名單縮水、擋不了
     「該縮水時沒縮水」，故補這一半——四欄豁免表（LINT25_EXEMPTIONS／DAY1_EXEMPTIONS）
     的「到期即紅」同族紀律。
     """
@@ -3235,9 +3238,8 @@ def lint_empty_sets(root, tracked=None, cache=None, exemptions=None):
 # 成員資格以叫用形為據（逐檔 grep 實證、2026-07-31 盤點）：
 #   .githooks/* 與 .githooks-submodule/* 四支＝git 經 core.hooksPath 直接 exec（外層
 #     hooksPath=.githooks、兩源倉 hooksPath 指 .githooks-submodule，皆 tools/bootstrap.sh 設定）；
-#   deploy/ 五支＝檔頭用法行自載直跑形：sops.sh「./deploy/sops.sh <sops 參數...>」（另
-#     decrypt-secrets.sh 內以 ./deploy/sops.sh 直呼）、decrypt-secrets.sh
-#     「./deploy/decrypt-secrets.sh」（另 tools/bootstrap.sh 自癒指引同形）、generate-secrets.sh
+#   deploy/ 四支＝檔頭用法行自載直跑形：sops.sh「./deploy/sops.sh <sops 參數...>」（另
+#     deploy/decrypt-secrets.py 內以 ./deploy/sops.sh 直呼＝SOPS_REL）、generate-secrets.sh
 #     「./deploy/generate-secrets.sh [--force|--compose-only]」、preflight-secrets.sh
 #     「./deploy/preflight-secrets.sh」（另 deploy/secrets/README.md 同形）、
 #     generate-dev-cert.sh「./deploy/generate-dev-cert.sh [--force]」；
@@ -3258,7 +3260,7 @@ def lint_empty_sets(root, tracked=None, cache=None, exemptions=None):
 EXEC_BIT_ROSTER = (
     ".githooks/pre-commit", ".githooks/pre-push",
     ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
-    "deploy/decrypt-secrets.sh", "deploy/generate-dev-cert.sh",
+    "deploy/generate-dev-cert.sh",
     "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
     "deploy/sops.sh",
     "tools/docs-sync.py", "tools/entity-drift-gate.py", "tools/fork-delta-lint.py",
@@ -7488,8 +7490,7 @@ class TestToolsCliTruthTable(unittest.TestCase):
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap", "wf-watchdog"))
-        self.assertEqual(TOOLS_PY_SH_TWIN,
-                         ("deploy/preflight-secrets.py", "deploy/decrypt-secrets.py"))
+        self.assertEqual(TOOLS_PY_SH_TWIN, ("deploy/preflight-secrets.py",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
         self.assertEqual(len(heads), 10, msg=str(heads))
@@ -7586,6 +7587,17 @@ class TestCmdFormLint(unittest.TestCase):
         仍照抓（禁令本身不得因此被拆掉）。"""
         self.assertEqual(self._f("`bash deploy/preflight-secrets.sh`\n"), [])
         f = self._f("`bash deploy/preflight-secrets`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("舊名", f[0]["msg"])
+
+    def test_retired_twin_sh_name_is_error_again(self):
+        """★窗口收攏後的另一半（B-036 U2 刪 deploy/decrypt-secrets.sh、同刀摘 TWIN 項）：
+        該支不再享豁免，舊名禁令收回嚴格形——文件裡殘留的 `bash deploy/decrypt-secrets.sh`
+        指向不存在的檔案、即刻 ERROR。上一案只證「窗口內不誤紅」，少了本案就沒有任何斷言
+        證明「窗口外真的會紅」，TWIN 名單永遠留著也全綠。"""
+        self.assertNotIn("deploy/decrypt-secrets.py", TOOLS_PY_SH_TWIN,
+                         msg="decrypt 已於 B-036 U2 收攏；仍列＝該支 .sh 形又變回免檢")
+        f = self._f("`bash deploy/decrypt-secrets.sh`\n")
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
         self.assertIn("舊名", f[0]["msg"])
 
@@ -8098,11 +8110,11 @@ class TestExecBitGuard(unittest.TestCase):
 
     def test_roster_is_pinned(self):
         """★名冊字面釘死（同 REFERENCE_SOURCES 慣例）：期望值取自被測常數＝套套邏輯，
-        名冊縮水時守衛靜默瘦身、零信號——字面列出十五筆，少一筆即紅。"""
+        名冊縮水時守衛靜默瘦身、零信號——字面列出十四筆，少一筆即紅。"""
         self.assertEqual(EXEC_BIT_ROSTER, (
             ".githooks/pre-commit", ".githooks/pre-push",
             ".githooks-submodule/pre-commit", ".githooks-submodule/pre-push",
-            "deploy/decrypt-secrets.sh", "deploy/generate-dev-cert.sh",
+            "deploy/generate-dev-cert.sh",
             "deploy/generate-secrets.sh", "deploy/preflight-secrets.sh",
             "deploy/sops.sh",
             "tools/docs-sync.py", "tools/entity-drift-gate.py",
@@ -8110,7 +8122,7 @@ class TestExecBitGuard(unittest.TestCase):
             "tools/secret-value-guard.py", "tools/wire-schema.py"))
 
     @unittest.skipUnless(_day1_pending(*EXEC_BIT_ROSTER),
-                         "Day 1 未達：解除＝EXEC_BIT_ROSTER 十五筆全在（deploy 五支隨 B5b 到位）")
+                         "Day 1 未達：解除＝EXEC_BIT_ROSTER 十四筆全在（deploy 四支隨 B5b 到位）")
     def test_real_repo_roster_all_755(self):
         """★現庫名冊全 100755（條款上線即自紅＝名冊選錯或 index 已破戒）；真 repo 唯讀。"""
         self.assertEqual(lint_exec_bits(ROOT), [])

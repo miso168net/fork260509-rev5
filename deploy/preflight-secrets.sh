@@ -76,13 +76,13 @@ if [ "${#missing[@]}" -gt 0 ]; then
     echo "FAIL：缺少 ${#missing[@]} 個 secret 檔（${SECRETS_DIR}）："
     for m in "${missing[@]}"; do echo "   - $m"; done
     echo ""
-    echo "→ SOPS 管線重建：./deploy/decrypt-secrets.sh（10 支）→ ./deploy/generate-secrets.sh --compose-only（3 composite）。"
+    echo "→ SOPS 管線重建：python3 deploy/decrypt-secrets.py（10 支）→ ./deploy/generate-secrets.sh --compose-only（3 composite）。"
     echo "  （無加密檔情境仍可 ./deploy/generate-secrets.sh 一鍵生成 dev 亂數、缺的才補。）"
     exit 1
 fi
 
 # rev4:B-123：權限面三斷言（縱深防禦、超出契約 rev4:P5.6 要求面）——目錄 mode 700／檔 mode 644／
-# 檔 owner 非 root。decrypt-secrets.sh 每次寫出即自證此形（rev4:P4.4／rev4:P4.6 目錄 700、rev4:P4.7 檔 644），
+# 檔 owner 非 root。decrypt-secrets.py 每次寫出即自證此形（rev4:P4.4／rev4:P4.6 目錄 700、rev4:P4.7 檔 644），
 # 但落點檔被人手改（chmod 600、目錄 777、sudo 建檔）後現檢照樣全綠——而那正是 rev4:P4.5／rev4:P4.7
 # 自陳「只在開 obs／metrics 軌時才炸」的失敗形（grafana uid 472／postgres-exporter 65534／
 # redis-exporter 59000 讀 /run/secrets/* 全 Permission denied）。本斷言把它前移到 up 之前指名。
@@ -138,13 +138,13 @@ for name in "${REQUIRED[@]}"; do
 done
 if [ "${#cr_hit[@]}" -gt 0 ]; then
     echo "FAIL：下列 secret 檔含 CR 字元（內容劣化、值進連線字串即靜默壞）：${cr_hit[*]}"
-    echo "→ 重跑 ./deploy/decrypt-secrets.sh（printf 管線寫檔、零 CR）後再驗。"
+    echo "→ 重跑 python3 deploy/decrypt-secrets.py（寫出即零 CR）後再驗。"
     exit 1
 fi
 if [ "${#nl_hit[@]}" -gt 0 ]; then
     echo "FAIL：下列 secret 檔含換行字元（printf '%s' 寫檔形應零換行；尾端換行會讓 composite"
     echo "      一致性檢查失明、容器拿到與 composite 不符的值）：${nl_hit[*]}"
-    echo "→ 重跑 ./deploy/decrypt-secrets.sh（10 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。"
+    echo "→ 重跑 python3 deploy/decrypt-secrets.py（10 支）＋ ./deploy/generate-secrets.sh --compose-only（3 composite）後再驗。"
     exit 1
 fi
 

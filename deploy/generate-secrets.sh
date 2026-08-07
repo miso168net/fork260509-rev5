@@ -107,7 +107,7 @@ if [ "$COMPOSE_ONLY" -eq 1 ]; then
     done
     if [ "${#MISSING_SRC[@]}" -ne 0 ]; then
         echo "FAIL：--compose-only 缺來源檔（不生成、防靜默造新亂數）：${MISSING_SRC[*]}" >&2
-        echo "      → 先跑 ./deploy/decrypt-secrets.sh 重建 10 支（9 leaf＋alert_webhook_url）後重試。" >&2
+        echo "      → 先跑 python3 deploy/decrypt-secrets.py 重建 10 支（9 leaf＋alert_webhook_url）後重試。" >&2
         exit 1
     fi
 fi

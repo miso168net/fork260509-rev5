@@ -86,7 +86,7 @@ if [ -e "$KEYS" ]; then
   echo "      跨代並存機（該機已有前代 identity）＝保留舊鑰、另產第二把，檔名取 repo 目錄名：" >&2
   echo "        bash deploy/generate-age-key.sh keys-fork260509-rev5.txt" >&2
   echo "      該檔名會被 wrapper 自動選用（單檔掛載），之後解密照常跑、毋須帶環境變數：" >&2
-  echo "        bash deploy/decrypt-secrets.sh" >&2
+  echo "        python3 deploy/decrypt-secrets.py" >&2
   echo "      全文＝RUNBOOK §15.2 步驟 1 註記。" >&2
   exit 1
 fi
@@ -137,5 +137,5 @@ echo "======================================================================"
 echo
 echo "接著（§15.2 步驟 3~4）：管理者把該公鑰加進 .sops.yaml 的 age: 清單 →"
 echo "  ./deploy/sops.sh updatekeys -y deploy/secrets.dev.enc.yaml → commit 密文 →"
-echo "  你 git pull → bash tools/bootstrap.sh → bash deploy/decrypt-secrets.sh"
+echo "  你 git pull → bash tools/bootstrap.sh → python3 deploy/decrypt-secrets.py"
 echo "★少了步驟 3，你的私鑰不在 recipient 清單裡＝拉到的密文一律解不開（§15.2 末條）。"
