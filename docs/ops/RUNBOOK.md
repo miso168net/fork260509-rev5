@@ -179,7 +179,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
   （staged 區間零 typings 變動即跳過）；rust-api pin bump 或 schema 快照
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
   `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
-  全跑工具名冊全部 test。全鏈計時兩級：超 20 秒 WARN、超 45 秒 ERROR（調整走 ADR）。
+  全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
 - **lint 條款**：全 24 條（範圍 Lint03~Lint25；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
@@ -192,6 +192,87 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
   穩定），沿 **latest**、版本不落任何字面——每次產鑰以 `docker build --pull --no-cache`
   重建 `deploy/Dockerfile.age` 取真最新（防浮動 tag 被 docker 層快取凍成「假 latest」），
   離線／限流時退回本機既有映像並印警示、不靜默；完整性面走 go module sumdb 校驗。
+
+### 12.1 效能預算（B-007：觀測基準與預算分攤、非機器閘）
+
+- **兩級門檻語意**：pre-commit 全鏈牆鐘超 **20s**＝警戒（列示放行、劣化趨勢訊號）、超
+  **45s**＝硬擋（狀態型：`--no-verify` 只延後、下次 commit 仍提醒）。★數字權威＝
+  `.githooks/pre-commit` 常數 `PRECOMMIT_WARN_SEC`／`PRECOMMIT_FAIL_SEC`（本節僅引用；
+  調整走 ADR、不得就地改數字）。機器閘只有這一道**全鏈 45s**；本節其餘數字全屬觀測基準
+  與預算分攤、無機器強制。
+- **量測法**（K3-162 紅線、rev4 實證；出處＝docs/brainstorms/000-doc-architecture.md）：
+  `time.perf_counter` 直接包被測**整命令**（subprocess）、每命令連跑 ≥3 次取**中位數**；
+  合計＝逐支中位數加總。★**禁整鏈前後差量歸因單閘**——WSL2 全鏈牆鐘變異可達 ±1.5s、
+  rev4 曾量出負值；整鏈計時只用於「有無數量級劣化」粗判。可複製命令形（輸出＝runs 三值
+  ＋median；argv 換成被測整命令即可逐支複測）：
+
+```bash
+python3 - <<'EOF'
+import statistics, subprocess, time
+argv = ["python3", "tools/docs-sync.py", "lint"]   # ←換成被測整命令
+ts = []
+for _ in range(3):
+    t0 = time.perf_counter()
+    r = subprocess.run(argv, capture_output=True)   # 不 check：紅燈現場也要量得到值
+    ts.append(time.perf_counter() - t0)
+print(f"runs={[f'{t:.3f}' for t in ts]} median={statistics.median(ts):.3f}s rc={r.returncode}")
+EOF
+```
+
+- **本批終態實測**（2026-08-08、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝python 工具
+  ——betterleaks 樣式掃描為原生二進位、不在本表量測面；另三支 **gitlink 觸發段**——
+  fork-delta-lint〔pre-commit 自註 drvfs 約 9s〕／wire-schema check --staged-gate／
+  entity-drift-gate check——屬另一觸發維度亦不在本表，收刀簿記型 commit（pin bump＋
+  多工具 staged）之真實最壞須在情境 B 上再加約 9s+）。**單跑上限推導＝該列中位數 ×3
+  進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
+  ≈3 倍）；下限 1s 吸收 drvfs 抖動的次秒級絕對尖峰；一律以 WSL2（慢端）實測定值——
+  APFS 同工具快一個量級（pre-commit 註解既載事實），故上限對兩平台皆有餘裕。
+
+  情境 A＝基礎鏈（無 gitlink、無 tools staged）：
+
+  | 段 | 中位數 | 單跑上限 |
+  |---|---|---|
+  | `python3 tools/secret-value-guard.py check` | 0.179s | 1s |
+  | `python3 tools/docs-sync.py check` | 1.004s | 4s |
+  | `python3 tools/docs-sync.py lint` | 5.858s | 18s |
+  | **基礎鏈合計** | **7.041s** | **22s**（＝合計中位數 ×3；非逐列上限加總 23s、以本值為權威） |
+
+  情境 B＝理論最壞 staged（pre-commit 名冊 11 支工具本體全 staged、條件自測全中）＝
+  基礎鏈＋11 支 test：
+
+  | 支 | 自測案數 | 中位數 | 單跑上限 |
+  |---|---|---|---|
+  | `python3 tools/docs-sync.py test` | 469 | 11.893s | 36s |
+  | `python3 tools/schema-gate.py test` | 88 | 0.362s | 2s |
+  | `python3 tools/wire-schema.py test` | 27 | 0.191s | 1s |
+  | `python3 tools/secret-value-guard.py test` | 56 | 0.420s | 2s |
+  | `python3 tools/entity-drift-gate.py test` | 45 | 0.153s | 1s |
+  | `python3 deploy/preflight-secrets.py test` | 30 | 0.120s | 1s |
+  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.367s | 8s |
+  | `python3 deploy/generate-secrets.py test` | 35 | 1.769s | 6s |
+  | `python3 deploy/setup-reaper-role.py test` | 32 | 0.604s | 2s |
+  | `python3 deploy/backup-db.py test` | 17 | 1.645s | 5s |
+  | `python3 tools/wf-watchdog.py test` | 23 | 0.211s | 1s |
+  | **11 支 test 合計** | **893** | **19.735s** | — |
+
+  **情境 B 合計＝26.776s**（7.041＋19.735；越 20s 警戒、未破 45s 硬擋——合計面守門
+  仍＝全鏈 45s、不另定上限）。
+- **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
+  無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
+  docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit
+  1779d17 後／單元③ commit 6a6378e 後，基礎鏈＋docs-sync／schema-gate／backup-db 三支
+  test 合計粗判）＝**20.9s**／**17.6s**。可比面趨勢（本節立意所在）：基礎鏈同情境自
+  001 收刀約 1s 成長至約 7s（主因＝lint 條款成長至全 24 條）、距 20s 警戒餘約 3 倍
+  ——下一批續比此值。
+- **一致性核**：最大單支上限（docs-sync test 36s）＋基礎鏈實測 7.041s ≈43s、仍在全鏈
+  45s 內——常見情境（單支工具 staged）下觀測上限先於機器硬擋喊人。逐支上限**加總**
+  （基礎鏈 22s＋11 支 65s＝87s）遠超 45s——單跑上限是逐支劣化偵測基準、非「全數同時
+  到頂仍過鏈閘」的保證；理論最壞情境的守門仍＝全鏈 45s。
+- **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
+  rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
+  劣化理由。
+- **維護紀律**：新工具入 pre-commit 名冊時，本表**須同步加列**（量測＋定上限）；名冊
+  變動而本表未動＝表已過期。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）
 

@@ -13,7 +13,9 @@
 - **零容差語意**：一切比對＝全等；「容差」只有一種合法形＝演進帳登記（§2）。
 - 實庫照相＝與 tools/docs-sync.py refresh 同構之三查詢（columns／indexes／constraints、
   排除 seaql_migrations、確定性排序）。
-- python 標準庫單檔、秒級、自帶 `test` 子命令（pre-commit 條件觸發自測既有接線）。
+- python 標準庫單檔、秒級、自帶 `test` 子命令（pre-commit 條件觸發自測既有接線）；
+  「秒級」的量化去處（**自測面**、pre-commit 觸發段）＝docs/ops/RUNBOOK.md §12.1 效能
+  預算（B-007）；真庫 check 面（需 stack）待 B12 起 stack 後補量。
 
 ## 1. gate1 結構閘（凍結＋演進帳合成 → 全等）
 
