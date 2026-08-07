@@ -16,6 +16,23 @@ user 核可 2026-08-08；本 spec 之唯一輸入。直接輸入含 BACKLOG B-01
 > seam 隨寫端入刀定形；預期零 migration。本刀＝設定值的**治理面**（讀寫），設定值的**行為
 > 兌現**（節流／session 等消費側）全數留對應域刀。
 
+## Clarifications
+
+### Session 2026-08-08
+
+- Q: 部分更新請求以何表示法區分「欄位缺席＝不動」與「顯式清空＝設為 NULL」？（FR-011）
+  → A: **JSON null 承載清空**（RFC 7386 Merge Patch 語意）：欄位缺席＝不動、欄位值
+  `null`＝清空；解析層以三態型別區分「未出現」與「null」；NOT NULL 欄收到 `null`＝
+  顯式清空非法→`2222` 拒收（FR-012）。
+- Q: 登入未到位期間 dev-only 測試態 identity 以何形式攜帶請求身分？未攜身分回哪個碼？
+  （FR-015）→ A: **固定測試 token 走 `Authorization` 標頭**（dev-only 驗證器查表映射
+  身分；token 字面與查表內容＝plan 細節）：通道＝auth 刀終態、屆時僅換驗證器內部、判定
+  進入點介面不變；無標頭＝未認證→`8888`（HTTP 200 信封；rev4 對應語意 plan 期複核）。
+- Q: 更新請求之 setting_key 不在 registry 宣告集（未知鍵）時回 `2222` 還是 `4040`？
+  （FR-019）→ A: **`2222` 業務驗證失敗**（HTTP 200 信封）：未知鍵＝payload 內容非法、
+  與其餘 registry 拒收形同組、前端單一錯誤提示路徑；`4040` 之資源定位語意與「鍵在 body、
+  路徑固定」的 wire 形不符。rev4 若採他碼＝以本拍板為準、記拍板差異點（ADR 0019 清單）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 讀端管線全通：R_SUPER 讀取全部系統設定 (Priority: P1)
@@ -84,7 +101,7 @@ registry（K1-26）自首刀即有真實消費者。
    錯誤（`2222`、HTTP 200 信封）、庫中原值保留、msg 為穩定 i18n key。
 2. **Given** enum:on,off 型鍵，**When** 提交值域外的值，**Then** 同上拒收、原值保留。
 3. **Given** 請求中 setting_key 不在 registry 宣告集，**When** 提交更新，**Then** 拒收
-   （未知鍵、預設 `2222`——plan 期對 rev4 複核，見 Assumptions）、零寫入。
+   （未知鍵、`2222`、Clarify Q3）、零寫入。
 4. **Given** 庫中某列 setting_type 為 registry 不認識的型別字面（資料完整性異常、正常
    營運不可達），**When** 該列被讀寫路徑觸及，**Then** fail-loud 內部錯誤（`5000`、
    HTTP 200 信封）、絕不靜默略過或當作合法。
@@ -110,8 +127,8 @@ user:edit 鈕而無任何 updateSystemSetting 政策）呼叫寫端時被正確�
    庫中零寫入。
 2. **Given** 授權判定，**When** 任一端點執行授權檢查，**Then** 判定收斂於單一純函式進入點
    （enforce 骨架），且存在空 no-escalation 掛點（B-024 seam、本刀不實作其邏輯）。
-3. **Given** 請求未攜任何身分（測試態 identity 缺席），**When** 呼叫任一業務端點，**Then**
-   拒絕，碼隨測試態 identity 形式於 clarify 定案（見 Assumptions）。
+3. **Given** 請求未攜 `Authorization` 標頭（未認證），**When** 呼叫任一業務端點，**Then**
+   拒絕、`8888`（HTTP 200 信封、Clarify Q2）、data 零內容。
 
 ---
 
@@ -132,8 +149,8 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 
 1. **Given** 更新請求中 description 欄缺席，**When** 提交，**Then** 庫中 description
    原值不動、其餘提交欄正常生效。
-2. **Given** 更新請求對 description 欄顯式清空（表示法＝clarify 定案），**When** 提交，
-   **Then** 庫中 description 落 NULL。
+2. **Given** 更新請求對 description 欄顯式清空（該欄 JSON 值 `null`、Clarify Q1），
+   **When** 提交，**Then** 庫中 description 落 NULL。
 3. **Given** 更新請求對 setting_value（NOT NULL 欄）顯式清空，**When** 提交，**Then**
    業務驗證拒收（`2222`）、零寫入。
 
@@ -196,9 +213,10 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 
 **三態約定層（B-026、envelope 級）**
 
-- **FR-011**: 部分更新 MUST 具三態語意：欄位缺席＝不動／顯式清空／設值；顯式清空表示法＝
-  clarify 定案（候選見 Assumptions）；本刀定形射程＝envelope 級通用約定＋本刀寫端具象，
-  逐域欄級表 MUST NOT 入本刀（留各域刀）。
+- **FR-011**: 部分更新 MUST 具三態語意：欄位缺席＝不動／顯式清空＝該欄 JSON 值 `null`／
+  設值（Clarify Q1、RFC 7386 Merge Patch 語意）；解析層 MUST 以三態型別區分「欄位未出現」
+  與「欄位值 null」；本刀定形射程＝envelope 級通用約定＋本刀寫端具象，逐域欄級表
+  MUST NOT 入本刀（留各域刀）。
 - **FR-012**: NOT NULL 欄顯式清空 MUST 拒收（`2222`）；nullable 欄（description）顯式清空
   MUST 落 NULL；兩形 MUST 各有契約測試案。
 
@@ -209,8 +227,10 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
   介面不變。
 - **FR-014**: 「R_ADMIN 有 user:edit 鈕、無寫端政策」組合（seed 已保證必發生）之拒絕語意
   與錯誤明細粒度 MUST 以刀內 ADR 定死（B-024 三件套前置；draft→accepted 於本刀完成）。
-- **FR-015**: 登入未到位期間 MUST 以 dev-only 測試態 identity 頂替（形式＝clarify／plan
-  定案）；測試態 identity MUST NOT 存在於非 dev 建置形。
+- **FR-015**: 登入未到位期間 MUST 以 dev-only 測試態 identity 頂替：固定測試 token 走
+  `Authorization` 標頭、dev-only 驗證器查表映射身分（Clarify Q2；token 字面與查表內容＝
+  plan 細節）；未攜標頭＝未認證→`8888`（FR-019 碼表）；測試態 identity MUST NOT 存在於
+  非 dev 建置形。
 - **FR-016**: request_context MUST 只留介面位（信任判定不寫死 handler；B-019 seam）；本刀
   MUST NOT 寫入 sys_operation_log／sys_access_log（B-016 射程、real_ip seam 不觸發）。
 
@@ -227,11 +247,11 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
   |---|---|---|
   | 成功（讀／寫） | `0000` | 200 |
   | 型別不符／超範圍／enum 外值 | `2222` | 200 |
-  | 未知鍵（含軟刪防禦態） | `2222`（預設、plan 期 rev4 複核） | 200 |
+  | 未知鍵（含軟刪防禦態） | `2222`（Clarify Q3） | 200 |
   | NOT NULL 欄顯式清空 | `2222` | 200 |
   | 授權拒絕（政策無授） | `5003` | 403 |
   | 庫中未知 setting_type（fail-loud） | `5000` | 200 |
-  | 未認證（identity 缺席） | 隨測試態 identity 形式 clarify 定案 | — |
+  | 未認證（`Authorization` 標頭缺席） | `8888`（Clarify Q2；rev4 對應語意 plan 期複核） | 200 |
 
   4 保留碼 MUST 斷言本刀零發出；msg MUST 為穩定 i18n key。
 - **FR-020**: i18n 字典兩側源 MUST 就位：base-web zh-tw 語言檔建檔＋接字典生成器（FR-026
@@ -282,8 +302,9 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
   信封與 13 碼矩陣照憲法 §I.3 凍結面消費。
 - **casbin 政策（seed 現況、本刀不動）**: 設定域三列皆僅 R_SUPER（讀 66／寫 67／menu 69、
   皆 protected）；R_ADMIN 之 user:edit 鈕（44）構成「有鈕無政策」驗證組合。
-- **測試態 identity（dev-only）**: 登入未到位期間的請求身分頂替；形式 clarify 定案、
-  auth 刀接真 session 時汰換。
+- **測試態 identity（dev-only）**: 登入未到位期間的請求身分頂替；固定測試 token 走
+  `Authorization` 標頭、dev-only 驗證器查表（Clarify Q2）；auth 刀接真 session 時僅換
+  驗證器內部、通道與判定進入點不變。
 - **三態約定（envelope 級）**: 部分更新之通用語意約定（缺席／清空／設值）；本刀定形、
   全 repo 後續寫端消費。
 
@@ -298,7 +319,7 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 - **SC-003**: registry 紅綠矩陣全數正確：兩型各有合法過／非法拒對、未知鍵拒、未知型
   fail-loud——非法案庫中原值保留（零寫入以回讀證明）。
 - **SC-004**: 授權矩陣全數正確：R_SUPER 讀寫皆 `0000`；R_ADMIN 讀寫皆 `5003`（HTTP 403）
-  且明細粒度符合刀內 ADR 定稿；identity 缺席案符合 clarify 定案碼。
+  且明細粒度符合刀內 ADR 定稿；未攜 `Authorization` 標頭案回 `8888`（Clarify Q2）。
 - **SC-005**: 三態矩陣全數正確：description 缺席不動／清空落 NULL／設值生效；
   setting_value 顯式清空拒收——四案各有契約測試。
 - **SC-006**: 契約覆蓋自證：兩業務 route 皆有契約測試案，抽掉任一 route 之案 coverage
@@ -314,13 +335,6 @@ NOT NULL 欄（setting_value）顯式清空＝非法拒收——使「第一支�
 - **wire 形＝POST 單鍵更新**：casbin seed 政策列 67 已錨定 `updateSystemSetting POST`
   （政策 obj＝路徑、act＝方法；brainstorm 拍板「不動 casbin seed」→ 改用 PUT／PATCH 須動
   seed＝拍板級翻案）。brainstorm §4 clarify 候選第三題以此為既定事實、clarify 僅確認。
-- **未知鍵拒收碼＝`2222` 預設**：植基「registry 宣告集之外＝業務驗證失敗」語意；rev4 對應
-  碼於 plan research 複核，若 rev4 採 `4040` 則屆時對表更新（誤差射程僅此一格）。
-- **測試態 identity 形式＝clarify 定案**（brainstorm §4 候選第一題）：候選形＝dev-only
-  請求標頭注入／固定測試 token／建置期旗標；連動「未認證回哪個碼」同題定案。
-- **顯式清空表示法＝clarify 定案**（brainstorm §4 候選第二題）：候選形＝JSON null 承載
-  清空（缺席與 null 區分於解析層）／專用 clear 欄位表；B-026 前代教訓（null＝整欄跳過、
-  清空無語意）為反面輸入。
 - **registry 逐鍵值域數字＝plan／data-model 凍結**（brainstorm §4 候選第四題之處置）：
   spec 僅凍結「每鍵必有顯式宣告」紀律，16 鍵逐鍵範圍值屬設計期資料、隨 plan 定稿。
 - **寫端可更新欄含 description**：三態約定需真實 nullable 欄具象；rev4 對應 req 形於 plan
