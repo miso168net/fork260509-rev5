@@ -59,11 +59,12 @@
 
 ### I.5 rust-api 全新寫、對前代 source 受控參照（RUSTAPI-SOURCE-ISOLATION）
 
-**規則**：rev5 rust-api 整棵樹自源倉 main（Initial commit）起全新寫；設計以 rev4 已驗證結論為輸入（承接經 ADR provenance），**code 不拷貝**。
+**規則**：rev5 rust-api 整棵樹自源倉 main（Initial commit）起全新寫；設計以 rev4 已驗證結論為輸入（承接經 ADR provenance），**code 不拷貝**。實作以 rev4 對應碼為**預設藍本**——先讀後寫、高度參照（ADR 0019）。
 
 **前代 source 立場（rev4 為主、rev3 溯源，皆唯讀參考庫）**：
 - **讀允許**：可 grep／閱讀前代 source 對照驗證（施工參考）
 - **拷貝禁止**：實作必須重新打字消化、不可整段複製
+- **註解一律重寫**：不拷前代註解；rev5 語境重寫（引 rev5 契約／ADR）、前代出處帶 `rev4:` 前綴（ADR 0019）
 - **防回歸條款**：參照前代 code 時，凡 rev5 拍板已推翻的行為**不得帶回**
 
 **例外**：`sea-orm-adapter`／`xdb` 工具性 crate 整檔拷貝（已驗證、工具性質）。
@@ -186,8 +187,9 @@
 
 ---
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-05
+**Version**: 1.2.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-08
 
 **Amendment log**:
 - 1.1.0（2026-08-05）：§I.2 demo menu 條增「例外與釋義」二款（ADR 0005；MINOR）——①toggle-auth 示範鏈（function／function_toggle-auth）對 R_ADMIN／R_USER_COMMON 之初始勾選例外（4 列、承 rev4 終態）②hideInMenu「不啟用」射程釐清（upstream route meta 原樣值非隱藏治理、6 列白名單）。動機＝001 刀 /speckit-analyze D1（CRITICAL：seed 定稿與字面衝突、過目簽核不具修憲效力）與 D2；user 親決。
+- 1.2.0（2026-08-08）：§I.5 增「實作以 rev4 對應碼為預設藍本（先讀後寫、高度參照）」句＋前代 source 立場清單增「註解一律重寫」款（ADR 0019；MINOR）——動機＝應用碼施工意圖先前僅存對話、「全新寫」字面誤導新 session 從零發明；user 親決維持拷貝禁止強度（重打字消化）、放寬為逐段移植之替代案評估後棄。
 - 1.0.0（2026-08-04）：創世初版——自 rev4 constitution v1.15.0 之可攜段搬入（§I.1～§I.6 改字可攜、§I.7 僅搬進場規則、§II 三筆拍板、§III fork-delta 紀律與 §III.1 三軌道、§III.2 僅機制骨架與補完判準、§IV 九題、§V 全段；rev4 專屬之十座已入憲行為島細目與六個 ★ 軌道細目一律不預載、循 §I.7 進場規則與 §III.2 Amendment 條款隨刀進場，兩處承襲指針句與 §IV 第 9 題候選來源括註為本次新增）；全域改字＝世代代號、兩子庫長分支名、fork 標記 token、service wrapper 前綴、前代參照世代整組前移一代。user 親審 diff 後定版（創世拍板）。ADR 0001（創世採用）同 commit 轉 accepted。

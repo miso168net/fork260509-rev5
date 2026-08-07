@@ -13,6 +13,9 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - 程式碼住兩個 submodule 目錄，各有雙身分（本機＝源倉的 git worktree；對外層＝submodule gitlink）：
   - `base-web/`：分支長名 `rev5-admin-base-web`；前端（soybean-admin fork）。
   - `rust-api/`：分支長名 `rev5-admin-rust-api`；後端（rust；全新寫〔§I.5〕、無 fork-delta 最原始源基線）。
+- ★應用碼實作高度參照 rev4 為預設藍本：動工前先讀源倉 rev4 分支對應碼
+  （`origin/rev4-admin-*`、唯讀）；重打字消化、拷貝禁止；★註解一律重寫（rev5 語境、
+  rev4 出處帶 rev4: 前綴）；rev5 拍板已推翻的行為不得帶回（憲法 §I.5＋本代 ADR 0019）。
 - 短名/長名分工：目錄與口語用短名；git branch／push 一律用長名。
 - fork 源倉目錄（repo 根下 `fork260509-soybean-admin-base/` 與 `fork260509-rev2-anew-rust-api/`、
   gitignored）必須保留——worktree 的 `.git` 檔指向它。
@@ -33,7 +36,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   （啟動書 docs/brainstorms/000-doc-architecture.md §5）與 BACKLOG 帶 `rev4:` 標註項——是
   brainstorm 的直接輸入：沿用項照已驗證結論施工、翻案項用新設計。
 - **SDD 5 步**：`/speckit-specify`（input＝brainstorm 檔）→ `/speckit-clarify` → `/speckit-plan` →
-  `/speckit-tasks` → `/speckit-analyze`；每步後 commit。
+  `/speckit-tasks` → `/speckit-analyze`；每步後 commit。plan 之 research 必列
+  「rev4 對應碼清單＋rev5 拍板差異點」（ADR 0019）。
   specify 必**手動**起手、不排進 brainstorm 流程內自動觸發——否則 feature-branch pre-hook 不會跑、
   spec 會落在 default branch 上。
 - **TDD 實作**：以 superpowers:executing-plans 讀 tasks 起手、批判審查分執行單元；
@@ -48,7 +52,9 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　★fix 後次輪 review prompt 必附前輪已駁回 findings 清單（file×summary＋駁回理由）、明令勿沿用
 　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW、
-　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge。
+　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge、
+　★實作先讀 rev4 對應碼（源倉 rev4 分支唯讀）高度參照但重打字消化不拷貝、註解一律重寫
+　（rev4 出處帶 rev4: 前綴）、rev5 拍板差異點不得帶回（ADR 0019）。
 ★workflow script 防呆六件套（缺一不發射）：
 　①agent prompt 全數烤進 script 本體模板字串；args 只傳短純量、script 首段逐欄斷言
 　　（型別＋非空），不符→零派發即 throw——防 args 以 JSON 字串抵達、屬性讀出 undefined。
