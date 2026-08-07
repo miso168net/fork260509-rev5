@@ -10,6 +10,8 @@ admin 後台系統第五代重跑版：前端 fork 自 soybean-admin（Vue3＋na
 fork260509-rev5/
 ├── README.md                        本檔：人類入口導覽
 ├── CLAUDE.md                        操作規則書：工作流／git 手冊／文件紀律／硬禁令
+├── .specify/memory/constitution.md  凍結權威：原則、wire 不變式、軌道授權、自查題組
+├── specs/<NNN>-<feature-name>/      spec-kit per-feature 文件（收刀即凍結；首刀時出現）
 ├── docs/
 │   ├── arc42/ARCHITECTURE.md        活書：系統現在長怎樣、只寫現在式（arc42 12 節）
 │   ├── arc42/decisions/             ADR 一決策一檔：為什麼這樣做＋出處（accepted 後不可變）
@@ -22,19 +24,39 @@ fork260509-rev5/
 │   ├── reviews/                     review 報告史料
 │   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（全事件表）
 │                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
-├── tools/                           治理工具鏈：docs-sync.py（生成器＋lint）／bootstrap.sh
-│                                      （新機重建／體檢）／fork-delta-lint.py（原行紀律）／
-│                                      schema-gate.py／wire-schema.py／secret-value-guard.py／
-│                                      entity-drift-gate.py（四閘）／wf-watchdog.sh（編排看門狗）
+├── tools/                           repo 治理面工具鏈（pre-commit／bootstrap 掛勾；管「版控品質」）
+│   ├── bootstrap.sh                 新機重建／體檢（刻意 bash＝驗證器不與被驗證者共用底座）
+│   ├── docs-sync.py                 文件系統中樞：lint 條款群／generate／errata／真表掃源
+│   ├── schema-gate.py               schema 閘
+│   ├── wire-schema.py               wire 契約閘
+│   ├── entity-drift-gate.py         entity↔schema 快照漂移閘
+│   ├── fork-delta-lint.py           base-web 原行紀律閘（fork-delta）
+│   ├── secret-value-guard.py        機密值比對 pre-commit 防線（機密管線的治理端消費者）
+│   └── wf-watchdog.sh               workflow 編排看門狗（刻意 bash＝Monitor 直呼）
+├── deploy/                          營運面：dev stack 部署資產＋機密管線（管「跑起來的系統」）
+│   ├── secrets_common.py            落點解析共用庫（消費者五支＝下列四支 CLI＋secret-value-guard）
+│   ├── preflight-secrets.py         機密上機前把關（缺檔／CR·LF／composite drift）
+│   ├── decrypt-secrets.py           密文→落點明文（passphrase 自動應答＝ADR 0013）
+│   ├── generate-secrets.py          十三機密缺則補（亂數走 docker openssl）
+│   ├── setup-reaper-role.py         reaper role 設密（docker compose exec psql）
+│   ├── sops.sh                      sops 官方容器 wrapper（digest 釘版、exec 薄殼）
+│   ├── generate-age-key.sh          age 產鑰（容器化＝ADR 0011 ③類 latest）
+│   ├── generate-dev-cert.sh         dev TLS 憑證（容器化 openssl）
+│   ├── Dockerfile.age、Dockerfile.rust-api    建置檔
+│   ├── secrets.dev.enc.yaml         機密密文（sops age、tracked）
+│   ├── secrets/                     明文落點說明（README＋.example；實值 gitignored）
+│   ├── alloy/、grafana-provisioning/、nginx/、prometheus/、loki-config.yml
+│   │                                  compose 掛載的服務／觀測層設定（動它＝動 runtime）
+│   └── dev-certs/                   dev TLS 憑證落點（gitignored）
 ├── docker-compose*.yml              dev stack 三檔：base 層／dev override／example 參照實例
 │                                      （dev stack 就位時出現；敘事見活書 §7）
-├── deploy/                          部署資產：Dockerfile／nginx conf／secrets 與 dev-certs
-│                                      （實值 gitignored）／腳本／觀測層設定
-├── .specify/memory/constitution.md  凍結權威：原則、wire 不變式、軌道授權、自查題組
-├── specs/<NNN>-<feature-name>/      spec-kit per-feature 文件（收刀即凍結；首刀時出現）
 ├── fork260509-*/                    fork 源倉本機 clone（gitignored、必留、勿直接編輯）
 └── base-web/、rust-api/             程式體 worktree（本機 worktree／外層 gitlink 雙身分）
 ```
+
+**工具擺放原則**（承 B-035 落點拍板）：`tools/`＝repo 治理面、`deploy/`＝營運面——分界是
+**服務對象、不是語言**（兩邊各有刻意保留的 bash，逐支理由＝ADR 0010 不做集）。命名慣例：
+連字檔名＝CLI（不可 import）、底線檔名＝庫（可 import）。
 
 ## 這裡的文件系統怎麼運作（30 秒版）
 
