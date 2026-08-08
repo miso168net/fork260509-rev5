@@ -1,28 +1,38 @@
 # NOTES — 當前意圖／下一步
 
-- **創世序列（B0～B11）全部收官**：B8b 移植驗收後段與 B11 的 K1／K2 處置流水（ADR 0009）
-  已收單，創世 DoD 全數關帳；啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、
-  K2 查用點＝BACKLOG 條目本文）。
+- **已收官**（過去式細節一律查 events＋git，此處只留查用指針）：創世序列 B0～B11｜提前批
+  B-035～B-039 與 bash→python 轉換帳｜B12 前維護批（十項＋B-023 第一段）｜B12
+  002-system-settings（rust-api server crate 首落地、後端管線縱切全通）｜B12 後衛生維護批
+  （merge cdf6eb7：B-049／B-052／B-045／B-011 關帳＋B-042 收②半、ADR 0026）。
+  啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文）。
+- 兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；setup-reaper
+  正向 ALTER ROLE 一輪待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
-- **提前批（B-035～B-039、bash→python 轉換帳）全數收單**（merge 2d22fb6／ebd327a／
-  7a140f4／ab31065／08361f5；ADR 0010 轉換集收攏、ADR 0011 ③類首例落地、ADR 0013
-  安全姿態入帳）。兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；
-  setup-reaper 正向 ALTER ROLE 一輪待建 reaper role 之刀（rev4:m012 承襲、詳收刀事件）。
-- **B12 前維護批全數收單**（輕量軌、merge 4e97031、分支與單元 commit 詳收刀事件；
-  ADR 0014～0017 拍板同批落地）：B-002｜B-005｜B-006｜B-007｜B-010｜B-012｜B-013｜
-  B-015｜B-040｜B-041 十項關帳＋B-023 第一段（backup-db.py＋非破壞 scratch 還原演練）；
-  效能預算入 RUNBOOK §12.1（基礎鏈 7.0s／最壞 staged 26.8s、拆批未觸發）；第三把離線
-  復原鑰入列（recipient 2→3）；wf-watchdog 轉 python＋硬編目標參數。衍生 B-042。
-- **B12（002-system-settings）已收刀**：rust-api server crate 首次落地、後端管線縱切
-  全通（router→enforce_mw→require_policy→handler→validation→facade→envelope）；
-  三筆 Day-1 豁免處置完畢、ADR 0020~0023 拍板、活書 §5 §8 回填 as-built；
-  B-014 與 B-026 一併關帳。實作細節、教訓與 review 攔截面詳收刀事件。
-- **下一步＝尚未拍板**。候選（依 BACKLOG 條目的觸發條件）：①**auth 域整批**
-  （B-017 會話生命週期一次設計完整／B-020 失敗計數節流通用 seam／B-021 改密端點節流／
-  B-022 替代登入四流程做真或砍）——四條彼此高度相依、宜同一 brainstorm 一次拍範圍，
-  且 B-017／B-022 都帶「前代兩段式翻案」的明確反面教材；②**B-008 四張 rev4 專屬管理頁
-  view**——其中 manage_system-settings 可直接消費本刀已通的讀寫端點，是驗證前端腿
-  分層（typings／service 已備、僅缺 view）的最短路徑；③**B-024 寫端授權下放三件套**
-  ——no-escalation 掛點已於本刀備妥（ADR 0022 定形、現況恆放行、簽章已預留 async＋db）。
-  ★不論走哪條：開場即階段 0 brainstorm，specify 一律手動起手（否則 feature-branch
-  pre-hook 不跑、spec 會落在 default branch 上）。
+
+- **下一步＝auth 域整批**（B-017 會話生命週期一次設計完整／B-020 失敗計數節流通用 seam／
+  B-021 改密端點節流／B-022 替代登入四流程做真或砍）。三候選勘查後的排序依據：**只有
+  auth 不依賴另外兩者，而另外兩者都依賴它**——B-008 要「頁面看得到」的依賴鏈終點是
+  `/auth/login`＋`/route/getUserRoutes`；B-024 的落地對象 role／user 管理寫端在 rev5 後端
+  零實作（handler 目錄僅 system_settings.rs），無法單獨成刀。
+  - **範圍切法＝零修憲**：後端補齊 base-web fork 原版 service 已在呼叫的 6 支端點
+    （`/auth/login`／`/auth/getUserInfo`／`/auth/refreshToken`／`/route/getConstantRoutes`／
+    `/route/getUserRoutes`／`/route/isRouteExist`）；base-web 只動 `.env*`（§III.1 ADAPT
+    預設軌道：base URL 由 apifox mock 翻 `/api`、加 VITE_PROXY_TARGET、auth route mode
+    static→dynamic 以兌現憲法 §II #2）。憲法 §II #1（rust-api 忽略 apifoxToken、base-web
+    不動）正是為此準備，故零 base-web inline。
+  - **資料面已是終態**：sys_token 9 欄＋rotation partial UNIQUE＋session_event＋
+    sys_user.session_policy／session_id＋16 個節流與會話設定鍵全在 001 baseline，
+    **B-017 不需要新 migration**——除非拍板棄 redis 改 DB 承載 idle／denylist，那會反過來
+    變成 additive DDL。
+  - **開場必拍四題（拍板級）**：①redis 進場否（決定 AppState 開幾欄＝state.rs 明文的拍板級
+    翻案，也決定會不會變成帶 migration 的刀）②未認證回 8888 還是翻回 3333（002 拍板翻案、
+    user 可見行為）③B-022 做真／砍／維持現狀立 ADR（前兩者都動 fork login inline→觸發修憲）
+    ④B-029 captcha 進不進（建議不進：rev5 前後端 captcha 皆零，實際是整套首版而非「半條」）。
+  - 同刀順手收：B-018（前端首刀觸發）、B-050、B-051、B-047。
+- **B-008 排在 auth 之後**：憲法 §III.2 至今零個 ★ 軌道，而新增任一 view 必然 inline 動
+  zh-cn.ts／en-us.ts（route 鍵為窮舉型 Record）與 app.d.ts（新 i18n 命名空間＝面級新增），
+  該刀第一件事＝修憲（ADR 0018 後果已預告）；四張頁另需 12 支不存在的後端端點。
+  ★前一版把它寫成「驗證前端腿分層的最短路徑」，經勘查不成立——elegant routes.ts 連 route
+  條目都沒有，且 static 模式下那四項根本不出現在側邊欄。
+- ★不論走哪條：開場即階段 0 brainstorm，specify 一律手動起手（否則 feature-branch pre-hook
+  不跑、spec 會落在 default branch 上）。
