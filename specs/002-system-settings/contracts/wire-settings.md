@@ -11,7 +11,16 @@ data-model §1/§2（本檔不重複）。
 - 請求：無 body、無 query（不認識的 header 一律忽略——憲法 §II #1）。
 - 成功：HTTP 200、`{data: SettingItem[16], code:"0000", msg:"common.success"}`；
   `settingKey` 升冪穩定序；僅未刪列。
-- 錯誤：見 §3 矩陣（未認證 8888／越權 5003）。
+- 錯誤矩陣：
+
+| 情境 | 碼 | msg key | HTTP |
+|---|---|---|---|
+| 越權（政策無授，R_ADMIN 組合） | 5003 | system.forbidden | 403 |
+| 未認證（無 `Authorization` 標頭／非 Bearer 形／token 不在 dev 表） | 8888 | auth.session.reLogin | 200 |
+| 庫中 setting_type 未知型 | 5000 | system.internal | 200 |
+
+  ★末列非寫端專屬：FR-009 明文「讀寫路徑觸及皆同」——讀端撞到未知型同樣 fail-loud、
+  不跳過該列（機器面＝`t024_alien_type_row_read_fails_loud_5000_no_skip`）。
 
 ## §2 寫端 `POST /systemManage/updateSystemSetting`
 

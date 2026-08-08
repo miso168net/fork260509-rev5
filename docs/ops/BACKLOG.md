@@ -1,4 +1,4 @@
-<!-- next: B-048 -->
+<!-- next: B-049 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -30,3 +30,4 @@
 - B-045｜sea-orm 預設 sqlx_logging 把逐句 SQL 灌進 INFO 級 log：main.rs 以裸 `Database::connect(&url)` 建連、未經 ConnectOptions，而 compose 的 rust-api 服務 `RUST_LOG: "info"`，每句查詢輸出一行含完整 `db.statement` 的 JSON log 進 Loki（實測 casbin 初載即見 163 列政策的 SELECT；002-system-settings 單元 U4 之 quality-review）。rev4:server/src/main.rs 同為裸 connect＝承襲形非本刀回歸；修法各有副作用面（`ConnectOptions::sqlx_logging_level(Debug)` 需引 log crate 型別／EnvFilter 加 directive 會蓋掉 RUST_LOG 覆寫能力）｜觀測層調校刀或第一把高頻端點刀
 - B-046｜評估立 ADR：憲法 §I.5「註解一律重寫」的射程釋義（比照 ADR 0021 的釋義形）。爭點＝測試斷言訊息字串與 rev4 逐字相同是否違反該條；主線判定 2026-08-08＝**不違反**（條文明寫「不拷前代**註解**」，assert 訊息是碼不是註解；ADR 0019 §2 要的是「重新打字消化、不可整段複製」，而描述同一契約事實的短中文句重打後必然高度相同，改寫屬為改而改），真正在射程內的是會送上 wire／log 的診斷字串。該判定已烤進各單元 review prompt 壓住重報，但每把 rust 刀都會重新遇到｜下一把 rust 應用碼刀開場前拍
 - B-047｜已註冊路徑收到未宣告動詞時回框架預設 405＋零長度裸 body，是憲法 §I.3「envelope universal 例外僅 2」之外的第三種非信封形（實測：對寫端 route 發 GET、對讀端 route 發 POST，兩者皆帶合法 dev bearer——回 405、`allow` 標頭列出正確動詞、`content-length: 0`，無 data/code/msg）。pre-existing、非某一刀引入——axum MethodRouter 的預設 fallback 未被信封化；未認證請求不受影響（authn 層先回 8888，那是刻意的 fail-closed）。處置候選：①為 MethodRouter 掛 method_not_allowed_fallback 回 13 碼信封（需先拍該情境用哪個碼——13 碼矩陣現無「動詞不符」語意的碼、硬塞 2222 或 4040 皆有語意張力，屬拍板級）②維持現狀並在憲法 §I.3 例外集明文加註「405 為框架層、非應用層信封面」（同屬拍板級）｜下一把觸及 wire 例外集的刀，或 auth 刀
+- B-048｜`entity_access_lint.rs` 與 `entity_behavior_lint.rs` 兩支 integration test 各自帶一份逐字重複的 strip 引擎（`strip_comments_and_literals`／`push_newlines`／`raw_string_end`／`char_literal_end`／`is_ident_char`、約 170 行），`entity_behavior_lint.rs` 檔頭卻自述是「自帶精簡版」——實測兩份功能等價（`push_newlines` byte 級全等，`raw_string_end` 僅差呼叫的 helper 名，`char_literal_end` 僅差註解擺位）。兩檔的 doc 都把「常值／註解誤判」列為**假陰性且無聲**的一級風險，正是最不該讓兩份實作分岔的碼：任一份日後修補不會傳到另一份。處置＝移入 `server/tests/common/mod.rs` 單一來源化（該檔已備 `#![allow(dead_code)]`、正是為「某 crate 用不到的 helper」而設）。002 收刀期不動的理由＝跨檔重構會擴大收尾 diff 面、且須重跑兩支 lint 的全部非 vacuous 自證，而現況兩份字面一致、無現存缺陷｜下一把新增第三支需要 strip 引擎的 lint 時，或任一份 strip 引擎需要修補時

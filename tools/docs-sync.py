@@ -1588,7 +1588,10 @@ def parse_locale_backend(text, rel):
     lines = text.splitlines()
     start = None
     for i, line in enumerate(lines):
-        if re.fullmatch(r"\s*backend:\s*\{", line):
+        # ★起點正則走共用常數 RE_LOCALE_BACKEND_OPEN（定義於本檔後段、python 於呼叫期
+        # 解析 global，故前向引用可行）：兩處各寫一份 pattern 時，只改其中一處就會出現
+        # 「豁免謂詞說可以重算、產出器卻 raise 找不到樹」的錯位。
+        if RE_LOCALE_BACKEND_OPEN.fullmatch(line):
             start = i
             break
     if start is None:
