@@ -7,7 +7,6 @@
 - B-003｜memo 欄家族 UI 兌現——sys_user／sys_role／sys_menu／sys_ip_rule 四張管理列表的顯示欄＋編輯入口（語意：R_SUPER 備註用途、text 可多行；顯示於管理列表、不顯示於其它被取用處——下拉／引用／對外 API 不帶；rev4 設計入 schema 但各 UI 刀 brainstorm 均未兌現，語意權威＝001 刀 data-model）｜各對應管理 UI 刀 brainstorm 直接輸入
 - B-008｜四張 rev4 專屬管理頁 view 於 base-web 兌現——manage_system-settings／manage_policy-archive／manage_audit／manage_ip-rule（analyze D6：seed 選單與 casbin 政策隨 001 基線先行、`component` 指向之 view 於 rev5 base-web 尚不存在；期間該 4 項僅 R_SUPER 可見、點擊 404 屬已知態）｜各對應管理 UI 刀 brainstorm 直接輸入
 - B-011｜gate2 seed normalize 擴充剝除 pg_dump 版本行與 Owner 註解行（001 收刀：比對面現含「Dumped from/by version 18.4」與 Owner 行——postgres 升版或 DB 身分再變即紅在純噪音、ADR 0008 那次即為 Owner 行連動重產 fixtures；契約級變更、gates.md §2＋fixtures 重產一次，宜與升版維護批同刀）｜postgres 升版前必做
-- B-014｜entity 對應層後端首刀前補強：15 檔 Relation 空 enum（data-model §6 兩條 FK 未映射）＋ActiveModel 慣例面——本刀驗收（build 綠＋drift 綠）不需要、server 刀消費時變真風險｜後端首刀（B12）brainstorm 直接輸入
 - B-016｜稽核資料生命週期一次入設計：retention 水平線語意＋清理動作同交易自記稽核＋自動排程＋逐表門檻，不走「先手動清理、後補自動化」（前代同域四次拍板／一次正式翻案／一次違憲重拍；rev5 稽核表結構已隨 001 基線壓平落地、政策面尚未設計；詳＝啟動書 §5.2 K2-01、承 rev4:ADR 0058／rev4:0075／rev4:0076＋specs/rev4:017-audit-retention）｜稽核功能刀
 - B-017｜會話生命週期一次設計完整、直接以 DB-stateful rotation 終態起手（rotation＋reuse 偵測＋denylist 即時撤銷＋single-session＋精確 idle），不走「無狀態先行、下一刀翻案」兩段式（前代付兩次完整拍板＋一次破前刀交付契約；詳＝啟動書 §5.2 K2-02、承 rev4:ADR 0030→rev4:0033）｜auth 刀 brainstorm 直接輸入
 - B-018｜前端 demo 資產去留一次拍：alova 第二請求棧、替代登入表單殼（seed 側 demo 選單與授權已由憲法 §I.2＋ADR 0005 收；前代全量保留衍生兩支 won't-fix 決策＋清理需 seed 移除白名單；詳＝啟動書 §5.2 K2-03、承 rev4:ADR 0029／rev4:0035／rev4:0036）｜前端首刀 brainstorm 直接輸入
@@ -18,7 +17,6 @@
 - B-023｜備份自動化第二段：排程化（cron 或 compose sidecar）＋機密檔與資料卷的配對備份＋還原演練自動化（第一段已收單＝deploy/backup-db.py＋非破壞 scratch 演練＋RUNBOOK §6、維護批 merge 4e97031；詳＝啟動書 §5.2 K2-11、承 rev4:B-107）｜B12 後治理批（prod 不入 roadmap＝ADR 0014、免異地／加密升級要求）
 - B-024｜寫端授權下放非超管前置三件套：no-escalation 上限檢查、seeded 受保護護欄與「超管恆禁停用」結構護欄複評、業務錯誤明細通道受眾邊界重評（詳＝啟動書 §5.2 K2-12、承 rev4:B-083＋specs/rev4:009-role-admin）｜role／user 管理刀（目標含多層管理員即入首版）
 - B-025｜軟刪×授權歸檔一致性通用掃描（選單／角色／使用者各軟刪路徑下 casbin 碼與選單按鈕欄聯集），宜與背景 job 底座同刀首發（詳＝啟動書 §5.2 K2-13、承 rev4:B-100）｜背景 job 底座刀
-- B-026｜部分更新契約的通用顯式 clear 語意——三態（欄位缺席／清空／設值）於 wire 契約設計期一次定形（前代 null＝整欄跳過、「清回 NULL」無通用語意，僅 user 域以空字串部分兌現；詳＝啟動書 §5.2 K2-14、承 rev4:B-026）｜wire 契約設計期
 - B-027｜列表欄位排序能力＋排序欄白名單三端單一來源（或 parity 檢查）＋per-column 索引評估（前代全數後端預設排序、白名單分散三端靠人工同步；詳＝啟動書 §5.2 K2-15、承 rev4:B-036）｜首個排序需求刀
 - B-028｜sea-orm additive DDL 草稿生成輔助（entity 漂移閘已隨治理套件搬運兌現；詳＝啟動書 §5.2 K2-17、承 rev4:B-109／rev4:B-110）。★量測半條已於 002-system-settings 收單（FR-027）：兩輪容器內 cargo build 基線落帳 RUNBOOK §12.2——冷編 43.9s→46.6s、單檔增量 2.26s→3.35s（server 依賴進場前後）；該數據即 dev profile debuginfo 裁剪與否的評估前提｜需要 additive DDL 的刀
 - B-029｜captcha 強化包：「答對但登入失敗即自動換題」收進首版前端行為；產圖對抗性（干擾強度、字型多樣）續留觸發制（詳＝啟動書 §5.2 K2-21、承 rev4:B-075）｜captcha 沿用刀首版收 UX 半條

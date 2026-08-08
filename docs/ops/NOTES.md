@@ -13,12 +13,16 @@
   B-015｜B-040｜B-041 十項關帳＋B-023 第一段（backup-db.py＋非破壞 scratch 還原演練）；
   效能預算入 RUNBOOK §12.1（基礎鏈 7.0s／最壞 staged 26.8s、拆批未觸發）；第三把離線
   復原鑰入列（recipient 2→3）；wf-watchdog 轉 python＋硬編目標參數。衍生 B-042。
-- **B12 brainstorm 已完成**（docs/brainstorms/002-system-settings.md、2026-08-08）：
-  功能域＝系統設定（沿用 K1-08＋K1-27、auth 域全數續 defer）；前端腿＝typings＋
-  service 接線層（ADR 0018、零修憲、view 延 B-008、選單 404 已知態）；寫端＝含讀＋寫
-  （B-026 三態約定層與 B-024 授權 seam 入刀設計期定形）。
-- 下一步＝**手動 `/speckit-specify docs/brainstorms/002-system-settings.md`**（不自動
-  觸發——feature branch pre-hook 須在 specify 時建 002-system-settings 分支、否則
-  spec 落 default）→ SDD 五步照走。起手 tasks 必含 zh-tw.ts＋兩筆 Day-1 豁免下架
-  （lint24.day1／gen.router——server/src 第一支 .rs 落地即紅）＋B-028 起手量測
-  （第二輪在 server 依賴進場後）；clarify 候選四題已列 brainstorm 檔 §4。
+- **B12（002-system-settings）已收刀**：rust-api server crate 首次落地、後端管線縱切
+  全通（router→enforce_mw→require_policy→handler→validation→facade→envelope）；
+  三筆 Day-1 豁免處置完畢、ADR 0020~0023 拍板、活書 §5 §8 回填 as-built；
+  B-014 與 B-026 一併關帳。實作細節、教訓與 review 攔截面詳收刀事件。
+- **下一步＝尚未拍板**。候選（依 BACKLOG 條目的觸發條件）：①**auth 域整批**
+  （B-017 會話生命週期一次設計完整／B-020 失敗計數節流通用 seam／B-021 改密端點節流／
+  B-022 替代登入四流程做真或砍）——四條彼此高度相依、宜同一 brainstorm 一次拍範圍，
+  且 B-017／B-022 都帶「前代兩段式翻案」的明確反面教材；②**B-008 四張 rev4 專屬管理頁
+  view**——其中 manage_system-settings 可直接消費本刀已通的讀寫端點，是驗證前端腿
+  分層（typings／service 已備、僅缺 view）的最短路徑；③**B-024 寫端授權下放三件套**
+  ——no-escalation 掛點已於本刀備妥（ADR 0022 定形、現況恆放行、簽章已預留 async＋db）。
+  ★不論走哪條：開場即階段 0 brainstorm，specify 一律手動起手（否則 feature-branch
+  pre-hook 不跑、spec 會落在 default branch 上）。
