@@ -3,7 +3,7 @@
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
 
-- B-001｜評估 brainstorm 承襲盤點機器閘（lint 條款或 speckit plan 模板列，強制對照啟動書 §5 K1 清單）｜首刀（B12）跑完 Constitution Check 後檢驗實際需求再定
+- B-001｜承襲盤點機器閘＝**暫不建**（002-system-settings 收刀留帳、FR-028）：要求①的 K1 盤點表見該刀 brainstorm §2、要求②的實際消費對照表已於 plan research R10 回填。R10 結論＝五條 K1 全數消費、其中四條有機器強制錨（K1-07 覆蓋閘＋gen.router 真表／K1-25 wire-schema drift 閘＋coverage gate／K1-26 registry 紅綠矩陣／K1-27 contract case 與授權矩陣），K1-08 屬一次性選型無殘留紀律故無需錨——「靠人記得」面＝零，建閘的邊際收益低。★復議觸發條件：某刀出現「K1 條目被消費卻無任何機器錨」的情形，或盤點表與實際消費連續兩刀對不上｜觸發時重評
 - B-003｜memo 欄家族 UI 兌現——sys_user／sys_role／sys_menu／sys_ip_rule 四張管理列表的顯示欄＋編輯入口（語意：R_SUPER 備註用途、text 可多行；顯示於管理列表、不顯示於其它被取用處——下拉／引用／對外 API 不帶；rev4 設計入 schema 但各 UI 刀 brainstorm 均未兌現，語意權威＝001 刀 data-model）｜各對應管理 UI 刀 brainstorm 直接輸入
 - B-008｜四張 rev4 專屬管理頁 view 於 base-web 兌現——manage_system-settings／manage_policy-archive／manage_audit／manage_ip-rule（analyze D6：seed 選單與 casbin 政策隨 001 基線先行、`component` 指向之 view 於 rev5 base-web 尚不存在；期間該 4 項僅 R_SUPER 可見、點擊 404 屬已知態）｜各對應管理 UI 刀 brainstorm 直接輸入
 - B-011｜gate2 seed normalize 擴充剝除 pg_dump 版本行與 Owner 註解行（001 收刀：比對面現含「Dumped from/by version 18.4」與 Owner 行——postgres 升版或 DB 身分再變即紅在純噪音、ADR 0008 那次即為 Owner 行連動重產 fixtures；契約級變更、gates.md §2＋fixtures 重產一次，宜與升版維護批同刀）｜postgres 升版前必做
@@ -20,7 +20,7 @@
 - B-025｜軟刪×授權歸檔一致性通用掃描（選單／角色／使用者各軟刪路徑下 casbin 碼與選單按鈕欄聯集），宜與背景 job 底座同刀首發（詳＝啟動書 §5.2 K2-13、承 rev4:B-100）｜背景 job 底座刀
 - B-026｜部分更新契約的通用顯式 clear 語意——三態（欄位缺席／清空／設值）於 wire 契約設計期一次定形（前代 null＝整欄跳過、「清回 NULL」無通用語意，僅 user 域以空字串部分兌現；詳＝啟動書 §5.2 K2-14、承 rev4:B-026）｜wire 契約設計期
 - B-027｜列表欄位排序能力＋排序欄白名單三端單一來源（或 parity 檢查）＋per-column 索引評估（前代全數後端預設排序、白名單分散三端靠人工同步；詳＝啟動書 §5.2 K2-15、承 rev4:B-036）｜首個排序需求刀
-- B-028｜後端開發體驗兩缺口：容器內 cargo build 時間基線量測（雙機冷編＋單檔增量，作為 dev profile debuginfo 裁剪的數據前提）＋sea-orm additive DDL 草稿生成輔助（entity 漂移閘已隨治理套件搬運兌現；詳＝啟動書 §5.2 K2-17、承 rev4:B-109／rev4:B-110）｜第一把 rust 功能刀起手順跑量測
+- B-028｜sea-orm additive DDL 草稿生成輔助（entity 漂移閘已隨治理套件搬運兌現；詳＝啟動書 §5.2 K2-17、承 rev4:B-109／rev4:B-110）。★量測半條已於 002-system-settings 收單（FR-027）：兩輪容器內 cargo build 基線落帳 RUNBOOK §12.2——冷編 43.9s→46.6s、單檔增量 2.26s→3.35s（server 依賴進場前後）；該數據即 dev profile debuginfo 裁剪與否的評估前提｜需要 additive DDL 的刀
 - B-029｜captcha 強化包：「答對但登入失敗即自動換題」收進首版前端行為；產圖對抗性（干擾強度、字型多樣）續留觸發制（詳＝啟動書 §5.2 K2-21、承 rev4:B-075）｜captcha 沿用刀首版收 UX 半條
 - B-030｜低位殘項群逐項內建 checklist：未刪選單列表分頁、契約測試對 query 零判別力、zh-cn 鍵集不在掃描面、320px 窄屏頁首溢出、自助頁雙卡同構重複、單一超管軟鎖自解的雞蛋相依、告警僅 webhook 單通道、機密清單 parity 檢查（正確強化形＝新增斷言、非單一來源生成——實際四個面且基數各異各有語意：generate 13／preflight 13／compose 12〔reaper 刻意不進〕／secrets.dev.enc.yaml 10〔composite 不入密文檔〕，且 deploy/preflight-secrets.py 明載兩處各寫一份、不得順手合併＝B-037）（詳＝啟動書 §5.2 K2-22）｜重寫對應模組時逐項
 - B-033｜樣板回灌帳（§3.2 條 16／Q14）：集中登記 docs-governance-template 的樣板缺陷與搬遷摩擦，rev5 收刀後一次批次回灌。已知內容＝①樣板 export 腳本未落致 rev5 手工搬運、樣板失去第一個真實檢驗機會 ②樣板 H 層把 Lint20 具名豁免表當既有設施而源碼實無（rev5 補建）③治理硬化四項顯式延後之邊界清單（lint 差分分級／ctags 符號漂移偵測／基線 freshness 提示／clean-tag 建置閘）應記其存在、防第三代重新發明（詳＝啟動書 §5.2 K2-18／K2-19）④2026-08-08 補登——提前批＋B12 前維護批產出、樣板皆無：bash→python 選擇性轉換判準與機器等價驗收（ADR 0010）、工具版本三層釘定政策（ADR 0011）、跨代 ID 命名空間紀律含具名豁免形（ADR 0012＋Lint25）、互動機密工具 pty 併流與自動代餵安全姿態（ADR 0013）、效能預算節形制（量測法＋單跑上限＋門檻數字單一權威＝RUNBOOK §12.1）、「紅訊息附去處」須連帶驗證出口可執行（B-042 開帳教訓：照去處做仍清不掉紅＝去處失效）、通用工具坑 L-001～L-007 隨批沉積｜rev5 收刀後批次回灌
