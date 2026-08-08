@@ -2902,7 +2902,14 @@ def lint_events_sha(root, cache=None):
                                "append 新事件更正、不得回改舊列"))
         elif t != "commit":
             out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
-                               f"merge SHA {sha[:12]} 解得物件型別 {t}、非 commit"))
+                               f"merge SHA {sha[:12]} 解得物件型別 {t}、非 commit——多半是"
+                               "抄到 tree／blob 的 SHA（`git rev-parse HEAD:<path>`、"
+                               "`cat-file` 輸出等）；正確值＝該刀 merge 回 default 的 commit"
+                               " SHA（`git log --merges --format=%H -1`）——補救分兩支（同"
+                               "「不可解」）：該列尚未進 git 史（工作樹／staged）→以真實"
+                               " merge commit SHA 覆寫該列；已進 git 史→依 ADR 0012 決定 5"
+                               "（events.jsonl 既有列絕不編輯）append 新事件更正、"
+                               "不得回改舊列"))
     out.extend(keyset)
 
     for key, sub in PIN_KEYS:
@@ -2923,7 +2930,12 @@ def lint_events_sha(root, cache=None):
             elif t != "commit":
                 out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
                                    f"pins.{key} SHA {sha[:12]} 在 {sub} 解得物件型別 {t}、"
-                                   "非 commit"))
+                                   "非 commit——多半是抄到 tree／blob 的 SHA；正確值＝該刀"
+                                   f"收邊時 {sub} 的 worktree HEAD（`git -C {sub} rev-parse"
+                                   " HEAD`）——補救分兩支（同 merge 面）：該列尚未進 git 史"
+                                   "（工作樹／staged）→以真實 commit SHA 覆寫該列；已進"
+                                   " git 史→依 ADR 0012 決定 5（events.jsonl 既有列絕不編輯）"
+                                   "append 新事件更正、不得回改舊列"))
     return out
 
 
@@ -7237,6 +7249,51 @@ class TestEventsShaProof(unittest.TestCase):
             f = lint_events_sha(d)
             self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
             self.assertIn("pins.api", f[0]["msg"])
+
+    def test_not_commit_messages_have_remedy_on_both_faces(self):
+        """B-042②：「解得非 commit」兩筆 ERROR（merge 面／pins 面）同樣須附去處。
+
+        ★開帳理由＝同條款只補一半：B-002 當時只為「不可解」那筆補了兩支去處，
+        同一支 lint 的「可解但非 commit」兩筆卻止於病因。維運者拿到「非 commit」
+        只知道錯、不知道正確值該去哪裡取，也不知道已入史列不得回改。
+        ★去處兩支必須與「不可解」那筆同文——分歧的文案會讓維運者以為兩種錯有兩套
+        紀律，而 events.jsonl 既有列絕不編輯（ADR 0012 決定 5）對兩者一體適用。
+        """
+        needles = ("補救", "覆寫該列", "ADR 0012", "append 新事件", "不得回改")
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            self._events(d, merge=blob, pins=pins)
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            for needle in needles + ("非 commit", "git log --merges"):
+                self.assertIn(needle, f[0]["msg"])
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(os.path.join(d, "rust-api"), "rev-parse", "HEAD:app.ts").strip()
+            self._events(d, merge=outer, pins=dict(pins, api=blob))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            for needle in needles + ("非 commit", "rev-parse"):
+                self.assertIn(needle, f[0]["msg"])
+
+    def test_not_commit_remedy_overwrite_branch_actually_clears_the_error(self):
+        """B-033 紀律：「紅訊息附去處」須連帶驗證出口可執行——照做卻清不掉紅的去處
+        比沒有去處更糟（B-042① 的開帳教訓）。
+
+        本案機器驗證去處第一支（該列尚未進 git 史→以真實 SHA 覆寫該列）：紅→照做→綠。
+        ★第二支（已進 git 史→append 更正事件）的可執行性缺口屬 B-042①（拍板級、
+        另議），本 commit 未觸碰；兩支去處文案自此於三筆訊息一致，① 修時一次覆蓋三處。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            self._events(d, merge=blob, pins=pins)
+            self.assertEqual([x["level"] for x in lint_events_sha(d)], [ERROR],
+                             msg="前提：壞值須先紅，否則本案後半無判別力")
+            self._events(d, merge=outer, pins=pins)          # ＝去處第一支：覆寫該列
+            self.assertEqual(lint_events_sha(d), [],
+                             msg="照去處第一支執行後須轉綠——清不掉即去處失效")
 
     def test_pins_missing_key_is_error(self):
         """★鍵集斷言：缺鍵＝ERROR（防「查一個不存在的鍵得空集合」型恆綠）。"""
