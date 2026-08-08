@@ -63,8 +63,12 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　③一切邊界寫死在 script 常數、絕不取自 args：fix 迴圈用 for 上限 ≤3 輪；
 　　單元 agent 總數保險絲 ≤20 支，超限 throw（fail-loud 讓主線立刻收到完成通知）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
+　　★review agent **不得共用該 status 欄**：「agent 受阻」與「審查有 blocker」是兩件事，
+　　共用一欄則 script 把後者當前者、當場 return 而 fix 迴圈整個不跑（L-011 變形①實暴）。
 　⑤收斂偵測：review 連兩輪 blocker 集合（file×summary 結構化比較、勿比自由文字）相同、
 　　或 fix 連兩輪零改動→return 判不收斂；unresolved 一律帶 findings 回主線。
+　　★fix 迴圈跑滿上限後必有**確認輪**（再 review 一次、空 blocker 即判收斂）：直接 return
+　　迴圈內的舊 blockers＝把最後一輪 fix 已修好的成果誤報成 unresolved（L-011 變形②實暴）。
 　⑥空間邊界：fix agent prompt 烤進允許檔案清單（＝該執行單元 tasks 涉檔＋review findings
 　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→status 回 blocked 附原因
 　　升級主線、絕不擅改；次輪清單只縮不擴。

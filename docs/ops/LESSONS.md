@@ -1,4 +1,4 @@
-<!-- next: L-011 -->
+<!-- next: L-013 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -105,3 +105,33 @@ L-003｜「移植清單照單施工」不等於「已拍板」＋勘誤不逐處
   壞→還原→復綠），沒跑過這一輪的閘等同沒裝電池的煙霧偵測器；機器面紀律詳 ADR 0024。
   ★特記：變形①是主線在**已修過五起同型問題、明知這類病灶存在**的情況下，修第六起時親手
   寫出的第七次——「知道有這個坑」不足以避免它，需要機器面的自證程序。
+- **L-011**｜workflow 編排 script 把**已完成的工作誤報成失敗**，主線因而多花整輪查證；
+  兩種結構性成因、maint-l010 一批內各撞一次：①**狀態欄語意複用**——review agent 沿用
+  implementer／fix 的 `{status: 'ok'|'blocked'}` schema，script 依「status≠ok→立即 return
+  升級主線」處置；但 agent 把 `blocked` 讀作「我發現了 blocker」（審查結論），script 讀作
+  「agent 受阻無法完成」（工作狀態），同一個字兩種語意。實暴＝單元② spec review 回
+  `blocked` 帶 1 筆 blocker，script 當場 return，**fix 迴圈整個沒跑**，一筆本可自動修掉的
+  finding 直接升級主線。②**迴圈跑滿無確認輪**——fix 迴圈寫成
+  `for r in 1..=N { review → 空即 return 收斂 → fix }`，跑滿即 `return {converged:false,
+  blockers: prevBlockers}`；但 `prevBlockers` 是**最後一輪 fix 之前**的快照，fix#N 修好了
+  卻沒人再看一眼。實暴＝單元① 把兩筆早已被 fix#3 修掉的 blocker 報成 unresolved，主線逐檔
+  復核才確認（該兩筆修得比 reviewer 要求的還完整）。防法：(a) **狀態欄不得跨角色複用**——
+  「agent 是否受阻」與「審查結論」拆成兩個獨立欄位，script 分開處置；同一份 schema 要給
+  不同角色用之前，先逐欄自問「這個欄位對這個角色是什麼意思」；(b) **迴圈收尾必有確認輪**
+  ——fix 迴圈跑滿上限後再 review 一次，空 blocker 即判收斂，否則回不收斂並附**確認輪**的
+  blockers（不是迴圈內的舊快照）；(c) 共通原則＝**script 回報的狀態必須反映最後一次動作
+  之後**，任何「先存快照→再動作→回報快照」的結構都會誤報。機器面紀律已同步進 CLAUDE.md
+  §2 防呆六件套之 ④⑤。
+
+- **L-012**｜submodule 內檔案的還原若在**外層** repo 執行，會**靜默失敗**：
+  `git checkout -- <子庫>/<路徑>` 只回一行 `error: pathspec '…' did not match any file(s)
+  known to git`（外層 git 不認得 submodule 內部路徑），**零檔案被還原**——退出碼雖非零，
+  但該行混在大量測試輸出裡極易滑過。親歷（maint-l010 單元② 主線負向自證）：五項探針各自
+  「暫改 src/→跑 lint→還原」，四次還原全數靜默失敗、探針逐項累積；第 (d) 項的紅訊息因此
+  含兩行（前項殘留＋本項），第 (e) 項更誤紅在**站點數等式**（前項殘留的 impl 讓
+  sites=16≠models=15）而非目標的掃描面斷言——★結論失真，但表面上「有紅」看起來像驗證成功。
+  防法：(a) submodule 內的任何 git 操作一律 `git -C <子庫> <cmd> -- <子庫內相對路徑>`；
+  (b) ★破壞性驗證（ADR 0024 要求③）每一項之間，還原後**立即機器確認**
+  `git -C <子庫> status --porcelain` 回到基準態——未確認即進行下一項，則後續全部結論可疑；
+  (c) 探針逐項在乾淨狀態**單獨**跑、不與前項疊加：疊加時紅訊息混入他項殘留、指名失真，
+  而「有紅」本身會讓人誤以為驗證通過。
