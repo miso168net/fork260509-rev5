@@ -8,3 +8,4 @@
 | /health | GET | Public | health | 是 |
 | /metrics | GET | Public | metrics | 是 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
+| /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
