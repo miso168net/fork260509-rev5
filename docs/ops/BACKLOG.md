@@ -1,4 +1,4 @@
-<!-- next: B-043 -->
+<!-- next: B-047 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -25,3 +25,7 @@
 - B-030｜低位殘項群逐項內建 checklist：未刪選單列表分頁、契約測試對 query 零判別力、zh-cn 鍵集不在掃描面、320px 窄屏頁首溢出、自助頁雙卡同構重複、單一超管軟鎖自解的雞蛋相依、告警僅 webhook 單通道、機密清單 parity 檢查（正確強化形＝新增斷言、非單一來源生成——實際四個面且基數各異各有語意：generate 13／preflight 13／compose 12〔reaper 刻意不進〕／secrets.dev.enc.yaml 10〔composite 不入密文檔〕，且 deploy/preflight-secrets.py 明載兩處各寫一份、不得順手合併＝B-037）（詳＝啟動書 §5.2 K2-22）｜重寫對應模組時逐項
 - B-033｜樣板回灌帳（§3.2 條 16／Q14）：集中登記 docs-governance-template 的樣板缺陷與搬遷摩擦，rev5 收刀後一次批次回灌。已知內容＝①樣板 export 腳本未落致 rev5 手工搬運、樣板失去第一個真實檢驗機會 ②樣板 H 層把 Lint20 具名豁免表當既有設施而源碼實無（rev5 補建）③治理硬化四項顯式延後之邊界清單（lint 差分分級／ctags 符號漂移偵測／基線 freshness 提示／clean-tag 建置閘）應記其存在、防第三代重新發明（詳＝啟動書 §5.2 K2-18／K2-19）④2026-08-08 補登——提前批＋B12 前維護批產出、樣板皆無：bash→python 選擇性轉換判準與機器等價驗收（ADR 0010）、工具版本三層釘定政策（ADR 0011）、跨代 ID 命名空間紀律含具名豁免形（ADR 0012＋Lint25）、互動機密工具 pty 併流與自動代餵安全姿態（ADR 0013）、效能預算節形制（量測法＋單跑上限＋門檻數字單一權威＝RUNBOOK §12.1）、「紅訊息附去處」須連帶驗證出口可執行（B-042 開帳教訓：照去處做仍清不掉紅＝去處失效）、通用工具坑 L-001～L-007 隨批沉積｜rev5 收刀後批次回灌
 - B-042｜Lint18 出口完備化：①已入史壞 merge SHA 列的可執行出口——現況 append 更正事件清不掉 ERROR、照紅訊息去處做仍被 pre-commit 卡死（需具名豁免設施或調閘、屬拍板級）②「解得非 commit」兩筆 ERROR（merge 面／pins 面）補去處——同條款只補一半（維護批單元③品質審查發現、詳收刀事件）｜下一支動 docs-sync lint 的刀
+- B-043｜envelope 的 5000 回退路徑不覆寫 HTTP status：`Res<T>::into_response` 在 serde 序列化失敗時只換 body（5000 三欄信封）、status 取預設 200，但外層若為元組形 `(StatusCode::X, Res::ok(payload))`，axum 會以元組的 status 覆寫，於是出現「status≠200 卻帶 5000 信封」的自相矛盾回應（002-system-settings 單元 U2b 之 spec-review）。B12 不可達——走元組形的只有錯誤路徑、一律 `Res<()>` 而其序列化無失敗面；處置候選＝①回退路徑顯式帶 StatusCode::OK ②型別層禁止該組合｜首個需要非 200 成功回應的刀
+- B-044｜spec FR-013「授權判定收斂單一純函式進入點」缺機器護欄：現況只靠約定＋人工 grep 維繫，而姊妹規則「handler／auth 零 path-root `entity::`」有 tests/entity_access_lint.rs 掃描把關、碼內註解明文「不靠自律」（002-system-settings 單元 U3 之 quality-review）。已做的低成本收窄＝三個符號收 pub(crate)（rust-api commit fe61340）；真正的護欄＝比照 entity_access_lint 掃 casbin enforce 呼叫點數的新測試檔｜下一支動 auth／授權面的刀
+- B-045｜sea-orm 預設 sqlx_logging 把逐句 SQL 灌進 INFO 級 log：main.rs 以裸 `Database::connect(&url)` 建連、未經 ConnectOptions，而 compose 的 rust-api 服務 `RUST_LOG: "info"`，每句查詢輸出一行含完整 `db.statement` 的 JSON log 進 Loki（實測 casbin 初載即見 163 列政策的 SELECT；002-system-settings 單元 U4 之 quality-review）。rev4:server/src/main.rs 同為裸 connect＝承襲形非本刀回歸；修法各有副作用面（`ConnectOptions::sqlx_logging_level(Debug)` 需引 log crate 型別／EnvFilter 加 directive 會蓋掉 RUST_LOG 覆寫能力）｜觀測層調校刀或第一把高頻端點刀
+- B-046｜評估立 ADR：憲法 §I.5「註解一律重寫」的射程釋義（比照 ADR 0021 的釋義形）。爭點＝測試斷言訊息字串與 rev4 逐字相同是否違反該條；主線判定 2026-08-08＝**不違反**（條文明寫「不拷前代**註解**」，assert 訊息是碼不是註解；ADR 0019 §2 要的是「重新打字消化、不可整段複製」，而描述同一契約事實的短中文句重打後必然高度相同，改寫屬為改而改），真正在射程內的是會送上 wire／log 的診斷字串。該判定已烤進各單元 review prompt 壓住重報，但每把 rust 刀都會重新遇到｜下一把 rust 應用碼刀開場前拍

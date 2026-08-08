@@ -13,23 +13,36 @@ grep。★本檔含 ADR 0019 兩份硬產物：R2 rev4 對應碼清單、R3 rev5
   測試；版本組合經 rev4 20 刀實戰驗證。
 - **Alternatives considered**: actix-web／poem——參照面歸零、全部設計重推，無收益。
 
-**B12 依賴子集**（版本＝rev4 workspace 終態、已驗證組合；★進場時逐筆雙源對照
-「rev4 lockfile vs crates.io latest stable」，同值採用、分歧升 user——CLAUDE.md §6，
-對照步驟烤進起手 task）：
+**B12 依賴子集**（★下表版本欄已於 T003 進場時回填為**實際落地定案值**；原表列為 rev4
+workspace 終態，逐筆雙源對照「rev4 lockfile vs crates.io latest stable」後四筆分歧、
+user 2026-08-08 拍板全採 latest stable——CLAUDE.md §6）：
 
-| crate | 版本（rev4 終態） | 用途 | 備註 |
+| crate | 落地版本 | 用途 | 備註 |
 |---|---|---|---|
-| axum | 0.8.9 | HTTP 框架 | 新進 |
-| serde | 1.0.228 | derive | 新進 |
-| serde_json | 1.0.150 | 信封／審計 json | 新進 |
-| tracing | 0.1.44 | 結構化 log | 新進 |
-| tracing-subscriber | 0.3.23 | env-filter＋json | 新進 |
-| tower | 0.5.3 | dev-dep（oneshot） | 新進 |
-| metrics | 0.24.6 | counter 面 | 新進（R6） |
-| metrics-exporter-prometheus | 0.18.3 | recorder＋render、default off | 新進（R6） |
-| axum-prometheus | 0.10.0 | axum_http_* 三序列 | 新進（R6） |
-| jsonschema | 0.46.9 | dev-dep、draft-07 裁判 | 新進（R5） |
+| axum | 0.8.9 | HTTP 框架 | 新進；兩源同值 |
+| serde | 1.0.229 | derive | 新進；★rev4 為 1.0.228、拍板採 latest |
+| serde_json | 1.0.151 | 信封／審計 json | 新進；★rev4 為 1.0.150、拍板採 latest |
+| tracing | 0.1.44 | 結構化 log | 新進；兩源同值 |
+| tracing-subscriber | 0.3.23 | env-filter＋json | 新進；兩源同值 |
+| tower | 0.5.3 | dev-dep（oneshot） | 新進；兩源同值 |
+| metrics | 0.24.6 | counter 面 | 新進（R6）；兩源同值 |
+| metrics-exporter-prometheus | 0.18.3 | recorder＋render、default off | 新進（R6）；兩源同值 |
+| axum-prometheus | 0.10.1 | axum_http_* 三序列 | 新進（R6）；★rev4 為 0.10.0、拍板採 latest |
+| jsonschema | 0.49.6 | dev-dep、draft-07 裁判 | 新進（R5）；★rev4 為 0.46.9（0.x minor＝可能破相容）、拍板採 latest；★另設 `default-features = false` |
 | tokio 1.52.3／sea-orm 1.1.20／casbin 2.20.0／async-trait 0.1.89 | — | — | rev5 已在 |
+
+★兩筆進場期補記（皆 user 拍板 2026-08-08）：
+
+1. **tokio 的相依解析連帶位移**：manifest 維持 `tokio = "1.52.3"`，而 Cargo.lock 實值為
+   **1.53.1**——axum-prometheus 0.10.1 要求 tokio `^1.53`，cargo 遂前進之。雙源對照當時只比
+   直接依賴、未算相依解析，故此筆是落地後才現形。拍板：**manifest 維持下界不動、實際值以
+   Cargo.lock 為權威**（cargo 的 `"1.52.3"` 語意即 `^1.52.3`＝相容下界，非 exact pin；
+   改寫下界等於把下界與當前值混為一談，日後再被頂還要再改一次）。
+2. **jsonschema 關 default features**（工程判斷、非 user 拍板面）：default 的 `resolve-http`
+   會拖進 reqwest／hyper／aws-lc-rs 整條 HTTP client 鏈（實測 Cargo.lock 由 467 降 441 套件、
+   並少一條 aws-lc-sys 的 C 建置），而 R5 的契約裁判只對本機快照
+   （`rust-api/server/tests/fixtures/wire-schema.json`）的 definitions 建 validator、無遠端
+   `$ref`，該 feature 全程用不到；留著會污染 B-028 的編譯時間量測判讀。
 
 **明確不進**（rev4 有、B12 域外）：jsonwebtoken／redis／argon2／captcha／sha2／hex／
 lettre／toml／arc-swap／once_cell／futures-util／xdb。
