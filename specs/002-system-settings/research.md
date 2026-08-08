@@ -122,6 +122,14 @@ enum:on,off 6 鍵值域自含於 setting_type 字面。canonical 規則承襲：
   （雙向：ROUTES.case_key vs registered keys，缺 case 紅指名、殭屍 case 紅指名）。
 - **Rationale**: 「容器內抽」語意經 rev4 實證＝npx 一次性、不碰 base-web 工作樹、輸出
   確定性 byte 一致；覆蓋閘＝cargo test 形（spec FR-018）。
+- ★**rev5 差異點（T014／U7 實證補記）**：抽取旗標補 `--strictNullChecks`。rev4 承襲的
+  `TSJS_FLAGS` 只有 `--ignoreErrors --required`，不帶此旗標時 typescript-json-schema 會把
+  `string | null` 聯合型的 **null 分支整個吃掉**（產出 `{"type":"string"}`），快照遂對
+  「null 是合法值」一律低報——契約裁判的基準若對 nullability 說謊，rust 側就得為每個
+  nullable 欄手工豁免，機器化的價值即打折。補旗標後 7 個 definition 改變，除本刀的
+  `UpdateSystemSettingReq.description`（→`["null","string"]`）外，尚含 upstream 既有
+  typings 的 `Api.Common.CommonRecord` 與 `Api.SystemManage.{Menu,Role,RoleSearchParams,User,UserSearchParams}`。
+  ★此為「查出 rev4 形是缺陷就改、並記為差異點」，非防回歸條款的違反（ADR 0019）。
 - **Alternatives considered**: host 直跑 tsc——host 無 node 工具鏈假設不成立（node 住
   base-web 容器）、棄。
 

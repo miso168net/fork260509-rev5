@@ -35,9 +35,18 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TSJS_VERSION = "0.67.4"
 # typings 抽取檔集（rev4:research R1：api 四檔＋common.d.ts 的 utility 命名空間）。
 TYPINGS_GLOB = "src/typings/{common,api/*}.d.ts"
-# 抽取型別選擇（全型別）與旗標（容忍 .d.ts 單編噪音＋required 欄完整）。
+# 抽取型別選擇（全型別）與旗標（容忍 .d.ts 單編噪音＋required 欄完整＋nullability 忠實）。
+# ★--strictNullChecks 不可省（002-system-settings U7 實證、rev5 差異點）：不帶它時
+# typescript-json-schema 會把 `string | null` 這類聯合型的 **null 分支整個吃掉**，
+# 產出 {"type": "string"}——快照遂對「null 是合法值」一律低報。實測影響面不限本刀新型：
+# 補上旗標後 7 個 definition 改變，含 upstream 既有 typings 的 Api.Common.CommonRecord、
+# Api.SystemManage.{Menu,Role,RoleSearchParams,User,UserSearchParams}（例：RoleSearchParams
+# 的 current／roleName 由 "string" 變 ["null","string"]）。快照是契約測試的裁判基準，
+# 基準對 nullability 說謊，rust 側就得為每個 nullable 欄手工豁免、機器化的價值即打折。
+# ★rev4:tools/wire-schema.py 同樣未帶此旗標——屬承襲缺陷、rev5 於本刀修正（ADR 0019
+# 防回歸條款的反向適用：rev4 的形不是只能照抄，查出是缺陷就改，並記為差異點）。
 TSJS_TYPE = "*"
-TSJS_FLAGS = ["--ignoreErrors", "--required"]
+TSJS_FLAGS = ["--ignoreErrors", "--required", "--strictNullChecks"]
 
 # base-web 容器內執行前綴：dev stack 的 base-web 服務、cwd＝/app。
 COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "docker-compose.dev.yml"]
@@ -299,7 +308,8 @@ class TestCommandAssembly(unittest.TestCase):
         self.assertEqual(
             cmd,
             'npx -y typescript-json-schema@0.67.4 '
-            '"src/typings/{common,api/*}.d.ts" "*" --ignoreErrors --required',
+            '"src/typings/{common,api/*}.d.ts" "*" '
+            '--ignoreErrors --required --strictNullChecks',
         )
 
     def test_extract_argv_targets_base_web_app_cwd(self):
