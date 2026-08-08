@@ -16,14 +16,6 @@
    自簽路線再把 `deploy/dev-certs/ca.pem` trust 進 OS（Windows shell：
    `certutil -addstore -user Root deploy/dev-certs/ca.pem`；macOS 信任程序隨 dev stack 刀實測後補記）
 5. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait` —— 起六業務件（migrate 是啟動閘：migration 失敗→rust-api 不啟→非零退出）
-   ★**B12（後端首刀）之前這一步跑不完、屬已知態**：rust-api 的 entrypoint 是
-   `cargo run --bin server`，而 workspace 現有 member 只有 `migration`／`entity`／
-   `sea-orm-adapter`——`server` crate 尚未存在，容器必以 `no bin target named server` 退出
-   （101）、healthcheck 永不轉綠，`--wait` 遂卡在 rust-api；front-nginx 因
-   `depends_on: rust-api(service_healthy)` 連帶不啟。**現階段起法＝
-   `specs/001-schema-baseline/quickstart.md`**（`up -d --wait postgres` ＋ `run --rm migrate`）；
-   起得來的是 postgres／redis／mailpit／base-web 四件＋migrate 一次性套用（實測 2026-08-06：
-   16 表落地、schema-gate 三閘 rc=0）。本步的「六業務件」待 server 實體落地後才成立。
 
 ★缺 secret 直接 up：compose 對缺 bind source 不報錯、自動建**空目錄**佔位——容器拿到空
 secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所以第 3 步不可跳。
