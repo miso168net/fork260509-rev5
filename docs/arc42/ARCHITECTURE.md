@@ -54,7 +54,17 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 ## §5 Building blocks
 
-（本節尚無內容；crate／facade 地圖與資料模型敘事隨對應刀填入。）
+rust-api workspace members＝migration／entity／sea-orm-adapter／server：
+
+- **entity crate**：15 表 sea-orm entity，欄集與 schema 快照逐欄一致
+  （`tools/entity-drift-gate.py` 守恆；其中 `casbin_rule` 委派 adapter 建基底、不入比對面，
+  故實比對 14 表）；ORM 關聯與行為層紀律見 §8 資料慣例。
+- **server crate 管線形**（請求單向流）：router（`ROUTES` 註冊表＝路徑／method／handler／
+  授權態單一來源）→enforce_mw（驗證器 middleware：dev 建置查表 `dev_identity`、release
+  建置編譯期 fail-closed 恆拒）→require_policy（逐路由授權層：每請求 DB-fresh 撈角色→
+  casbin 求值）→handler→validation registry（設定值型驗證）→model/facade（entity 存取
+  唯一管道、`entity_access_lint` 守恆）→DB→envelope（`Res` 三欄信封；/health、/metrics
+  為登記在冊信封例外）。
 
 ## §6 Runtime
 
@@ -81,6 +91,26 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
   R_SUPER 備註——顯示於管理列表、不顯示於其它被取用處（下拉／引用／對外 API 一律不帶）；
   role_desc（使用者可見「角色描述」）與 role_memo 職責不同、並存不合併（語意權威＝
   `specs/001-schema-baseline/data-model.md` §5；UI 兌現由 ops/BACKLOG B-003 承載）。
+- **ORM 關聯與行為層紀律**（002 拍板、spec FR-022）：①關聯宣告只映真 DB FK——無 DB FK
+  之邏輯關聯不建 Relation、需要即手寫 join（關聯真相單一來源＝DB FK）；
+  ②`ActiveModelBehavior` 恆空實作——ORM 行為層不承載六審計欄自動化、審計欄由
+  model/facade 顯式成對寫（憲法 §I.6 成對條款）；守門＝`server/tests/entity_behavior_lint.rs`。
+
+### API 慣例
+
+- **部分更新三態**（ADR 0023；射程＝部分更新請求 body 之每一可選欄）：欄位缺席＝不動、
+  JSON null＝顯式清空（NOT NULL 欄拒收 2222）、有值＝設值；解析層以 `Option<Option<T>>`
+  三態型別區分「未出現」與「null」，★並以自訂 `deserialize_with` 承載——單靠型別，serde
+  的預設 Deserialize 會把 JSON null 也落外層 `None`、與缺席不可辨（三態塌兩態；L-009）。
+
+### 授權慣例
+
+- **判定單點與 DB-fresh**：授權判定收斂於單一純函式進入點（server/src/auth/enforce.rs）；
+  角色每請求現查 DB、不快取亦不採信 token 附帶——角色一撤、下一請求即生效。
+- **拒絕語意**（ADR 0022）：無權＝5003＋HTTP 403、msg＝純 i18n key、不揭露政策明細與
+  持有角色；授權面內部故障＝5000、不偽裝成 403。
+- **no-escalation seam**（ADR 0022 定形）：空掛點 `no_escalation_check` 單一呼叫點、
+  簽章預留 async＋db；現況恆放行、deny 與政策拒絕走同一出口。
 
 ## §9 架構決策
 

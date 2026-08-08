@@ -16,14 +16,6 @@
    自簽路線再把 `deploy/dev-certs/ca.pem` trust 進 OS（Windows shell：
    `certutil -addstore -user Root deploy/dev-certs/ca.pem`；macOS 信任程序隨 dev stack 刀實測後補記）
 5. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait` —— 起六業務件（migrate 是啟動閘：migration 失敗→rust-api 不啟→非零退出）
-   ★**B12（後端首刀）之前這一步跑不完、屬已知態**：rust-api 的 entrypoint 是
-   `cargo run --bin server`，而 workspace 現有 member 只有 `migration`／`entity`／
-   `sea-orm-adapter`——`server` crate 尚未存在，容器必以 `no bin target named server` 退出
-   （101）、healthcheck 永不轉綠，`--wait` 遂卡在 rust-api；front-nginx 因
-   `depends_on: rust-api(service_healthy)` 連帶不啟。**現階段起法＝
-   `specs/001-schema-baseline/quickstart.md`**（`up -d --wait postgres` ＋ `run --rm migrate`）；
-   起得來的是 postgres／redis／mailpit／base-web 四件＋migrate 一次性套用（實測 2026-08-06：
-   16 表落地、schema-gate 三閘 rc=0）。本步的「六業務件」待 server 實體落地後才成立。
 
 ★缺 secret 直接 up：compose 對缺 bind source 不報錯、自動建**空目錄**佔位——容器拿到空
 secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所以第 3 步不可跳。
@@ -195,6 +187,8 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 ### 12.1 效能預算（B-007：觀測基準與預算分攤、非機器閘）
 
+★本節僅涵蓋 **pre-commit 全鏈**的 python 工具預算；容器內 cargo build 的時間基線另見 §12.2。
+
 - **兩級門檻語意**：pre-commit 全鏈牆鐘超 **20s**＝警戒（列示放行、劣化趨勢訊號）、超
   **45s**＝硬擋（狀態型：`--no-verify` 只延後、下次 commit 仍提醒）。★數字權威＝
   `.githooks/pre-commit` 常數 `PRECOMMIT_WARN_SEC`／`PRECOMMIT_FAIL_SEC`（本節僅引用；
@@ -273,6 +267,36 @@ EOF
   劣化理由。
 - **維護紀律**：新工具入 pre-commit 名冊時，本表**須同步加列**（量測＋定上限）；名冊
   變動而本表未動＝表已過期。
+
+### 12.2 容器內 cargo build 基線（B-028）
+
+- **量測法**沿 §12.1 形制（`time.perf_counter` 直接包被測整命令），惟**冷編性質上一次性**
+  ——重測須先清 `rev5-admin_rust_api_target` 卷、單次成本 >40s，故冷編記單次值並註明；
+  單檔增量（`touch` 一支 entity 檔後重 build）連跑 3 次取中位數。
+- **被測整命令**（兩輪同形；`--no-deps` 只是不重啟依賴服務，secrets 與網路照掛）：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+  run --rm --no-deps --entrypoint cargo rust-api build --workspace
+```
+
+- **兩輪實測**（2026-08-08、WSL2 drvfs/9p、容器內；`rust_api_cargo_cache` 卷兩輪皆保留
+  ＝量的是編譯而非取件）：
+
+  | 輪次 | workspace members | 冷編（單次） | 單檔增量（3 次中位數） |
+  |---|---|---|---|
+  | 第一輪（動工前） | migration／entity／sea-orm-adapter | 43.9s | 2.26s |
+  | 第二輪（server 進場後） | ＋server | 46.6s | 3.35s |
+
+- **判讀**：server crate 及其依賴（axum 0.8／tower／metrics 三件／casbin 消費面）進場後，
+  冷編僅 +2.7s——因第一輪的 43.9s 已含 sea-orm／sqlx／tokio 這批重量級（migration crate
+  即需要），新增件相對輕且多核並行編譯。增量 +1.09s＝多一個 crate 要重編的固定成本。
+- ★**離群值註記**：第二輪增量三次為 13.17／3.35／3.35s——首次含冷編後的首輪 link，
+  屬結構性離群，中位數取法自然排除之。★量測面用中位數而非平均，理由即此。
+- **wall clock vs cargo 自報**：上表為 wall clock（含 compose run 建容器開銷約 1.7s）；
+  同一次冷編 cargo 自報 `Finished dev profile … in 44.90s`。★兩者不可混用比較。
+- 本節為觀測基準、**無機器閘**（與 §12.1 的全鏈 45s 硬擋不同）。dev profile 的 debuginfo
+  裁剪與否屬後續評估，數據前提即本表。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）
 

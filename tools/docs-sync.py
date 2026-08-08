@@ -1588,7 +1588,10 @@ def parse_locale_backend(text, rel):
     lines = text.splitlines()
     start = None
     for i, line in enumerate(lines):
-        if re.fullmatch(r"\s*backend:\s*\{", line):
+        # ★起點正則走共用常數 RE_LOCALE_BACKEND_OPEN（定義於本檔後段、python 於呼叫期
+        # 解析 global，故前向引用可行）：兩處各寫一份 pattern 時，只改其中一處就會出現
+        # 「豁免謂詞說可以重算、產出器卻 raise 找不到樹」的錯位。
+        if RE_LOCALE_BACKEND_OPEN.fullmatch(line):
             start = i
             break
     if start is None:
@@ -2952,36 +2955,50 @@ REFERENCE_SOURCES = (COMPOSE_FILES + (ROUTER_SOURCE, ELEGANT_SOURCE)
 # 消費點五處（乙①②③接線，非本步）：①compute_generated 五產出器 ②cmd_generate 首段守衛
 # ③lint_reference_sources 本體（具名 SKIP 統一輸出點）④check_generated 的 Lint01 缺檔／
 # 多檔分支 ⑤lint_i18n_contract 兩個 early-return。
+# gen.msg_dict 解除謂詞的起點正則——★與 parse_locale_backend 的起點掃描共用同一條：
+# 兩處各寫一套，遲早出現「謂詞說可以重算、產出器卻 raise 找不到樹」的錯位。
+RE_LOCALE_BACKEND_OPEN = re.compile(r"\s*backend:\s*\{")
+
+
+def _locales_have_backend_tree(root):
+    """gen.msg_dict 解除謂詞（ADR 0020 甲案）：MSG_DICT_LOCALES **兩支皆**含頂層
+    `backend: {` 樹才算條件成立——字典生成器 compute_msg_dict_rows 兩支都要讀、
+    且兩語鍵集不等即 fail-loud，故任一支缺樹都不具備重算條件。"""
+    for _lang, rel in MSG_DICT_LOCALES:
+        text = _read(root, rel)
+        if text is None:
+            return False
+        if not any(RE_LOCALE_BACKEND_OPEN.fullmatch(line) for line in text.splitlines()):
+            return False
+    return True
+
+
 DAY1_EXEMPTIONS = {
     # gen.compose：2026-08-04 B10 compose 三檔移植就位、解除謂詞成立——依「到期即紅」
     # 下架（原豁免＝compose 三檔於 dev stack 就位前不存在；ports 真表自此恢復重算）。
     # gen.snapshots：2026-08-06 001-schema-baseline refresh 首跑落兩快照（archetype-map
     # 已先入版）、解除謂詞成立——依「到期即紅」下架（原豁免＝reference-src 三來源檔於
     # schema 基線刀前不存在；schema／accounts 真表自此恢復重算）。
-    "gen.router": (
-        "rust 路由表於後端首刀前無實碼",
-        (ROUTER_SOURCE,),                                # 解除＝B12
-        "2026-08-04"),
+    # gen.router：2026-08-08 002-system-settings T008 之 server/src/router.rs ROUTES 就位、
+    # 解除謂詞成立——依「到期即紅」下架（原豁免＝rust 路由表於後端首刀前無實碼；routes
+    # 參考真表自此恢復重算，來源＝該檔 ROUTES const 的窄假設直解）。
     # gen.screens：2026-08-04 B9 worktree 掛載、routes.ts 到位、解除謂詞成立——依「到期即紅」
     # 下架（原豁免＝前端 route 表於 worktree 掛載前不存在；screens 真表自此恢復重算）。
+    # ★2026-08-08 002-system-settings T011 改謂詞續留（ADR 0020 甲案、user 拍板）：原謂詞
+    # 「zh-tw.ts 存在」在本刀建檔即成立，但 en-us.ts 是 upstream 原樣檔、無 backend 樹，
+    # 屆時 compute_msg_dict_rows 讀第二支即 raise、generate 整支中止——兩表假設不一致。
+    # 給 en-us.ts 插 backend 段＝動 upstream 既有檔＝需開第一個 ★軌道，本刀不開。
     "gen.msg_dict": (
-        "★射程＝MSG_DICT_LOCALES 兩支（compute_msg_dict_rows 兩支皆讀、cmd_generate 守衛在 "
-        "B9 前兩支皆缺）——zh-tw.ts 是 fork 側新增檔、example 基線沒有（僅 en-us／zh-cn），"
-        "故 B9 後 en-us 到位而 zh-tw 仍缺、豁免續留",
-        (MSG_DICT_LOCALES[0][1],),                       # 解除＝rev5 的 i18n 地基刀（B12 後）
+        "★射程＝MSG_DICT_LOCALES 兩支（compute_msg_dict_rows 兩支皆讀、cmd_generate 守衛亦然）"
+        "——zh-tw.ts 已於 B12 T011 建檔並帶 backend 樹，但 en-us.ts 為 upstream 原樣檔、無該樹，"
+        "插入需開第一個 ★軌道（ADR 0020 甲案：本刀不開、改謂詞續留）",
+        _locales_have_backend_tree,                      # 解除＝前端 i18n 接線刀（開 ★軌道補 en-us backend 樹）
         "2026-08-04"),
     # lint07.budget_roster：2026-08-04 B5 骨架落地、八檔齊備、解除謂詞成立——依「到期即紅」
     # 下架（原豁免＝BUDGETS 名冊八檔多數於 B5 前不存在；守衛#8 自此恢復全檢）。
-    "lint24.day1": (
-        "跨端契約兩側源皆缺（rust 掃描面零 .rs ＋ zh-tw.ts 缺席）",
-        # ★謂詞為 OR 語意（任一側存在即單側規則接管），故用 callable 而非路徑元組。
-        # ★rust 側的「存在」＝掃描面真的有 .rs（非僅目錄存在）——目錄建了但空仍屬
-        #   「掃描面零 .rs」，與 scan_backend_msg_keys 的 early-return 判定同源。
-        lambda root: (any(f.endswith(".rs")
-                          for _dp, _dn, fns in os.walk(os.path.join(root, I18N_RS_SRC_DIR))
-                          for f in fns)
-                      or os.path.isfile(os.path.join(root, MSG_DICT_LOCALES[0][1]))),
-        "2026-08-04"),
+    # lint24.day1：2026-08-08 002-system-settings T011——兩側源皆備（rust 掃描面自 T003 起
+    # 有 .rs ＋ zh-tw.ts 於本刀 T011 建檔），解除謂詞成立，依「到期即紅」下架。跨端契約閘
+    # 自此全檢：後端實發 msg key ⊆ zh-tw.ts backend 樹鍵集，少鍵缺譯紅、多鍵孤兒紅。
 }
 
 
@@ -2989,12 +3006,8 @@ DAY1_EXEMPTIONS = {
 # ★與 DAY1_EXEMPTIONS 分表存放——前者答「何時解除」、本表答「豁免什麼」，合併會讓四欄制
 #   失去單一語意，且射程改動與解除條件改動是兩件事、不該互相牽動。
 DAY1_EXEMPT_SCOPE = {
-    "gen.router":    ((ROUTER_SOURCE,),
-                      (f"{GENERATED_DIR}/reference/routes.md",)),
     "gen.msg_dict":  (tuple(rel for _lang, rel in MSG_DICT_LOCALES),
                       (MSG_DICT_MD, MSG_DICT_PANEL)),
-    # 消費點在 lint_i18n_contract 的 early-return（乙③），不涉 generate 面
-    "lint24.day1":   ((), ()),
 }
 
 
@@ -3468,10 +3481,15 @@ I18N_FRONTEND_LOCALE = "base-web/src/locales/langs/zh-tw.ts"
 # 間接常數名冊（字面釘死；掃到 Biz(Cow::Borrowed(常數)) 形時查表）：
 # throttle/mod.rs 之 LOCKED_MSG_KEY／CAPTCHA_REQUIRED_MSG_KEY 兩筆。掃描時另抓
 # 「const 名: &str = "值";」宣告比對名冊值——源碼改值而名冊未跟＝ERROR（名冊漂移即恆綠洞）。
-I18N_CONST_ROSTER = {
-    "LOCKED_MSG_KEY": "auth.login.locked",
-    "CAPTCHA_REQUIRED_MSG_KEY": "auth.login.captchaRequired",
-}
+# ★rev5 現況為空表（user 拍板 2026-08-08、002-system-settings T011）：名冊原釘的兩筆
+# （LOCKED_MSG_KEY／CAPTCHA_REQUIRED_MSG_KEY）在 rev4 住 server/src/throttle/mod.rs，而 B12
+# 明確不搬 throttle（research R1「明確不進」清單），於是掃描面內查無宣告＝名冊腐化 ERROR，
+# 會擋住 T011 這一批治理 commit。名冊防的是「常數改名／移出射程而名冊沒跟」，射程內沒有
+# 那個常數時，空表才是誠實的狀態。
+# ★回填由機器逼出、不靠人記得：登入節流刀寫下 AppError::Biz(Cow::Borrowed(LOCKED_MSG_KEY))
+# 這類常數形構造點時，scan_backend_msg_keys 會判「無法靜態解析」而 fail-loud，訊息本身就寫
+# 著「擴 I18N_CONST_ROSTER 名冊」——屆時同刀回填。
+I18N_CONST_ROSTER = {}
 # 前端獨有內部詞彙表白名單（九鍵字面釘死；★白名單∩後端實發集必空、非空＝腐化 ERROR）：
 # biz.user.passwordViolation.* 八鍵＝密碼政策明細插值的前端內部詞彙表——與
 # rust-api/server/src/model/password.rs 八個 VIOLATION_* 常量一一對應（後端經 BizData
@@ -8690,7 +8708,26 @@ class TestI18nContractGate(unittest.TestCase):
     構造點字面＋名冊常數間接形＋error.rs key() 固定鍵）vs 前端 backend 字典鍵集雙向差集。
 
     ★fixture 一律 tempdir 自建假 rust 源＋假 locale（_wfile、無需 git）、真 repo 唯讀。
+    ★名冊亦自帶（見 setUp）：本 class 的假 handler 以常數間接形測名冊機制，若讓語料吃
+    生產名冊 I18N_CONST_ROSTER 的內容，該名冊隨射程增減時這批測試就會集體紅在與被測
+    行為無關的理由上（rev5 清空名冊時實際發生過，11 紅）。語料與生產名冊必須解耦。
     """
+
+    def setUp(self):
+        """注入測試名冊：本 class 語料所用的兩個常數。生產名冊為空表時（rev5 現況）
+        機制本身仍須可測——測的是「掃到常數形就查表」這個行為，不是表裡有誰。
+
+        ★唯一例外＝對真 repo 跑的那支：它要驗的正是生產名冊與現況源樹相符，
+        注入語料名冊會把它變成「驗我剛塞進去的假設定」，恰好失去該測試的全部意義。
+        """
+        if self._testMethodName == "test_real_repo_contract_green":
+            return
+        patcher = mock.patch.object(
+            sys.modules[__name__], "I18N_CONST_ROSTER",
+            {"LOCKED_MSG_KEY": "auth.login.locked",
+             "CAPTCHA_REQUIRED_MSG_KEY": "auth.login.captchaRequired"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     # 假 error.rs：key() 兩固定鍵＋綁定臂（match 樣式、不入實發集）；code() 的 "2222"/"0000"
     # 字面在 fn key 大括號之外——固定鍵抽取若溢出方法體、健康綠案當場紅（突變自證）。
@@ -8979,9 +9016,16 @@ class TestI18nContractGate(unittest.TestCase):
 
     # -- Day 1 具名豁免（§4.5.10 類三／B4 乙③） ------------------------------------
     def test_day1_exemption_merges_both_sides_missing(self):
-        """★兩側源皆缺＝創世期結構性紅→合併為一筆具名 SKIP（非兩筆 ERROR）。"""
+        """★兩側源皆缺＝創世期結構性紅→合併為一筆具名 SKIP（非兩筆 ERROR）。
+
+        ★豁免表以參數注入、不吃生產 DAY1_EXEMPTIONS：lint24.day1 已於 002-system-settings
+        T011 依「到期即紅」下架（兩側源皆備），但 early-return 的合併機制仍在碼裡、仍須有
+        測試守著——否則下一個需要具名豁免的條款接上來時，這段合併邏輯已無人證其可用。
+        """
+        exemptions = {"lint24.day1": ("測試注入之具名豁免", lambda _root: False, "2026-08-04")}
         with tempfile.TemporaryDirectory() as d:
-            f = [x for x in lint_i18n_contract(d) if x["code"] == "Lint24"]
+            f = [x for x in lint_i18n_contract(d, exemptions=exemptions)
+                 if x["code"] == "Lint24"]
             self.assertEqual([(x["level"], x["where"]) for x in f],
                              [(SKIP, "lint24.day1")], msg=str(f))
 

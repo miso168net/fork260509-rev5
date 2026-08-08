@@ -62,3 +62,16 @@ condition = "AND"
 regexTarget = "line"
 paths = ['''^sea-orm-adapter/src/adapter\.rs$''']
 regexes = ['''mysql://root:123456@localhost:3306/casbin''']
+
+# ④B12 dev-only 測試態 identity 佔位 token（002-system-settings Clarify Q2；ADR 0003
+#   佔位字面紀律）：quickstart／contracts 之 curl 範例 Authorization 標頭載
+#   dev-super/dev-admin/dev-user——零熵固定字面（data-model §5 查表）、公開非機密；
+#   release 建置驗證器缺席、字面永不成為真憑證。2026-08-08 雙向突變實證：無此條→
+#   curl-auth-header 命中 6、加此條→重掃 no leaks 放行。
+[[allowlists]]
+description = "B12 spec 產物 curl 範例之 dev 佔位 token（Bearer dev-super/admin/user）"
+targetRules = ["curl-auth-header"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^specs/002-system-settings/[^/]+\.md$''']
+regexes = ['''Bearer dev-(?:super|admin|user)''']

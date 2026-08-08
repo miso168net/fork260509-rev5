@@ -22,3 +22,7 @@
 | 0017 | accepted | 2026-08-07 | Lint06 arch_impact 比對基準改 merge^1:BOOK（「本刀影響」語意） | — | — | — |
 | 0018 | accepted | 2026-08-08 | B12 前端腿＝接線層先行（typings＋service 新檔）、view 延 B-008 | — | — | — |
 | 0019 | accepted | 2026-08-08 | 應用碼施工紀律——高度參照 rev4 為預設藍本（重打字消化形）、註解一律重寫 | — | — | — |
+| 0020 | accepted | 2026-08-08 | gen.msg_dict Day-1 豁免改謂詞續留——en-us 接線延前端 i18n 刀 | — | — | — |
+| 0021 | accepted | 2026-08-08 | §III ★軌道授權射程釋義——base-web 純新增檔不需軌道、zh-tw.ts 治理錨點孤立檔 | — | — | — |
+| 0022 | accepted | 2026-08-08 | 授權拒絕語意與 no-escalation seam 定形——5003＋純 i18n key 起步、掛點簽章預留 async 與 db | — | — | — |
+| 0023 | accepted | 2026-08-08 | 部分更新三態約定（B-026 envelope 級定形）——缺席不動／JSON null 清空／有值設值 | — | — | — |
