@@ -691,17 +691,38 @@ def compare_column_order(dm_order, entries, actual_cols):
 # ---------------------------------------------------------------------------
 
 RE_COPY_HDR = re.compile(r"^COPY public\.(\w+) \(([^)]*)\) FROM stdin;$")
+# 環境相依噪音兩類（B-011；gates.md §2）
+RE_DUMPED = re.compile(r"^-- Dumped (?:from database|by pg_dump) version ")
+RE_OWNER = re.compile(r"^(-- .*; Owner: )(.+)$")
+OWNER_PLACEHOLDER = "-"
 
 
 def normalize_seed_dump(text):
-    """gates.md §2 normalize 全則：剝 \\restrict／\\unrestrict token 行＋seaql_migrations
-    COPY 段（框架帳表 stanza 整段）；COPY 段內整列排序（消物理列序假紅）；setval 原位。
-    冪等：normalize(normalize(x))＝normalize(x)。"""
+    """gates.md §2 normalize 全則。剝除／正規化四類噪音，分兩族：
+
+    **非決定性**（同環境重放即異）——①`\\restrict`／`\\unrestrict` token 行
+    （pg_dump 18.4 每次 dump 隨機）②`seaql_migrations` COPY 段（框架帳表、applied_at
+    逐次重放異）。
+    **環境相依**（同環境穩定、換環境即異；B-011）——③`-- Dumped from database version`
+    ／`-- Dumped by pg_dump version` 兩行（postgres 或 pg_dump 升版即變）④`; Owner: X`
+    註解行的**值**正規化為 `-`（DB 身分變更即變；ADR 0008 那次即為此連動重產 fixtures）。
+
+    ★③④ 只把噪音移出 **seed 逐列 diff** 的比對面，不等於放棄偵測：DB 身分變更改由
+    [`compare_dump_owner`] 以一筆具名 finding 回報（守門強度不減、假紅消除）。
+    ★④ 必須正規化「值」而非剝整行——`-- Data for Name: seaql_migrations; …; Owner: x`
+    也帶 Owner，剝整行會連帶炸掉本函式賴以認出 seaql stanza 的那一行。
+
+    另：COPY 段內整列排序（消物理列序假紅）；setval 原位。
+    冪等：normalize(normalize(x))＝normalize(x)。
+    """
     lines = text.splitlines()
     out, i, n = [], 0, len(lines)
     while i < n:
-        ln = lines[i]
+        ln = RE_OWNER.sub(rf"\g<1>{OWNER_PLACEHOLDER}", lines[i])
         if ln.startswith("\\restrict ") or ln.startswith("\\unrestrict "):
+            i += 1
+            continue
+        if RE_DUMPED.match(ln):
             i += 1
             continue
         if ln.startswith("-- Data for Name: seaql_migrations;"):
@@ -877,6 +898,29 @@ def assert_seed_roster(norm_frozen, roster):
                         f"名冊 {sorted(roster)}——凍結面受損或名冊源壞")
 
 
+def compare_dump_owner(dump_text, expected):
+    """實庫 dump 的 Owner 值一致性（B-011；配 [`normalize_seed_dump`] 第 ④ 類）。
+
+    normalize 把 `; Owner: X` 的值抹成佔位字面後，seed 逐列 diff 對「DB 身分變更」
+    從此無感——而那正是 ADR 0008 那次逼 001 凍結 fixtures 重產一次的事實。本檢查把該
+    偵測換成一筆具名 finding：噪音消除、守門強度不減。
+
+    ★零 Owner 行必須紅，不得靜默判綠：pg_dump 形變或 dump 為空時比對面即空集合，
+    「查空集合恆綠」是本 repo 反覆踩過的形（L-010 同族）。
+    ★取原文 dump（normalize 前）為輸入——normalize 後值已被抹掉，餵進來恆綠。
+    """
+    owners = sorted({m.group(2) for m in
+                     (RE_OWNER.match(ln) for ln in dump_text.splitlines()) if m})
+    if not owners:
+        return ["[gate2·owner] 實庫 dump 零 Owner 註解行——比對面為空、不得靜默判綠"
+                "（pg_dump 輸出形變，或本檢查誤收 normalize 後文本）"]
+    if owners != [expected]:
+        return [f"[gate2·owner] 實庫 dump 的 Owner 值集合＝{owners}、期望恰 [{expected}]"
+                "——DB 身分變更（ADR 0008 那次即此形）或 schema 出現多主人；確認為刻意"
+                "變更後改連線身分之單一來源（--user／DB_USER），勿改本判準"]
+    return []
+
+
 def compare_seed(expected_text, actual_text, limit=60):
     """normalize 後未排序逐列 diff（含 id 欄）；★禁全檔排序後雜湊比對。"""
     exp, act = expected_text.splitlines(), actual_text.splitlines()
@@ -1045,15 +1089,20 @@ def _st_fixtures():
 
 
 _ST_DUMP = ("\\restrict TOKEN123\n"
+            "-- Dumped from database version 18.4\n"
+            "-- Dumped by pg_dump version 18.4\n"
             "--\n"
             "-- Data for Name: seaql_migrations; Type: TABLE DATA; Schema: public;"
-            " Owner: -\n"
+            " Owner: soybean\n"
             "--\n"
             "\n"
             "COPY public.seaql_migrations (version, applied_at) FROM stdin;\n"
             "m001\t123\n"
             "\\.\n"
             "\n"
+            "--\n"
+            "-- Data for Name: t_ok; Type: TABLE DATA; Schema: public; Owner: soybean\n"
+            "--\n"
             "\n"
             "COPY public.t_ok (id, name) FROM stdin;\n"
             "2\tb\n"
@@ -1109,12 +1158,40 @@ def check_self_test():
     norm = normalize_seed_dump(_ST_DUMP)
     if "\\restrict" in norm or "seaql_migrations" in norm:
         raise AssertionError("normalize 未剝除 pg_dump 框架噪音")
+    # B-011 環境相依噪音兩類：③版本行剝除 ④Owner 值正規化
+    if "Dumped from database version" in norm or "Dumped by pg_dump version" in norm:
+        raise AssertionError("normalize 未剝除 pg_dump 版本行（環境相依噪音③）")
+    if "Owner: soybean" in norm:
+        raise AssertionError("normalize 未正規化 Owner 值（環境相依噪音④）")
+    # ★正規化「值」而非剝整行：Owner 註解行本身須留下，否則 seaql stanza 認不出來
+    if f"-- Data for Name: t_ok; Type: TABLE DATA; Schema: public; " \
+       f"Owner: {OWNER_PLACEHOLDER}" not in norm:
+        raise AssertionError("normalize 誤剝整行 Owner 註解——應只抹值、保留該行")
+    # ★環境相依噪音改變後仍須判綠（B-011 存在的理由：升版／換身分不得紅在純噪音）
+    upgraded = (_ST_DUMP.replace("version 18.4", "version 19.1")
+                        .replace("Owner: soybean", "Owner: other_role"))
+    if compare_seed(norm, normalize_seed_dump(upgraded)) != []:
+        raise AssertionError("normalize 後 pg_dump 升版／DB 身分變更仍被判 seed 漂移")
     if norm.index("1\ta") > norm.index("2\tb"):
         raise AssertionError("normalize COPY 段內未整列排序")
     if normalize_seed_dump(norm) != norm:
         raise AssertionError("normalize 非冪等")
     if compare_seed(norm, normalize_seed_dump(_ST_DUMP)) != []:
         raise AssertionError("gate2 seed 健康對被誤判")
+    # B-011 owner 一致性檢查＝噪音移出比對面後的補償守門，四格自證
+    if compare_dump_owner(_ST_DUMP, DB_USER) != []:
+        raise AssertionError("owner 檢查對健康 dump 誤判")
+    if not compare_dump_owner(_ST_DUMP.replace("Owner: soybean", "Owner: other_role"),
+                              DB_USER):
+        raise AssertionError("owner 檢查未攔全庫身分變更（ADR 0008 那次即此形）")
+    if not compare_dump_owner(
+            _ST_DUMP.replace("Owner: soybean", "Owner: other_role", 1), DB_USER):
+        raise AssertionError("owner 檢查未攔多主人 schema（值集合非單元素）")
+    if not compare_dump_owner("COPY public.t_ok (id) FROM stdin;\n\\.\n", DB_USER):
+        raise AssertionError("owner 檢查對零 Owner 行未紅——查空集合恆綠")
+    # ★接錯輸入即恆綠：normalize 後值已成佔位，本檢查必須吃原文 dump
+    if not compare_dump_owner(norm, DB_USER):
+        raise AssertionError("owner 檢查誤收 normalize 後文本卻判綠——輸入須為原文 dump")
     # seed 值改一格必紅；sequence 落值 ±1 必紅
     if not compare_seed(norm, norm.replace("1\ta", "1\tX")):
         raise AssertionError("gate2 seed 值假漂移未被攔")
@@ -1219,6 +1296,8 @@ def cmd_check(root=REPO_ROOT, container=None, user=DB_USER, db=DB_NAME,
         findings += compare_column_order(dm_order, ledger["entries"], actual["columns"])
         seed_findings = compare_seed(seed_expected, normalize_seed_dump(dump))
         findings += seed_findings
+        # ★餵原文 dump（normalize 前）：normalize 已把 Owner 值抹成佔位，餵後者恆綠
+        findings += compare_dump_owner(dump, user)
         findings += audit_archetype(map_rows, actual["columns"], actual["indexes"],
                                     actual["constraints"])
     except GateError as ex:

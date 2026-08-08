@@ -36,11 +36,21 @@
   gate1 結構語意＋audit 歸屬）。演進帳 add_column 之新欄＝接在該表末位（登記時帶
   position、預設殿後）。
 - **seed 面**：左源＝`fixtures/seed.sql`；右源＝實庫 `pg_dump --data-only` 經同一
-  normalize：**COPY 段內整列排序**（消物理列序假紅）、setval 行保留原位、★剝除 pg_dump
-  框架噪音兩類——①`\restrict`／`\unrestrict` token 行（pg_dump 18.4 每次 dump 隨機）
-  ②`seaql_migrations` COPY 段（框架帳表、applied_at 逐次重放異；gate1 照相同義排除
-  前例）——2026-08-05 兩座 pristine 獨立重放位元 diff 實證：非決定性恰此兩處、266 列
-  與 11 支 setval 行全等。normalize 後
+  normalize：**COPY 段內整列排序**（消物理列序假紅）、setval 行保留原位、★剝除／正規化
+  pg_dump 噪音**四類、分兩族**（ADR 0026）——
+  **非決定性族**（同環境重放即異）：①`\restrict`／`\unrestrict` token 行（pg_dump 18.4
+  每次 dump 隨機）②`seaql_migrations` COPY 段（框架帳表、applied_at 逐次重放異；gate1
+  照相同義排除前例）——2026-08-05 兩座 pristine 獨立重放位元 diff 實證：**非決定性**恰此
+  兩處、266 列與 11 支 setval 行全等。
+  **環境相依族**（同環境穩定、換環境即異）：③`-- Dumped from database version`／
+  `-- Dumped by pg_dump version` 兩行（postgres 或 pg_dump 升版即變）④`; Owner: X`
+  註解行的**值**正規化為 `-`（DB 身分變更即變；ADR 0008 那次即為 Owner 行連動重產
+  fixtures）——★只剝值不剝行：`-- Data for Name: seaql_migrations; …; Owner: x` 亦帶
+  Owner，剝整行會炸掉 ② 賴以認出該 stanza 的判頭。
+  ★③④ 只把噪音移出**本比對面**、不等於放棄偵測：DB 身分變更改由 **owner 一致性檢查**
+  （實庫 dump 原文的 `Owner:` 值集合須恰為單元素且＝連線身分；零命中亦紅、防查空集合
+  恆綠）以一筆具名 finding 回報——守門強度不減、假紅消除。
+  normalize 後
   **未排序逐列 diff**（含 id 欄）；★**禁全檔排序後雜湊比對**（會同時掩蓋 sequence 落值
   漂移與真差異）。seed 演進（seed_add／seed_update／seed_delete 登記）同樣合成後才比對。
 - **rename 血緣對照**：內建 data-model §3 rename map，僅用於「vs rev4 快照」對賬場景——
