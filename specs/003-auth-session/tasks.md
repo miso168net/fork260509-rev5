@@ -102,7 +102,8 @@ description: "Task list for 003-auth-session"
   `Select::all` 呼 `get_database_backend()` 直接 panic，而本刀 9 條 Public route 會真的進
   handler）；`rust-api/server/src/router.rs` 內的 stub_state 亦同步。
   **DoD：既有 4 case contract 測仍全綠**
-- [ ] T008 [P] `rust-api/server/src/cache/mod.rs` 新建：`SessionCache` 型別別名＋`connect`＋
+- [ ] T008 [P] `rust-api/server/src/cache/mod.rs` 新建（★同批於 `rust-api/server/src/lib.rs` 加
+  `pub mod cache;`，否則整模組編譯不進 crate）：`SessionCache` 型別別名＋`connect`＋
   六支 key builder（`session:denylist:{sid}`／`session:{sid}:last_activity`／
   `session:rotate-grace:{token_hash}`／`session:idle-emitted:{sid}`／
   `throttle:lock:user:{name}`／`throttle:captcha:used:{nonce}`）＋原語
@@ -111,7 +112,8 @@ description: "Task list for 003-auth-session"
   ★**nil↔Err 嚴格分流**：所有 GET 一律 `Option<T>`（nil→`Ok(None)`＝權威缺席、連線故障→`Err`＝
   caller 退權威源）。★模組名 `cache` 不用 `redis`（R3-1，註解不得帶回 rev4 的消歧理由）。
   **DoD：真 redis（uniq 前綴）＋壞 redis（指不存在位址）雙路測試先紅後綠**
-- [ ] T009 [P] `rust-api/server/src/auth/jwt.rs` 新建：`Claims` 八欄（`uid`／`sid`／`jti`／
+- [ ] T009 [P] `rust-api/server/src/auth/jwt.rs` 新建（★同批於 `rust-api/server/src/auth/mod.rs`
+  加 `pub mod jwt;`）：`Claims` 八欄（`uid`／`sid`／`jti`／
   `roles` 僅 hint／`iss`／`aud`／`exp`／`iat`）＋`sign`＋`verify`／`verify_refresh`（★access 與
   refresh **各自秘鑰**）＋`verify_with`（HS256、`leeway=0`、`validate_exp`、`set_issuer`／
   `set_audience`）＋`token_hash`（SHA-256 hex 64）＋`TokenTtl`＋`access_ttl_secs`／
@@ -157,10 +159,17 @@ description: "Task list for 003-auth-session"
   **DoD：四行為＋兩次序反例測試先紅後綠——Public 動詞不符→4040＋404／Authed 未認證動詞不符
   →4040（不洩存在性）／Authed 已認證動詞不符→4040／未註冊路徑→既有 path fallback；反例①mnaf
   後才 merge 進來的 route 回框架 405 ②mnaf 排在 layer 前則未認證動詞不符變 8888**
-- [ ] T015 [P] 測試設施：在 `rust-api/server/tests/common/mod.rs` 加 ①redis 鍵 uniq 前綴 helper
-  （時戳＋pid）②**三表 sequence 重設守衛**（`sys_token`／`session_event`／`sys_login_attempt`
-  之 `setval(seq, 1, false)`；★刪列救不回 setval——schema-gate gate2 原位比對，本刀是 rev5 首撞、
-  002 的還原守衛只 `UPDATE system_settings` 故無此面）③`X-Real-IP` 注入 helper。
+- [ ] T015 [P] 測試設施：在 `rust-api/server/src/model/mod.rs` 新開
+  `#[cfg(test)] pub(crate) mod test_db`（★**不可**放 `rust-api/server/tests/common/mod.rs`——該檔
+  自述「crate 內側**拿不到** integration test 的 `tests/common`（取用方向相反）、屬結構性隔離」，
+  且其比對面自述「tests/ 各 case 全不觸 DB」；而本刀真 DB／真 redis 測全在 src 側 `#[cfg(test)]`）
+  加 ①redis 鍵 uniq 前綴 helper（時戳＋pid）②**三表 sequence 重設守衛**（`sys_token`／
+  `session_event`／`sys_login_attempt` 之 `setval(seq, 1, false)`；★刪列救不回 setval——
+  schema-gate gate2 原位比對，本刀是 rev5 首撞、002 的還原守衛只 `UPDATE system_settings` 故無
+  此面）③`X-Real-IP` 注入 helper。實作範式沿 002 既有三件（`run_restore_stmt`／`SeedRestoreGuard`／
+  `RowFixupGuard`＝獨立 OS thread＋一次性 current-thread runtime＋全新連線＋`thread::panicking()`
+  二分支，Drop 內不可 await）。★守衛用 raw SQL `Statement`（`setval` 非 entity 存取）故不觸
+  `entity_access_lint`。
   **DoD：守衛 Drop 後 `python3 tools/schema-gate.py check` gate2 綠**
 - [ ] T016 [P] `rust-api/server/src/request_context.rs` 加 `real_ip`／`x_forwarded_for`／
   `ip_confidence` 三個**原樣轉錄**欄（★零信任判定；handler 一律經此型取請求事實、絕不自讀轉發
@@ -206,7 +215,10 @@ typings；`getConstantRoutes` 未認證可取且前端合併不清空 builtin �
   `icon`／`localIcon` 且本身不外洩、`meta.roles` 類欄**不下發**）
 - [ ] T023 [P] [US1] `rust-api/server/src/model/facade/sys_login_attempt.rs` 新建（本 phase 只落
   `insert`；滑動窗 `count_recent_failures` 留 US4）
-- [ ] T024 [US1] `rust-api/server/src/handler/auth/login.rs` 新建——十一步之
+- [ ] T024 [US1] `rust-api/server/src/handler/auth/login.rs` 新建（★同批**新建**
+  `rust-api/server/src/handler/auth/mod.rs`＝五個子模組的 `pub mod` 宣告，並於
+  `rust-api/server/src/handler/mod.rs` 加 `pub mod auth;`；漏建即整個 handler/auth 目錄
+  編譯不進 crate）——十一步之
   ③`authenticate`（帳號不存在／密碼錯／已停用**三態 collapse 同一 `1000`**、不洩存在性）
   ④txn＋`pg_advisory_xact_lock(uid)` ⑤**鎖內重驗**（status／deleted_at／password 字面比對、
   ★不重跑 argon2）⑥讀 `session_idle_timeout` 套 TTL（缺失→`5000`）⑦生新 sid＋簽對
@@ -354,7 +366,8 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   ★`unlock_marker` 本刀**無寫入者**（後續刀補）——無 marker 綁 SQL NULL、`GREATEST` 非 strict
   自然退化為兩源，保留參數位、**不得用 sentinel 值**；碼註記「該源恆 NULL＝已知態、不得宣稱
   三源皆已驗」
-- [ ] T051 [P] [US4] `rust-api/server/src/throttle/mod.rs` 新建：常數組（`THROTTLE_LOCK_TTL_SECS`
+- [ ] T051 [P] [US4] `rust-api/server/src/throttle/mod.rs` 新建（★同批於
+  `rust-api/server/src/lib.rs` 加 `pub mod throttle;`）：常數組（`THROTTLE_LOCK_TTL_SECS`
   900／`CAPTCHA_TTL_SECS` 300／`CAPTCHA_ANSWER_LEN` 4／`CAPTCHA_CHARSET` 34 字／三個 DEFAULT／
   `LOGIN_USER_NAME_MAX`／`LOGIN_PASSWORD_MAX_BYTES`）＋`ThrottleSettings`＋`load_settings`＋
   `lock_ttl_secs`＋`precheck` 四步（①L1 GET lock key〔★命中**不續期**〕②unlock marker＋
@@ -363,12 +376,14 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   （結構化 `target: "security.throttle"`＋`degraded` 欄＋counter）。★msg key 用 rev5 新名
   `biz.auth.locked`／`biz.auth.captchaRequired`（R3-4）；★**拔** IP 維全組與
   `suppressed_breadcrumb`／HLL，`precheck` 簽名不留 real_ip／ip_allow 參數位（R3-3）
-- [ ] T052 [P] [US4] `rust-api/server/src/captcha/mod.rs` 新建：`CaptchaClaims` **四欄**
+- [ ] T052 [P] [US4] `rust-api/server/src/captcha/mod.rs` 新建（★同批於
+  `rust-api/server/src/lib.rs` 加 `pub mod captcha;`）：`CaptchaClaims` **四欄**
   （`nonce`／`user_name`／`exp`／`ans_mac`；★不設 rev4 的 `ctx` 欄＝R3-5）＋`sign`／
   `verify_challenge`＋`answer_mac`＝`hex(SHA256(secret ‖ nonce ‖ lower(answer)))`（★秘鑰參與
   雜湊⇒答案不可離線還原）＋產圖（`captcha 1.0.0`）＋★字元集 34 字（小寫 a-z 去 `o`＋數字去 `0`）
   ＋**字型涵蓋測試**（★字集含 `0`/`o` 會因內嵌字型無 glyph 靜默跳過、產約 20% 廢題）
-- [ ] T053 [P] [US4] `rust-api/server/src/handler/captcha.rs` 新建：`/auth/loginCaptcha`——
+- [ ] T053 [P] [US4] `rust-api/server/src/handler/captcha.rs` 新建（★同批於
+  `rust-api/server/src/handler/mod.rs` 加 `pub mod captcha;`）：`/auth/loginCaptcha`——
   ★必帶 `?userName=`；對**任意** userName 一律發題（含不存在帳號＝零存在性查詢與洩漏）；
   userName 超限走與登入端點**同形**的 `1000` 閘（零新碼零新 key）；產圖／簽章內部失敗→`5000`
 - [ ] T054 [US4] `rust-api/server/src/handler/auth/login.rs` 補步驟①②：①輸入形制閘
@@ -519,8 +534,11 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ### Parallel Opportunities
 
-- Phase 2：T008／T009／T011／T015／T016／T017 六支檔域不相交、可分派。
-- US1：T020／T021／T022／T023 四支 facade 可分派；T025／T026 兩 handler 可分派。
+- Phase 2：T008／T009／T011／T015／T016／T017 六支**主體檔**不相交、可分派；★但 T008／T009 共用
+  `lib.rs`／`auth/mod.rs`、T011 共用 `facade/mod.rs` 之**註冊行**——註冊行須序列化收攏於單一單元內
+  （「檔域不相交」僅對主體檔成立）。
+- US1：T020～T023 四支 facade **主體檔**可分派，★四支共用 `facade/mod.rs` 註冊行；T025／T026 兩
+  handler 可分派，★共用 `handler/mod.rs`／`handler/auth/mod.rs` 註冊行（同上處置）。
 - US4：T050／T051／T052／T053 四支可分派。
 - US5：T061／T063／T064 可分派；i18n 三檔（T065→T066→T067）★必須序列（typecheck 相依）。
 - Phase 8：T069／T070／T071／T075／T076 可分派。
@@ -556,18 +574,21 @@ fix 迴圈 → code-quality review → fix 迴圈），依 CLAUDE.md §2 防呆�
 |---|---|---|
 | U-A ★主線 | T001~T003 | `docs/arc42/decisions/`、`.specify/memory/constitution.md` |
 | U-B | T004~T005 | 兩份 `Cargo.toml`、`config.rs`、`state.rs`（僅註解） |
-| U-C | T006~T009 | `state.rs`、`main.rs`、`tests/common/mod.rs`、`cache/mod.rs`、`auth/jwt.rs` |
+| U-C | T006~T009 | `state.rs`、`main.rs`、★`lib.rs`、★`auth/mod.rs`、`tests/common/mod.rs`、`cache/mod.rs`、`auth/jwt.rs` |
 | U-D | T010 | `error.rs`、`zh-tw.ts` |
-| U-E | T011~T014 | `facade/{sys_token,mod}.rs`、`auth/{enforce,mod}.rs`、`dev_identity.rs`(刪)、兩支 lint、`router.rs`、`contract.rs`、`obs.rs`、`ARCHITECTURE.md` |
-| U-F | T015~T017 | `tests/common/mod.rs`、`request_context.rs`、`model/{password,mod}.rs` |
-| U-G | T018~T023 | `contract.rs`、`facade/{sys_user,sys_role,sys_menu,sys_login_attempt,mod}.rs` |
-| U-H | T024~T027 | `handler/auth/{mod,login,user_info}.rs`、`handler/route.rs`、`router.rs`、`contract.rs` |
+| U-E | T011~T014 | `facade/{sys_token,mod}.rs`、`auth/{enforce,mod}.rs`、`dev_identity.rs`(刪)、兩支 lint、`router.rs`、`contract.rs`、`obs.rs`、`ARCHITECTURE.md`、★`handler/system_settings.rs`（dev-super 遷移的唯一散布點、51 處） |
+| U-F | T015~T017 | `request_context.rs`、`model/{password,mod}.rs`（★`test_db` 落 `model/mod.rs`、非 `tests/common`） |
+| U-G | T018~T027 | `contract.rs`、`router.rs`、`facade/{sys_user,sys_role,sys_menu,sys_login_attempt,mod}.rs`、★`handler/{mod,route}.rs`、★`handler/auth/{mod,login,user_info}.rs`（★C5：case 與其 ROUTES 列必須同單元收邊，否則 `all_registered_contract_cases_pass` 直接 panic、單元邊界無綠基線） |
 | U-I | T028~T031 | `base-web/{.env,.env.test,.env.prod}`、`store/modules/route/index.ts` |
-| U-J | T032~T038 | `contract.rs`、`facade/{sys_token,session_event}.rs`、`handler/auth/refresh.rs`、`router.rs` |
-| U-K | T039~T047 | `contract.rs`、`handler/auth/{login,refresh,logout}.rs`、`facade/sys_token.rs`、`router.rs`、`rev5-auth.ts`、`user-avatar.vue` |
-| U-L | T048~T058 | `contract.rs`、`facade/sys_login_attempt.rs`、`throttle/mod.rs`、`captcha/mod.rs`、`handler/{captcha,auth/login}.rs`、`obs.rs`、`router.rs`、`rev5-auth.{ts,d.ts}`、`store/modules/auth/index.ts`、`pwd-login.vue`、`zh-tw.ts` |
-| U-M | T059~T068 | `contract.rs`、`handler/auth/alt_stub.rs`、`router.rs`、三張表單、`captcha.ts`、`app.d.ts`、三語 locale、`docs-sync.py`、`service/request/index.ts` |
+| U-J | T032~T038 | `contract.rs`、`router.rs`、`facade/{sys_token,session_event,`★`mod}.rs`、`handler/auth/refresh.rs` |
+| U-K | T039~T047 | `contract.rs`、`router.rs`、`handler/auth/{login,refresh,logout,`★`mod}.rs`、`facade/sys_token.rs`、`rev5-auth.ts`、`user-avatar.vue` |
+| U-L | T048~T058 | `contract.rs`、`router.rs`、★`lib.rs`、★`handler/mod.rs`、`facade/sys_login_attempt.rs`、`throttle/mod.rs`、`captcha/mod.rs`、`handler/{captcha,auth/login}.rs`、`obs.rs`、`rev5-auth.{ts,d.ts}`、`store/modules/auth/index.ts`、`pwd-login.vue`、`zh-tw.ts` |
+| U-M | T059~T068 | `contract.rs`、`router.rs`、`handler/auth/{alt_stub,`★`mod}.rs`、三張表單、`captcha.ts`、`app.d.ts`、三語 locale、`docs-sync.py`、`service/request/index.ts` |
 | U-N | T069~T077 | `fork-delta-lint.py`、`facade/{mod,system_settings,sys_user_role}.rs`、`ARCHITECTURE.md`、`BACKLOG.md`、`LESSONS.md` |
+
+★清單以「★」標出的項為 analyze 補洞（模組註冊檔 `lib.rs`／`auth/mod.rs`／`handler/mod.rs`／
+`handler/auth/mod.rs`、`facade/mod.rs`、dev-super 散布點）——漏列即 fix agent 撞清單外檔而 blocked
+（防呆⑥「清單只縮不擴」）。單元數 14→**13**（U-G 併吞原 U-H）。
 
 主線例行只在單元邊界醒：復核 → load-bearing 自驗 → bump submodule pin → 啟下一支。
 

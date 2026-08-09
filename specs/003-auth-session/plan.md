@@ -55,9 +55,12 @@ case＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`＋`schema-gate c
 *★本刀為 rev5 首刀踩到「須 Amendment」路徑（001／002 皆九題全過），Q2／Q7／Q9 之判定值
 「涉及——授權以 Amendment 先行取得」係本刀自訂形制、無前例可抄。*
 
-1. **§I.1 base-web 為權威**：PASS——本刀正是為 base-web fork 原版 service 已在呼叫的 12 條
-   端點補後端實作；回傳型逐欄忠實 typings（§I.3 權威序 1），零範圍縮減。驗收錨＝contracts/
-   三檔＋wire-schema 快照消費（SC-001／SC-006）。
+1. **§I.1 base-web 為權威**：**PASS with disclosure**——本刀為 base-web fork 原版 service 已在
+   呼叫的 12 條端點補後端實作；回傳型逐欄忠實 typings（§I.3 權威序 1）。★揭露一處**排程延後**：
+   fork 的 `service/api/auth.ts` 另呼叫 `/auth/error`（兩張 demo 頁消費），本刀不提供——依 §I.1
+   「『v1 從簡』只能是交付排程」走排程錨（B-053＋spec Out of Scope 已具體化已知態），**非**設計
+   範圍縮減；其兌現另有 §I.3 級前置衝突（保留碼 `9999` 三錨＋`msg` echo 通道），故不併本刀。
+   驗收錨＝contracts/ 三檔＋wire-schema 快照消費（SC-001／SC-006）。
 2. **§III.2 base-web inline**：**涉及——授權以 Amendment 先行取得**。本刀動 base-web 既有檔
    共 8 檔（`store/modules/route/index.ts`／`store/modules/auth/index.ts`／`pwd-login.vue`／
    三張替代登入表單／`hooks/business/captcha.ts`／`user-avatar.vue`／`service/request/index.ts`
@@ -90,7 +93,10 @@ case＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`＋`schema-gate c
    §III.2 的「用途補完」（跨多頁、新 i18n 面級節、新元件行為）⇒ 須 Amendment，非 bump 豁免。
    ★連帶 ADR 0021 §3 收窄（`app.d.ts` backend 型節本刀提前；LangType／locale 註冊／zh-tw 標型
    重構仍延前端 UI 刀）。★順序相依：Amendment 須先定 §III.2 表格的機器可解形，FR-030 的名冊
-   lint 斷言才寫得出來（research R8）。每處改動於 spec／research 已記位置＋內容＋rebase 風險。
+   lint 斷言才寫得出來（research R8）。★憲法 §III.2 三必需欄位（位置＋改動內容＋upstream 衝突
+   風險評估）齊備於 spec 之「★ 軌道逐處登記」表（15 列、附可覆算風險判準與 rebase 處置通則），
+   該表同時是 Amendment ADR 的 §III.2「範圍（檔案）」欄輸入；★該表已揭露本刀最高風險面＝i18n
+   三檔為基線最熱檔（近 12 月各 15–17 commit）。
 8. **§I.6 業務表審計欄**：PASS（不觸發）——**零 create migration**；三張消費表（sys_token 變體
    C／session_event 與 sys_login_attempt 變體 B）皆 001 基線既有，本刀只寫入不改結構；append-only
    兩表零 update／delete。★連帶紀律：runtime 寫入會推進三支 sequence，須自帶重設守衛

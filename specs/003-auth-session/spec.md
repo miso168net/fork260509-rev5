@@ -418,6 +418,44 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   ＋§I.7 Amendment、AppState 五欄翻案、ADR 0021 §3 收窄（app.d.ts backend 型節本刀提前）、
   B-047 4040 解讀、R7～R11 已知態集。
 
+**★ 軌道逐處登記（憲法 §III.2 必需三欄：位置＋改動內容＋upstream 衝突風險評估）**
+
+風險判準（可覆算，以基線 `fork260509-soybean-admin-base@example` 為量測面）：**高**＝該檔近 12 月
+commit ≥5；**中**＝近 12 月 1–4 或近 24 月 ≥5；**低**＝近 12 月 0 且近 24 月 ≤4。**修改型再 +1 級**
+（衝突塊必然與 upstream 行交錯）、純新增型不加級。量測日＝2026-08-09。
+
+| 位置（檔案） | 軌道·用途 | 型別 | 改動內容 | 12m／24m | 風險 |
+|---|---|---|---|---|---|
+| `.env`（2 處） | ADAPT（非 ★） | 修改型 | `VITE_AUTH_ROUTE_MODE` static→dynamic；`VITE_HTTP_PROXY` Y→N | 0／5 | 高 |
+| `.env.test`（1 處） | ADAPT（非 ★） | 修改型 | `VITE_SERVICE_BASE_URL` apifox mock→`/api` | 0／0 | 中 |
+| `.env.prod`（1 處） | ADAPT（非 ★） | 修改型 | 同上（dev/prod 同形） | 0／0 | 中 |
+| `src/store/modules/route/index.ts`（1 處） | `★BASE-WEB-AUTH-WIRING(a)` | 修改型 | `addConstantRoutes(data)`→併入 static 常量集 | 0／7 | 高 |
+| `src/store/modules/auth/index.ts` | `★BASE-WEB-LOGIN-CAPTCHA-WIRING(i)` | 修改型 | login 簽名加 captcha 參＋失敗 msg 回傳鏈 | 1／7 | 高 |
+| `src/views/_builtin/login/modules/pwd-login.vue` | `★BASE-WEB-LOGIN-CAPTCHA-WIRING(i)` | 修改型＋新增型 | 軟區條件渲染塊（新增型圈界）＋提交鏈接線（修改型） | 0／4 | 中 |
+| `.../login/modules/code-login.vue`（2 處） | `★BASE-WEB-AUTH-WIRING(b)` | 修改型 | import stub wrapper＋消滅假成功 toast | 0／2 | 中 |
+| `.../login/modules/register.vue`（2 處） | `★BASE-WEB-AUTH-WIRING(b)` | 修改型 | 同上 | 0／2 | 中 |
+| `.../login/modules/reset-pwd.vue`（2 處） | `★BASE-WEB-AUTH-WIRING(b)` | 修改型 | 同上 | 0／2 | 中 |
+| `src/hooks/business/captcha.ts`（4 處） | `★BASE-WEB-AUTH-WIRING(c)` | 修改型 | 改打 `/auth/sendCaptcha` stub、移除假延遲與假成功 | 0／1 | 中 |
+| `.../global-header/components/user-avatar.vue`（3 處） | `★BASE-WEB-LOGOUT-UX-WIRING(i)` | 修改型 | `onPositiveClick` 改 async＋登出前 best-effort `fetchLogout` | 0／0 | 中 |
+| `src/service/request/index.ts`（2 處＋1 塊） | `★BASE-WEB-I18N-WIRING(i)` | 修改型＋新增型 | modal `content` 與 `showErrorMsg` 鏈改走轉譯（修改型）＋`translateBackendMsg`／`translateDetailValue`（新增型圈界） | 0／4 | 中 |
+| `src/typings/app.d.ts`（1 處） | `★BASE-WEB-I18N-WIRING(iii)` | 修改型 | `App.I18n.Schema` 補 `backend` 必填型節 | **15／32** | **高** |
+| `src/locales/langs/en-us.ts`（1 塊） | `★BASE-WEB-I18N-WIRING(ii)` | 新增型 | 插 backend 樹 22 鍵 | **16／38** | **高** |
+| `src/locales/langs/zh-cn.ts`（1 塊） | `★BASE-WEB-I18N-WIRING(ii)` | 新增型 | 插 backend 樹 22 鍵（簡中） | **17／39** | **高** |
+
+**★ 本表最重要的一件事**：i18n 三檔（`app.d.ts`／`en-us.ts`／`zh-cn.ts`）是**基線最熱的三個檔**
+（近 12 月各 15–17 個 commit），而 R2 甲案正是要動它們——這反向印證 ADR 0021 當初「`app.d.ts` 等
+upstream 熱檔零 fork-delta（rebase 衝突面不擴）」的顧慮；本刀提前吃下該面，代價已知並入帳
+（rev4 走過同路：I18N-WIRING 127 處，故有先例但風險等級誠實標高）。
+
+**rebase 處置**（全表通則，承 §III「rebase 同步紀律」）：修改型一律以 `原行:` 註解為基準重放語意，
+並**同步更新 `原行:` 為 upstream 現行版**（防對照基準過時）；純新增型整塊搬移、不與 upstream 行
+交錯。i18n 三檔的高風險處置另加：rebase 時先比對 upstream 是否已自行新增 `backend` 節或改動
+`Schema` 型別結構，若是則本刀 inline 改為對齊而非疊加。
+
+★逐處明細（每處的精確行號與 `原行:` 逐字）由實作期各任務的 fork-delta 標記逐處落地並受
+`fork-delta-lint` 機器強制（憲法 §III「全 repo grep `rev5-inline` 即得完整 patch set」）；本表為
+**檔級**風險評估與 rebase 處置索引，處數為現階段估值、實作期以標記實數為準。
+
 **機器強制（fork-delta-lint 軌道名名冊）**
 
 - **FR-030**: fork-delta-lint MUST 加「軌道名 ∈ 授權名冊」斷言：名冊源＝Amendment 於 §III.2
@@ -552,6 +590,16 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   名單鍵維持後端不發；LOGIN-CAPTCHA 用途 (ii)（formRules 放寬）延此刀。
 - **自助頁手機驗證從零建頁**（B-022 第四流程）：條目續留、本刀僅三表單 stub 化。
 - **管理頁 view UI**（B-008）：本刀不建 view；四張管理頁的後端寫端不在本刀。
+- **`/auth/error` demo 端點**（B-053）：base-web fork 原版兩張 demo 頁
+  （`views/function/request/index.vue`／`views/alova/request/index.vue`）經
+  `fetchCustomBackendError(code, msg)` 打 `GET /auth/error`——本刀 ROUTES 16 條**不含**此端點。
+  依憲法 §I.1「『v1 從簡』只能是交付排程、不能簡化設計範圍」，此為**排程延後**（B-053 承載）、
+  非設計範圍縮減；★延後理由非工期而是**拍板級衝突**：該端點契約＝回吐 client 任意 `code`／`msg`，
+  而 demo 字面含保留碼 `9999`（「後端從不發出」由 `error.rs` 兩處 `no_variant` 陣列＋
+  `envelope.rs` 之 `compile_fail` doctest 三錨釘死）、`msg` 又是已在地化人話（違 §I.3「msg 載
+  穩定 i18n key」且破 `contracts/msg-keys.md` 的 13＋9＝22 算術）⇒ 兌現須先走 §I.3 Amendment。
+  已知態：`.env` 翻 `/api`＋`dynamic` 後 R_SUPER 側邊欄可見該兩頁、其按鈕點擊得 `4040`＋
+  `system.notFound` 信封（前端顯「找不到請求的資源」）＝user 可見已知態。
 - **★MODAL-WIRING／★DEVPROXY-WIRING**：本刀不開（DEVPROXY 由 nginx 前置拓樸取代、
   `VITE_HTTP_PROXY=N` 後 vite proxy 無消費者）。
 - **redis AOF 持久化**：不開＝已知態（暴險受 status 即權威封頂）；prod 化由 B-019／部署刀重評。

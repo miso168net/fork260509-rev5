@@ -1,4 +1,4 @@
-<!-- next: B-053 -->
+<!-- next: B-054 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -26,3 +26,4 @@
 - B-047｜已註冊路徑收到未宣告動詞時回框架預設 405＋零長度裸 body，是憲法 §I.3「envelope universal 例外僅 2」之外的第三種非信封形（實測：對寫端 route 發 GET、對讀端 route 發 POST，兩者皆帶合法 dev bearer——回 405、`allow` 標頭列出正確動詞、`content-length: 0`，無 data/code/msg）。pre-existing、非某一刀引入——axum MethodRouter 的預設 fallback 未被信封化；未認證請求不受影響（authn 層先回 8888，那是刻意的 fail-closed）。處置候選：①為 MethodRouter 掛 method_not_allowed_fallback 回 13 碼信封（需先拍該情境用哪個碼——13 碼矩陣現無「動詞不符」語意的碼、硬塞 2222 或 4040 皆有語意張力，屬拍板級）②維持現狀並在憲法 §I.3 例外集明文加註「405 為框架層、非應用層信封面」（同屬拍板級）｜下一把觸及 wire 例外集的刀，或 auth 刀
 - B-050｜`model/facade/sys_user_role.rs` 的 `roles_of_user` **第二段**查詢（role_id→role_code）之 DbErr 落地無獨立機器守：兩段查詢各有 `tracing::error!` 落 root cause 再翻 `AppError::Internal`，但現有守門（`test_kit::FailingConn`）一切查詢皆失敗、第一段即回 Err，第二段的 `map_err` 到不了。要造「首段成功、次段失敗」需 sea-orm 的 mock feature，而 `rust-api/Cargo.toml` 現為 `sea-orm = { version = "1.1.20", default-features = false }`、未開該 feature（002-system-settings 單元 U8b 之 spec-review；碼中已誠實揭露）。處置候選＝①以真庫造次段失敗（如暫時撤 sys_role 的查詢權限）②日後有需要開 mock feature 時一併補｜下一支動 auth／授權面、或需要 sea-orm mock 的刀
 - B-051｜`test_kit`（capture＋FailingConn）以 `#[cfg(test)] pub(crate) mod` 寄居 `model/facade/system_settings.rs`，卻被 `model/facade/sys_user_role.rs` 跨模組消費——A 檔的測試件被 B 檔取用、耦合方向不自然；成因＝002-system-settings 單元 U8b 當時的允許檔清單所限，碼中已註明取捨。處置＝遷至 facade 層的共用測試件位置｜第三個消費者出現時
+- B-053｜`/auth/error` demo 端點於 rust-api 兌現——base-web fork 原版兩張 demo 頁（`views/function/request/index.vue`／`views/alova/request/index.vue`）經 `fetchCustomBackendError(code, msg)` 呼叫 `GET /auth/error`，003-auth-session 之 16 條 ROUTES 不含此端點、按鈕點擊得 4040＋`system.notFound` 屬已知態（依憲法 §I.1「v1 從簡只能是交付排程」走排程錨、非設計範圍縮減）。★前置衝突（非工期）：該端點契約＝回吐 client 任意 `code` 與 `msg`，而 demo 字面含保留碼 `9999`（「後端從不發出」由 `error.rs` 兩處 `no_variant` 陣列＋`envelope.rs` 之 `compile_fail` doctest 三錨釘死；`Res` 三欄非 pub、合法出口僅 `Res::ok`／`Res::from_err`）、`msg` 又是 `$t()` 已在地化人話（違 §I.3「msg 載穩定 i18n key」、並破 msg-dict 之後端實發 13＋前端白名單 9＝22 算術）⇒ 兌現須先走 §I.3 Amendment 決「保留碼是否開特例」與「msg 是否開 echo 通道」，兩者皆屬 13 碼矩陣凍結面｜demo／B-018 前端刀，或下一把觸及 wire 例外集的刀
