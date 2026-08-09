@@ -119,7 +119,7 @@ rev4:ADR 0029／0033／0040 結論已透過 K1 摘要與實碼消化（原文在
 | crate | 釘版 | 第一源（rev4 Cargo.toml／lock，兩者一致） | 第二源 | features |
 |---|---|---|---|---|
 | `argon2` | 0.5.3 | ✅ | 本機不可達（見下） | default（含 PHC 解析） |
-| `captcha` | 1.0.0 | ✅ | 本機不可達（rev4 註記：rev4:ADR 0037 §G.22 拍板） | default |
+| `captcha` | 1.0.0 | ✅ | 本機不可達（rev4 註記：rev4:ADR 0037 §G.22 拍板） | `default-features = false`（★關掉唯一可關的 `audio`——其 manifest `default = ["audio"]`、audio 只拖進 `hound` WAV 編碼器；本刀只出圖形題、零音訊面。圖形路徑所需的 `image`／`lodepng`／`base64`／`rand`／`serde_json` 皆非 optional、不隨開關變動） |
 | `hex` | 0.4.3 | ✅ | **rev5 `Cargo.lock` 既存同版**（零 lock 圖變動） | default |
 | `jsonwebtoken` | 10.4.0 | ✅ | 本機不可達（rev4 註記：user 2026-07-05 拍板） | `default-features = false`＋**`rust_crypto`**（★漏開＝decode 執行期 panic、非編譯錯） |
 | `redis` | 1.3.0 | ✅ | 本機不可達（rev4 註記：user 2026-07-06 拍板、當時 crates.io latest stable） | `default-features = false`＋`connection-manager`＋`tokio-comp` |
@@ -127,8 +127,8 @@ rev4:ADR 0029／0033／0040 結論已透過 K1 摘要與實碼消化（原文在
 
 **Decision**：六支全採 rev4 已驗證組合值。**第二源（crates.io latest stable）於本機不可達**
 （沿本 repo 既有先例＝`log = "0.4.33"` 條目自書「第二源於本機不可達（HTTP 403），已揭露後由
-user 拍板採 lockfile 值」）——本刀依同一處置：research 明示揭露、不默默釘版。lock 成長估
-441→約 484 名（+10%），`captcha` 為相依成長最大宗。
+user 拍板採 lockfile 值」）——本刀依同一處置：research 明示揭露、不默默釘版。lock 成長**實測
+441→484 名**（+43／+10%），`captcha` 為相依成長最大宗；關掉 `audio` 後少一支 `hound`（未關為 485）。
 
 ★同批須改寫的三處舊拍板註解（否則 manifest 已改而註解仍宣稱不引、review 必擋）：
 root `Cargo.toml:11-12`「★不引 argon2」／`server/Cargo.toml:1-4` 不進清單（移出前六支、後六支
