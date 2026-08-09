@@ -31,3 +31,8 @@
 | 0026 | accepted | 2026-08-09 | gate2 seed normalize 擴入「環境相依噪音」族——版本行剝除＋Owner 值正規化，配 owner 一致性補償守門 | — | — | — |
 | 0027 | accepted | 2026-08-09 | dev 驗收入口統一為 http://127.0.0.1:22080——curl 與瀏覽器全程鎖同一 origin | — | — | — |
 | 0028 | accepted | 2026-08-09 | 憲法 Amendment 1.2.0→1.3.0——§III.2 首批四條 ★ 軌道八用途授權＋§I.7 首批五座行為島入憲 | — | — | — |
+| 0029 | accepted | 2026-08-09 | AppState 兩欄→五欄翻案——加 jwt／cache／captcha_secret，ip_rules／trust_model／mailer 續留域外 | — | — | — |
+| 0030 | accepted | 2026-08-09 | ADR 0021 §3 射程收窄——app.d.ts backend 型節本刀提前，LangType／locale 註冊／zh-tw.ts 標型重構仍延後 | — | — | — |
+| 0031 | accepted | 2026-08-09 | 動詞不符回 4040＋HTTP 404——B-047 兩候選取①，正面處置「13 碼矩陣無動詞不符語意」的張力 | — | — | — |
+| 0032 | accepted | 2026-08-09 | root Cargo.toml「不引 argon2」翻案——引入六支 auth 依賴，後六支續留域外 | — | — | — |
+| 0033 | accepted | 2026-08-09 | 003-auth-session 已知態集五項（by-design／排程錨，非缺陷） | — | — | — |

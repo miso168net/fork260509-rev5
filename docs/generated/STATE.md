@@ -9,7 +9,7 @@
 - 版本：1.3.0
 
 ## 帳面統計
-- ADR：28（accepted 28）
+- ADR：33（accepted 33）
 - BACKLOG 待辦：24（next：B-054）｜滯後：1
 - LESSONS：14 筆（next：L-015）
 - events：22 筆（feature_close 2、misc 20）
