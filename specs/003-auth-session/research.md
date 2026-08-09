@@ -181,9 +181,18 @@ rev4 的 `throttle_hll_*` 兩支不做。
    early-return，handler 永不觸及故免 DB；本刀 9 條 Public 會**真的進 handler**，其中
    `/route/getConstantRoutes` 查 sys_menu，而 stub 的 `DatabaseConnection::Disconnected` 在
    `Select::all` 呼 `get_database_backend()` 時**直接 panic**（非回 DbErr）。
-   **Decision**：改用 sea-orm `mock` feature 的 `MockDatabase::new(DbBackend::Postgres)
-   .into_connection()`（產出真 `DatabaseConnection`、查詢回空集不 panic；沿既有 sea-orm 版本、
-   零新外部 crate）。七條 POST route 各需自訂 rejection→信封（沿 002 `from_request` 形）；
+   **Decision（★2026-08-09 修訂，ADR 0034）**：改用 `ConnectOptions::connect_lazy(true)` 建的
+   假連線（`Database::connect` 走 sqlx `connect_lazy_with`、不 await 不連線，直接回真
+   `DatabaseConnection`；`get_database_backend()` 回 `Postgres` 故不 panic，查詢時才失敗成
+   `DbErr`）。★URL MUST 不帶 `user:pass@`（會命中 betterleaks 的 DSN 規則、被子庫 pre-commit
+   硬擋）。**原案（sea-orm `mock` feature 的 `MockDatabase`）經實證不可行**：
+   `sea-orm-1.1.20/src/database/db_connection.rs:19` 為
+   `#[cfg_attr(not(feature = "mock"), derive(Clone))]`——開 `mock` 即拔掉
+   `DatabaseConnection: Clone`，而 axum `State` 要求 `AppState: Clone`（實測 `E0277`），
+   且 cargo 對整個 test 建置圖做 feature 聯集、放 dev-dependencies 亦無效。
+   ★連帶約束：stub 查詢回 `DbErr` 而非空集 ⇒ **contract case 只能斷言三欄信封與 13 碼矩陣成員、
+   不得斷言 `code == "0000"` 或空集 data**（業務內容歸 integration 測）。
+   七條 POST route 各需自訂 rejection→信封（沿 002 `from_request` 形）；
    `/auth/loginCaptcha` 的 Query rejection 亦須成三欄信封（FR-003 的 1000 同形閘）。
 2. **★`dev_identity.rs` 汰換會弄紅兩支 lint**：該檔被硬編進 `authz_entrypoint_lint.rs:207-223`
    與 `entity_access_lint.rs:217-231` 的 `scan_is_non_empty` must-list。刪檔單元必須同批把該列

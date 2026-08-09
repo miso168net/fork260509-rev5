@@ -104,10 +104,13 @@ description: "Task list for 003-auth-session"
   boot 建連失敗即 fail-loud panic 不靜默退 None）＋`rust-api/server/src/main.rs` boot 鏈接線。
   **DoD：先紅後綠**
 - [ ] T007 `rust-api/server/tests/common/mod.rs` 的 `stub_state` 同步五欄，並★**把 stub 連線由
-  `DatabaseConnection::Disconnected` 換成 sea-orm `mock` feature 之
-  `MockDatabase::new(DbBackend::Postgres).into_connection()`**（research R7-1：`Disconnected` 在
-  `Select::all` 呼 `get_database_backend()` 直接 panic，而本刀 9 條 Public route 會真的進
-  handler）；`rust-api/server/src/router.rs` 內的 stub_state 亦同步。
+  `DatabaseConnection::Disconnected` 換成 `ConnectOptions::connect_lazy(true)` 的假連線**
+  （research R7-1 修訂版／**ADR 0034**：`Disconnected` 在 `Select::all` 呼
+  `get_database_backend()` 直接 panic，而本刀 9 條 Public route 會真的進 handler；
+  ★原訂之 sea-orm `mock` feature 方案經實證不可行——開 `mock` 會拔掉
+  `DatabaseConnection: Clone`、而 axum `State` 要求 `AppState: Clone`）；
+  ★URL 不得帶 `user:pass@`（命中 betterleaks DSN 規則）；
+  `rust-api/server/src/router.rs` 內的 stub_state 亦同步。
   **DoD：既有 4 case contract 測仍全綠**
 - [ ] T008 [P] `rust-api/server/src/cache/mod.rs` 新建（★同批於 `rust-api/server/src/lib.rs` 加
   `pub mod cache;`，否則整模組編譯不進 crate）：`SessionCache` 型別別名＋`connect`＋
@@ -616,7 +619,7 @@ fix 迴圈 → code-quality review → fix 迴圈），依 CLAUDE.md §2 防呆�
 |---|---|---|
 | U-A ★主線 | T001~T003 | `docs/arc42/decisions/`、`.specify/memory/constitution.md` |
 | U-B | T004~T005 | 兩份 `Cargo.toml`、`config.rs`、`state.rs`（僅註解） |
-| U-C | T006~T009 | `state.rs`、`main.rs`、★`lib.rs`、★`auth/mod.rs`、`tests/common/mod.rs`、`cache/mod.rs`、`auth/jwt.rs` |
+| U-C | T006~T009 | `state.rs`、`main.rs`、★`lib.rs`、★`auth/mod.rs`、`tests/common/mod.rs`、`cache/mod.rs`、`auth/jwt.rs`、★`router.rs`（僅其 `mod tests` 的第二份 stub_state）、★`handler/system_settings.rs`（僅其 `real_app()` 的第 4 個 `AppState` 建構點） |
 | U-D | T010 | `error.rs`、`zh-tw.ts` |
 | U-E | T011~T014 | `facade/{sys_token,mod}.rs`、`auth/{enforce,mod}.rs`、`dev_identity.rs`(刪)、兩支 lint、`router.rs`、`contract.rs`、`obs.rs`、`ARCHITECTURE.md`、★`handler/system_settings.rs`（dev-super 遷移的唯一散布點、51 處） |
 | U-F | T015~T017 | `request_context.rs`、`model/{password,mod}.rs`（★`test_db` 落 `model/mod.rs`、非 `tests/common`） |

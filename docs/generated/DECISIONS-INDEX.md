@@ -36,3 +36,4 @@
 | 0031 | accepted | 2026-08-09 | 動詞不符回 4040＋HTTP 404——B-047 兩候選取①，正面處置「13 碼矩陣無動詞不符語意」的張力 | — | — | — |
 | 0032 | accepted | 2026-08-09 | root Cargo.toml「不引 argon2」翻案——引入六支 auth 依賴，後六支續留域外 | — | — | — |
 | 0033 | accepted | 2026-08-09 | 003-auth-session 已知態集五項（by-design／排程錨，非缺陷） | — | — | — |
+| 0034 | accepted | 2026-08-09 | contract 測 stub 連線改用 connect_lazy 假連線——research R7-1 的 MockDatabase 方案經實證不可行 | — | — | — |
