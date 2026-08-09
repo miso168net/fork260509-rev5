@@ -96,7 +96,7 @@ rev4:ADR 0029／0033／0040 結論已透過 K1 摘要與實碼消化（原文在
 
 | # | rev4 行為 | rev5 拍板 | 出處 |
 |---|---|---|---|
-| R3-1 | 模組名 `crate::redis`（與 extern crate 同名、全檔 `::redis::` 消歧） | 模組名 `cache`；消歧包袱消滅，**註解不得帶回消歧理由** | brainstorm §1 工程判斷① |
+| R3-1 | 模組名 `crate::redis`（與 extern crate 同名、全檔 `::redis::` 消歧） | 模組名 `cache`；消歧包袱消滅，**註解不得帶回消歧理由**。★同型張力於 `captcha` 處**未消滅而是明文規則化**（本刀新引 crate `captcha 1.0.0` ＋模組 `crate::captcha`）：`cache` 之於 `redis` 有語意更準的替代名，`captcha` 沒有 ⇒ 保留模組名、改以「本檔前導 `::`／他處 `crate::`／`lib.rs` 絕不裸寫」三條規則＋檔頭碼註承載（見 tasks T052） | brainstorm §1 工程判斷①；analyze 補 |
 | R3-2 | `GRACE_TTL_SECS = 10` | **30 秒**（前端最壞換發間隔 ~11s） | Clarify Q1 |
 | R3-3 | IP 維節流（rev4:008-ip-gate）／HLL 廣度（rev4:016 觀測刀）／`suppressed_breadcrumb` | 一律不做；`precheck` 簽名去 real_ip／ip_allow 參數位 | spec FR-015、Out of Scope |
 | R3-4 | `auth.login.locked`／`auth.login.captchaRequired` | `biz.auth.locked`／`biz.auth.captchaRequired`（Biz 構造點鍵走 `biz.<domain>.<case>`） | spec FR-025 |

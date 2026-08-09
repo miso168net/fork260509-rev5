@@ -396,10 +396,16 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   （`nonce`／`user_name`／`exp`／`ans_mac`；★不設 rev4 的 `ctx` 欄＝R3-5）＋`sign`／
   `verify_challenge`＋`answer_mac`＝`hex(SHA256(secret ‖ nonce ‖ lower(answer)))`（★秘鑰參與
   雜湊⇒答案不可離線還原）＋產圖（`captcha 1.0.0`）＋★字元集 34 字（小寫 a-z 去 `o`＋數字去 `0`）
-  ＋**字型涵蓋測試**（★字集含 `0`/`o` 會因內嵌字型無 glyph 靜默跳過、產約 20% 廢題）
+  ＋**字型涵蓋測試**（★字集含 `0`/`o` 會因內嵌字型無 glyph 靜默跳過、產約 20% 廢題）。
+  ★★**撞名消歧規則（下筆前必讀）**：本模組名 `captcha` 與**外部 crate** `captcha 1.0.0` 同名、
+  共用第一路徑段，寫錯會拿到「另一個 captcha」或撞 E0659：①本檔內取外部 crate 一律**前導 `::`**
+  （`use ::captcha::{Captcha, Difficulty};`），不得寫裸 `use captcha::…` ②他處取本模組一律
+  `crate::captcha::` ③`lib.rs` 內**絕不**寫裸 `captcha::` 路徑（crate 根同時存在同名模組與 extern
+  crate，是唯一必然 ambiguous 之處）④檔頭加碼註釘住此規則：「裸 `captcha::` 在兩處指向相反」
 - [ ] T053 [P] [US4] `rust-api/server/src/handler/captcha.rs` 新建（★同批於
   `rust-api/server/src/handler/mod.rs` 加 `pub mod captcha;`）：`/auth/loginCaptcha`——
-  ★必帶 `?userName=`；對**任意** userName 一律發題（含不存在帳號＝零存在性查詢與洩漏）；
+  ★本檔取產圖／簽題模組一律 `crate::captcha::`（裸 `captcha::` 會解析到外部 crate——見 T052 之
+  撞名消歧規則）。★必帶 `?userName=`；對**任意** userName 一律發題（含不存在帳號＝零洩漏）；
   userName 超限走與登入端點**同形**的 `1000` 閘（零新碼零新 key）；產圖／簽章內部失敗→`5000`
 - [ ] T054 [US4] `rust-api/server/src/handler/auth/login.rs` 補步驟①②：①輸入形制閘
   （超限→`1000`、★零稽核列零 argon2 不消耗計數桶）②`throttle::precheck`（★以 `?` 早退＝構造上
@@ -497,7 +503,9 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 - [ ] T071 [P] B-050／B-051 順手收：`test_kit`（capture＋FailingConn）由
   `rust-api/server/src/model/facade/system_settings.rs` 遷至
   `rust-api/server/src/model/facade/mod.rs`（★門檻「第三個消費者」須**真消費**才成立——至少一支
-  本刀新 facade 的測試實際使用 `test_kit::FailingConn` 驗 DbErr 落地）＋為
+  本刀**六支**新 facade 之一的測試實際使用 `test_kit::FailingConn` 驗 DbErr 落地；★T015 的
+  `test_db` 是**另一支**、本刀專用、不與 `test_kit` 合併，故 B-051 的門檻語意不被稀釋成無門檻
+  重構）＋為
   `sys_user_role::roles_of_user` 次段查詢的 DbErr 落地補獨立機器守
 - [ ] T072 非 vacuous 自證收攏（ADR 0024）逐項確認在案：軌道名名冊（三重）／captcha 字型涵蓋
   ＋產圖失敗 5000 出口／msg-dict 兩語鍵集（含 Biz 三新鍵走 contract case 逐鍵斷言）／
@@ -622,7 +630,21 @@ fix 迴圈 → code-quality review → fix 迴圈），依 CLAUDE.md §2 防呆�
 `handler/auth/mod.rs`、`facade/mod.rs`、dev-super 散布點）——漏列即 fix agent 撞清單外檔而 blocked
 （防呆⑥「清單只縮不擴」）。單元數 14→**13**（U-G 併吞原 U-H）。
 
-主線例行只在單元邊界醒：復核 → load-bearing 自驗 → bump submodule pin → 啟下一支。
+★**`facade/mod.rs` 的註冊行由六支新 facade 分批追加**（不是四支）：U-E 加 `sys_token`／U-G 加
+`sys_login_attempt`、`sys_menu`、`sys_role`、`sys_user` 四行／U-J 加 `session_event`；終態八行須
+**嚴格 ASCII 升冪**（★`sys_user_role` 在 `system_settings` **之前**，因 `_`(0x5f) < `t`(0x74)）。
+同批改寫該檔檔頭 doc 之「本刀只開兩支」（002 開兩支＋003 補六支＝八支、一張表配一支模組不變）。
+
+★**單元邊界 commit 恆含機器生成物**（主線動作、不入 agent 允許檔清單）：外層 pre-commit 無條件跑
+`docs-sync.py check`，而 `STATE.md` 的 pins 行由**外層 index 的 submodule gitlink** 重算、
+`routes.md` 由 `ROUTES` const 重算 ⇒ **每次 pin bump 都讓 STATE.md 過期、每次加 route 都讓
+routes.md 過期**，漏帶即 Lint01 當場擋（實例：本刀 Batch 1 的 BACKLOG 新增即當場觸發）。故單元
+邊界一律：`docs-sync.py generate` → `git add` 生成物 → 與 pin 同一顆外層 commit。對照面＝
+pin bump ⇒ `docs/generated/STATE.md`；ROUTES 增列 ⇒ 併 `docs/generated/reference/routes.md`；
+BACKLOG／LESSONS／ADR 增列 ⇒ 併 `STATE.md`＋`docs/generated/DECISIONS-INDEX.md`。
+
+主線例行只在單元邊界醒：復核 → load-bearing 自驗 → generate＋git add 生成物 → bump submodule
+pin → 啟下一支。
 
 ### MVP First
 
