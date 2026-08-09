@@ -60,10 +60,17 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   （`tools/entity-drift-gate.py` 守恆；其中 `casbin_rule` 委派 adapter 建基底、不入比對面，
   故實比對 14 表）；ORM 關聯與行為層紀律見 §8 資料慣例。
 - **server crate 管線形**（請求單向流）：router（`ROUTES` 註冊表＝路徑／method／handler／
-  授權態單一來源）→enforce_mw（驗證器 middleware：dev 建置查表 `dev_identity`、release
-  建置編譯期 fail-closed 恆拒）→require_policy（逐路由授權層：每請求 DB-fresh 撈角色→
-  casbin 求值）→handler→validation registry（設定值型驗證）→model/facade（entity 存取
-  唯一管道、`entity_access_lint` 守恆）→DB→envelope（`Res` 三欄信封；/health、/metrics
+  授權態單一來源；動詞不符由 `method_not_allowed_fallback` 收斂為 4040＋HTTP 404，末端
+  外殼再剝除 axum 自動附加的 `allow` 標頭——信封與標頭兩面皆與未註冊路徑不可區分＝零
+  存在性洩漏，組裝次序載於 ADR 0031、剝除掛點論證見 router.rs 碼註）→enforce_mw（真驗章
+  middleware：HS256 access 驗章〔三分碼——缺席・非 Bearer・簽章不符→8888、僅 exp 過期
+  →3333、通過即解出 Claims〕→denylist 查〔redis 加速層、`sys_token.status` 為權威；命中
+  即拒——被踢→7777 modal、其餘（已撤銷）→8888 silent；redis 故障退 PG
+  `has_active_in_chain` fail-closed、PG 亦故障視為無 active 絕不盲放〕→放行後
+  best-effort 推進 last_activity；dev-only 查表驗證器已汰換、debug 與 release 同一路）→
+  require_policy（逐路由授權層：每請求 DB-fresh 撈角色→casbin 求值）→handler→
+  validation registry（設定值型驗證）→model/facade（entity 存取唯一管道、
+  `entity_access_lint` 守恆）→DB→envelope（`Res` 三欄信封；/health、/metrics
   為登記在冊信封例外）。
 
 ## §6 Runtime
