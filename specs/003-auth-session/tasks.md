@@ -495,7 +495,9 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   錯誤，並**同時**強制「修改型同行必含 `[rev5-inline` token」（現行漏洞：任何含 `原行:` 的行都
   算已記錄）④改造既有 self-test 四條樣本（B／I／L／R——皆修改型且軌道名不在名冊）＋補成對樣本
   （名冊內過／名冊外攔）⑤★**兩條**非空斷言（名冊整體非空 ＋ §III.2 ★段貢獻列數 ≥ 4）＋
-  「承襲指針散文六名不在名冊」反例＋「真 repo 至少一個修改型對象被檢查」結構性自證。
+  「承襲指針散文中**本刀不開的兩名**（`MODAL-WIRING`／`BASE-WEB-DEVPROXY-WIRING`）不在名冊」反例
+  （★不可寫「六名」——Amendment 後六名中四名正式在冊、該斷言必然不成立）＋「真 repo 至少一個
+  修改型對象被檢查」結構性自證。
   **DoD：self-test 全綠＋抽掉任一合法軌道名即紅指名**
 - [ ] T070 [P] ROUTES 終態機器核對：`python3 tools/docs-sync.py generate` 後
   `docs/generated/reference/routes.md` 恰 **16 列**（表頭外）；★確認 16 條皆為「每欄一行」形制、
