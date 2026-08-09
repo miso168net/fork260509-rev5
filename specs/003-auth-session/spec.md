@@ -185,7 +185,7 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 ### User Story 5 - 替代登入四流程誠實 stub＋錯誤訊息顯人話 (Priority: P3)
 
 作為使用者，當我嘗試手機驗證碼登入／註冊／重設密碼等尚未開放的流程時，得到明確的「該功能
-暫未開放」提示（而非假成功）；且所有錯誤／狀態提示以我的介面語言顯示人話，而非後端識別字。
+尚未開放」提示（而非假成功）；且所有錯誤／狀態提示以我的介面語言顯示人話，而非後端識別字。
 
 **Why this priority**: 誠實 stub 消滅 upstream 三張表單的假成功（安全誤導）；i18n 前端轉譯
 兌現「錯誤訊息顯人話」的交付價值。依賴 US1～US4 產生的 msg key 但可獨立驗收提示文案。
@@ -196,7 +196,8 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 **Acceptance Scenarios**:
 
 1. **Given** upstream 三張表單（code-login／register／reset-pwd），**When** 送出，**Then** 打
-   後端 stub 回 `2222 biz.auth.notSupported`、UI 顯示「該功能暫未開放」人話（非假成功 toast）。
+   後端 stub 回 `2222 biz.auth.notSupported`、UI 顯示「該功能尚未開放」人話（非假成功 toast）
+   ——★繁中字面以 `contracts/msg-keys.md` 為權威（該欄逐字落進 `zh-tw.ts` 與生成字典）。
 2. **Given** 後端回任一業務碼（如 `biz.auth.captchaRequired`／`auth.login.failed`），**When**
    前端顯示，**Then** 經 `$t` 轉譯為當前語系人話（zh-CN 顯簡中／en-US 顯英文）、未命中鍵才
    graceful fallback 回原文。
@@ -258,6 +259,15 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   ★不重跑 argon2）⑥讀 `session_idle_timeout` 套 TTL（缺失→`5000` 不猜值）⑦生新 sid＋簽對
   ⑧sys_token insert ⑨single-session 判定＋逐 sid `session_event(kicked)`＋寫 session_id
   ⑩稽核成功列同 txn ⑪commit 後 best-effort 進 denylist＋last_activity 起點。
+  ★第⑥步之 TTL 公式（規範，非假設）：`access = min(300, N×60/2)`／`refresh = N×60 + access`
+  （N＝`session_idle_timeout` 分鐘）；seed N=60 ⇒ access 300s／refresh 3900s／idle 門檻 3600s。
+  ★**稽核列寫入點恰三處**（本條為 FR-014「滑動窗為權威」的資料來源，缺此則三區節流永不觸發）：
+  ①`authenticate` Denied（外層 conn；uid 可為 None＝帳號查無）②鎖內重驗失敗（★先
+  `txn.rollback()` 再落列於**外層 conn**，否則隨 txn 回滾）③成功（落 txn 內、與建會話原子）。
+  **不落列四類**：形制閘超限（第①步）／節流三個拒絕分支（第②步以 `?` 早退、構造上零寫入）／
+  captcha 缺錯過期重放／`5000` 配置與內部異常。寫入為 best-effort：失敗只發
+  `degraded=db_write` 告警、不改登入回應——★但等於計數斷供（該帳號永不鎖亦永不 captcha），
+  故 MUST 可觀測（FR-034）。
 - **FR-005**: single-session 判定（第⑨步）MUST 為**兩層政策解析**：`effective_single =
   session_policy=='single' || (session_policy=='inherit' && single_session_default==on)`；
   `sys_user.session_policy` 值域＝{single, multi, inherit}（碼層收斂＋值域測試守、不加 CHECK
@@ -329,7 +339,8 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   要求，否則把合法使用者鎖在門外；密碼錯仍照常計數、摩擦力不歸零）②redis 連得上但單次 SET NX
   瞬斷→**拒但零計數不罰**（若放行，攻擊者附偽造 captchaId 即可在瞬斷窗通關＝降級恰好只放行
   對抗性流量）。★captcha 缺／錯／過期／重放一律 `2222 biz.auth.captchaRequired` 且**零稽核列
-  零計數桶**——答錯不推進鎖定，但該題已耗須重取。
+  零計數桶**——答錯不推進鎖定，但該題已耗須重取。★題目有效期＝**300 秒**（規範，非假設；
+  `CaptchaClaims.exp` 與 redis nonce-used 標記 TTL 同值，確保「題失效前重放必被擋」）。
 - **FR-017**: captcha 字元集 MUST 為 34 字（小寫 a-z 去 `o`＋數字去 `0`）、題長 4（34⁴≥10⁶）
   ——產圖 crate 內嵌字型排除混淆字且對無 glyph 字元靜默跳過，字集含 `0`/`o` 產約 20% 廢題。
   答對但登入失敗時前端自動換題。
@@ -368,8 +379,10 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 - **FR-023**: `AppError` MUST 由 6→9 變體（加 `LoginFailed` 1000／`TokenExpired` 3333／
   `ModalLogout` 7777；`Biz(Cow)` 已存在故三新 Biz 構造點不需新變體）。碼表終形＝9 可發＋4
   保留（7778/8889/9998/9999）＝13；`issuable_six_and_no_variant_seven` 測試 MUST 改斷言此對應
-  （四處同批：函式名／matrix() sample／issuable_witness 窮舉臂／no_variant 陣列——漏一即編譯
-  紅或恆綠）。
+  （★**六處**同批〔原稿誤記四處、實碼核實為六〕：①函式名改九可發語意 ②計數斷言 6→9
+  ③期望陣列收成四保留碼 ④`matrix()` 補三列 sample ⑤`issuable_witness` 窮舉臂補三臂（不補＝
+  編譯紅）⑥`witness_aligns_matrix_and_excludes_no_variant_codes` 內**第二份** `no_variant`
+  陣列同步——漏一即編譯紅或恆綠）。
 - **FR-024**: 新變體 HTTP 映射 MUST 落 `_ => StatusCode::OK` 臂（1000／2222／3333／7777／8888
   皆 HTTP 200）；僅 `4040`→404、`5003`→403（非 2xx 會吞信封、3333 配 401 則自動 refresh 靜默
   失效）。B-047：build() MUST 新增第二道 `method_not_allowed_fallback` 回 `AppError::NotFound`
@@ -384,7 +397,10 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   `auth.session.kicked`；既有 `auth.session.reLogin`＝8888 現行鍵不動、★勿漏）；Biz 構造點鍵
   走 `biz.auth.{notSupported,captchaRequired,locked}`（後兩者為 rev5 對 rev4 `auth.login.*` 的
   命名正規化——前端 captcha 軟區判斷式拿 msg 字面比對區分兩態、須用新名）。Biz 三新鍵不在
-  Lint24 抽取面（只抽 fn key() match 臂），機器守＝msg-dict 兩語鍵集閘＋contract case 逐鍵。
+  Lint24 抽取面**之內**（★原稿誤記為「不在抽取面」——實碼核實該閘抽三面：①`Biz`／`BizData`
+  構造點字面 ②名冊常數間接形 ③`error.rs` 之 `fn key()` match 臂），故三個 Biz 鍵 MUST 以
+  `Cow::Borrowed("字面")` 構造——**非字面即 fail-loud**（防恆綠洞）；msg-dict 兩語鍵集閘與
+  contract case 逐鍵斷言為補強、非唯一守。
 - **FR-026**: i18n 前端轉譯（★BASE-WEB-I18N-WIRING 三用途、甲案 rev4 全形）MUST：(i) request
   層 modal content＋showErrorMsg 鏈改走 `translateBackendMsg`（`$t(\`backend.${msg}\`, msg)`
   原文 fallback、detail 值連帶轉譯）／(ii) en-us.ts＋zh-cn.ts 插 backend 樹（22 鍵＝既有 16＋
@@ -466,7 +482,10 @@ upstream 熱檔零 fork-delta（rebase 衝突面不擴）」的顧慮；本刀�
   ∈ 該軌道授權用途集。
 - **FR-031**: 名冊斷言 MUST fail-loud＋非 vacuous：首次跨界讀 `.specify/memory/constitution.md`
   ——檔缺席／名冊掃空＝die（絕不退空名冊全放行）；self-test 加成對樣本（名冊內過／名冊外攔）
-  ＋「名冊非空」斷言＋「承襲指針散文六名不在名冊」反例（避免半 vacuous 放行三條不開軌道）；
+  ＋**兩條**非空斷言（名冊整體非空 ＋ §III.2 ★段貢獻列數 ≥4——單一條不足：§III.2 表若被刪或掃描
+  錨打錯，§III.1 三名仍在、名冊仍非空而整段失守）＋「承襲指針散文中**本刀不開的兩名**
+  （`MODAL-WIRING`／`BASE-WEB-DEVPROXY-WIRING`）不在名冊」反例（★原稿誤記「六名」——Amendment
+  後六名中四名正式在冊，該反例必然不成立）；
   既有 self-test 名冊外合成名（UI／DEP）須同批改造；結構性 vacuous 護欄＝自證含「真 repo 至少
   一修改型對象被檢查」（現況 base-web vs 基線僅三新增檔＝今日實掃修改型對象為零）。
 
@@ -530,6 +549,8 @@ upstream 熱檔零 fork-delta（rebase 衝突面不擴）」的顧慮；本刀�
   （denylist TTL＝refresh 全壽命）；redis 缺 denylist 的 revoked 列靜默 `8888` 不落假 reuse。
 - **SC-004**: 節流三區全數正確——<2 自由／2–4 `captchaRequired`／≥5 `locked`；軟區與鎖定皆
   argon2 前擋、零稽核列零計數桶（以「拒絕後成功登入仍可」證明不消耗桶）；成功／unlock 重置窗。
+  ★正向可測斷言（FR-004 第⑩步之資料來源）：連續失敗 N 次（N＜captcha_after）後，該帳號窗內
+  `success=false` 列數恰為 N；★軟區拒絕後再數一次，列數**不變**（證明零計數桶）。
 - **SC-005**: captcha 全數正確——任意 userName（含不存在）發題、userName 超限 `1000`、產圖失敗
   `5000`、答對密碼錯自動換題、答錯不推進鎖定但該題作廢、nonce 重放第二次拒；**兩層降級各一案**
   ：redis 整體不可用→軟區要求停用且密碼錯仍計數／單次標記寫入瞬斷→拒但計數桶不進。
@@ -537,12 +558,13 @@ upstream 熱檔零 fork-delta（rebase 衝突面不擴）」的顧慮；本刀�
   getConstantRoutes 濾 constant=TRUE（現 `[]`）、前端合併保留 5 條 builtin 常量路由。
 - **SC-007**: 替代登入四流程恆 `2222 biz.auth.notSupported`、三表單無假成功 toast；i18n 三語
   backend 樹鍵集相等（22 鍵）、UI 顯人話（zh-CN 簡中／en-US 英文）、7777 modal 顯人話非裸鍵。
-- **SC-008**: 碼表與契約自證——碼表 9 可發＋4 保留＝13、`issuable_*` 斷言四處一致；method 不符
+- **SC-008**: 碼表與契約自證——碼表 9 可發＋4 保留＝13、`issuable_*` 斷言**六處**一致；method 不符
   回 `4040`＋HTTP 404、動詞探測閘裸掛自證在案；3333／7777 映射 HTTP 200 自證；refresh 驗章失
   敗→8888 紅綠測；contract case 4→16、雙向覆蓋閘無缺 case／殭屍 case（四支同形 stub 有區別
   手法）；denylist TTL 兩 reason 皆 refresh_secs 自證。
 - **SC-009**: 憲法與機器守——Amendment bump 1.3.0（四 ★ 軌道＋§I.7 五座島）；fork-delta-lint
-  名冊斷言非 vacuous（名冊空集 die、承襲指針六名反例、真 repo 至少一修改型對象被檢查、既有
+  名冊斷言非 vacuous（名冊空集 die、§III.2 ★段列數 ≥4、承襲指針**不開兩名**反例、真 repo 至少
+  一修改型對象被檢查、既有
   BACKEND-MSG-DICT+ 不誤攔）；gen.msg_dict 豁免拔項＋backend-msg-dict.md 首次生成。
 - **SC-010**: 靜默降級變得看得見——三類降級（設定鍵缺失退預設／redis 不可用退資料庫／節流軟區
   命中）各有獨立可量測訊號，且服務啟動後即帶基線值（不因「事件尚未發生」而整條訊號缺席，
@@ -560,8 +582,7 @@ upstream 熱檔零 fork-delta（rebase 衝突面不擴）」的顧慮；本刀�
 - **home 多角色收斂律＝沿 rev4 已驗證規則**（Clarify 定案）：啟用角色（status=1）依 role id
   升冪、取首個非空 `role_home`，全空→預設 `home`；規則由碼註釘住＋一支合成多角色測試守
   （seed 三角色 role_home 同值＝'home'、機器測不出分歧）。
-- **TTL 公式沿 rev4**：`access=min(300, N×60/2)`／`refresh=N×60+access`（N＝session_idle_timeout
-  分鐘）；plan 期複核係數。
+- **TTL 公式**已升為規範（FR-004 第⑥步逐字載明），本節不再重述——沿 rev4 且 plan 期複核完成。
 - **ip_confidence 字面**＝`nginx_peer`（snake_case、rev5 新字面）；B-019 接手時與 rev4 七態合併
   治理。
 - **captcha 產圖 crate**＝`captcha 1.0.0`（rev4 釘版）；rev5 CaptchaClaims 單語境不設 ctx 欄

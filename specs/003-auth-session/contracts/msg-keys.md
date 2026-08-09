@@ -37,7 +37,7 @@
 
 | 閘 | 規則 | 本刀動作 |
 |---|---|---|
-| Lint24 後端抽取面 | 抽 `error.rs` 之 `fn key()` match 臂字面 | 三個固定鍵自動落入；★三個 Biz 鍵**不在**抽取面（Biz 為綁定臂、key 由構造點給定）⇒ 機器守改由「兩語鍵集閘＋contract case 逐鍵斷言」承擔 |
+| Lint24 後端抽取面 | 抽**三面**：①`Biz`／`BizData` 構造點字面 ②名冊常數間接形 ③`error.rs` 之 `fn key()` match 臂 | 三個固定鍵落面③、★三個 Biz 鍵落面①（**原稿誤記為「不在抽取面」**）⇒ Biz 鍵 MUST 以 `Cow::Borrowed("字面")` 構造，**非字面即 fail-loud**（防恆綠洞）；兩語鍵集閘與 contract case 逐鍵為補強、非唯一守 |
 | `compute_msg_dict_rows` | `set(zh) != set(en)` → fail-loud | 22=22 通過；六新鍵須**同 commit** 補進 `zh-tw.ts` 與 `en-us.ts` |
 | `_locales_have_backend_tree` | 對 `MSG_DICT_LOCALES` 兩支逐支要求存在一行 **fullmatch** `\s*backend:\s*\{` | ★插入行必須是獨佔一行的 `  backend: {`（不可 `backend: { common: {` 同行，否則謂詞不成立、豁免不到期、字典不生成） |
 | `DAY1_EXEMPTIONS["gen.msg_dict"]` | 到期即紅 | en-us 一插即謂詞成立 ⇒ **同 commit 拔項**＋跑 `generate`；★拔後成空表，須先驗 `_assert_day1_table`／`DAY1_EXEMPT_SCOPE` 與五處消費點的空表安全 |

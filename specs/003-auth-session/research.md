@@ -112,6 +112,7 @@ rev4:ADR 0029／0033／0040 結論已透過 K1 摘要與實碼消化（原文在
 | R3-14 | dev proxy：保留 `VITE_HTTP_PROXY=Y`＋新增 `VITE_PROXY_TARGET`＋開 DEVPROXY 軌道改 `proxy.ts`／`utils/service.ts` | 翻 `VITE_HTTP_PROXY=N`、**不開 DEVPROXY 軌道**、由 nginx 前置拓樸取代 | spec FR-027 |
 | R3-15 | `app.d.ts` 同批改 LangType＋zh-tw.ts 標型重構 | 只補 `backend` 必填型節；LangType／locale 註冊／zh-tw 標型仍延前端 UI 刀 | ADR 0021 §3 收窄 |
 | R3-16 | 首登強制換密（`sys_pwd_custody`）／email-verify／mailer | 全不做（本刀零改密端點） | Out of Scope |
+| R3-17 | precheck 讀 redis 鍵 `throttle:unlock:user:{name}` 取 unlock marker（值＝unix 秒字串、TTL＝window_secs），並在 GET Err 時發 `degraded=redis_unlock_marker` | **完全不讀 redis**：`unlock_marker_ts` 恆傳 `None`（本刀無解鎖端點＝無寫入者，讀了恆 nil）；`cache` 六支 key builder 不含該鍵、降級 source 集不含 `redis_unlock_marker`。★SQL 參數位保留（`GREATEST` 非 strict、NULL 自然退化為兩源）⇒ 未來解鎖刀補「鍵＋讀取＋label」三件、handler 零改動 | analyze U4／I5 |
 
 ## R4 依賴釘版與雙源核對（CLAUDE.md §6）
 
@@ -145,6 +146,7 @@ root `Cargo.toml:11-12`「★不引 argon2」／`server/Cargo.toml:1-4` 不進�
 | captcha 標記 SET NX 瞬斷（redis 健康） | **fail-closed 不罰** | 拒該次登入、零計數桶 | `throttle_degraded_total{source=redis_captcha}` |
 | redis 整體不可用 | **fail-open** | 軟區 captcha 要求**整層停用**、續驗密碼（驗不了題就不該要求；密碼錯仍計數） | `throttle_degraded_total{source=redis_lock}` |
 | 節流 L2（PG）查詢失敗 | **fail-open ＋ 補償** | `count:=0` 放行 ＋ `captcha_forced = !redis_down`（否則 DB 抖動會同時關閉節流與 captcha）；★`captcha_forced` **不入**軟區計數 | `throttle_degraded_total{source=db_count}` |
+| L1 lock key SET 失敗（redis 健康） | best-effort | 鎖定判定已成立、只是負快取未武裝（下次請求仍由 L2 權威判） | `throttle_degraded_total{source=redis_lock_set}` |
 | 節流設定鍵讀不到 | 退活書常數 | 每次載入**至多一筆**告警（缺三鍵不放大成三筆） | `throttle_degraded_total{source=settings_default}` |
 | 失敗列寫入失敗 | best-effort | 不改登入回應；★但等於計數斷供（該帳號永不鎖亦永不 captcha）故必須可見 | `throttle_degraded_total{source=db_write}` |
 | idle timeout 設定鍵缺失（login 第⑥步） | **fail-loud** | 5000、不猜 TTL 值（與節流方向相反、刻意） | — |
@@ -153,7 +155,9 @@ root `Cargo.toml:11-12`「★不引 argon2」／`server/Cargo.toml:1-4` 不進�
 ## R6 觀測面與 i18n 契約的算術自證
 
 **觀測面（FR-034）**：`obs.rs` 的 `pre_register_metrics` 增三序列（該檔自書「後續刀之新序列各自
-帶 pre-register」）：`throttle_degraded_total`（label `source`＝R5 表列六源）／
+帶 pre-register」）：`throttle_degraded_total`（label `source`＝**R5 表列之六源逐字**，即
+`settings_default`／`redis_lock`／`redis_lock_set`／`redis_captcha`／`db_count`／`db_write`；
+★rev4 user 維為七源，rev5 少 `redis_unlock_marker`——本刀不讀 unlock marker，見 R3-17）／
 `denylist_hit_total`（label `source`＝`redis`｜`pg`）／`throttle_soft_zone_total`（無 label）。
 ★`captcha_forced` 屬 DB 降級旗標、**不計入** `throttle_soft_zone_total`（降級能見度歸
 `throttle_degraded_total`）。降級 warn 一律結構化（`target: "security.throttle"`＋`degraded`
@@ -220,7 +224,8 @@ rev4 的 `throttle_hll_*` 兩支不做。
 
 ★兩條非空斷言（單一條不足）：「名冊整體非空」＋「§III.2 ★ 段貢獻列數 ≥ 4」——因 §III.2 表格
 若被刪或掃描錨打錯，§III.1 三名仍在、名冊仍非空，斷言照跑卻整段失守（半 vacuous）。另保留
-「承襲指針散文六名不在名冊」作為掃描錨正確性的反向自證。
+「承襲指針散文中**本刀不開的兩名**（`MODAL-WIRING`／`BASE-WEB-DEVPROXY-WIRING`）不在名冊」作為
+掃描錨正確性的反向自證——★不可寫「六名」：Amendment 後六名中四名正式在冊，該斷言必然不成立。
 
 **§I.7 五座行為島條文骨架**（MINOR、不抬版號）：token rotation（同鏈至多一 active＋rotate 次序
 不可反＋grace 冪等窗）／single-session（兩層政策解析＋踢除落事件）／denylist 撤銷（status 為

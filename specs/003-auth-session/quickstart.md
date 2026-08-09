@@ -95,26 +95,35 @@ curl -sk "$BASE/auth/getUserInfo" -H "authorization: Bearer $A1" | jq '{code, ms
 ## 4. 節流三區與圖形驗證碼（US4）
 
 ```bash
-# 失敗 1 次 → 仍自由（1000、不要求驗證碼）
-curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
-  -d '{"userName":"Admin","password":"wrong"}' | jq '{code, msg}'
-# 失敗第 2 次起進軟區 → 2222 biz.auth.captchaRequired
-curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
-  -d '{"userName":"Admin","password":"wrong"}' | jq '{code, msg}'
-curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
-  -d '{"userName":"Admin","password":"wrong"}' | jq '{code, msg}'
+# 三區的序數語意（★precheck 讀「當下」窗計數、record_attempt 在 authenticate 之後才推進）：
+#   第 1 次請求 count=0 → 1000（結束後 count=1）／第 2 次 count=1 → 1000（結束後 count=2）
+#   第 3 次起 count=2 ≥ captcha_after(2) → 2222 captchaRequired，且★該路徑零稽核列零計數桶
+#   ⇒ count 永久卡在 2、**locked 在這條路上構造性不可達**（rev4 有專測釘住此性質）
+for i in 1 2 3 4; do
+  curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+    -d '{"userName":"Admin","password":"wrong"}' | jq -c "{n:$i, code, msg}"
+done
 # 發題：對任意 userName 一律發（含不存在帳號＝零存在性洩漏）
 curl -sk "$BASE/auth/loginCaptcha?userName=Admin" | jq '{code, hasImg: (.data.captchaImg|startswith("data:image/png;base64,"))}'
 curl -sk "$BASE/auth/loginCaptcha?userName=ghost-no-such-user" | jq .code
 # userName 超限 → 與登入端點同形的 1000 閘
 curl -sk "$BASE/auth/loginCaptcha?userName=$(printf 'x%.0s' {1..200})" | jq .code
-# 續錯至 ≥5 → 2222 biz.auth.locked（★軟區與鎖定皆 argon2 前擋、零稽核列零計數桶）
+# 鎖定區：直接造窗（★最短路徑；in-band 路徑須人工解題 3 次推進 count 2→5，見下方瀏覽器段）
+#   ★三個必填欄：success／attempted_user_name／real_ip(INET)；可用不存在帳號名（節流判定鍵＝
+#   送出原文、鎖定判定在 authenticate 之前）。★此 INSERT 推進 sys_login_attempt_id_seq，§7 收尾涵蓋
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
+  psql -U postgres -d rev5_admin -c "
+    INSERT INTO sys_login_attempt (success, attempted_user_name, real_ip, created_at)
+    SELECT false, 'lockprobe', '127.0.0.1', now() - interval '30 seconds'
+    FROM generate_series(1,5);"
+curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+  -d '{"userName":"lockprobe","password":"wrong"}' | jq -c '{code, msg}'
 ```
 
-預期：第 1 次 `1000`；第 2、3 次 `2222 biz.auth.captchaRequired`；發題兩次皆 `0000` 且
-`captchaImg` 為 data URI；超限 `1000`；累計 ≥5 後 `2222 biz.auth.locked`。
-瀏覽器：軟區出現 220×120 驗證碼欄；答對但密碼錯 → 自動換新題（★同一張題提交即消耗、答錯即
-失效）；答錯驗證碼**不**推進鎖定計數。
+預期：第 1、2 次 `1000`（`auth.login.failed`）；第 3、4 次 `2222 biz.auth.captchaRequired`；
+發題兩次皆 `0000` 且 `captchaImg` 為 data URI；超限 `1000`；造窗後單發 → `2222 biz.auth.locked`。
+瀏覽器：軟區出現 220×120 驗證碼欄；答對但密碼錯 → 該次落列使 count 推進（2→3→4→5）並自動換新題
+（★同一張題提交即消耗、答錯即失效）；解題三次後第六發即 `locked`。答錯驗證碼**不**推進鎖定計數。
 
 ## 5. 替代登入 stub 與 i18n 人話（US5）
 
@@ -159,20 +168,27 @@ refresh_secs、reuse 僅 rotated+grace miss、3333／7777→HTTP 200、refresh �
 ## 7. 收尾（★必做，否則 gate2 永久紅）
 
 ```bash
-# ① 把 single_session_default 翻回 seed 值 off
-curl -sk "$BASE/systemManage/updateSystemSetting" -H "authorization: Bearer $TOKEN_SUPER" \
-  -H 'content-type: application/json' \
-  -d '{"settingKey":"single_session_default","settingValue":"off"}' | jq .code
-# ② 清 runtime 寫入並重設三支 sequence（★刪列救不回 setval——gate2 原位比對 setval）
+# ★一次 psql 批次做完三件事（★步驟①**不可走 API**——updateSystemSetting 必寫 updated_by＝操作者
+#   uid 與 updated_at＝now，而凍結 seed 該列兩欄皆為 NULL ⇒ 走 API 還原值仍留痕跡、gate2 逐列紅）
 docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
   psql -U postgres -d rev5_admin -c "
+    -- ① single_session_default 還原為 seed 值，並把審計兩欄歸 NULL
+    UPDATE system_settings SET setting_value='off', updated_at=NULL, updated_by=NULL
+      WHERE setting_key='single_session_default';
+    -- ② 清 runtime 寫入並重設三支 sequence（★刪列救不回 setval——gate2 原位比對 setval）
     TRUNCATE sys_token, session_event, sys_login_attempt;
     SELECT setval('sys_token_id_seq', 1, false),
            setval('session_event_id_seq', 1, false),
            setval('sys_login_attempt_id_seq', 1, false);
+    -- ③ 還原 sys_user 的 session 欄（session_id 由 login 第⑨步寫入）
     UPDATE sys_user SET session_id = NULL WHERE session_id IS NOT NULL;"
+# ④ 清 §4 造窗殘留的 L1 lock 鍵（redis；鍵名 throttle:lock:user:{name}）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec redis \
+  sh -c 'redis-cli -a "$(cat /run/secrets/redis_password)" --no-auth-warning DEL throttle:lock:user:lockprobe throttle:lock:user:Admin'
 python3 tools/schema-gate.py check
 ```
 
-預期：schema-gate gate2 seed 逐列綠。★此節即 `data-model.md` §9 的操作面；本刀是 rev5 第一支
-會推進 sequence 的刀（002 的還原守衛只 `UPDATE system_settings`、無 sequence 面）。
+預期：schema-gate gate2 seed 逐列綠（★含 `system_settings` 該列的 `updated_at`／`updated_by`
+兩欄為 NULL）。★此節即 `data-model.md` §9 的操作面；本刀是 rev5 第一支會推進 sequence 的刀
+（002 的還原守衛只 `UPDATE system_settings`、無 sequence 面）。★次序：本節須在 §6 的
+`schema-gate.py check` **之前**執行，或 §6 的該項改為「於本節收尾後補跑」。

@@ -67,7 +67,9 @@ status='active'` ⇒ 同鏈至多一條 active（並發 rotate 的失敗模式�
 必須可見（§8）。
 
 **滑動窗計數**（唯一權威）：窗內 `success=false` 列數，下界＝`GREATEST(窗起點, 窗內最近成功的
-MAX(created_at), unlock_marker)`。★三源之「reset-on-success」由查詢形免費兌現、MUST 逐字帶入
+MAX(created_at), unlock_marker)`。★本刀 **完全不讀** unlock marker：rev4 存於 redis 鍵
+`throttle:unlock:user:{name}`，而本刀無解鎖端點＝無寫入者，故 `unlock_marker_ts` 恆傳 `None`、
+`cache` 六支 key builder 不含該鍵、降級 source 集不含 `redis_unlock_marker`（見 research R3-17）。★三源之「reset-on-success」由查詢形免費兌現、MUST 逐字帶入
 不得簡化；★子查詢必帶窗下界（防全歷史回掃）；★`unlock_marker` 在本刀**無寫入者**（管理員解鎖
 端點屬後續刀）——無 marker 綁 SQL NULL、`GREATEST` 非 strict 自然退化為兩源，故保留參數位
 （未來解鎖刀零改動）、MUST NOT 用 sentinel 值；「該源恆 NULL」列為已知態、不得宣稱三源皆已驗。

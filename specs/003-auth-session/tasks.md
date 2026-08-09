@@ -37,8 +37,15 @@ description: "Task list for 003-auth-session"
   差異點不得帶回**（憲法 §I.5＋ADR 0019）。
 - ★**Amendment 硬閘**：T002 未 accepted 前，**不得動任何 base-web fork 既有檔**（`.env*` 亦屬既有
   檔）。純新增檔（`rev5-` 前綴 wrapper／`rev5-auth.d.ts`／`zh-tw.ts`）依 ADR 0021 款 1 不受此閘。
-- ★**Lint24 同步律**：`error.rs` 每新增一個 `fn key()` match 臂，**同 commit** 補
-  `base-web/src/locales/langs/zh-tw.ts` 對應鍵（漏補即紅、孤兒鍵窗不得跨 commit）。
+- ★**Lint24 同步律（跨子庫；閘讀「工作樹」、不讀 git index）**：`error.rs` 新增一個 `fn key()`
+  match 臂 ⇔ `base-web/src/locales/langs/zh-tw.ts` 補同名鍵，兩邊須在**同一次工作樹編輯內**齊備
+  （該閘以 `_read()` 直接開檔讀工作樹，且只在**外層** repo 的 pre-commit 無條件執行；兩子庫自身的
+  hook 只跑 betterleaks、**不含 Lint24**）。★孤兒鍵窗的準確界定＝**不得跨越任何一次「外層」
+  commit**：兩子庫先各自 commit（次序自由），再以**一顆**外層 commit `git add rust-api base-web`
+  **同時 bump 兩顆 pin**。★機器不守的危險態（必須人守）：單側子庫已 commit、另側只在工作樹改好，
+  此時外層只 `git add` 一個子庫就落 commit ⇒ Lint24 讀工作樹會**綠**、Lint17 亦不告警，外層歷史
+  卻留下「後端有鍵、前端沒鍵」的 pin 組合且收刀時不會補抓。★外層 commit 一律不得 `--no-verify`
+  （zh-tw.ts 無 `App.I18n.Schema` 標註、typecheck 不攔鍵名，Lint24 是唯一機器守）。
 - rust build／test **一律容器內、全程序列**：
   `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec rust-api cargo test --workspace -- --test-threads=1`；
   容器內**無 rustfmt**（手動排版）。
@@ -126,9 +133,10 @@ description: "Task list for 003-auth-session"
   補斷言）；★**六處逐字改造**（research R7-3）：①函式名 `issuable_six_and_no_variant_seven` 改
   九可發語意 ②計數斷言 6→9 ③期望陣列收成四保留碼 ④`matrix()` 補三列 ⑤`issuable_witness` 窮舉
   match 補三臂（不補＝編譯紅）⑥`witness_aligns_matrix_and_excludes_no_variant_codes` 內**第二份**
-  `no_variant` 陣列同步；檔頭 doc「B12 變體集恰六」改寫。★**同 commit** 補
+  `no_variant` 陣列同步；檔頭 doc「B12 變體集恰六」改寫。★**依全程紀律之 Lint24 同步律**
+  （同一次工作樹編輯內齊備、兩子庫各自 commit 後以單顆外層 commit 同時 bump 兩 pin）補
   `base-web/src/locales/langs/zh-tw.ts` 三鍵（`auth.login.failed`／`auth.token.expired`／
-  `auth.session.kicked`，譯文見 `contracts/msg-keys.md`）＝Lint24 同步律。
+  `auth.session.kicked`，譯文見 `contracts/msg-keys.md`）。
   **DoD：先紅後綠；13 碼矩陣測試不動仍綠；`docs-sync lint` 綠**
 - [ ] T011 [P] `rust-api/server/src/model/facade/sys_token.rs` 新建（先落 `insert`／
   `find_by_hash_for_update`／`has_active_in_chain`；`rotate`／`revoke_family`／
@@ -200,7 +208,14 @@ typings；`getConstantRoutes` 未認證可取且前端合併不清空 builtin �
 - [ ] T019 [P] [US1] integration 測骨架：三帳號登入→取 token→`getUserInfo` 四欄斷言
   （`userId` 為**字串**、`userName`＝nick_name〔User→`User01`〕、`roles` DB-fresh、`buttons`
   非空）＋`getUserRoutes` 樹依角色差異＋`home` 為可導航葉頁，置
-  `rust-api/server/src/handler/auth/user_info.rs` 與 `handler/route.rs` 之 `#[cfg(test)]`
+  `rust-api/server/src/handler/auth/user_info.rs` 與 `handler/route.rs` 之 `#[cfg(test)]`。
+  ★同批補**四條失敗路徑**（否則 FR-004 的 ③⑤ 兩分支零測試）：①帳號不存在 ②密碼錯——兩者零
+  fixture 即可驗同碼同 msg（`1000`＋`auth.login.failed`）③已停用（fixture＝`UPDATE sys_user
+  SET status=2 WHERE id=3`）④鎖內重驗失敗（fixture＝植**第三個 status 值** `0` ⇒ ③過、⑤擋）。
+  ★fixture 一律用 **UPDATE 而非 INSERT**（`sys_user` 有 sequence、INSERT 會不可逆推進），並以
+  RAII 守衛還原且**顯式把 `updated_at`／`updated_by` 歸 `NULL`**（否則 gate2 seed 逐列紅）。
+  ★③與⑤的判別器＝`sys_login_attempt` 恰一列且 `created_by`：③ uid 可為 `None`、⑤ uid 必有值
+  （測試綠不代表⑤被走到，須併驗此欄）
 
 ### Implementation for User Story 1
 
@@ -388,11 +403,13 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   userName 超限走與登入端點**同形**的 `1000` 閘（零新碼零新 key）；產圖／簽章內部失敗→`5000`
 - [ ] T054 [US4] `rust-api/server/src/handler/auth/login.rs` 補步驟①②：①輸入形制閘
   （超限→`1000`、★零稽核列零 argon2 不消耗計數桶）②`throttle::precheck`（★以 `?` 早退＝構造上
-  零 `record_attempt`）；★**同 commit** 補 `base-web/src/locales/langs/zh-tw.ts` 兩鍵
-  （`biz.auth.captchaRequired`／`biz.auth.locked`）＝Lint24 同步律
+  零 `record_attempt`）；★**依 Lint24 同步律**（見全程紀律）補
+  `base-web/src/locales/langs/zh-tw.ts` 兩鍵（`biz.auth.captchaRequired`／`biz.auth.locked`）
 - [ ] T055 [US4] `rust-api/server/src/obs.rs` pre-register 兩序列：`throttle_degraded_total`
-  （label `source`＝`settings_default`／`redis_lock`／`redis_unlock_marker`／`redis_captcha`／
-  `db_count`／`db_write`）＋`throttle_soft_zone_total`（無 label；★`captcha_forced` 屬 DB 降級
+  （label `source`＝**research R5 表列之六源逐字**：`settings_default`／`redis_lock`／
+  `redis_lock_set`／`redis_captcha`／`db_count`／`db_write`；★rev4 user 維為七源，rev5 少
+  `redis_unlock_marker`——本刀不讀 unlock marker，見 R3-17。★label 值集以 R5 表為單一權威、
+  本處為引用，勿各自維護）＋`throttle_soft_zone_total`（無 label；★`captcha_forced` 屬 DB 降級
   旗標、**不入**軟區計數）。**DoD：boot 後首次 scrape 即含全部 label 組合顯式 0（render 文本
   比對測），先紅後綠**
 - [ ] T056 [US4] `rust-api/server/src/router.rs` 加 `/auth/loginCaptcha`（GET/Public）＋bump
@@ -431,8 +448,8 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 - [ ] T061 [P] [US5] `rust-api/server/src/handler/auth/alt_stub.rs` 新建：一支
   `not_supported_stub()` 四端點共用、恆 `2222 biz.auth.notSupported`、`data: null`、零副作用
-  （不落任何表、不查 DB）；★**同 commit** 補 `base-web/src/locales/langs/zh-tw.ts` 之
-  `biz.auth.notSupported`＝Lint24 同步律
+  （不落任何表、不查 DB）；★**依 Lint24 同步律**（見全程紀律）補
+  `base-web/src/locales/langs/zh-tw.ts` 之 `biz.auth.notSupported`
 - [ ] T062 [US5] `rust-api/server/src/router.rs` 加四條（`/auth/{sendCaptcha,codeLogin,register,
   resetPwd}` POST/Public）＋bump 條數常數至 **16**
 - [ ] T063 [P] [US5] base-web 三張表單 stub 化（`★BASE-WEB-AUTH-WIRING(b)`、各 2 行）：
@@ -447,13 +464,16 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 - [ ] T066 [US5] base-web locale 三語 22 鍵（`★BASE-WEB-I18N-WIRING(ii)`）：
   `src/locales/langs/en-us.ts` 與 `zh-cn.ts` 插 backend 樹（★插入行必須是**獨佔一行**的
   `  backend: {`——`_locales_have_backend_tree` 為整行 fullmatch；譯文見 `contracts/msg-keys.md`、
-  簡中照 rev4 鏡像重打字消化）＋`zh-tw.ts` 補齊至 22 鍵；★**同 commit** 拔
-  `tools/docs-sync.py` 的 `DAY1_EXEMPTIONS["gen.msg_dict"]`（到期即紅）＋跑 `generate` 讓
-  `backend-msg-dict.md` 與 Grafana panel 首次生成
+  簡中照 rev4 鏡像重打字消化）＋`zh-tw.ts` 補齊至 22 鍵；★**同一次工作樹編輯內**（跨子庫，比照
+  Lint24 同步律）拔 `tools/docs-sync.py` 的 `DAY1_EXEMPTIONS["gen.msg_dict"]`（到期即紅）＋跑
+  `generate` 讓 `backend-msg-dict.md` 與 Grafana panel 首次生成——★三者（base-web locale／外層
+  工具／外層生成物）須在**同一顆外層 commit** 落地，否則謂詞成立而豁免仍在＝到期即紅當場擋
 - [ ] T067 [US5] base-web `src/service/request/index.ts` 的 `★BASE-WEB-I18N-WIRING(i)`（2 處）：
   新增 `translateBackendMsg`／`translateDetailValue`（`$t(\`backend.${msg}\`, msg)` 原文
   fallback）＋modal `content` 與 `showErrorMsg` 鏈改走轉譯；修改型 inline 帶 `原行:` 註解。
-  ★(ii) reLogin toast **不做**。**DoD：`pnpm typecheck` 綠＋瀏覽器錯誤提示顯人話**
+  ★**`★BASE-WEB-LOGOUT-UX-WIRING(ii)`**（reLogin toast）**不做**——注意此 (ii) 屬 LOGOUT-UX 軌道，
+  與 T066 正在做的 `★BASE-WEB-I18N-WIRING(ii)` 是**不同軌道的同字母用途**，勿混。
+  **DoD：`pnpm typecheck` 綠＋瀏覽器錯誤提示顯人話**
 - [ ] T068 [US5] 走查 quickstart §5＋worktree commit＋外層 bump pin
 
 **Checkpoint**: 全部 US 獨立可用——本刀功能面完成。
@@ -486,10 +506,14 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   ★refresh 驗章失敗→8888
 - [ ] T073 全量閘綠：容器內 `cargo test --workspace -- --test-threads=1`＋
   `cargo build --release`＋`pnpm typecheck`＋`python3 tools/fork-delta-lint.py`＋
-  `python3 tools/docs-sync.py generate && … check`＋`python3 tools/schema-gate.py check`（三閘）
-- [ ] T074 走查 quickstart 全場景（§0~§7）＋★**執行 §7 收尾**（`single_session_default` 翻回
-  `off`＋清三表 runtime 列＋`setval(seq,1,false)` 重設三支 sequence＋`sys_user.session_id`
-  歸 NULL）。**DoD：schema-gate gate2 seed 逐列綠**
+  `python3 tools/docs-sync.py generate && … check`。★`schema-gate.py check`（三閘）**不在本任務**
+  ——它須排在 T074 的 §7 收尾**之後**（runtime 寫入已推進三支 sequence，未收尾前 gate2 必紅）
+- [ ] T074 走查 quickstart 全場景（§0~§7）＋★**執行 §7 收尾**（一次 psql 批次：
+  `single_session_default` 還原 `off` **並把 `updated_at`／`updated_by` 歸 NULL**〔★不可走
+  updateSystemSetting API——該 API 必寫這兩欄、走 API 還原值仍留痕跡使 gate2 逐列紅〕＋清三表
+  runtime 列＋`setval(seq,1,false)` 重設三支 sequence＋`sys_user.session_id` 歸 NULL；另清 §4
+  造窗殘留的 L1 lock 鍵）→**收尾後才跑** `python3 tools/schema-gate.py check`。
+  **DoD：gate2 seed 逐列綠（含 `system_settings` 該列審計兩欄為 NULL）**
 - [ ] T075 [P] 活書更新：`docs/arc42/ARCHITECTURE.md` as-built 敘事（auth 域模組拓樸、會話狀態
   機、節流三區、四條 ★ 軌道、觀測三序列）；★不回灌 ADR（拍板歸 ADR、實作結果歸收刀事件）
 - [ ] T076 [P] `docs/ops/BACKLOG.md` append 三筆新條目：①`fork-delta-lint` 射程擴 `.env*`＋
@@ -508,7 +532,11 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 - **Phase 1（Setup）**：T001→T002 為硬閘（★Amendment accepted 前不得動 base-web 既有檔）；
   T003 可與 T004／T005 平行；T004→T005。
 - **Phase 2（Foundational）**：依賴 Phase 1 完成 → **阻塞全部 US**。
-  `T006→T007→{T008、T009、T011、T015、T016、T017 平行}→T010→T012→T013→T014`。
+  `T006→T007→{T008、T009 平行}→{T011、T015、T016、T017 平行}→T010→T012→T013→T014`。
+  ★該鏈與 T 號區間切出的單元邊界**不同序**（U-C＝T006~T009／U-D＝T010／U-E＝T011~T014／
+  U-F＝T015~T017）：技術相依上 T010（error.rs 九可發）不需等 U-E，而 U-F 的測試設施是 T011 的
+  DoD 前提。**執行單元的實際派發序＝U-C→U-F→U-D→U-E**（依相依而非依編號），單元表的字母序僅為
+  命名、不代表派發序。
 - **Phase 3~7（US1~US5）**：皆依賴 Phase 2；★但實作序建議照優先序 US1→US2→US3→US4→US5
   （US3 補 login 步驟⑨、US4 補步驟①②，同檔遞進；並行會撞 `login.rs`）。
 - **Phase 8（Polish）**：依賴全部 US 完成；T069 另依賴 T002（名冊源＝Amendment 的 §III.2 表格）。
@@ -518,10 +546,13 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 - **US1（P1）**：Phase 2 後即可開，零 US 依賴 → **MVP**。
 - **US2（P2）**：依賴 US1（需 login 發出的會話）；獨立驗收面＝rotation 往返。
 - **US3（P2）**：依賴 US1（步驟⑨補在 `login.rs`）與 US2（`revoked` 三分支補在 `refresh.rs`）。
-- **US4（P3）**：依賴 US1（步驟①②補在 `login.rs`）；throttle／captcha 模組本身可與 US2／US3
-  平行開發（檔域不相交）。
-- **US5（P3）**：依賴 Phase 2（碼表）；i18n 面依賴 T002（★I18N-WIRING 授權）；與 US2~US4 檔域
-  幾乎不相交、可平行。
+- **US4（P3）**：依賴 US1（步驟①②補在 `login.rs`）；throttle／captcha 模組的**檔案主體**可先行
+  撰寫，★但**單元序 U-G→U-J→U-K→U-L→U-M 不可並發**（見下）。
+- **US5（P3）**：依賴 Phase 2（碼表）；i18n 面依賴 T002（★I18N-WIRING 授權）；同受單元序約束。
+- ★**單元序不可並發的兩個共用檔**（原稿「可平行」失真）：①`router.rs`——T027／T037／T044／T056／
+  T062 五處都加 ROUTES 列並 bump **同一個遞增條數常數**，並行必衝且**不會被編譯擋**，只會由 T070
+  的「恰 16 列」核對在最後才發現 ②`contract.rs`——五處都改**同一個 registry vec**。另 T041／T054
+  同改 `login.rs`（步驟⑨／①②遞進）。⇒ US 的「獨立可驗收」成立於**交付面**，不成立於**單元併發面**。
 
 ### Within Each User Story
 
@@ -540,7 +571,8 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 - US1：T020～T023 四支 facade **主體檔**可分派，★四支共用 `facade/mod.rs` 註冊行；T025／T026 兩
   handler 可分派，★共用 `handler/mod.rs`／`handler/auth/mod.rs` 註冊行（同上處置）。
 - US4：T050／T051／T052／T053 四支可分派。
-- US5：T061／T063／T064 可分派；i18n 三檔（T065→T066→T067）★必須序列（typecheck 相依）。
+- US5：T063／T064 可分派；★T061 **不可**與 i18n 組併行（它也改 `zh-tw.ts`、與 T066 同檔）；
+  i18n 三檔（T065→T066→T067）★必須序列（typecheck 相依）。
 - Phase 8：T069／T070／T071／T075／T076 可分派。
 - ★**cargo 執行一律序列**——[P] 僅指可分派給不同執行單元，不代表可並行跑 build／test。
 

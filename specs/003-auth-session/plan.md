@@ -47,7 +47,8 @@ case＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`＋`schema-gate c
 不得動任何 base-web 既有檔／upstream rebase 友善（fork 差異全程 `rev5-inline` 標記）
 
 **Scale/Scope**: 16 route（＋12）／9 AppError 變體（＋3）／6 facade（＋4 新增 2 擴充）／
-22 i18n backend 鍵（＋6）／四條 ★ 軌道八個用途／五座 §I.7 行為島；估 45~60 個 T、14 個執行單元
+22 i18n backend 鍵（＋6）／四條 ★ 軌道八個用途／五座 §I.7 行為島；**77 個 T、13 個執行單元**
+（tasks.md 定稿值）
 
 ## Constitution Check
 
@@ -62,7 +63,7 @@ case＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`＋`schema-gate c
    範圍縮減；其兌現另有 §I.3 級前置衝突（保留碼 `9999` 三錨＋`msg` echo 通道），故不併本刀。
    驗收錨＝contracts/ 三檔＋wire-schema 快照消費（SC-001／SC-006）。
 2. **§III.2 base-web inline**：**涉及——授權以 Amendment 先行取得**。本刀動 base-web 既有檔
-   共 8 檔（`store/modules/route/index.ts`／`store/modules/auth/index.ts`／`pwd-login.vue`／
+   共 **12 檔**（`store/modules/route/index.ts`／`store/modules/auth/index.ts`／`pwd-login.vue`／
    三張替代登入表單／`hooks/business/captcha.ts`／`user-avatar.vue`／`service/request/index.ts`
    ／`typings/app.d.ts`／兩支 locale）＋`.env*` 四行。授權鏈＝**ADR draft → user 親決 →
    accepted ＋ §III.2 新增機器可解表格（四軌道八用途）＋ §I.7 五座島條文 ＋ bump 1.2.0→1.3.0
