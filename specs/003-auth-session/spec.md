@@ -35,13 +35,38 @@
   只存 hash＝結構上無 PG 退路）、fail-secure（redis 故障期間並發 refresh 觸發 revoke_family、
   多分頁使用者被全域登出、重登即復原＝已知態）。
 - Q: captcha nonce used 標記寫不進 redis 時？→ A: **拒絕不罰**（沿 rev4）：該次登入拒絕（重放窗
-  不存在）、但不消耗計數桶（不推進 ≥5 硬鎖）。
+  不存在）、但不消耗計數桶（不推進 ≥5 硬鎖）。★射程限「redis 連得上、單次寫入瞬斷」——redis
+  整體不可用另有相反方向，見下一 session 之兩層拍板。
 - Q: logout 對已失效／垃圾 refresh token 回哪個碼？→ A: **一律 `0000` 冪等 no-op、不落事件**
   （回異碼＝提供 token 有效性 oracle）。
 - Q: 圖形驗證碼字面／crate？→ A: 字元集 34 字（小寫 a-z 去 `o`＋數字去 `0`）、產圖 crate＝
   `captcha 1.0.0`（rev4 釘版）。
 - Q: 未認證回 `8888` 還是沿 002 待複核？→ A: 三分拍板已定 `8888`（002 FR-015 的「plan 期複核」
   於本刀收斂）。
+
+### Session 2026-08-09（/speckit-clarify）
+
+- Q: refresh token 輪替的 grace 冪等窗要設多長？→ A: **30 秒**（rev5 對 rev4 差異點——rev4 用
+  10 秒，但 rev5 前端最壞換發間隔約 11 秒〔1 秒 promise 快取＋10 秒單請求 timeout〕，10 秒等於
+  預留「慢請求即誤撤」踩雷點；30 秒給約 3 倍餘裕，延後盜用偵測的暴險比例＜1%〔refresh 全壽命
+  約 65 分〕）。
+- Q: 使用者同時具多個角色時，登入後要落到哪一個角色的首頁？→ A: **沿 rev4 已驗證規則**——
+  啟用角色（`status=1`）依 role id 升冪掃描、取首個**非空** `role_home`；全空→預設 `home`
+  （自動跳過「停用角色」與「空 role_home」兩個陷阱）。選出後仍過既定兜底（驗屬可見樹可導航葉）。
+- Q: 本刀的降級與安全事件要不要進 Prometheus 計數器（不只寫 log）？→ A: **雙軌——結構化
+  tracing warn（帶 target＋欄位）＋計數器**；序列面取本刀真有發射點的三支
+  （`throttle_degraded_total`／`denylist_hit_total`／`throttle_soft_zone_total`）＋啟動即顯式
+  註冊 0，rev4 的 HLL 廣度估計兩支不做；守門走計數器 render 文本比對、不新建 log 捕捉層設施
+  （詳見 FR-034）。
+- Q: 登入頁三顆快速登入鈕（Super／Admin／User＋寫死 123456）保留還是拿掉？→ A: **保留＋記帳**
+  ——本刀零 inline、不占軌道用途（rev4 亦保留），手動驗收一鍵切三帳號；連帶把「快速登入鈕暴露
+  dev seed 帳密＝已知態、轉 prod 前必須拆除」寫入 ADR＋BACKLOG 新條目（綁 prod 硬化刀），
+  避免此事無帳面家。
+- Q: redis 不可用時，軟區帳號到底還能不能登入？→ A: **沿 rev4 完整兩層、方向相反**——①redis
+  整體不可用（連不上／無 cache）→整個軟區 captcha 要求**停用**、直接續驗密碼（驗不了題就不該
+  要求，否則把合法使用者鎖在門外；密碼錯仍照常計數）②redis 連得上但單次 SET NX 標記瞬斷→
+  **拒但零計數不罰**（若放行，攻擊者附偽造 captchaId 即可在瞬斷窗通關＝降級恰好只放行對抗性
+  流量）。★本條補正覆核輪 R10 的射程（當時只查到第②層）。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -187,7 +212,8 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 - **redis 全故障**：denylist 查 fail-closed（退 PG `has_active_in_chain`、PG 亦故障→視為無
   active 拒絕、絕不盲放）；idle fail-open（無 last_activity 即不 idle-reject、退 token exp 為
   界）；grace fail-secure（並發 refresh 觸發 revoke_family、多分頁全域登出、重登復原＝已知態）；
-  captcha nonce 寫入失敗＝拒絕不罰。
+  captcha 分兩層——整體不可用→軟區要求停用（fail-open、免把合法使用者鎖死）／單次標記寫入瞬斷
+  →拒但不罰（FR-016）。
 - **redis RDB 回捲**（不開 AOF＝已知態）：denylist 鍵可在回捲窗內丟失；暴險受「status 即權威」
   封頂（換發被 PG 擋）、復活面＝被踢者既有 access 直打 API 至自然過期（≤access TTL）。
 - **設定鍵讀不到**：節流門檻／idle TTL 退活書常數＋一筆 `degraded=settings_default` 告警（每次
@@ -247,8 +273,8 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 
 - **FR-007**: refresh MUST：驗章失敗一律 `8888`（★絕不 `3333`——jwt 底層恆吐 3333、handler
   漏 map_err 即死迴圈）；`FOR UPDATE` 鎖呈遞列後分流——`active`→idle 檢查→rotate（舊列轉
-  `rotated`+`used_at`、插新 `active`，次序不可反、partial UNIQUE 護欄）→寫 grace（★commit
-  前、仍持鎖時）；`rotated` 且 grace 窗內→冪等回既發後繼；`rotated` 且 grace miss→reuse 偵測
+  `rotated`+`used_at`、插新 `active`，次序不可反、partial UNIQUE 護欄）→寫 grace（TTL＝**30
+  秒**＞前端最壞換發間隔 11 秒；★commit 前、仍持鎖時）；`rotated` 且 grace 窗內→冪等回既發後繼；`rotated` 且 grace miss→reuse 偵測
   （唯一觸發形）→`revoke_family`+`session_event(reuse)`→`8888`；`revoked`→denylist
   reason==kicked→`7777`／其餘（reason==revoked **或鍵缺席**）→靜默 `8888`、不落事件、不重複
   撤；查無列→`8888`。
@@ -268,7 +294,8 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   絕不盲放。Public 路由不掛本 middleware（「Public 不查 denylist／refresh 不推進 idle-clock」
   天然成立）。
 - **FR-012**: 五座行為島的降級方向 MUST 落實並隨 §I.7 入憲：denylist fail-closed／idle
-  fail-open／grace fail-secure／captcha-used fail-closed 不罰；redis 不開 AOF＝已知態（暴險受
+  fail-open／grace fail-secure／captcha 兩層（整體不可用→要求停用 fail-open；單次標記瞬斷→拒但
+  不罰）；redis 不開 AOF＝已知態（暴險受
   FR-007「status 即權威」封頂）。session_event.source_ip 為 varchar(45)（與 sys_login_attempt
   .real_ip 的 INET 型別不同、寫入不共 helper）；event_type／reason 字面沿 rev4（kicked／reuse／
   idle／logout；reason=single_session／idle_timeout 等）。
@@ -281,7 +308,10 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 - **FR-014**: 節流權威源 MUST 為 `sys_login_attempt` 滑動窗（GREATEST 三源下界：窗起點／窗內
   最近成功／unlock marker——reset-on-success 由查詢形免費兌現、MUST 逐字帶入不得簡化）；redis
   為 L1 負快取（命中不續期；lock key 唯一寫入點＝同一次新鮮 L2 讀）；設定鍵讀不到→退活書常數
-  ＋一筆 `degraded=settings_default` 告警（每次載入至多一筆）。
+  ＋一筆 `degraded=settings_default` 告警（每次載入至多一筆；告警形式見 FR-034）。★三源下界的
+  unlock marker 在本刀**無寫入者**（管理員解鎖端點屬後續刀）——無 marker 綁 SQL NULL、`GREATEST`
+  非 strict 自然退化為兩源，故查詢形沿 rev4 保留該參數位（未來解鎖刀零改動）、MUST NOT 用
+  sentinel 值；「該源恆 NULL」列為已知態、不得據此宣稱三源皆已驗。
 - **FR-015**: 節流實作 MUST 老實記為 **login 專用**（本刀唯一消費者＝login）、不宣稱通用 seam
   （閘存在≠生效——通用化與第二消費者隨 B-021）；per-IP 維本刀不做（`request_context.rs` 留
   介面位、信任判定屬 B-019）。IP 維不做的理由＝per-IP **鎖定**（不自癒）在 prod CF 拓樸下會把
@@ -292,8 +322,14 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 
 - **FR-016**: captcha MUST 為無狀態簽題 `CaptchaClaims{nonce, user_name, exp, ans_mac}`（HS256、
   第三把秘鑰 `APP_CAPTCHA_SECRET`）；`ans_mac = hex(SHA256(secret ‖ nonce ‖ lower(answer)))`
-  ——秘鑰參與雜湊故答案不可離線還原；challenge 綁 user_name；驗題成功即在 redis 標記 nonce
-  used（SET NX、寫入先於答案比對＝提交即消耗；寫入失敗→拒絕不罰）。
+  ——秘鑰參與雜湊故答案不可離線還原；challenge 綁 user_name；驗題在 redis 標記 nonce used
+  （SET NX、寫入**先於**答案比對＝提交即消耗：一張題只能作答一次、答錯即失效須重取；若「答對
+  才消耗」則同一張題可在有效期內被反覆猜）。**redis 降級分兩層、方向相反**（沿 rev4）：①redis
+  整體不可用（連不上／無 cache）→整個軟區 captcha 要求**停用**、直接續驗密碼（驗不了題就不該
+  要求，否則把合法使用者鎖在門外；密碼錯仍照常計數、摩擦力不歸零）②redis 連得上但單次 SET NX
+  瞬斷→**拒但零計數不罰**（若放行，攻擊者附偽造 captchaId 即可在瞬斷窗通關＝降級恰好只放行
+  對抗性流量）。★captcha 缺／錯／過期／重放一律 `2222 biz.auth.captchaRequired` 且**零稽核列
+  零計數桶**——答錯不推進鎖定，但該題已耗須重取。
 - **FR-017**: captcha 字元集 MUST 為 34 字（小寫 a-z 去 `o`＋數字去 `0`）、題長 4（34⁴≥10⁶）
   ——產圖 crate 內嵌字型排除混淆字且對無 glyph 字元靜默跳過，字集含 `0`/`o` 產約 20% 廢題。
   答對但登入失敗時前端自動換題。
@@ -308,8 +344,10 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 - **FR-019**: getUserRoutes MUST 回 `UserRoute{routes[], home}`：routes＝DB-fresh roles→Casbin
   `menu` 維度過濾→sys_menu 樹（祖先包含、同層 order→id 升冪）；`MenuRoute.id` 為字串（i64→
   字串）；欄位映射沿 rev4 `to_menu_route`（icon_type 拆 icon／localIcon、title 恆存、其餘欄
-  optional）；`home`＝`sys_role.role_home` 經兜底解析（驗 home 屬可見樹可導航葉、不屬→先序
-  第一可導航頁——否則「登入落 404」復活）。
+  optional）；`home` 之多角色收斂律＝**啟用角色（status=1）依 role id 升冪、取首個非空
+  `role_home`；全空→預設 `home`**（沿 rev4 已驗證規則），選出後再經兜底解析（驗 home 屬可見樹
+  可導航葉、不屬→先序第一可導航頁——否則「登入落 404」復活）；★三 seed 角色 role_home 同值＝
+  機器測不出分歧，收斂律 MUST 由碼註釘住＋一支合成多角色測試守。
 - **FR-020**: getConstantRoutes MUST 濾 `sys_menu.constant = TRUE`（★勿寫 IS NOT FALSE——
   constant 允許 NULL 64 列）組樹；seed constant=TRUE 為 0 列故現回 `[]`；前端 constant routes
   接線 MUST **合併**（`[...staticRoute.constantRoutes, ...data]`、Map 按 name 收斂後端同名可
@@ -409,6 +447,17 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   三消費者」須至少一支新 facade 測試真用 `test_kit::FailingConn` 驗 DbErr、寫成任務非順手
   重構）。
 
+**觀測面（obs.rs pre-register 接續契約）**
+
+- **FR-034**: 本刀的靜默降級與安全事件 MUST 雙軌可觀測——①**結構化** tracing warn（帶 target
+  ＋欄位，非純訊息字串：無欄位即無從機器守門）②Prometheus 計數器。序列面＝本刀真有發射點者
+  三支：`throttle_degraded_total`（label＝降級來源，本刀實有源集含設定鍵退預設與 captcha 標記
+  失敗等）／`denylist_hit_total`（label＝redis｜pg，redis 降級退 PG 的唯一可觀測訊號）／
+  `throttle_soft_zone_total`（無 label、軟區命中）。三支 MUST 依 `obs.rs` 既有紀律做**啟動即
+  顯式註冊 0**（防「事件未發生」與「序列缺席」混淆致 rate() 失去基線），且 label 值集與發射點
+  同步（發射點新增字面即補註冊表）。rev4 的 HLL 廣度估計兩支（`throttle_hll_*`）不在本刀。
+  守門走計數器 render 文本比對（沿 obs.rs 現有測試形）；不新建 log 捕捉層測試設施。
+
 ### Key Entities *(include if feature involves data)*
 
 - **sys_token**（會話憑證狀態機、001 baseline 9 欄）：id／created_at／created_by（擁有者 uid）／
@@ -428,7 +477,7 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   `APP_CAPTCHA_SECRET`；nonce used 標記住 redis。
 - **redis 承載態**（非 DB、fail-* 各異）：denylist（reason=kicked｜revoked、TTL=refresh 全壽命）／
   last_activity（idle 時鐘）／rotate-grace（`session:rotate-grace:{token_hash}`＝新對 JSON、
-  TTL 待 clarify）／captcha nonce used（SET NX、TTL=captcha exp）。
+  TTL＝30 秒）／captcha nonce used（SET NX、TTL=captcha exp）。
 
 ## Success Criteria *(mandatory)*
 
@@ -444,7 +493,8 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 - **SC-004**: 節流三區全數正確——<2 自由／2–4 `captchaRequired`／≥5 `locked`；軟區與鎖定皆
   argon2 前擋、零稽核列零計數桶（以「拒絕後成功登入仍可」證明不消耗桶）；成功／unlock 重置窗。
 - **SC-005**: captcha 全數正確——任意 userName（含不存在）發題、userName 超限 `1000`、產圖失敗
-  `5000`、答對密碼錯自動換題、nonce 重放第二次拒、redis 寫入失敗拒絕不罰（計數桶不進）。
+  `5000`、答對密碼錯自動換題、答錯不推進鎖定但該題作廢、nonce 重放第二次拒；**兩層降級各一案**
+  ：redis 整體不可用→軟區要求停用且密碼錯仍計數／單次標記寫入瞬斷→拒但計數桶不進。
 - **SC-006**: dynamic 選單全數正確——getUserRoutes 樹依角色 Casbin 過濾、home 兜底非 404；
   getConstantRoutes 濾 constant=TRUE（現 `[]`）、前端合併保留 5 條 builtin 常量路由。
 - **SC-007**: 替代登入四流程恆 `2222 biz.auth.notSupported`、三表單無假成功 toast；i18n 三語
@@ -456,28 +506,37 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
 - **SC-009**: 憲法與機器守——Amendment bump 1.3.0（四 ★ 軌道＋§I.7 五座島）；fork-delta-lint
   名冊斷言非 vacuous（名冊空集 die、承襲指針六名反例、真 repo 至少一修改型對象被檢查、既有
   BACKEND-MSG-DICT+ 不誤攔）；gen.msg_dict 豁免拔項＋backend-msg-dict.md 首次生成。
-- **SC-010**: DoD 鏈全綠——`cargo test --workspace --test-threads=1` 全綠（redis 測試鍵 uniq
+- **SC-010**: 靜默降級變得看得見——三類降級（設定鍵缺失退預設／redis 不可用退資料庫／節流軟區
+  命中）各有獨立可量測訊號，且服務啟動後即帶基線值（不因「事件尚未發生」而整條訊號缺席，
+  否則趨勢與告警都算不出來）；三類各至少一案觸發後訊號遞增可被斷言，降級記錄帶可機器判讀的
+  欄位（非純文字訊息）。
+- **SC-011**: DoD 鏈全綠——`cargo test --workspace --test-threads=1` 全綠（redis 測試鍵 uniq
   前綴隔離、X-Real-IP 顯式注入）；`pnpm typecheck` 綠（app.d.ts 必填型節後 zh-cn 結構受守）；
   fork-delta-lint 綠；release profile 起得動；手動端到端七項通過（入口 https://localhost:22443）。
 
 ## Assumptions
 
-- **grace 窗長度**（/speckit-clarify 定案）：rev4=10s，但前端最壞換發間隔約 11s（1s promise
-  快取＋10s 單請求 timeout）——建議定為 15–30s（明顯大於 11s、否則慢請求觸發的第二次 refresh
-  被判 reuse 誤撤良性並發）；spec 僅凍結「grace 窗 MUST > 前端最壞換發間隔」紀律，數字隨 clarify。
-- **home 多角色收斂律**（/speckit-clarify 定案）：使用者具多角色時 getUserRoutes 的 home 取哪
-  一角色的 role_home——建議取角色集內 sys_role.id 最小者，碼註釘住＋一支合成多角色測試守（seed
-  三角色 role_home 同值＝'home'、機器測不出分歧）。spec 僅凍結「多角色 home 收斂 MUST 決定性」。
+- **grace 窗長度＝30 秒**（Clarify 定案、rev5 對 rev4 差異點）：rev4=10s 小於 rev5 前端最壞換發
+  間隔約 11s（1s promise 快取＋10s 單請求 timeout）故不沿用。不變式＝**grace 窗 MUST > 前端最壞
+  換發間隔**（前端 timeout 設定若變更須重算此值）。
+- **home 多角色收斂律＝沿 rev4 已驗證規則**（Clarify 定案）：啟用角色（status=1）依 role id
+  升冪、取首個非空 `role_home`，全空→預設 `home`；規則由碼註釘住＋一支合成多角色測試守
+  （seed 三角色 role_home 同值＝'home'、機器測不出分歧）。
 - **TTL 公式沿 rev4**：`access=min(300, N×60/2)`／`refresh=N×60+access`（N＝session_idle_timeout
   分鐘）；plan 期複核係數。
 - **ip_confidence 字面**＝`nginx_peer`（snake_case、rev5 新字面）；B-019 接手時與 rev4 七態合併
   治理。
-- **captcha 產圖 crate**＝`captcha 1.0.0`（rev4 釘版）；rev5 CaptchaClaims 單語境不設 ctx 欄。
+- **captcha 產圖 crate**＝`captcha 1.0.0`（rev4 釘版）；rev5 CaptchaClaims 單語境不設 ctx 欄
+  （rev4 有 ctx 欄做跨語境隔離——未來開第二語境需 additive 加欄並同步簽驗兩端）。題目有效期
+  ＝300 秒（沿 rev4；nonce used 標記 TTL 同值，確保「題失效前重放必被擋」）。
 - **wire fixture**：LoginToken／UserInfo／MenuRoute／UserRoute／ElegantConstRoute 已在 002 快照
   內（TYPINGS_GLOB 全 api 目錄）；真正新增＝captcha 形，靠新檔 `rev5-auth.d.ts` 入快照。
 - **seed 密碼明文＝`123456`**（已離線 argon2 verify MATCH、＝upstream demo 值、三帳共用同一
   PHC）；single-session 驗收前置＝先以 `updateSystemSetting` 翻 `single_session_default=on`
   （001 凍結 seed 是 schema-gate gate2 比對左源、不可動）。
+- **登入頁三顆快速登入鈕保留**（Clarify 定案；rev4 亦保留）：帳密字面（Super／Admin／User＋
+  123456）正好對上 seed，本刀零 inline、不占軌道用途，手動驗收一鍵切三帳號。★已知態＝該鈕
+  暴露 dev seed 帳密，轉 prod 前必須拆除——ADR 記已知態＋BACKLOG 新條目綁 prod 硬化刀。
 - **實作紀律引用**（非本 spec 新拍板）：rev4 對應碼先讀後寫、重打字消化、註解一律重寫（憲法
   §I.5＋ADR 0019）；rust build／test 容器內全程 serial、`--test-threads=1`（載
   specs/002-system-settings/quickstart.md）；redis dev 與測試共用 DB 0＝測試鍵 uniq 前綴隔離。
