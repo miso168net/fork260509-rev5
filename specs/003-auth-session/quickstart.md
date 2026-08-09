@@ -2,8 +2,16 @@
 
 端到端證明「真登入 → 角色化側邊欄 → 會話續期／撤銷 → 節流＋驗證碼 → 錯誤訊息顯人話」的可跑
 場景；細節指涉 `contracts/*.md` 與 `data-model.md`、不重複。全程 dev stack；rust build/test
-一律容器內、serial。★入口一律 `https://localhost:22443`（翻 `VITE_HTTP_PROXY=N` 後
+一律容器內、serial。★入口一律 `http://127.0.0.1:22080`（翻 `VITE_HTTP_PROXY=N` 後
 22081 直連的 `/api` 必 404——vite dev server 已無 proxy）。
+
+★**curl 與瀏覽器鎖同一 origin `http://127.0.0.1:22080`**——`localhost` 與 `127.0.0.1` 是不同
+origin、localStorage token 不共享，混用時注入的 session 白做（rev4:L-100；2026-08-09 於 rev4
+活體實證重現）。等價性已查證：front-nginx 的 `listen 80` 與 `listen 443 ssl` 兩個 server block
+include 同一份 `_locations.inc`、無 301／HSTS，rust-api 零 `X-Forwarded-Proto` 讀取、零 cookie
+⇒ 22080 與 22443 路由與行為等價；走 http 另免 CDP 驗收撞 dev 自簽憑證攔截頁。★但 `limit_req` 的
+`auth_limit` 桶定義在 `nginx.conf` 的 `http{}` 層、鍵＝`$binary_remote_addr` ⇒ 兩入口**共用同一
+桶**（5r/s、burst 40），換入口不會重置節流額度——§5 節流驗收連跑時尤須留意。
 
 ## 0. 前置
 
@@ -11,15 +19,15 @@
 cd /mnt/d/AnewSpaces/x_Project/fork260509-rev5
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait
 
-BASE=https://127.0.0.1:22443/api        # 經 front-nginx；-k 收 dev 自簽
+BASE=http://127.0.0.1:22080/api         # 經 front-nginx；http 入口＝無自簽憑證、免 -k
 # ★.env 已翻：VITE_AUTH_ROUTE_MODE=dynamic／VITE_HTTP_PROXY=N；.env.test 與 .env.prod 的
 #   VITE_SERVICE_BASE_URL 已由 apifox mock 改 /api（四行 ADAPT 標記見 research R2）
 # ★三帳號密碼皆 123456（＝upstream demo 值、seed 三帳共用同一 argon2 PHC）
 
 # single-session 驗收前置：把全站預設翻 on（seed 現值 off ⇒ 不翻則 login 第⑨步永不執行）
-TOKEN_SUPER=$(curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+TOKEN_SUPER=$(curl -s "$BASE/auth/login" -H 'content-type: application/json' \
   -d '{"userName":"Super","password":"123456"}' | jq -r .data.token)
-curl -sk "$BASE/systemManage/updateSystemSetting" -H "authorization: Bearer $TOKEN_SUPER" \
+curl -s "$BASE/systemManage/updateSystemSetting" -H "authorization: Bearer $TOKEN_SUPER" \
   -H 'content-type: application/json' \
   -d '{"settingKey":"single_session_default","settingValue":"on"}' | jq .code
 ```
@@ -31,13 +39,13 @@ curl -sk "$BASE/systemManage/updateSystemSetting" -H "authorization: Bearer $TOK
 
 ```bash
 for U in Super Admin User; do
-  T=$(curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+  T=$(curl -s "$BASE/auth/login" -H 'content-type: application/json' \
       -d "{\"userName\":\"$U\",\"password\":\"123456\"}" | jq -r .data.token)
   echo "== $U"
-  curl -sk "$BASE/auth/getUserInfo" -H "authorization: Bearer $T" | jq '.data | {userId, userName, roles, buttonsN: (.buttons|length)}'
-  curl -sk "$BASE/route/getUserRoutes" -H "authorization: Bearer $T" | jq '{home: .data.home, topN: (.data.routes|length)}'
+  curl -s "$BASE/auth/getUserInfo" -H "authorization: Bearer $T" | jq '.data | {userId, userName, roles, buttonsN: (.buttons|length)}'
+  curl -s "$BASE/route/getUserRoutes" -H "authorization: Bearer $T" | jq '{home: .data.home, topN: (.data.routes|length)}'
 done
-curl -sk "$BASE/route/getConstantRoutes" | jq '{code, n: (.data|length)}'   # 未認證可取
+curl -s "$BASE/route/getConstantRoutes" | jq '{code, n: (.data|length)}'   # 未認證可取
 ```
 
 預期：三帳號 `userId` 皆為**字串**、`userName` 為 nick_name（User → `User01`）、`roles` 各異、
@@ -45,21 +53,21 @@ curl -sk "$BASE/route/getConstantRoutes" | jq '{code, n: (.data|length)}'   # �
 `{"code":"0000", n:0}`（★seed `constant=TRUE` 為 0 列，前端須**合併**而非取代，否則登入頁與
 403/404/500/iframe-page 五條 builtin 常量路由被清空）。
 
-瀏覽器：`https://localhost:22443` 以三帳號分別登入（可用登入頁三顆快速登入鈕），側邊欄呈現
+瀏覽器：`http://127.0.0.1:22080` 以三帳號分別登入（可用登入頁三顆快速登入鈕），側邊欄呈現
 三種不同選單。★已知態：快速登入鈕暴露 dev seed 帳密，轉 prod 前必須拆除。
 
 ## 2. 會話續期與並發 rotation（US2）
 
 ```bash
-R=$(curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+R=$(curl -s "$BASE/auth/login" -H 'content-type: application/json' \
     -d '{"userName":"Super","password":"123456"}' | jq -r .data.refreshToken)
-curl -sk "$BASE/auth/refreshToken" -H 'content-type: application/json' \
+curl -s "$BASE/auth/refreshToken" -H 'content-type: application/json' \
   -d "{\"refreshToken\":\"$R\"}" | jq '{code, newPair: (.data.token != null)}'
 # 同票二度換發（grace 30 秒窗內）→ 冪等回既發的同一對
-curl -sk "$BASE/auth/refreshToken" -H 'content-type: application/json' \
+curl -s "$BASE/auth/refreshToken" -H 'content-type: application/json' \
   -d "{\"refreshToken\":\"$R\"}" | jq '{code, token: .data.token}'
 # 驗章失敗一律 8888（★絕不 3333——否則前端自動 refresh 死迴圈）
-curl -sk "$BASE/auth/refreshToken" -H 'content-type: application/json' \
+curl -s "$BASE/auth/refreshToken" -H 'content-type: application/json' \
   -d '{"refreshToken":"garbage"}' | jq '{code, msg}'
 ```
 
@@ -73,20 +81,20 @@ curl -sk "$BASE/auth/refreshToken" -H 'content-type: application/json' \
 
 ```bash
 # 登出即撤：舊 access 立刻失效
-L=$(curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+L=$(curl -s "$BASE/auth/login" -H 'content-type: application/json' \
     -d '{"userName":"Admin","password":"123456"}')
 A=$(jq -r .data.token <<<"$L"); RF=$(jq -r .data.refreshToken <<<"$L")
-curl -sk "$BASE/auth/logout" -H 'content-type: application/json' -d "{\"refreshToken\":\"$RF\"}" | jq .code
-curl -sk "$BASE/auth/getUserInfo" -H "authorization: Bearer $A" | jq '{code, msg}'
+curl -s "$BASE/auth/logout" -H 'content-type: application/json' -d "{\"refreshToken\":\"$RF\"}" | jq .code
+curl -s "$BASE/auth/getUserInfo" -H "authorization: Bearer $A" | jq '{code, msg}'
 # logout 冪等：垃圾／已撤票一律 0000（回異碼＝提供 token 有效性 oracle）
-curl -sk "$BASE/auth/logout" -H 'content-type: application/json' -d '{"refreshToken":"garbage"}' | jq .code
+curl -s "$BASE/auth/logout" -H 'content-type: application/json' -d '{"refreshToken":"garbage"}' | jq .code
 
 # single-session 踢除（前置已翻 on）：同帳號二次登入 → 前一條下個請求得 7777
-A1=$(curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+A1=$(curl -s "$BASE/auth/login" -H 'content-type: application/json' \
      -d '{"userName":"User","password":"123456"}' | jq -r .data.token)
-curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
   -d '{"userName":"User","password":"123456"}' >/dev/null
-curl -sk "$BASE/auth/getUserInfo" -H "authorization: Bearer $A1" | jq '{code, msg}'
+curl -s "$BASE/auth/getUserInfo" -H "authorization: Bearer $A1" | jq '{code, msg}'
 ```
 
 預期：logout `0000`、舊 access 得 `8888`、垃圾票 logout 仍 `0000`；被踢者得
@@ -100,14 +108,14 @@ curl -sk "$BASE/auth/getUserInfo" -H "authorization: Bearer $A1" | jq '{code, ms
 #   第 3 次起 count=2 ≥ captcha_after(2) → 2222 captchaRequired，且★該路徑零稽核列零計數桶
 #   ⇒ count 永久卡在 2、**locked 在這條路上構造性不可達**（rev4 有專測釘住此性質）
 for i in 1 2 3 4; do
-  curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+  curl -s "$BASE/auth/login" -H 'content-type: application/json' \
     -d '{"userName":"Admin","password":"wrong"}' | jq -c "{n:$i, code, msg}"
 done
 # 發題：對任意 userName 一律發（含不存在帳號＝零存在性洩漏）
-curl -sk "$BASE/auth/loginCaptcha?userName=Admin" | jq '{code, hasImg: (.data.captchaImg|startswith("data:image/png;base64,"))}'
-curl -sk "$BASE/auth/loginCaptcha?userName=ghost-no-such-user" | jq .code
+curl -s "$BASE/auth/loginCaptcha?userName=Admin" | jq '{code, hasImg: (.data.captchaImg|startswith("data:image/png;base64,"))}'
+curl -s "$BASE/auth/loginCaptcha?userName=ghost-no-such-user" | jq .code
 # userName 超限 → 與登入端點同形的 1000 閘
-curl -sk "$BASE/auth/loginCaptcha?userName=$(printf 'x%.0s' {1..200})" | jq .code
+curl -s "$BASE/auth/loginCaptcha?userName=$(printf 'x%.0s' {1..200})" | jq .code
 # 鎖定區：直接造窗（★最短路徑；in-band 路徑須人工解題 3 次推進 count 2→5，見下方瀏覽器段）
 #   ★三個必填欄：success／attempted_user_name／real_ip(INET)；可用不存在帳號名（節流判定鍵＝
 #   送出原文、鎖定判定在 authenticate 之前）。★此 INSERT 推進 sys_login_attempt_id_seq，§7 收尾涵蓋
@@ -116,7 +124,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
     INSERT INTO sys_login_attempt (success, attempted_user_name, real_ip, created_at)
     SELECT false, 'lockprobe', '127.0.0.1', now() - interval '30 seconds'
     FROM generate_series(1,5);"
-curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
   -d '{"userName":"lockprobe","password":"wrong"}' | jq -c '{code, msg}'
 ```
 
@@ -130,11 +138,11 @@ curl -sk "$BASE/auth/login" -H 'content-type: application/json' \
 ```bash
 for P in sendCaptcha codeLogin register resetPwd; do
   printf '%-12s ' "$P"
-  curl -sk "$BASE/auth/$P" -H 'content-type: application/json' -d '{}' | jq -c '{code, msg}'
+  curl -s "$BASE/auth/$P" -H 'content-type: application/json' -d '{}' | jq -c '{code, msg}'
 done
 # 動詞不符（B-047）：已註冊路徑遇未註冊動詞 → 4040＋HTTP 404
-curl -sk -o /dev/null -w '%{http_code} ' "$BASE/auth/getUserInfo" -X POST
-curl -sk "$BASE/auth/getUserInfo" -X POST | jq -c '{code, msg}'
+curl -s -o /dev/null -w '%{http_code} ' "$BASE/auth/getUserInfo" -X POST
+curl -s "$BASE/auth/getUserInfo" -X POST | jq -c '{code, msg}'
 ```
 
 預期：四支皆 `{"code":"2222","msg":"biz.auth.notSupported"}`；動詞不符回 `404` ＋

@@ -275,7 +275,7 @@ inline（rev4 全倉 5 處 DEVPROXY 屬 vite proxy 拓樸）。
 fork-delta-lint 射程外（只掃 src/*.{ts,vue}、`#` 註解不被認），手寫 `# [rev5-inline
 BASE-WEB-ADAPT] 原行: …` 標記＋review 把關、ADR 記已知態；BACKLOG 立「lint 射程擴
 `.env*`＋`build/`」條目。★翻 N 後 22081 直連＝vite 無 proxy、`/api` 必 404——唯一入口
-https://localhost:22443、記 quickstart。
+http://127.0.0.1:22080（curl 與瀏覽器鎖同一 origin）、記 quickstart。
 
 **同批補機器強制**（fork-delta-lint「軌道名 ∈ 授權名冊」斷言；覆核輪細化）：
 - 名冊源＝Amendment 於 §III.2 新建的**機器可解表格**（★順序相依：該表現在不存在——§III.2
@@ -370,7 +370,7 @@ base-web 側**零測試框架**：把關＝`pnpm typecheck`（★R2 (iii) 必填
 顯人話，zh-CN 顯簡中／en-US 顯英文）：三帳號登入看側邊欄差異／失敗 2 次出驗證碼／答錯自動
 換題／失敗 5 次鎖定／【前置：`updateSystemSetting` 翻 `single_session_default=on`】同帳號
 二次登入使前一條得 7777／access 過期自動 refresh 無感／登出（UI、R3 接線後）舊 token 立即
-失效。★入口一律 https://localhost:22443（22081 直連 `/api` 必 404）。
+失效。★入口一律 http://127.0.0.1:22080（22081 直連 `/api` 必 404）。
 
 ★已知假紅：`cargo test --workspace` **必須**帶 `--test-threads=1`（載
 `specs/002-system-settings/quickstart.md`）；本刀新增的 auth integration 測共用 `sys_token`／

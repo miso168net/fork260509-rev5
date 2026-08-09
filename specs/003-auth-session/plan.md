@@ -34,8 +34,8 @@ rotate-grace／captcha nonce／節流 L1；★無 AOF＝已知態）
 case＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`＋`schema-gate check`；base-web 側
 **零測試框架**（前端執行單元的 TDD 迴圈退化為純 review 迴圈）
 
-**Target Platform**: Linux 容器（dev stack 六業務件）；入口 `https://localhost:22443`
-（front-nginx；★22081 直連 `/api` 必 404）
+**Target Platform**: Linux 容器（dev stack 六業務件）；入口 `http://127.0.0.1:22080`
+（front-nginx；★22081 直連 `/api` 必 404；★curl 與瀏覽器鎖同一 origin，理由見 quickstart 檔頭）
 
 **Project Type**: web（rust-api 後端＋base-web 前端 fork，兩 submodule worktree）
 

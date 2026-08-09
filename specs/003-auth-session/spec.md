@@ -417,7 +417,7 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   `VITE_AUTH_ROUTE_MODE=static→dynamic`（不翻則 /route/* 三端點前端永不呼叫、交付價值空轉）。
   .env 在 fork-delta-lint 射程外＝機器不守，MUST 手寫 `# [rev5-inline BASE-WEB-ADAPT] 原行:…`
   標記＋review 把關、ADR 記已知態；BACKLOG 立「lint 射程擴 .env*＋build/」條目。翻 N 後 22081
-  直連 `/api` 必 404、唯一入口 https://localhost:22443（記 quickstart）。
+  直連 `/api` 必 404、唯一入口 http://127.0.0.1:22080（curl 與瀏覽器鎖同一 origin；記 quickstart）。
 
 **憲法 Amendment（★ 軌道首開＋§I.7 首批行為島，1.2.0→1.3.0）**
 
@@ -572,7 +572,7 @@ upstream 熱檔零 fork-delta（rebase 衝突面不擴）」的顧慮；本刀�
   欄位（非純文字訊息）。
 - **SC-011**: DoD 鏈全綠——`cargo test --workspace --test-threads=1` 全綠（redis 測試鍵 uniq
   前綴隔離、X-Real-IP 顯式注入）；`pnpm typecheck` 綠（app.d.ts 必填型節後 zh-cn 結構受守）；
-  fork-delta-lint 綠；release profile 起得動；手動端到端七項通過（入口 https://localhost:22443）。
+  fork-delta-lint 綠；release profile 起得動；手動端到端七項通過（入口 http://127.0.0.1:22080）。
 
 ## Assumptions
 
