@@ -120,7 +120,7 @@ curl -s "$BASE/auth/loginCaptcha?userName=$(printf 'x%.0s' {1..200})" | jq .code
 #   ★三個必填欄：success／attempted_user_name／real_ip(INET)；可用不存在帳號名（節流判定鍵＝
 #   送出原文、鎖定判定在 authenticate 之前）。★此 INSERT 推進 sys_login_attempt_id_seq，§7 收尾涵蓋
 docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
-  psql -U postgres -d rev5_admin -c "
+  psql -U soybean -d soybean_admin_rust -c "
     INSERT INTO sys_login_attempt (success, attempted_user_name, real_ip, created_at)
     SELECT false, 'lockprobe', '127.0.0.1', now() - interval '30 seconds'
     FROM generate_series(1,5);"
@@ -179,7 +179,7 @@ refresh_secs、reuse 僅 rotated+grace miss、3333／7777→HTTP 200、refresh �
 # ★一次 psql 批次做完三件事（★步驟①**不可走 API**——updateSystemSetting 必寫 updated_by＝操作者
 #   uid 與 updated_at＝now，而凍結 seed 該列兩欄皆為 NULL ⇒ 走 API 還原值仍留痕跡、gate2 逐列紅）
 docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
-  psql -U postgres -d rev5_admin -c "
+  psql -U soybean -d soybean_admin_rust -c "
     -- ① single_session_default 還原為 seed 值，並把審計兩欄歸 NULL
     UPDATE system_settings SET setting_value='off', updated_at=NULL, updated_by=NULL
       WHERE setting_key='single_session_default';

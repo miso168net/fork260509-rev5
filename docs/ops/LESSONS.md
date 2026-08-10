@@ -1,4 +1,4 @@
-<!-- next: L-015 -->
+<!-- next: L-016 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -169,3 +169,4 @@ L-003｜「移植清單照單施工」不等於「已拍板」＋勘誤不逐處
   結構上測不出、只能靠人工；(c) ★通用形：任何「機器掃描面刻意排除」的目錄，其內容一旦
   仍被當作活的查用來源，就會出現「機器綠、內容誤導」的落差——排除掃描面時要同時問一句
   「這個檔還會被誰當真？」
+- **L-015**｜**自製彙總腳本本身就是假綠來源，且真 DB 走查等同 runtime 寫入**：以 `cargo test … | grep '^test result' | awk '{p+=$4; f+=$6}'` 彙總得「181 passed／0 failed」，實際 rc=101、8 支紅——`test result: FAILED. 182 passed; 8 failed` 這行的欄位位移與 `ok.` 行不同、awk 取到的欄全錯，且該 suite 一紅即中止、後續 suite 未跑（181 < 250 是「少跑了」非「少了幾支」）。紅的 8 支全是真 DB 測，而弄髒 DB 的不是任何測試，是**主線自己用 CDP 做的 MVP 瀏覽器走查**——三帳號真登入寫 runtime 列進 `sys_token`／`session_event`／`sys_login_attempt` 並不可逆推進三支 sequence；T015 的 `SequenceResetGuard` 只在測試跑時生效，瀏覽器活動不在任何守衛射程內，schema-gate gate2 同時紅。防法：①★測試結論一律看 exit code、不看彙總數字（自製彙總腳本沒被驗證過，跟被它彙總的東西一樣可能出錯；要數字就併看 `grep -c '^test result: FAILED'`）②★任何 runtime 寫入之後都要跑 quickstart §7 收尾、不只收刀時跑（瀏覽器走查、手動 curl 登入、活體 demo 都算；判準＝有無東西寫進那三張表）③走查前確認三表 0 列、走查後立刻收尾，別讓髒 DB 跨越單元邊界（否則紅的會是別人的測試、追因成本翻倍）。★同批揭露：`specs/003-auth-session/quickstart.md` 的 §4 造窗與 §7 收尾兩處 psql 都寫 `-U postgres -d rev5_admin`，實際為 `-U soybean -d soybean_admin_rust`（compose 之 `POSTGRES_USER`／`POSTGRES_DB`），照抄直接 `FATAL: role "postgres" does not exist`——該兩行是 SDD 設計期寫的、從未實跑過；RUNBOOK 的「章內不放未經實跑的命令」自律，spec 的 quickstart 也該適用。
