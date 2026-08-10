@@ -7,6 +7,7 @@
 |---|---|---|---|---|
 | /auth/getUserInfo | GET | Authed | auth-get-user-info | 否 |
 | /auth/login | POST | Public | auth-login | 否 |
+| /auth/refreshToken | POST | Public | auth-refresh-token | 否 |
 | /health | GET | Public | health | 是 |
 | /metrics | GET | Public | metrics | 是 |
 | /route/getConstantRoutes | GET | Public | route-get-constant-routes | 否 |
