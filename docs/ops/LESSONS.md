@@ -1,4 +1,4 @@
-<!-- next: L-016 -->
+<!-- next: L-019 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -170,3 +170,49 @@ L-003｜「移植清單照單施工」不等於「已拍板」＋勘誤不逐處
   仍被當作活的查用來源，就會出現「機器綠、內容誤導」的落差——排除掃描面時要同時問一句
   「這個檔還會被誰當真？」
 - **L-015**｜**自製彙總腳本本身就是假綠來源，且真 DB 走查等同 runtime 寫入**：以 `cargo test … | grep '^test result' | awk '{p+=$4; f+=$6}'` 彙總得「181 passed／0 failed」，實際 rc=101、8 支紅——`test result: FAILED. 182 passed; 8 failed` 這行的欄位位移與 `ok.` 行不同、awk 取到的欄全錯，且該 suite 一紅即中止、後續 suite 未跑（181 < 250 是「少跑了」非「少了幾支」）。紅的 8 支全是真 DB 測，而弄髒 DB 的不是任何測試，是**主線自己用 CDP 做的 MVP 瀏覽器走查**——三帳號真登入寫 runtime 列進 `sys_token`／`session_event`／`sys_login_attempt` 並不可逆推進三支 sequence；T015 的 `SequenceResetGuard` 只在測試跑時生效，瀏覽器活動不在任何守衛射程內，schema-gate gate2 同時紅。防法：①★測試結論一律看 exit code、不看彙總數字（自製彙總腳本沒被驗證過，跟被它彙總的東西一樣可能出錯；要數字就併看 `grep -c '^test result: FAILED'`）②★任何 runtime 寫入之後都要跑 quickstart §7 收尾、不只收刀時跑（瀏覽器走查、手動 curl 登入、活體 demo 都算；判準＝有無東西寫進那三張表）③走查前確認三表 0 列、走查後立刻收尾，別讓髒 DB 跨越單元邊界（否則紅的會是別人的測試、追因成本翻倍）。★同批揭露：`specs/003-auth-session/quickstart.md` 的 §4 造窗與 §7 收尾兩處 psql 都寫 `-U postgres -d rev5_admin`，實際為 `-U soybean -d soybean_admin_rust`（compose 之 `POSTGRES_USER`／`POSTGRES_DB`），照抄直接 `FATAL: role "postgres" does not exist`——該兩行是 SDD 設計期寫的、從未實跑過；RUNBOOK 的「章內不放未經實跑的命令」自律，spec 的 quickstart 也該適用。
+- **L-016**｜**`.ok()` 吞掉的可能是「交易已被毒化」那一腿，而 PG 會把其後的 COMMIT 靜默降級成
+  ROLLBACK 卻回 `Ok`**：003-auth-session U-J 的 `handler/auth/refresh.rs` 之 `detect_reuse`
+  原本在 txn 內以 `jwt::ttl_from_settings(&txn).await.ok()` 讀 denylist TTL——該函式的 `Err`
+  有兩腿，而回傳型別把它們壓成同一個 `AppError::Internal`：①設定列缺失／值不可 parse＝純判斷、
+  交易乾淨（`.ok()` 吞它完全正確，正是當時註解寫的那個情境）；②`system_settings::find_by_key`
+  查庫失敗＝SQL 已送出且失敗、交易被 PG 推入 aborted 態。吞掉②之後，其後的 `txn.commit()` 會
+  被 PG 回以命令標籤 `ROLLBACK`（不是 ErrorResponse），而 sqlx／sea-orm 不檢查命令標籤 ⇒
+  `commit()` 回 `Ok(())` ⇒ `revoke_family`（全鏈→revoked）與 `session_event(reuse)` 兩筆一起
+  蒸發、denylist 亦未寫，handler 卻照常回 `8888`：**疑似被盜的整條 token 家族原封不動存活、
+  可無限重放，稽核面零紀錄**（fail-open，與憲法 §I.7 島 C 相反）。★真正的教訓不是這個機制
+  ——`handler/auth/login.rs` 步驟⑩早已用一整段註解把它寫死在案，並據以刻意**不吞**
+  `record_attempt` 的錯——而是**那段註解只住在 login.rs、沒有跨檔傳遞**：同一把刀、同一個
+  crate、隔四個檔，同一個坑再踩一次，且四輪 code review 才抓到。防法：①凡在 txn 內呼叫
+  「回傳型別會把查庫失敗與純判斷失敗壓成同一個錯」的函式，一律**不得 `.ok()`**——要嘛 `?`
+  出去 fail-loud，要嘛把該呼叫移到 commit **之後**、走交易外連線（結構性免疫，不靠註解自律）；
+  ②寫出這類註解的當下就 append 一條 LESSONS——**檔內註解是給改那個檔的人看的，LESSONS 才是
+  給全 repo 看的**；③判準是問「這個 `.ok()` 吞得到的**最壞**那一腿是什麼」，不是「它通常吞到
+  什麼」。
+- **L-017**｜**「修好一支 flake」與「模組不再 flake」是兩件事；而零餘裕的時間斷言有兩個 ±1 秒級
+  來源**：U-J 的碼品質確認輪指出 `t033⑤b`（grace 須先於 commit 落地）是機率性觀測——可觀測窗
+  ＝一次 PG commit（0.1~1ms），而單輪只採一個樣本（EXISTS 回真後那一次鎖探針若比 commit 慢就
+  收工），12 輪留約 6% 假紅率。修法＝輪數 12→60 ＋單輪內持續重採；★守的單向性不受影響：實作
+  若真被搬到 commit 之後，「grace 存在」恆蘊涵「已 commit」＝鎖已釋，重採多少次都不會為真。
+  ★關鍵在於修完**沒有就此收工**：連跑 40 次模組，第 34 次仍紅，而且是**另一支**測試 `t033①`
+  ——`remaining=3901` 溢出 `<= 3900` 一秒。追出兩個成因：(a)`EXTRACT(EPOCH FROM ts)::bigint`
+  在 PG 是**四捨五入不是截斷**（實測 `.6`→+1、`.4`→+0）；(b)斷言兩端取自不同時鐘讀數（PG 欄值
+  vs 測試端 `Utc::now()`），WSL2 牆鐘會被時間同步往回踏。原註解還寫著「上界 3900 為緊界而不脆」
+  ——那句話是錯的。防法：①★flake 的驗收標準是「模組連跑數十次零紅」而非「那一支不再紅」——
+  修完一支就重跑全模組，成本遠低於讓它在別人的單元裡爆且紅訊息會誣指實作退化；②時間／TTL 斷言
+  的**上界**一律帶明示餘裕常數，只要餘裕不影響鑑別力就加（該處要分辨 300 vs 3900 的 13 倍差，
+  加 10 秒零損失）；下界通常已有大量餘裕、不需動；③`::bigint` 在 PG 是 round 不是 truncate，
+  凡拿它做緊界斷言必先算進 ±1；④讀 redis 自己的 TTL 倒數則**無**此暴露面（值不可能超過 SET
+  進去的數）——同形斷言要先分清資料來源，別一律加餘裕。
+- **L-018**｜**單元收尾只寫 commit message、不落帳本也不勾 tasks.md，等於把知識鎖進 git 史**：
+  003-auth-session 連跑九個單元（U-A~U-J）後盤點才發現——(a)每單元發現的衍生工作與踩坑全寫進
+  了 commit message，但 `BACKLOG.md`／`LESSONS.md` **零 append**；(b)`tasks.md` 77 條 checkbox
+  **全部沒勾**、已完成 38 條卻通篇 `[ ]`，該檔完全不反映實況。兩者都不會被任何機器閘擋下（lint
+  不比對 tasks 勾選、帳本形制亦無機器守——後者即 U-N 待斟酌項），所以能一路靜默到收刀。
+  ★危害不對稱：commit message 是**寫給讀那顆 commit 的人**看的，帳本才是**查得到**的那一份
+  ——下一個接手的人不會去翻九顆 commit 找待辦；tasks.md 不勾則進度只能靠人腦或 session 外的
+  task list 維持，換 session／換人即失真。防法：①單元收尾六步序**第③步固定是落帳**——衍生
+  工作→BACKLOG append、踩坑→LESSONS append、tasks.md 把該單元涵蓋的 T 全勾；★主動做、不等
+  user 問（user 2026-08-10 明令）；②★落帳必須排在 `docs-sync.py generate` **之前**：STATE.md
+  的帳面統計現讀 BACKLOG／LESSONS，反序會產出仍帶舊計數的 STATE.md，**而且因為沒有 diff 所以
+  不會被察覺**（與 pin／generate 次序陷阱同一形）；③判準——「這件事下一個人要查得到嗎？」要，
+  就進帳本；「這條 task 做完了嗎？」做完了，就勾。commit message 照寫，但它是補充、不是替代。

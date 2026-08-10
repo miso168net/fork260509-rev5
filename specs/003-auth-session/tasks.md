@@ -64,23 +64,23 @@ description: "Task list for 003-auth-session"
 **Purpose**: 取得 base-web inline 的憲法授權、把六個新依賴帶進場。★本 phase 全數為主線任務
 （user 拍板環節，不入 agent 執行單元）。
 
-- [ ] T001 ★主線任務（user 親決）：撰寫憲法 Amendment 的 ADR draft 於
+- [x] T001 ★主線任務（user 親決）：撰寫憲法 Amendment 的 ADR draft 於
   `docs/arc42/decisions/`——四條 ★ 軌道八個用途（`★BASE-WEB-LOGIN-CAPTCHA-WIRING`(i)／
   `★BASE-WEB-AUTH-WIRING`(a)(b)(c)／`★BASE-WEB-I18N-WIRING`(i)(ii)(iii)／
   `★BASE-WEB-LOGOUT-UX-WIRING`(i)）＋§I.7 五座行為島不變式條文＋§III.2 **機器可解表格形**
   （欄位＝`| 軌道 | 用途 | 範圍（檔案） | 紀律 |`、軌道名以 `**★NAME**` 包覆；掃描錨與名冊定義
   見 research R8）；draft 交 user 親決
-- [ ] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
+- [x] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
   （§III.2 新表格四軌道八列＋§I.7 五座島條文）＋bump 1.2.0→1.3.0＋`python3 tools/docs-sync.py
   generate`；獨立 commit `docs(constitution): amend §III.2 ★軌道首開＋§I.7 auth 行為島（ADR
   00NN、1.2.0→1.3.0）`。**DoD：lint 全綠；此 commit 落地即解除 base-web 既有檔硬閘**
-- [ ] T003 ★主線任務（user 親決）：立五筆連帶 ADR 於 `docs/arc42/decisions/`——①`AppState`
+- [x] T003 ★主線任務（user 親決）：立五筆連帶 ADR 於 `docs/arc42/decisions/`——①`AppState`
   兩欄→五欄翻案（`state.rs` 恰兩欄封條）②ADR 0021 §3 收窄（`app.d.ts` backend 型節本刀提前、
   LangType／locale 註冊／`zh-tw.ts` 標型重構仍延後）③B-047 的 4040 新解讀（正面回應 BACKLOG
   條目自書的語意張力）④root `Cargo.toml`「不引 argon2」翻案 ⑤已知態集（快速登入鈕暴露 dev
   seed 帳密／redis 無 AOF／alova 第二棧 release 非 dormant／`/auth/error` 失效／`.env*` 在
   fork-delta-lint 射程外）
-- [ ] T004 六個新依賴釘版：`rust-api/Cargo.toml` workspace.dependencies 加 argon2 0.5.3／
+- [x] T004 六個新依賴釘版：`rust-api/Cargo.toml` workspace.dependencies 加 argon2 0.5.3／
   captcha 1.0.0／hex 0.4.3／jsonwebtoken 10.4.0（★`default-features = false`＋`rust_crypto`
   feature——漏開＝decode 執行期 panic）／redis 1.3.0（`connection-manager`＋`tokio-comp`）／
   sha2 0.10.9；`rust-api/server/Cargo.toml` 加對應依賴並**同批改寫三處舊拍板註解**
@@ -88,7 +88,7 @@ description: "Task list for 003-auth-session"
   `rust-api/server/src/state.rs:7-9` 恰兩欄封條，改寫時保留「`ip_rules`／`trust_model`／
   `mailer` 仍不搬」邊界說明）。**DoD：容器內 `cargo build` 綠、`Cargo.lock` 成長記入 commit
   message（估 441→約 484 名）**
-- [ ] T005 `rust-api/server/src/config.rs` 六個新 getter（`APP_JWT_JWT_SECRET`／
+- [x] T005 `rust-api/server/src/config.rs` 六個新 getter（`APP_JWT_JWT_SECRET`／
   `APP_JWT_REFRESH_TOKEN_SECRET`／`APP_JWT_ISS`／`APP_JWT_AUD`／`APP_REDIS_URL`／
   `APP_CAPTCHA_SECRET`；沿既有 `env_or_file` 四段 panic 條件）＋逐鍵測試。
   **DoD：先紅後綠；`docker compose … up -d --wait` 六業務件仍起得齊（secrets 已備）**
@@ -99,11 +99,11 @@ description: "Task list for 003-auth-session"
 
 **Purpose**: 認證基座、快取層、碼表、真驗章、測試設施。**⚠️ 本 phase 未完成前不得開任何 US。**
 
-- [ ] T006 `rust-api/server/src/state.rs` 兩欄→五欄（加 `jwt: JwtConfig`／
+- [x] T006 `rust-api/server/src/state.rs` 兩欄→五欄（加 `jwt: JwtConfig`／
   `cache: Option<SessionCache>`／`captcha_secret: String`；測試 `None`、production 恆 `Some`、
   boot 建連失敗即 fail-loud panic 不靜默退 None）＋`rust-api/server/src/main.rs` boot 鏈接線。
   **DoD：先紅後綠**
-- [ ] T007 `rust-api/server/tests/common/mod.rs` 的 `stub_state` 同步五欄，並★**把 stub 連線由
+- [x] T007 `rust-api/server/tests/common/mod.rs` 的 `stub_state` 同步五欄，並★**把 stub 連線由
   `DatabaseConnection::Disconnected` 換成 `ConnectOptions::connect_lazy(true)` 的假連線**
   （research R7-1 修訂版／**ADR 0034**：`Disconnected` 在 `Select::all` 呼
   `get_database_backend()` 直接 panic，而本刀 9 條 Public route 會真的進 handler；
@@ -112,7 +112,7 @@ description: "Task list for 003-auth-session"
   ★URL 不得帶 `user:pass@`（命中 betterleaks DSN 規則）；
   `rust-api/server/src/router.rs` 內的 stub_state 亦同步。
   **DoD：既有 4 case contract 測仍全綠**
-- [ ] T008 [P] `rust-api/server/src/cache/mod.rs` 新建（★同批於 `rust-api/server/src/lib.rs` 加
+- [x] T008 [P] `rust-api/server/src/cache/mod.rs` 新建（★同批於 `rust-api/server/src/lib.rs` 加
   `pub mod cache;`，否則整模組編譯不進 crate）：`SessionCache` 型別別名＋`connect`＋
   六支 key builder（`session:denylist:{sid}`／`session:{sid}:last_activity`／
   `session:rotate-grace:{token_hash}`／`session:idle-emitted:{sid}`／
@@ -122,7 +122,7 @@ description: "Task list for 003-auth-session"
   ★**nil↔Err 嚴格分流**：所有 GET 一律 `Option<T>`（nil→`Ok(None)`＝權威缺席、連線故障→`Err`＝
   caller 退權威源）。★模組名 `cache` 不用 `redis`（R3-1，註解不得帶回 rev4 的消歧理由）。
   **DoD：真 redis（uniq 前綴）＋壞 redis（指不存在位址）雙路測試先紅後綠**
-- [ ] T009 [P] `rust-api/server/src/auth/jwt.rs` 新建（★同批於 `rust-api/server/src/auth/mod.rs`
+- [x] T009 [P] `rust-api/server/src/auth/jwt.rs` 新建（★同批於 `rust-api/server/src/auth/mod.rs`
   加 `pub mod jwt;`）：`Claims` 八欄（`uid`／`sid`／`jti`／
   `roles` 僅 hint／`iss`／`aud`／`exp`／`iat`）＋`sign`＋`verify`／`verify_refresh`（★access 與
   refresh **各自秘鑰**）＋`verify_with`（HS256、`leeway=0`、`validate_exp`、`set_issuer`／
@@ -130,7 +130,7 @@ description: "Task list for 003-auth-session"
   `refresh_ttl_secs`（`min(300, N×60/2)`／`N×60+access`）＋`ttl_from_settings`（★三重 fail-loud：
   查詢失敗／列缺失／不可 parse 一律 `5000`、不猜值）。
   **DoD：TTL 公式邊界 unit 測（N=60→300/3900；N=5→150/450）先紅後綠**
-- [ ] T010 `rust-api/server/src/error.rs`：`AppError` 加三變體（`LoginFailed` 1000／
+- [x] T010 `rust-api/server/src/error.rs`：`AppError` 加三變體（`LoginFailed` 1000／
   `TokenExpired` 3333／`ModalLogout` 7777）＋`code()`／`key()`／`http()` 三 match 各補三臂
   （★`http()` 現為 `_ => StatusCode::OK` 萬用臂 ⇒ 三碼自動落 HTTP 200、零改動即符 FR-024，僅需
   補斷言）；★**六處逐字改造**（research R7-3）：①函式名 `issuable_six_and_no_variant_seven` 改
@@ -141,18 +141,18 @@ description: "Task list for 003-auth-session"
   `base-web/src/locales/langs/zh-tw.ts` 三鍵（`auth.login.failed`／`auth.token.expired`／
   `auth.session.kicked`，譯文見 `contracts/msg-keys.md`）。
   **DoD：先紅後綠；13 碼矩陣測試不動仍綠；`docs-sync lint` 綠**
-- [ ] T011 [P] `rust-api/server/src/model/facade/sys_token.rs` 新建（先落 `insert`／
+- [x] T011 [P] `rust-api/server/src/model/facade/sys_token.rs` 新建（先落 `insert`／
   `find_by_hash_for_update`／`has_active_in_chain`；`rotate`／`revoke_family`／
   `revoke_others_of_user` 留 US2／US3）＋`rust-api/server/src/model/facade/mod.rs` 註冊。
   **DoD：真 DB 測（含 sequence 重設守衛）先紅後綠**
-- [ ] T012 `rust-api/server/src/auth/enforce.rs` 換真驗章：驗 access → denylist 查 → 放行後推進
+- [x] T012 `rust-api/server/src/auth/enforce.rs` 換真驗章：驗 access → denylist 查 → 放行後推進
   `last_activity`；★降級鏈＝redis `Err` 退 PG `has_active_in_chain`（無 active→`8888`
   fail-closed）／**PG 亦故障→視為無 active、絕不盲放**／denylist nil→放行（權威「未撤」）；
   三分碼落地（缺席・非 Bearer・簽章不符・已撤銷→`8888`；exp 過期→`3333`；被踢→`7777`）＝
   R3-10 差異點（rev4 把缺席也判 3333、不得帶回）。`rust-api/server/src/obs.rs` 同批
   pre-register `denylist_hit_total{source=redis|pg}`。
   **DoD：四級降級各一測（真 redis／壞 redis 退 PG／PG 亦壞／nil 放行）先紅後綠**
-- [ ] T013 汰換 dev-only 驗證器：刪 `rust-api/server/src/auth/dev_identity.rs` 整檔＋
+- [x] T013 汰換 dev-only 驗證器：刪 `rust-api/server/src/auth/dev_identity.rs` 整檔＋
   `rust-api/server/src/auth/mod.rs` 移除 `pub mod dev_identity;`＋★**同批把
   `rust-api/server/tests/authz_entrypoint_lint.rs` 與
   `rust-api/server/tests/entity_access_lint.rs` 兩份 `scan_is_non_empty` must-list 中的
@@ -160,7 +160,7 @@ description: "Task list for 003-auth-session"
   指名的守門強度、**不是直接刪列**）＋把 002 既有測試由 `Bearer dev-super` 遷到測試 helper 簽
   真 token＋更新 `docs/arc42/ARCHITECTURE.md` 對應節。
   **DoD：兩支 lint 綠、`cargo build --release` 首次可跑（debug／release 行為一致）**
-- [ ] T014 `rust-api/server/src/router.rs` 掛 **`method_not_allowed_fallback`**（B-047）：
+- [x] T014 `rust-api/server/src/router.rs` 掛 **`method_not_allowed_fallback`**（B-047）：
   ★組裝次序寫死為 route 註冊 → 各子 router `enforce_mw` layer → merge → `.fallback()` →
   `.method_not_allowed_fallback()` → 最外側 metric layer（research R1 實證）；把
   `routes_table_matches_data_model_four_rows` 的硬編 4 改為與 `ROUTES` 並置的具名常數
@@ -170,7 +170,7 @@ description: "Task list for 003-auth-session"
   **DoD：四行為＋兩次序反例測試先紅後綠——Public 動詞不符→4040＋404／Authed 未認證動詞不符
   →4040（不洩存在性）／Authed 已認證動詞不符→4040／未註冊路徑→既有 path fallback；反例①mnaf
   後才 merge 進來的 route 回框架 405 ②mnaf 排在 layer 前則未認證動詞不符變 8888**
-- [ ] T015 [P] 測試設施：在 `rust-api/server/src/model/mod.rs` 新開
+- [x] T015 [P] 測試設施：在 `rust-api/server/src/model/mod.rs` 新開
   `#[cfg(test)] pub(crate) mod test_db`（★**不可**放 `rust-api/server/tests/common/mod.rs`——該檔
   自述「crate 內側**拿不到** integration test 的 `tests/common`（取用方向相反）、屬結構性隔離」，
   且其比對面自述「tests/ 各 case 全不觸 DB」；而本刀真 DB／真 redis 測全在 src 側 `#[cfg(test)]`）
@@ -182,12 +182,12 @@ description: "Task list for 003-auth-session"
   二分支，Drop 內不可 await）。★守衛用 raw SQL `Statement`（`setval` 非 entity 存取）故不觸
   `entity_access_lint`。
   **DoD：守衛 Drop 後 `python3 tools/schema-gate.py check` gate2 綠**
-- [ ] T016 [P] `rust-api/server/src/request_context.rs` 加 `real_ip`／`x_forwarded_for`／
+- [x] T016 [P] `rust-api/server/src/request_context.rs` 加 `real_ip`／`x_forwarded_for`／
   `ip_confidence` 三個**原樣轉錄**欄（★零信任判定；handler 一律經此型取請求事實、絕不自讀轉發
   標頭——B-019 接手只換 `real_ip` 推導、欄與寫入點不動）；`x_forwarded_for` 入庫前**截斷 1024＋
   剝 CR/LF**、`ip_confidence` 恆 `nginx_peer`（R3-11）。
   **DoD：截斷與剝控制字元 unit 測先紅後綠**
-- [ ] T017 [P] `rust-api/server/src/model/password.rs` 新建：`verify`／`dummy_verify`
+- [x] T017 [P] `rust-api/server/src/model/password.rs` 新建：`verify`／`dummy_verify`
   （時序等化）＋argon2 參數（對齊 seed PHC `m=19456,t=2,p=1`）。
   **DoD：以 seed hash 驗 `123456` 成功／錯誤密碼失敗／`dummy_verify` 耗時同量級，先紅後綠**
 
@@ -204,11 +204,11 @@ typings；`getConstantRoutes` 未認證可取且前端合併不清空 builtin �
 
 ### Tests for User Story 1 ⚠️（先寫、先確認紅）
 
-- [ ] T018 [P] [US1] contract case ×5 加入 `rust-api/server/tests/contract.rs` registry：
+- [x] T018 [P] [US1] contract case ×5 加入 `rust-api/server/tests/contract.rs` registry：
   `/auth/login`／`/auth/getUserInfo`／`/route/getUserRoutes`／`/route/getConstantRoutes`／
   `/route/isRouteExist`（案 key 與 wire 形制依 `contracts/wire-auth.md`／`wire-route.md`；
   ★每 case 的 verify 須能在配到別條 path 時紅＝逐 case 錯配自證）
-- [ ] T019 [P] [US1] integration 測骨架：三帳號登入→取 token→`getUserInfo` 四欄斷言
+- [x] T019 [P] [US1] integration 測骨架：三帳號登入→取 token→`getUserInfo` 四欄斷言
   （`userId` 為**字串**、`userName`＝nick_name〔User→`User01`〕、`roles` DB-fresh、`buttons`
   非空）＋`getUserRoutes` 樹依角色差異＋`home` 為可導航葉頁，置
   `rust-api/server/src/handler/auth/user_info.rs` 與 `handler/route.rs` 之 `#[cfg(test)]`。
@@ -222,18 +222,18 @@ typings；`getConstantRoutes` 未認證可取且前端合併不清空 builtin �
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] `rust-api/server/src/model/facade/sys_user.rs` 新建：
+- [x] T020 [P] [US1] `rust-api/server/src/model/facade/sys_user.rs` 新建：
   `find_by_user_name`／`find_by_id`／`write_session_id`
-- [ ] T021 [P] [US1] `rust-api/server/src/model/facade/sys_role.rs` 新建：`home_of_roles`
+- [x] T021 [P] [US1] `rust-api/server/src/model/facade/sys_role.rs` 新建：`home_of_roles`
   （★收斂律＝啟用角色 `status=1` 依 role id 升冪取首個**非空** `role_home`、全空→`home`；
   ★三 seed 角色同值故機器測不出分歧 ⇒ 碼註釘住規則＋一支**合成多角色**測試守）
-- [ ] T022 [P] [US1] `rust-api/server/src/model/facade/sys_menu.rs` 新建：`list_active`／
+- [x] T022 [P] [US1] `rust-api/server/src/model/facade/sys_menu.rs` 新建：`list_active`／
   `visible_menu_routes`（Casbin `menu` 維度 `get_filtered_policy`）／`to_menu_route`
   （★欄位映射逐欄依 data-model §5：`id`→字串、`meta.title` 恆存、`icon_type` 拆
   `icon`／`localIcon` 且本身不外洩、`meta.roles` 類欄**不下發**）
-- [ ] T023 [P] [US1] `rust-api/server/src/model/facade/sys_login_attempt.rs` 新建（本 phase 只落
+- [x] T023 [P] [US1] `rust-api/server/src/model/facade/sys_login_attempt.rs` 新建（本 phase 只落
   `insert`；滑動窗 `count_recent_failures` 留 US4）
-- [ ] T024 [US1] `rust-api/server/src/handler/auth/login.rs` 新建（★同批**新建**
+- [x] T024 [US1] `rust-api/server/src/handler/auth/login.rs` 新建（★同批**新建**
   `rust-api/server/src/handler/auth/mod.rs`＝五個子模組的 `pub mod` 宣告，並於
   `rust-api/server/src/handler/mod.rs` 加 `pub mod auth;`；漏建即整個 handler/auth 目錄
   編譯不進 crate）——十一步之
@@ -243,30 +243,30 @@ typings；`getConstantRoutes` 未認證可取且前端合併不清空 builtin �
   ⑧`sys_token::insert` ⑩稽核成功列同 txn ⑪commit 後 best-effort 進 denylist＋`last_activity`
   起點。★**失敗列寫入點恰三處**（research R7-7）：Denied（外層 conn）／鎖內重驗失敗
   （先 `txn.rollback()` 再落列於**外層 conn**）／成功（落 txn 內）。步驟①②留 T054、⑨留 T041
-- [ ] T025 [P] [US1] `rust-api/server/src/handler/auth/user_info.rs` 新建：四欄回包；
+- [x] T025 [P] [US1] `rust-api/server/src/handler/auth/user_info.rs` 新建：四欄回包；
   `buttons` 走 Casbin `button` 維度 `get_filtered_policy` 枚舉（★非 `enforce*` ⇒ 不觸單一判定
   進入點守恆）；`userId` 用既有 `serialize_i64_as_string`
-- [ ] T026 [P] [US1] `rust-api/server/src/handler/route.rs` 新建：`get_user_routes`
+- [x] T026 [P] [US1] `rust-api/server/src/handler/route.rs` 新建：`get_user_routes`
   （DB-fresh roles→過濾→祖先包含→同層 `order`→`id` 升冪；`home` 經 `resolve_home` 兜底＝驗屬
   可見樹可導航葉、不屬→先序第一可導航頁）／`get_constant_routes`（★過濾謂詞必寫
   `constant = TRUE`、**勿寫 `IS NOT FALSE`**——NULL 佔 64 列；現回 `[]`）／`is_route_exist`
-- [ ] T027 [US1] `rust-api/server/src/router.rs` 加 5 條 ROUTES（`/auth/login` POST/Public／
+- [x] T027 [US1] `rust-api/server/src/router.rs` 加 5 條 ROUTES（`/auth/login` POST/Public／
   `/auth/getUserInfo` GET/Authed／`/route/getConstantRoutes` GET/**Public**／
   `/route/getUserRoutes` GET/Authed／`/route/isRouteExist` GET/Authed）＋bump 條數常數。
   ★每欄一行的窄形制（`parse_router_routes` 要求；rustfmt 不得折行、**不得出現鏈式多動詞
   handler**——會靜默 fullmatch 通過）
-- [ ] T028 [US1] base-web `.env` 兩行 ADAPT 改動＋標記：`VITE_AUTH_ROUTE_MODE=static`→
+- [x] T028 [US1] base-web `.env` 兩行 ADAPT 改動＋標記：`VITE_AUTH_ROUTE_MODE=static`→
   `dynamic`（兌現憲法 §II #2；不翻則三個 `/route/*` 端點前端永不呼叫）／`VITE_HTTP_PROXY=Y`→`N`；
   標記形＝`# [rev5-inline BASE-WEB-ADAPT] 原行: <現值>`（★軌道名**全稱不縮寫**）
-- [ ] T029 [P] [US1] base-web `.env.test` 與 `.env.prod` 各一行 ADAPT：
+- [x] T029 [P] [US1] base-web `.env.test` 與 `.env.prod` 各一行 ADAPT：
   `VITE_SERVICE_BASE_URL` 由 apifox mock→`/api`（★dev 實載 `.env.test`；`.env.prod` 同步拆
   mock＝dev/prod 同形，不同步則留一個指向 apifox 的死設定）＋同形標記
-- [ ] T030 [US1] base-web `src/store/modules/route/index.ts` 的 `★BASE-WEB-AUTH-WIRING(a)`：
+- [x] T030 [US1] base-web `src/store/modules/route/index.ts` 的 `★BASE-WEB-AUTH-WIRING(a)`：
   `initConstantRoute` 之 else 分支一行改為
   `addConstantRoutes([...staticRoute.constantRoutes, ...data])`（★**合併**而非取代——seed
   `constant=TRUE` 為 0 列，取代會清空 403／404／500／iframe-page／login 五條 builtin 常量路由）；
   修改型 inline 須帶 `原行:` 註解。**DoD：`pnpm typecheck` 綠＋瀏覽器登入頁仍可達**
-- [ ] T031 [US1] 走查 quickstart §1（三帳號登入＋側邊欄差異＋`getConstantRoutes` 未認證可取），
+- [x] T031 [US1] 走查 quickstart §1（三帳號登入＋側邊欄差異＋`getConstantRoutes` 未認證可取），
   並在 `rust-api` worktree commit＋外層 bump pin
 
 **Checkpoint**: US1 完成——**MVP 達成**：rev5 第一次端到端可見（瀏覽器真登入→角色化側邊欄）。
@@ -282,30 +282,30 @@ typings；`getConstantRoutes` 未認證可取且前端合併不清空 builtin �
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T032 [P] [US2] contract case ×1（`/auth/refreshToken` POST/**Public**）加入
+- [x] T032 [P] [US2] contract case ×1（`/auth/refreshToken` POST/**Public**）加入
   `rust-api/server/tests/contract.rs`
-- [ ] T033 [P] [US2] integration 測：①`active`→rotate 回新對 ②同票二度→grace 命中冪等回同一對
+- [x] T033 [P] [US2] integration 測：①`active`→rotate 回新對 ②同票二度→grace 命中冪等回同一對
   ③grace 窗外同票→reuse＋撤家族＋落 `session_event(reuse)`＋8888 ④驗章失敗／查無列→8888
   ⑤**同票兩並發**→一 rotate 一走 grace、不觸 reuse（★partial UNIQUE 衝突 DbErr 須辨識並轉
   grace 冪等分支、**不得籠統 5000**），置 `handler/auth/refresh.rs` 之 `#[cfg(test)]`
 
 ### Implementation for User Story 2
 
-- [ ] T034 [P] [US2] `rust-api/server/src/model/facade/sys_token.rs` 補 `rotate`（★舊列→
+- [x] T034 [P] [US2] `rust-api/server/src/model/facade/sys_token.rs` 補 `rotate`（★舊列→
   `rotated`＋`used_at`、插新 `active` 同鏈；**次序不可反**、partial UNIQUE 為護欄）與
   `revoke_family`
-- [ ] T035 [P] [US2] `rust-api/server/src/model/facade/session_event.rs` 新建：`insert`
+- [x] T035 [P] [US2] `rust-api/server/src/model/facade/session_event.rs` 新建：`insert`
   （append-only 八欄；★`source_ip` 為 `varchar(45)` 非 INET ⇒ 與 `sys_login_attempt.real_ip`
   寫入**不共 helper**）
-- [ ] T036 [US2] `rust-api/server/src/handler/auth/refresh.rs` 新建：驗章失敗**一律 8888**
+- [x] T036 [US2] `rust-api/server/src/handler/auth/refresh.rs` 新建：驗章失敗**一律 8888**
   （★絕不 3333——jwt 層恆吐 3333、漏 `map_err` 即前端死迴圈）；`FOR UPDATE` 鎖列後分流——
   `active`→rotate→**寫 grace（TTL 30 秒、★commit 前仍持鎖時）**／`rotated`＋grace 命中→冪等回
   既發後繼／`rotated`＋grace miss→**reuse 偵測（唯一觸發形，R3-7）**→`revoke_family`＋
   `session_event(reuse)`＋denylist(revoked、★TTL＝refresh 全壽命 R3-8)→8888／查無列→8888。
   `revoked` 三分支留 T042
-- [ ] T037 [US2] `rust-api/server/src/router.rs` 加 `/auth/refreshToken`（POST/**Public**——設
+- [x] T037 [US2] `rust-api/server/src/router.rs` 加 `/auth/refreshToken`（POST/**Public**——設
   Authed 則過期 token 永遠換不了）＋bump 條數常數
-- [ ] T038 [US2] 走查 quickstart §2＋worktree commit＋外層 bump pin
+- [x] T038 [US2] 走查 quickstart §2＋worktree commit＋外層 bump pin
 
 **Checkpoint**: US1＋US2 皆獨立可用——會話可續期。
 
