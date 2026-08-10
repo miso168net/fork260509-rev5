@@ -368,9 +368,9 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T048 [P] [US4] contract case ×1（`/auth/loginCaptcha` GET/Public）加入
+- [x] T048 [P] [US4] contract case ×1（`/auth/loginCaptcha` GET/Public）加入
   `rust-api/server/tests/contract.rs`（★含缺 `userName` query 的 rejection 亦須成三欄信封）
-- [ ] T049 [P] [US4] integration 測：①三區轉換 ②★軟區與鎖定皆 argon2 **之前**擋下、
+- [x] T049 [P] [US4] integration 測：①三區轉換 ②★軟區與鎖定皆 argon2 **之前**擋下、
   **零稽核列零計數桶**（以「拒絕後成功登入仍可」證明不消耗桶）③滑動窗 reset-on-success
   ④captcha nonce 重放第二次拒 ⑤答錯不推進鎖定但該題已耗 ⑥**兩層降級**：redis 整體不可用→軟區
   要求**整層停用**且密碼錯仍計數／單次 SET NX 瞬斷→**拒但零計數不罰** ⑦L2 DbErr→`count:=0`
@@ -378,13 +378,13 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ### Implementation for User Story 4
 
-- [ ] T050 [P] [US4] `rust-api/server/src/model/facade/sys_login_attempt.rs` 補
+- [x] T050 [P] [US4] `rust-api/server/src/model/facade/sys_login_attempt.rs` 補
   `count_recent_failures`：★raw SQL 之 `GREATEST` **三源下界**（窗起點／窗內最近成功的
   `MAX(created_at)`／`unlock_marker`）逐字帶入**不得簡化**；★子查詢必帶窗下界（防全歷史回掃）；
   ★`unlock_marker` 本刀**無寫入者**（後續刀補）——無 marker 綁 SQL NULL、`GREATEST` 非 strict
   自然退化為兩源，保留參數位、**不得用 sentinel 值**；碼註記「該源恆 NULL＝已知態、不得宣稱
   三源皆已驗」
-- [ ] T051 [P] [US4] `rust-api/server/src/throttle/mod.rs` 新建（★同批於
+- [x] T051 [P] [US4] `rust-api/server/src/throttle/mod.rs` 新建（★同批於
   `rust-api/server/src/lib.rs` 加 `pub mod throttle;`）：常數組（`THROTTLE_LOCK_TTL_SECS`
   900／`CAPTCHA_TTL_SECS` 300／`CAPTCHA_ANSWER_LEN` 4／`CAPTCHA_CHARSET` 34 字／三個 DEFAULT／
   `LOGIN_USER_NAME_MAX`／`LOGIN_PASSWORD_MAX_BYTES`）＋`ThrottleSettings`＋`load_settings`＋
@@ -394,7 +394,7 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   （結構化 `target: "security.throttle"`＋`degraded` 欄＋counter）。★msg key 用 rev5 新名
   `biz.auth.locked`／`biz.auth.captchaRequired`（R3-4）；★**拔** IP 維全組與
   `suppressed_breadcrumb`／HLL，`precheck` 簽名不留 real_ip／ip_allow 參數位（R3-3）
-- [ ] T052 [P] [US4] `rust-api/server/src/captcha/mod.rs` 新建（★同批於
+- [x] T052 [P] [US4] `rust-api/server/src/captcha/mod.rs` 新建（★同批於
   `rust-api/server/src/lib.rs` 加 `pub mod captcha;`）：`CaptchaClaims` **四欄**
   （`nonce`／`user_name`／`exp`／`ans_mac`；★不設 rev4 的 `ctx` 欄＝R3-5）＋`sign`／
   `verify_challenge`＋`answer_mac`＝`hex(SHA256(secret ‖ nonce ‖ lower(answer)))`（★秘鑰參與
@@ -405,25 +405,25 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   （`use ::captcha::{Captcha, Difficulty};`），不得寫裸 `use captcha::…` ②他處取本模組一律
   `crate::captcha::` ③`lib.rs` 內**絕不**寫裸 `captcha::` 路徑（crate 根同時存在同名模組與 extern
   crate，是唯一必然 ambiguous 之處）④檔頭加碼註釘住此規則：「裸 `captcha::` 在兩處指向相反」
-- [ ] T053 [P] [US4] `rust-api/server/src/handler/captcha.rs` 新建（★同批於
+- [x] T053 [P] [US4] `rust-api/server/src/handler/captcha.rs` 新建（★同批於
   `rust-api/server/src/handler/mod.rs` 加 `pub mod captcha;`）：`/auth/loginCaptcha`——
   ★本檔取產圖／簽題模組一律 `crate::captcha::`（裸 `captcha::` 會解析到外部 crate——見 T052 之
   撞名消歧規則）。★必帶 `?userName=`；對**任意** userName 一律發題（含不存在帳號＝零洩漏）；
   userName 超限走與登入端點**同形**的 `1000` 閘（零新碼零新 key）；產圖／簽章內部失敗→`5000`
-- [ ] T054 [US4] `rust-api/server/src/handler/auth/login.rs` 補步驟①②：①輸入形制閘
+- [x] T054 [US4] `rust-api/server/src/handler/auth/login.rs` 補步驟①②：①輸入形制閘
   （超限→`1000`、★零稽核列零 argon2 不消耗計數桶）②`throttle::precheck`（★以 `?` 早退＝構造上
   零 `record_attempt`）；★**依 Lint24 同步律**（見全程紀律）補
   `base-web/src/locales/langs/zh-tw.ts` 兩鍵（`biz.auth.captchaRequired`／`biz.auth.locked`）
-- [ ] T055 [US4] `rust-api/server/src/obs.rs` pre-register 兩序列：`throttle_degraded_total`
+- [x] T055 [US4] `rust-api/server/src/obs.rs` pre-register 兩序列：`throttle_degraded_total`
   （label `source`＝**research R5 表列之六源逐字**：`settings_default`／`redis_lock`／
   `redis_lock_set`／`redis_captcha`／`db_count`／`db_write`；★rev4 user 維為七源，rev5 少
   `redis_unlock_marker`——本刀不讀 unlock marker，見 R3-17。★label 值集以 R5 表為單一權威、
   本處為引用，勿各自維護）＋`throttle_soft_zone_total`（無 label；★`captcha_forced` 屬 DB 降級
   旗標、**不入**軟區計數）。**DoD：boot 後首次 scrape 即含全部 label 組合顯式 0（render 文本
   比對測），先紅後綠**
-- [ ] T056 [US4] `rust-api/server/src/router.rs` 加 `/auth/loginCaptcha`（GET/Public）＋bump
+- [x] T056 [US4] `rust-api/server/src/router.rs` 加 `/auth/loginCaptcha`（GET/Public）＋bump
   條數常數
-- [ ] T057 [US4] base-web 前端 captcha 軟區接線（`★BASE-WEB-LOGIN-CAPTCHA-WIRING(i)`）：
+- [x] T057 [US4] base-web 前端 captcha 軟區接線（`★BASE-WEB-LOGIN-CAPTCHA-WIRING(i)`）：
   `src/typings/api/rev5-auth.d.ts` 新建（captcha 形、ADAPT 軌道）＋`src/service/api/rev5-auth.ts`
   補 `fetchLoginCaptcha`（★直接路徑 import、避 barrel stale-export）＋
   `src/store/modules/auth/index.ts` login 簽名加 captcha 參與失敗 msg 回傳鏈（locked／
@@ -431,7 +431,7 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   軟區條件渲染（220×120 圖＋輸入欄）＋`refreshCaptcha`＋watch userName **debounce 300ms**。
   ★**(ii) `formRules` 放寬不做**（R3-12 不得帶回、延改密端點刀）。
   **DoD：`pnpm typecheck` 綠＋瀏覽器軟區出圖、答對密碼錯自動換題**
-- [ ] T058 [US4] 走查 quickstart §4＋worktree commit＋外層 bump pin
+- [x] T058 [US4] 走查 quickstart §4＋worktree commit＋外層 bump pin
 
 **Checkpoint**: US1~US4 皆獨立可用——暴力破解阻力到位。
 

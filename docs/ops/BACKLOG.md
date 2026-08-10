@@ -1,4 +1,4 @@
-<!-- next: B-059 -->
+<!-- next: B-061 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -32,3 +32,5 @@
 - B-056｜`handler/auth/refresh.rs` 之 `detect_reuse` 的 fail-open 修補**無機器守**：該處已把 `ttl_from_settings` 的讀移到 `commit()` 之後、走交易外連線（成因見 L-016），但「有人把它搬回 txn 內並加 `.ok()`」不會被任何測試擋下——要測到需要在 `system_settings::find_by_key` 注入「連線仍活但該 SELECT 失敗」的 seam（statement_timeout／鎖等待逾時形），現有 `test_kit::FailingConn` 是整條連線壞、造不出這個形。★同類的守門缺口一旦回歸，徵狀是「回 8888 但什麼都沒撤」＝零訊號｜需要 fault-injection seam 時一併建（B-051 同批）
 - B-057｜`logout` 呈遞 **rotated** 票的語意屬已知態、待裁：現行＝`0000` 靜默 no-op（只有 `active` 列會被撤）。data-model §1 的 logout 兩列只對 `active` 與「驗章失敗／垃圾票」定義，**rotated 不在矩陣內**。實務情境＝多分頁 rotate 競態下使用者拿舊票按登出，結果是新後繼**沒被撤**、會話續活，而回應是 0000（看起來成功）。現行行為已由 `t040_2b` 機器釘住，改動任一方向都會紅。★候選處置：(a)維持並在 data-model §1 補一列寫明；(b)升級為撤全鏈（與 reuse 路徑一致）｜U-N／T077 收斂 data-model 時一併裁，或翻案時立 ADR
 - B-058｜★T069 的「軌道名 ∈ 授權名冊」抽取器須容忍**實測五種標記形**（本條取代並擴充交接期口頭承諾的三變體版）：實地枚舉 base-web 全樹得 `NAME+ <刀號>`（新增型帶刀號）／`NAME(a) <刀號>`（修改型＋用途後綴＋刀號）／`NAME(i)`（修改型＋用途後綴、**無刀號**）／`NAME <刀號>`（.env 的裸形、在 lint 射程外）／以及名冊側自帶的 `**`／`★` 裝飾。★憲法 §III.2 名冊列的是**剝掉用途後綴與 `+` 之後**的名字 ⇒ 抽取器不剝就會把合法標記整批誤判為名冊外。T069⑤「真 repo 至少一修改型對象被檢查」現已有兩個真對象（`store/modules/route/index.ts` 的 `(a)`、`user-avatar.vue` 的 `(i)`）｜T069 實作時消化
+- B-059｜`throttle` 的 `us4_sliding_window_resets_on_success` 有**間歇性假紅**未定位：U-L 期間 85 輪累計 1 次紅（首見於 implementer 的第 1 輪、症狀＝該得 2222 卻得 1000＝L2 count 讀低），此後 65 輪＋主線 20 輪皆零重現。兩個嫌疑向量（dev 共用庫的外部登入流量、L1 GET 瞬斷）查無現行證據。★診斷面已烤進該測（逐敗落列斷言＋失敗時 rows 全列傾印＋redis_lock 降級 delta），再現時可自證屬「外部干擾列」或「redis 瞬斷」哪一形｜再現一次即據傾印定案，或 U-N 全量閘期間仍零重現則降級為已知態
+- B-060｜`tools/docs-sync.py` 的 `I18N_CONST_ROSTER` 註解仍寫著「屆時回填兩常數」的舊預期，而 U-L 實際改走 Lint24 的另一條指定解法（msg key 字面直書、同 002 既有構造點形），名冊維持空表＝誠實態。註解與實況分岔、會誤導下一個讀該工具的人｜U-N 或輕量軌順手更新
