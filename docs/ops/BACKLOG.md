@@ -1,4 +1,4 @@
-<!-- next: B-057 -->
+<!-- next: B-059 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -30,3 +30,5 @@
 - B-054｜handler 測試模組的 `real_app()` AppState 建構重複——`handler/auth/user_info.rs` 與 `handler/route.rs` 兩份逐字相同，`handler/auth/login.rs` 的 `real_app_with(cache)` 即其通用形，三處各自帶一整套 `use`。★成本會複利：後續四個 user story 單元（U-J／U-K／U-L／U-M）還要進 `refresh.rs`／`logout.rs`／`alt_stub.rs` 三個 handler 檔，照抄即 6+ 份；而 AppState 建構點分散是本刀已付過學費的坑（U-C 為兩欄→五欄同步了四處、U-G 又新增三處），日後 AppState 若再加欄（如 U-L 的節流／captcha 面）一次要改六處。處置＝把 `real_app_with(cache) -> Router` 上移至 `model::test_db`（與既有 `real_db`／`test_jwt_config` 同住——該模組檔頭自陳「src 側真 DB／真 redis 測試共用設施只能住這」），三處改呼叫；`login.rs` 的 `connect()` 薄包裝亦可直接用 `test_db::real_db`（003-auth-session U-G 碼品質 review 提出、主線判為與 B-051 同類的測試件治理項而非本單元射程）｜U-N 的 T071（該任務本就在做 `test_kit` 遷移與 B-050／B-051 收攏），或下一支動到三個以上 handler 測試模組的刀
 - B-055｜`SessionEventCleanup` RAII 守衛寄居 `handler/auth/refresh.rs` 的 `#[cfg(test)]` 本地——U-J 需要它清 `session_event` 測試列，但 `test_db` 所在的 `model/mod.rs` 不在該單元允許檔案清單內，故就地造一份；形沿 `test_db::run_cleanup_stmts`（獨立 OS thread＋一次性 runtime＋全新連線＋`panicking()` 二分支）。★U-K 起 logout／kicked／idle 三種事件都要清同一張表，不上移就會複製第二份、第三份。處置＝併入 `model::test_db`｜與 B-054 同批（U-N／T071）
 - B-056｜`handler/auth/refresh.rs` 之 `detect_reuse` 的 fail-open 修補**無機器守**：該處已把 `ttl_from_settings` 的讀移到 `commit()` 之後、走交易外連線（成因見 L-016），但「有人把它搬回 txn 內並加 `.ok()`」不會被任何測試擋下——要測到需要在 `system_settings::find_by_key` 注入「連線仍活但該 SELECT 失敗」的 seam（statement_timeout／鎖等待逾時形），現有 `test_kit::FailingConn` 是整條連線壞、造不出這個形。★同類的守門缺口一旦回歸，徵狀是「回 8888 但什麼都沒撤」＝零訊號｜需要 fault-injection seam 時一併建（B-051 同批）
+- B-057｜`logout` 呈遞 **rotated** 票的語意屬已知態、待裁：現行＝`0000` 靜默 no-op（只有 `active` 列會被撤）。data-model §1 的 logout 兩列只對 `active` 與「驗章失敗／垃圾票」定義，**rotated 不在矩陣內**。實務情境＝多分頁 rotate 競態下使用者拿舊票按登出，結果是新後繼**沒被撤**、會話續活，而回應是 0000（看起來成功）。現行行為已由 `t040_2b` 機器釘住，改動任一方向都會紅。★候選處置：(a)維持並在 data-model §1 補一列寫明；(b)升級為撤全鏈（與 reuse 路徑一致）｜U-N／T077 收斂 data-model 時一併裁，或翻案時立 ADR
+- B-058｜★T069 的「軌道名 ∈ 授權名冊」抽取器須容忍**實測五種標記形**（本條取代並擴充交接期口頭承諾的三變體版）：實地枚舉 base-web 全樹得 `NAME+ <刀號>`（新增型帶刀號）／`NAME(a) <刀號>`（修改型＋用途後綴＋刀號）／`NAME(i)`（修改型＋用途後綴、**無刀號**）／`NAME <刀號>`（.env 的裸形、在 lint 射程外）／以及名冊側自帶的 `**`／`★` 裝飾。★憲法 §III.2 名冊列的是**剝掉用途後綴與 `+` 之後**的名字 ⇒ 抽取器不剝就會把合法標記整批誤判為名冊外。T069⑤「真 repo 至少一修改型對象被檢查」現已有兩個真對象（`store/modules/route/index.ts` 的 `(a)`、`user-avatar.vue` 的 `(i)`）｜T069 實作時消化

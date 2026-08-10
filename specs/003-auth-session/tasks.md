@@ -320,9 +320,9 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T039 [P] [US3] contract case ×1（`/auth/logout` POST/**Public**）加入
+- [x] T039 [P] [US3] contract case ×1（`/auth/logout` POST/**Public**）加入
   `rust-api/server/tests/contract.rs`
-- [ ] T040 [P] [US3] integration 測：①logout 後舊 access→8888 ②logout 對垃圾／已撤票→**0000
+- [x] T040 [P] [US3] integration 測：①logout 後舊 access→8888 ②logout 對垃圾／已撤票→**0000
   冪等 no-op、不落事件**（回異碼＝token 有效性 oracle）③single-session 二次登入→前一條 7777＋
   落 `session_event(kicked, reason=single_session)` ④idle 逾時→8888＋**僅首次**落
   `session_event(idle)`（SET NX 冪等守門）⑤★被踢者於 `(access, refresh)` 窗內換發**仍得 7777**
@@ -330,30 +330,30 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] `rust-api/server/src/handler/auth/login.rs` 補步驟⑨：**兩層政策解析**
+- [x] T041 [US3] `rust-api/server/src/handler/auth/login.rs` 補步驟⑨：**兩層政策解析**
   （`effective_single = session_policy=='single' || (session_policy=='inherit' &&
   single_session_default=='on')`；`session_policy` 值域 `single|multi|inherit` 碼層收斂＋值域
   測試守〔★不加 CHECK、保零 migration〕；`single_session_default` 讀不到→**off 語意**，與第⑥步
   fail-loud 方向相反、刻意）＋`sys_token::revoke_others_of_user`＋逐 sid
   `session_event(kicked)`＋denylist(kicked、TTL＝refresh 全壽命)＋寫 `sys_user.session_id`
-- [ ] T042 [US3] `rust-api/server/src/handler/auth/refresh.rs` 補 `revoked` 三分支與 idle：
+- [x] T042 [US3] `rust-api/server/src/handler/auth/refresh.rs` 補 `revoked` 三分支與 idle：
   reason==`kicked`→**7777**／reason==`revoked` **或鍵缺席**→★靜默 8888、不落事件、不重複撤
   （status 即權威、denylist 純加速層）；idle 門檻＝`refresh_secs − access_secs`（＝N×60）、僅
   `last_activity` 可讀時判（不可讀＝**fail-open** 不 idle-reject）、命中→SET NX
   `idle-emitted:{sid}` 守門→僅首次落 `session_event(idle)`→8888，★**idle 不寫 denylist**
   （不變式 `access_TTL ≤ N×30 < N×60`）
-- [ ] T043 [P] [US3] `rust-api/server/src/handler/auth/logout.rs` 新建：驗章成功→該列→`revoked`＋
+- [x] T043 [P] [US3] `rust-api/server/src/handler/auth/logout.rs` 新建：驗章成功→該列→`revoked`＋
   denylist(revoked、★TTL＝refresh 全壽命 R3-8)＋落 `session_event(logout, created_by=本人)`→0000；
   驗章失敗→**0000 冪等 no-op、不落事件**
-- [ ] T044 [US3] `rust-api/server/src/router.rs` 加 `/auth/logout`（POST/**Public**——設 Authed
+- [x] T044 [US3] `rust-api/server/src/router.rs` 加 `/auth/logout`（POST/**Public**——設 Authed
   則 token 一壞就再也撤不掉那條 session）＋bump 條數常數
-- [ ] T045 [P] [US3] base-web `src/service/api/rev5-auth.ts` 新建（★`rev5-` 前綴＝§III.1
+- [x] T045 [P] [US3] base-web `src/service/api/rev5-auth.ts` 新建（★`rev5-` 前綴＝§III.1
   WRAPPER 軌道、免 ★ 軌道）：`fetchLogout(refreshToken)` wrapper
-- [ ] T046 [US3] base-web `src/layouts/modules/global-header/components/user-avatar.vue` 的
+- [x] T046 [US3] base-web `src/layouts/modules/global-header/components/user-avatar.vue` 的
   `★BASE-WEB-LOGOUT-UX-WIRING(i)`：`onPositiveClick` 改 async、登出前 best-effort
   `await fetchLogout(...)`（失敗不阻斷）後才 `resetStore()`；三行修改型 inline 帶 `原行:` 註解。
   ★(ii) reLogin toast **不開**（R3-13 不得帶回）。**DoD：`pnpm typecheck` 綠＋UI 登出可走通**
-- [ ] T047 [US3] 走查 quickstart §3＋worktree commit＋外層 bump pin
+- [x] T047 [US3] 走查 quickstart §3＋worktree commit＋外層 bump pin
 
 **Checkpoint**: US1~US3 皆獨立可用——會話全生命週期到位。
 
