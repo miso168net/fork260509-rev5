@@ -79,7 +79,16 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢；完成通知一到→TaskStop 該 Monitor（防誤觸 stall）。
 　判死迴圈／卡死→TaskStop→修 script→以 resumeFromRunId 續跑（已完成 agent 走快取不重跑）。
 　hook 兜底：PostToolUse(Workflow) 注入配對提醒、PreToolUse(Workflow) 擋缺 zh-TW 之 script。
-主線例行只在單元邊界醒（看門狗告警除外）：復核＋load-bearing 自驗＋bump submodule pin → 啟下一支。
+主線例行只在單元邊界醒（看門狗告警除外）。★單元收尾**六步序、次序不可反**：
+　①復核 agent 回報（逐項自 grep 驗證、不採信）②load-bearing 自驗（容器內看 rc＋三閘）
+　★③落帳（＝「隨做隨記」的 TDD 期時點）：本單元發現的衍生工作→BACKLOG append、踩坑→
+　　LESSONS append、tasks.md 把該單元涵蓋的 T **全勾**——主動做、不等 user 問
+　④子庫 commit ⑤`git add <子庫>`→`docs-sync.py generate`→`git add docs/generated`
+　⑥一顆外層 commit → 啟下一支。
+　★③必須早於⑤：STATE.md 的帳面統計與 pins 皆由 generate 現讀，反序即產出舊值**且無 diff
+　　可察**（同 pin／generate 次序陷阱；成因與危害見 L-018）。
+★單元一支接一支連續跑完、**不停下來等 user 首肯**；唯三種情形停：①拍板級問題（§5 判準）
+　②到了需要 push/merge 的時點③觸及 §6 硬禁令。
 全單元完成 → final holistic review → finishing-a-development-branch（push/merge 需 user 同意）→ 收刀簿記三步（events append＋NOTES＋tools/docs-sync.py generate）。
   ```
 

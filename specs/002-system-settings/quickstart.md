@@ -17,8 +17,8 @@ RUNBOOK §1 註記同步刪）；`migrate` 完成後 server 常駐。
 ## 1. 讀端（US1）
 
 ```bash
-BASE=https://127.0.0.1:22443/api        # 經 front-nginx；-k 收 dev 自簽
-curl -ks $BASE/systemManage/getSystemSettings \
+BASE=http://127.0.0.1:22080/api         # 經 front-nginx；http 入口＝無自簽憑證、免 -k
+curl -s $BASE/systemManage/getSystemSettings \
   -H "Authorization: Bearer dev-super" | python3 -m json.tool
 ```
 
@@ -29,10 +29,10 @@ curl -ks $BASE/systemManage/getSystemSettings \
 
 ```bash
 # 越權：dev-admin（R_ADMIN 有 user:edit 鈕、無設定域政策）
-curl -ks -o /dev/null -w "%{http_code}\n" $BASE/systemManage/getSystemSettings \
+curl -s -o /dev/null -w "%{http_code}\n" $BASE/systemManage/getSystemSettings \
   -H "Authorization: Bearer dev-admin"          # 預期 403（信封 code 5003）
 # 未認證：無標頭
-curl -ks $BASE/systemManage/getSystemSettings | python3 -m json.tool
+curl -s $BASE/systemManage/getSystemSettings | python3 -m json.tool
 #   預期 HTTP 200、code:"8888"、msg:"auth.session.reLogin"、data:null
 ```
 
@@ -41,16 +41,16 @@ curl -ks $BASE/systemManage/getSystemSettings | python3 -m json.tool
 ```bash
 U=$BASE/systemManage/updateSystemSetting
 # 合法＋正規化：正號字面棄除、落庫為 "10"
-curl -ks $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
+curl -s $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
   -d '{"settingKey":"password_min_length","settingValue":"+10"}'      # 0000
 # 非法值：超範圍（上界 128）
-curl -ks $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
+curl -s $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
   -d '{"settingKey":"password_min_length","settingValue":"999"}'      # 2222 invalidValue
 # 未知鍵
-curl -ks $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
+curl -s $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
   -d '{"settingKey":"no_such_key","settingValue":"1"}'                # 2222 notFound
 # 三態：description 顯式清空（null）
-curl -ks $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
+curl -s $U -H "Authorization: Bearer dev-super" -H "Content-Type: application/json" \
   -d '{"settingKey":"password_min_length","settingValue":"8","description":null}'  # 0000、description 落 NULL
 ```
 

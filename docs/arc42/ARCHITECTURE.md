@@ -14,7 +14,9 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 **明確不做**：多租戶、對外開放 API、行動端。
 
-**目前建置狀態**：文件地基（創世）就位；base-web／rust-api 程式體隨波次建置。
+**目前建置狀態**：文件地基（創世）＋schema 基線（001）＋系統設定縱切（002）＋auth 會話
+縱切（003：真登入／rotation／撤銷矩陣／節流三區／圖形驗證碼／i18n 接線）就位；
+其餘域隨波次建置。
 
 ## §2 約束
 
@@ -60,21 +62,117 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   （`tools/entity-drift-gate.py` 守恆；其中 `casbin_rule` 委派 adapter 建基底、不入比對面，
   故實比對 14 表）；ORM 關聯與行為層紀律見 §8 資料慣例。
 - **server crate 管線形**（請求單向流）：router（`ROUTES` 註冊表＝路徑／method／handler／
-  授權態單一來源）→enforce_mw（驗證器 middleware：dev 建置查表 `dev_identity`、release
-  建置編譯期 fail-closed 恆拒）→require_policy（逐路由授權層：每請求 DB-fresh 撈角色→
-  casbin 求值）→handler→validation registry（設定值型驗證）→model/facade（entity 存取
-  唯一管道、`entity_access_lint` 守恆）→DB→envelope（`Res` 三欄信封；/health、/metrics
+  授權態單一來源；動詞不符由 `method_not_allowed_fallback` 收斂為 4040＋HTTP 404，末端
+  外殼再剝除 axum 自動附加的 `allow` 標頭——信封與標頭兩面皆與未註冊路徑不可區分＝零
+  存在性洩漏，組裝次序載於 ADR 0031、剝除掛點論證見 router.rs 碼註）→enforce_mw（真驗章
+  middleware：HS256 access 驗章〔三分碼——缺席・非 Bearer・簽章不符→8888、僅 exp 過期
+  →3333、通過即解出 Claims〕→denylist 查〔redis 加速層、`sys_token.status` 為權威；命中
+  即拒——被踢→7777 modal、其餘（已撤銷）→8888 silent；redis 故障退 PG
+  `has_active_in_chain` fail-closed、PG 亦故障視為無 active 絕不盲放〕→放行後
+  best-effort 推進 last_activity；dev-only 查表驗證器已汰換、debug 與 release 同一路）→
+  require_policy（逐路由授權層：每請求 DB-fresh 撈角色→casbin 求值）→handler→
+  validation registry（設定值型驗證）→model/facade（entity 存取唯一管道、
+  `entity_access_lint` 守恆）→DB→envelope（`Res` 三欄信封；/health、/metrics
   為登記在冊信封例外）。
+- **auth 域模組拓樸**（003 落地）：`auth/`（`jwt.rs` HS256 簽驗章＋token_hash；`enforce.rs`
+  驗章 middleware＋denylist 降級鏈＋casbin 單一判定進入點）／`handler/auth/`（`login.rs`
+  十一步登入鏈、`refresh.rs` rotation＋reuse＋idle、`logout.rs` 撤銷、`user_info.rs`、
+  `alt_stub.rs` 替代登入誠實 stub 四出口）／`handler/captcha.rs`＋`captcha/`（圖形驗證碼
+  簽章題）／`throttle/`（登入失敗節流三區狀態機）／`cache/`（redis session 加速層：
+  denylist／grace／last_activity／throttle L1 鍵面）；資料面 `model/facade/` 八支
+  （session_event／sys_login_attempt／sys_menu／sys_role／sys_token／sys_user／
+  sys_user_role／system_settings）＋src 側測試共用設施 `model::test_db`（守衛四件套、
+  真 app 建構 `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
+- **觀測面**：`/metrics` Prometheus exposition；序列一律 boot 時 pre-register 顯式 0
+  （防「事件未發生＝序列缺席」使 `rate()` 失去基線——`obs.rs` 檔頭鐵律）。auth 刀新增
+  三序列：`denylist_hit_total`（source＝redis／pg 恰二）、`throttle_degraded_total`
+  （source 恰六、值集權威＝003 research R5）、`throttle_soft_zone_total`（無 label）；
+  另有 002 起的 `casbin_enforce_total`（decision 三值）與 axum-prometheus HTTP 請求級
+  三序列。
 
 ## §6 Runtime
 
-（本節尚無內容；判定鏈與狀態機 ASCII 圖隨行為刀填入。）
+不變式凍結面住 constitution §I.7（五座行為島＋fail-* 方向）；本節只寫 as-built 執行形
+——模組落點、常數實值、欄與鍵名（§I.7 進場規則明文把這一類留在活書）。凍結條文一律
+以「主題＋落點＋指島」形給指針，不複述 MUST 文字（複述＝同一事實兩個人寫的家，
+Amendment 改憲法而活書靜默過期）。
+
+### 會話狀態機（sys_token）
+
+```
+login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at → 插新 active）──▶ rotated
+                    │                                        │
+                    │ logout／被踢／reuse 撤家族              │ grace 窗（30s、redis）內同票再呈遞
+                    ▼                                        ▼   ＝冪等回既發同一對（不再轉列）
+                 revoked                          grace miss ⇒ 撤整條家族（觸發形＝§I.7 島 A）
+```
+
+- 一條會話＝一條 `rotation_chain`（sid）；`active` 唯一性之 DB 護欄 as-built＝m001 建的
+  partial UNIQUE index `uq_sys_token_chain_active`（不變式＝constitution §I.7 島 A）。
+- TTL as-built：唯一輸入＝`session_idle_timeout`（分鐘、seed 60），公式住 `auth/jwt.rs`
+  ——`access = min(300, N×60/2)`／`refresh = N×60 + access`，seed（N=60）下即 300s／3900s；
+  ★不可簡寫成 `+ 300`：`session_idle_timeout` 值域下界為 5，N∈[5,10) 時 access＝N×30＜300，
+  兩式分岔（N=5 實為 450 而非 600）；且島 D 的門檻＝`refresh − access` 恆等於 N×60 這件事，
+  只有在加 access 的形下才讀得通。
+  rotate-grace 冪等窗＝`cache::GRACE_TTL_SECS`（30s）。
+- 撤銷讀面 as-built：redis 鍵 `session:denylist:{sid}` 存 reason 字面（`REASON_KICKED`／
+  `REASON_REVOKED` 兩常數集中於 `cache/mod.rs`），enforce_mw 讀端映 7777 modal／
+  8888 silent；權威關係、TTL 值與缺鍵語意＝constitution §I.7 島 C。
+- single-session as-built：政策兩鍵＝`sys_user.session_policy`＋system_settings
+  `single_session_default`，`effective_single` 判真後於 `handler/auth/login.rs` ⑨~⑪ 步
+  同 txn 撤其他 chain 並落稽核、commit 後才 best-effort 廣播 denylist；兩層解析式與
+  踢除義務＝constitution §I.7 島 B。
+- idle 逾時 as-built：`session:{sid}:last_activity` 由 enforce_mw 放行後 best-effort 推進、
+  事件冪等標記鍵＝`session:idle-emitted:{sid}`；門檻式、事件僅首次落與「不寫 denylist」
+  ＝constitution §I.7 島 D。
+- 會話終止稽核＝`session_event` append-only 四事件（reuse／kicked／idle／logout）。
+
+### 登入失敗節流三區
+
+```
+count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
+  0 ~ captcha_after(2)-1 ＝ 自由區 → 密碼驗證、失敗落列推計數（1000）
+  captcha_after ~ max_fails(5)-1 ＝ 軟區 → 須先過圖形驗證碼（缺／錯／過期＝2222
+      captchaRequired），過關才進密碼驗證
+  ≥ max_fails ＝ 鎖定 → 2222 locked（L1 redis 負快取短路）
+```
+
+- 門檻三鍵 as-built：`login_throttle_captcha_after`／`login_throttle_max_fails`／
+  `login_throttle_window_minutes` 住 system_settings（seed 2／5／15）；判定次序
+  （密碼雜湊驗證之前）與「零稽核列、零計數桶」義務＝constitution §I.7 島 E。
+- 圖形驗證碼＝無狀態簽章題（HS256、leeway=0、nonce 消耗標記 SET NX＝一次性）；
+  發題對任意 userName 一律發（零存在性洩漏）、題綁發題帳號。
+- 降級腿方向（redis 失聯＝軟區停用續驗密碼、PG 查詢失敗＝歸零放行＋`captcha_forced`
+  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰六。
 
 ## §7 部署
 
 （本節尚無內容；compose 拓樸敘事隨 dev stack 刀填入。）
 
 ## §8 橫切概念
+
+### fork-delta 接線現況（base-web）
+
+授權面＝constitution §III.2 名冊（授權歸憲法、本節只記 as-built 接線形）。003 起四條
+★ 軌道已實接：
+
+- **★BASE-WEB-AUTH-WIRING**：(a) `store/modules/route/index.ts` constant routes **併入**
+  static 常量集（seed `constant=TRUE` 現 0 列、取代形會清空五條 builtin）；(b) 三張替代
+  登入表單改打 `rev5-auth.ts` 誠實 stub（恆 2222 notSupported）並消滅假成功 toast；
+  (c) `hooks/business/captcha.ts` 改打 `/auth/sendCaptcha` stub、假延遲與假成功 toast 移除。
+- **★BASE-WEB-LOGIN-CAPTCHA-WIRING**：(i) login 簽名加 captcha 參＋失敗 msg 回傳鏈
+  （`store/modules/auth/index.ts`）；`pwd-login.vue` 軟區條件渲染 220×120 驗證碼欄，
+  非軟區零行為變更。
+- **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
+  `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
+  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（22 鍵、
+  兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
+- **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
+  `fetchLogout`（失敗不阻斷 `resetStore()`）。
+
+機器守（`tools/fork-delta-lint.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
+授權名冊斷言（名冊掃自 constitution §III.1/§III.2 表格、掃空即 die）；新增型圈界；
+「假成功 toast 不得回歸」四檔靜態斷言與「`$t` fallback 不得退化」斷言（B-061／B-062 收單）。
 
 ### 資料慣例
 

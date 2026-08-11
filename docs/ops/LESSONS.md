@@ -1,4 +1,4 @@
-<!-- next: L-015 -->
+<!-- next: L-027 -->
 # LESSONS — 教訓 registry
 
 一教訓一段（`L-NNN｜坑＋防法`）、append-only；配號取檔頭 next-id 後 bump、號碼永不回收。
@@ -169,3 +169,168 @@ L-003｜「移植清單照單施工」不等於「已拍板」＋勘誤不逐處
   結構上測不出、只能靠人工；(c) ★通用形：任何「機器掃描面刻意排除」的目錄，其內容一旦
   仍被當作活的查用來源，就會出現「機器綠、內容誤導」的落差——排除掃描面時要同時問一句
   「這個檔還會被誰當真？」
+- **L-015**｜**自製彙總腳本本身就是假綠來源，且真 DB 走查等同 runtime 寫入**：以 `cargo test … | grep '^test result' | awk '{p+=$4; f+=$6}'` 彙總得「181 passed／0 failed」，實際 rc=101、8 支紅——`test result: FAILED. 182 passed; 8 failed` 這行的欄位位移與 `ok.` 行不同、awk 取到的欄全錯，且該 suite 一紅即中止、後續 suite 未跑（181 < 250 是「少跑了」非「少了幾支」）。紅的 8 支全是真 DB 測，而弄髒 DB 的不是任何測試，是**主線自己用 CDP 做的 MVP 瀏覽器走查**——三帳號真登入寫 runtime 列進 `sys_token`／`session_event`／`sys_login_attempt` 並不可逆推進三支 sequence；T015 的 `SequenceResetGuard` 只在測試跑時生效，瀏覽器活動不在任何守衛射程內，schema-gate gate2 同時紅。防法：①★測試結論一律看 exit code、不看彙總數字（自製彙總腳本沒被驗證過，跟被它彙總的東西一樣可能出錯；要數字就併看 `grep -c '^test result: FAILED'`）②★任何 runtime 寫入之後都要跑 quickstart §7 收尾、不只收刀時跑（瀏覽器走查、手動 curl 登入、活體 demo 都算；判準＝有無東西寫進那三張表）③走查前確認三表 0 列、走查後立刻收尾，別讓髒 DB 跨越單元邊界（否則紅的會是別人的測試、追因成本翻倍）。★同批揭露：`specs/003-auth-session/quickstart.md` 的 §4 造窗與 §7 收尾兩處 psql 都寫 `-U postgres -d rev5_admin`，實際為 `-U soybean -d soybean_admin_rust`（compose 之 `POSTGRES_USER`／`POSTGRES_DB`），照抄直接 `FATAL: role "postgres" does not exist`——該兩行是 SDD 設計期寫的、從未實跑過；RUNBOOK 的「章內不放未經實跑的命令」自律，spec 的 quickstart 也該適用。
+- **L-016**｜**`.ok()` 吞掉的可能是「交易已被毒化」那一腿，而 PG 會把其後的 COMMIT 靜默降級成
+  ROLLBACK 卻回 `Ok`**：003-auth-session U-J 的 `handler/auth/refresh.rs` 之 `detect_reuse`
+  原本在 txn 內以 `jwt::ttl_from_settings(&txn).await.ok()` 讀 denylist TTL——該函式的 `Err`
+  有兩腿，而回傳型別把它們壓成同一個 `AppError::Internal`：①設定列缺失／值不可 parse＝純判斷、
+  交易乾淨（`.ok()` 吞它完全正確，正是當時註解寫的那個情境）；②`system_settings::find_by_key`
+  查庫失敗＝SQL 已送出且失敗、交易被 PG 推入 aborted 態。吞掉②之後，其後的 `txn.commit()` 會
+  被 PG 回以命令標籤 `ROLLBACK`（不是 ErrorResponse），而 sqlx／sea-orm 不檢查命令標籤 ⇒
+  `commit()` 回 `Ok(())` ⇒ `revoke_family`（全鏈→revoked）與 `session_event(reuse)` 兩筆一起
+  蒸發、denylist 亦未寫，handler 卻照常回 `8888`：**疑似被盜的整條 token 家族原封不動存活、
+  可無限重放，稽核面零紀錄**（fail-open，與憲法 §I.7 島 C 相反）。★真正的教訓不是這個機制
+  ——`handler/auth/login.rs` 步驟⑩早已用一整段註解把它寫死在案，並據以刻意**不吞**
+  `record_attempt` 的錯——而是**那段註解只住在 login.rs、沒有跨檔傳遞**：同一把刀、同一個
+  crate、隔四個檔，同一個坑再踩一次，且四輪 code review 才抓到。防法：①凡在 txn 內呼叫
+  「回傳型別會把查庫失敗與純判斷失敗壓成同一個錯」的函式，一律**不得 `.ok()`**——要嘛 `?`
+  出去 fail-loud，要嘛把該呼叫移到 commit **之後**、走交易外連線（結構性免疫，不靠註解自律）；
+  ②寫出這類註解的當下就 append 一條 LESSONS——**檔內註解是給改那個檔的人看的，LESSONS 才是
+  給全 repo 看的**；③判準是問「這個 `.ok()` 吞得到的**最壞**那一腿是什麼」，不是「它通常吞到
+  什麼」。
+- **L-017**｜**「修好一支 flake」與「模組不再 flake」是兩件事；而零餘裕的時間斷言有兩個 ±1 秒級
+  來源**：U-J 的碼品質確認輪指出 `t033⑤b`（grace 須先於 commit 落地）是機率性觀測——可觀測窗
+  ＝一次 PG commit（0.1~1ms），而單輪只採一個樣本（EXISTS 回真後那一次鎖探針若比 commit 慢就
+  收工），12 輪留約 6% 假紅率。修法＝輪數 12→60 ＋單輪內持續重採；★守的單向性不受影響：實作
+  若真被搬到 commit 之後，「grace 存在」恆蘊涵「已 commit」＝鎖已釋，重採多少次都不會為真。
+  ★關鍵在於修完**沒有就此收工**：連跑 40 次模組，第 34 次仍紅，而且是**另一支**測試 `t033①`
+  ——`remaining=3901` 溢出 `<= 3900` 一秒。追出兩個成因：(a)`EXTRACT(EPOCH FROM ts)::bigint`
+  在 PG 是**四捨五入不是截斷**（實測 `.6`→+1、`.4`→+0）；(b)斷言兩端取自不同時鐘讀數（PG 欄值
+  vs 測試端 `Utc::now()`），WSL2 牆鐘會被時間同步往回踏。原註解還寫著「上界 3900 為緊界而不脆」
+  ——那句話是錯的。防法：①★flake 的驗收標準是「模組連跑數十次零紅」而非「那一支不再紅」——
+  修完一支就重跑全模組，成本遠低於讓它在別人的單元裡爆且紅訊息會誣指實作退化；②時間／TTL 斷言
+  的**上界**一律帶明示餘裕常數，只要餘裕不影響鑑別力就加（該處要分辨 300 vs 3900 的 13 倍差，
+  加 10 秒零損失）；下界通常已有大量餘裕、不需動；③`::bigint` 在 PG 是 round 不是 truncate，
+  凡拿它做緊界斷言必先算進 ±1；④讀 redis 自己的 TTL 倒數則**無**此暴露面（值不可能超過 SET
+  進去的數）——同形斷言要先分清資料來源，別一律加餘裕。
+- **L-018**｜**單元收尾只寫 commit message、不落帳本也不勾 tasks.md，等於把知識鎖進 git 史**：
+  003-auth-session 連跑九個單元（U-A~U-J）後盤點才發現——(a)每單元發現的衍生工作與踩坑全寫進
+  了 commit message，但 `BACKLOG.md`／`LESSONS.md` **零 append**；(b)`tasks.md` 77 條 checkbox
+  **全部沒勾**、已完成 38 條卻通篇 `[ ]`，該檔完全不反映實況。兩者都不會被任何機器閘擋下（lint
+  不比對 tasks 勾選、帳本形制亦無機器守——後者即 U-N 待斟酌項），所以能一路靜默到收刀。
+  ★危害不對稱：commit message 是**寫給讀那顆 commit 的人**看的，帳本才是**查得到**的那一份
+  ——下一個接手的人不會去翻九顆 commit 找待辦；tasks.md 不勾則進度只能靠人腦或 session 外的
+  task list 維持，換 session／換人即失真。防法：①單元收尾六步序**第③步固定是落帳**——衍生
+  工作→BACKLOG append、踩坑→LESSONS append、tasks.md 把該單元涵蓋的 T 全勾；★主動做、不等
+  user 問（user 2026-08-10 明令）；②★落帳必須排在 `docs-sync.py generate` **之前**：STATE.md
+  的帳面統計現讀 BACKLOG／LESSONS，反序會產出仍帶舊計數的 STATE.md，**而且因為沒有 diff 所以
+  不會被察覺**（與 pin／generate 次序陷阱同一形）；③判準——「這件事下一個人要查得到嗎？」要，
+  就進帳本；「這條 task 做完了嗎？」做完了，就勾。commit message 照寫，但它是補充、不是替代。
+- **L-019**｜**降級腿測不到，常常不是「忘了測」而是「上游同源故障先攔截」——構造壞 X 時，
+  所有讀 X 的上游都會先壞**：U-K 的 `handler/auth/refresh.rs` 之 `reject_idle` 對
+  `set_nx_ex` 的 `Err`（redis 故障）腿有完整論證與 `degraded` 訊號，卻零測試覆蓋。追因後
+  發現不是疏漏：唯一的壞 redis 構造 `test_db::bad_cache()` 會讓**上游**的
+  `last_activity_get`（同一條壞連線）先撞 `Err` → 走 fail-open 續跑 rotate，執行流永遠進不了
+  `reject_idle` ⇒ 該腿**結構上不可達**。同形風險在後續單元只會更多（U-L 的節流三區、captcha
+  標記各有數條 redis／PG 降級腿，且彼此共用同一條連線）。★危害：這類腿改壞了全樹零紅——把
+  `Err(_) => false`（跳過落列）改成 `=> true`（「問不到就當第一次、寧可記下來」是很自然的
+  直覺），redis 半斷線期間每一枚逾時會話的每次換發都會再插一列 `session_event(idle)`，前端
+  refresh-loop 週期性重試 ⇒ append-only 稽核表被同一個 sid 灌爆，而該表無刪除路徑。
+  防法：①判準——若某降級腿「經 HTTP 面構造不出來」，先問「是不是上游有同源故障先攔截」，
+  是就**直呼私有 fn** 取得覆蓋（`integration_tests` 是模組子模組、`super::` 可達；先例＝
+  `super::clamp_source_ip`／`super::is_unique_violation`）；②寫降級腿的論證註解時同步問
+  「這條腿有測試嗎、走得到嗎」——有論證無覆蓋＝下一個人有充分理由把它「簡化」掉；
+  ③補完守門一律做**變異測試**（本例：`Err(_) => true` 使新測紅 rc=101、還原後 rc=0），
+  否則補的是另一個裝飾性守門（ADR 0024）。
+- **L-020**｜**守門要挑「判別點附近」的值，不是安全距離外的值——否則測的是別的東西**：
+  U-L 的 `captcha::verify_challenge` 以 `validation.leeway = 0;` 關掉寬限秒數（那行承載的是
+  captcha「題目一次性」不變式），過期案卻用 `exp = now − 90` 測。而 `jsonwebtoken` 10.4.0 的
+  `Validation::default()` 帶 **`leeway: 60`**，過期判定式為 `exp < now − leeway` ⇒ `−90 < −60`
+  在 leeway=60 之下**仍然成立** ⇒ 把 `validation.leeway = 0;` 整行刪掉，全樹照樣綠。那行遂是
+  一個無守門的賦值，而它一失效就開出真實的重放窗：消耗標記 `captcha:used:{nonce}` 的 TTL 自
+  **驗題當下**起算、token 的 `exp` 自**簽發**起算，令寬限為 L，只要「取題到送出」不足 L 秒
+  （＝正常操作的絕大多數情形），就有最長 L−1 秒的窗口讓標記已逾期而題仍驗得過 ⇒ 同一張已解出
+  的題可再送一次。改用 `exp = now − 5` 後：leeway=0 拒（綠）、leeway=60 接受（紅），判別力精確
+  且非 flaky（簽發到解碼之間 now 只前進，要讓 leeway=60 也拒得等 55 秒以上，單元測不可能）。
+  防法：①寫「某參數被設成 X」的守門時，取值一律貼著 **X 與預設值之間**那條界線，別取一個
+  「兩邊都會拒」的安全值——後者測的是功能存在、不是參數被設成 X；②凡是「把某個預設關掉／調緊」
+  的賦值行，先查該函式庫的**預設值是多少**（本例＝讀 vendored 源的 `validation.rs`），再據以
+  設計判別值；③補完一律做變異測試——把那行拔掉，指定的測試必須指名紅（本例 rc=101、
+  而原 −90 那支照樣綠，正好證明它守不住）。
+- **L-021**｜**非零 exit code 也要看「是誰回的」——`rc=1`（工具拒絕執行）與 `rc=101`
+  （測試真的失敗）意義相反**：U-L 邊界做 flake 檢查時寫成
+  `cargo test -p server --lib throttle:: captcha::`，20 輪全部 rc=1，讀起來像「20/20 全紅的
+  災難」；實際上 `cargo test` 只吃**一個** TESTNAME 位置參數，第二個直接被 clap 拒絕
+  （`error: unexpected argument 'captcha::' found`），**一支測試都沒跑**。識破的線索是同一刻
+  全量 `cargo test --workspace` 才剛 rc=0，且 rust 測試失敗的慣例碼是 **101** 而非 1。
+  ★這是 L-015「一律看 exit code」的必要補充：看 rc 是對的，但 rc 只說「失敗了」，不說
+  「失敗在哪一層」——把工具用法錯誤讀成測試回歸，會讓人去追一個不存在的 bug；反過來把
+  rc=101 讀成環境問題則會放掉真回歸。防法：①非零時**先看第一行輸出**再下結論，`error:` 開頭
+  ＝工具層、`test ... FAILED`／`panicked at` ＝測試層；②迴圈跑測試時把首行錯誤一併印出來
+  （只印 rc 會丟掉這個位元）；③多模組要一起跑就一輪多次呼叫，或直接跑 `--lib` 全組——
+  別把兩個 filter 塞進同一次呼叫。
+- **L-022**｜**派工單（tasks.md）的「涉檔列」不是授權邊界的真相——要對照「這個 task 需要的
+  東西存在嗎」自己補**：003-auth-session 已兩度被同一形咬到。①U-J：`handler/auth/mod.rs`
+  不在 U-J 涉檔列，但不補 `pub mod refresh;` 該檔就編譯不進 crate 且**無任何錯誤訊息指向此事**
+  （U-K 列有它、只有 U-J 那列漏）。②U-M：T063 寫「import stub wrapper」，而全 tasks.md
+  **沒有任何 task 建那個 wrapper**——rev4 藍本是獨立檔 `rev4-auth-stub.ts`、rev5 歸宿是
+  `rev5-auth.ts`，U-K／U-L 兩列都有它、唯獨 U-M 那列漏；且憲法 §III.2 (b) 收窄字面是
+  「僅改 import 指向 stub wrapper」⇒ 表單直呼 `request` 即違收窄，**沒有合規繞道**，
+  implementer 只能回 blocked。★兩次都是「涉檔列漏一個結構上必需的檔」，而編排的允許檔案清單
+  若照抄該列，就把缺口一起抄進去。防法：①開單元前對每個 task 問一句「它 import／呼叫／宣告的
+  東西**現在存在嗎**」，不存在就往前追是誰該建——沒有任何 task 建＝派工單缺口；②允許清單以
+  「該單元真正需要動的檔」為準、涉檔列只當起點；③撞到就**回頭修 tasks.md**（補涉檔列＋在該
+  task 加前置說明），不要只修自己的 script——下一個讀派工單的人會撞同一面牆；④★agent 回
+  blocked 時先判「是不是我的清單有缺口」，那正是防呆⑥要保護的東西，不是 agent 無能。
+- **L-023**｜**`resumeFromRunId` 續跑時，看門狗 ARMED 行的冒煙位元組數是**前一輪**的殘留、
+  不可據以判斷「新 prompt 有沒有送達」**：U-M 因允許清單缺口回 blocked，補列後以
+  `resumeFromRunId` 續跑；看門狗 ARMED 行印出的「impl首行 10740bytes」與前一輪**完全相同**，
+  讀起來像「implementer 走了快取、根本沒重新派」。成因＝resume 沿用同一個 wf 目錄與 runId，
+  而看門狗的冒煙欄讀的是 journal 既有的第一筆記錄——那筆是前一輪寫的。同一行的
+  `token 命中=1` 仍然有效（它證明鎖對了 run 目錄，不證明本輪 prompt 內容）。
+  防法：①續跑時的冒煙查核**改看 agent 檔**——`ls -t <wf目錄>/agent-*.jsonl | head -1` 取最新一支，
+  比 mtime 是否為剛剛、並 `grep` 本輪新加的字串（本例＝「本輪為續跑」）確認新 prompt 已送達；
+  ②這是**一次性查核不是輪詢**，做完就等完成通知；③★續跑前先想清楚「我改的東西會不會讓
+  (prompt, opts) 真的改變」——沒改到 prompt 的 agent 會走快取，那有時正是你要的、有時是災難。
+- **L-024**｜**middleware／fallback 的組裝相對次序是行為、不是風格——次序錯不會編譯紅，
+  只會把「誰來答 405」整個換人，且每個錯序各有不同的靜默壞法**：003-auth-session 的
+  `router.rs::build` 實證三個失效形——①`method_not_allowed_fallback` 排在 merge **之前**
+  ＝它只掃「先前已註冊」的 MethodRouter，之後 merge 進來的 route 全數漏保護、動詞不符回
+  框架 405 零長度裸 body（13 碼矩陣外的第三種出口）；②排在 enforce_mw layer **之內**＝
+  405 fallback 被 authn 包住、未認證動詞不符先吃 8888，於是「換個動詞」就能探測受保護路徑
+  存在性（ADR 0031 零洩漏硬條款破功）；③axum 的 `allow` 標頭是 `RouteFuture` 末段才插
+  （在所有 endpoint layer 外側），剝除殼從鏈內側掛 `map_response` 剝不掉、且信封三欄仍
+  全等＝**靜默**失效。防法：①這類鏈序用「production 組裝函式的行為測」守（走真 `build()`
+  的 contract 案），**不要**只用裸掛合成 router 的反例測——後者釘的是框架語意、production
+  次序寫錯時它們恆綠（兩類守門的歸屬勿倒記，router.rs 碼註與 contract.rs 節首成對載明）；
+  ②改組裝鏈前先讀「次序寫死」碼註並跑該 contract 案，紅了看是哪一個失效形；③凡「掛在鏈上
+  的東西」都問一句「它掃的是掛當下的快照、還是之後的終態」——mnaf 屬前者，一切 layer 屬
+  逐 endpoint 施加，兩者對次序的敏感方向相反。
+- **L-025**｜**「免 DB 契約測」的免 DB 前提對 Public route 結構性破裂——blanket 信封斷言
+  一寫 `0000`／空集就是在斷言一個測不到的東西**：contract.rs 的 stub app 用 connect_lazy
+  假連線，Authed／Policy route 在 authn 層 early-return 8888、真的免 DB；但 Public route
+  （getConstantRoutes 等）沒有 authn 擋路、oneshot 直進 handler、查詢在假連線上落 `DbErr`
+  →回 5000——**不是空集也不是 0000**。若對全 route 一體寫「碼須 0000」的 blanket 斷言，
+  Public 案必紅；反射性把它改成「碼屬可發集」全體套用，又把 Authed 案的判別力
+  （早退形可逐值斷言 8888）一起稀釋掉。防法（ADR 0034 後果段已固化）：①契約案的斷言強度
+  **依「該 route 在 stub 下走到哪一層」分級**——免 DB 的確定形（authn early-return、body
+  rejection）逐值斷言，會觸 DB 的只斷言三欄信封＋碼屬 13 碼矩陣可發集；②寫新 contract 案
+  先問「這條 route 在 stub app 下第一個 DB 觸點在哪」，不要從隔壁案照抄斷言；③blanket
+  斷言要收緊前提：它隱含「全部案走同一條路徑到同一層」，Public／Authed 混掃時該前提天然
+  不成立。
+- **L-026**｜**redis 的 `TTL` 讀回值會**大於**SET 進去的秒數——L-017④ 那句「讀 redis 自身
+  倒數不會超過 SET 值、精確毋需餘裕」是錯的**：U-N 的 T073 全量閘在本機約 3/10 機率紅，紅點
+  ＝`t033①` 的 `assert!(ttl > 10 && ttl <= 30)` 讀到 `ttl=31`（`grace_set` 走的是 `EX 30`）。
+  成因＝redis 把到期時刻算在**牆鐘**上（`EX n` 存絕對毫秒時刻、`TTL` 回「到期時刻−now」），
+  故牆鐘只要在 SET 之後、讀 TTL 之前**向後跳**，讀回值就變大。本機（WSL2）牆鐘正持續後跳：
+  量 `CLOCK_REALTIME` 相對 `CLOCK_MONOTONIC` 的偏移，60 秒窗內 4 次離散後跳（−0.782／−1.008／
+  −0.825／−1.010，累計 −3.62s、成對出現、兩叢相隔 30 秒），15 分鐘後複量仍在跳。
+  ★直證＝在容器內 redis 連續跑 23005 次「`SET … EX 30`→`TTL`」，2 次讀到 **31**——證明不是
+  redis 取整語意、就是牆鐘後跳打進 SET 與讀值之間那道窗。★這條把 L-017④ 的分流結論
+  （「PG 欄值 vs 測試端時鐘」有暴露、「redis 自身倒數」無暴露）**推翻一半**：兩者其實同一個
+  牆鐘，redis 只是把絕對時刻藏在服務端而已。防法：①凡「SET 一個 TTL、隨即讀回斷言」的測，
+  **上界與下界各帶同一顆具名餘裕常數**（rev5 落點＝`model::test_db` 的 `REDIS_TTL_SLACK_SECS`
+  ＝10 秒、`refresh.rs` 4 處與 `logout.rs` 1 處跨檔沿用同一顆）——★「下界維持零餘裕、鑑別力全在
+  下界」是**本條自己一度寫錯的推論**：牆鐘後跳把讀回值往**大**推，對下界是同方向作用，故下界
+  貼著「要排除的錯值」W 寫 `> W` 時，實作真被改成 `EX W` 也會因讀回 W+1 而全綠（`> 10` 對 rev4
+  grace 10 秒、`> 300` 對 access_secs 誤寫形、`> 3600` 對「拿 idle 門檻當 TTL」三處皆然），
+  鑑別力變成**機率性**的。正解＝`ttl > W + 常數 && ttl <= C + 常數`（C＝拍板正解），三組的判別
+  間距扣掉常數後仍餘 10／3590／290 秒 ⇒ 仍零鑑別力損失；
+  ②餘裕常數的 doc 必須寫明「吸收環境效應、非放寬拍板值」，否則下一個讀的人會以為拍板值鬆綁了；
+  ③放寬邊界後要補**變異測試**證明鑑別力沒被稀釋——把 handler 的 `cache::GRACE_TTL_SECS` 改成
+  字面 `10` 重跑，該測須指名紅（實測 rc=101、`t033①` FAILED），改回才綠；★★該變異測試在
+  「下界零餘裕」版只是**機率性**成立（恰逢一次後跳即讀回 11 > 10 而假綠），下界吃了餘裕之後才
+  變成確定性的——**證明防法有效的變異測試自己也會被同一個環境效應蝕空**，這是本條最貴的一半；
+  ④間歇性假紅的收工
+  標準是「複跑數輪全綠**且期間環境效應仍在發生**」——本次 7 輪全量閘全綠（各 321 支、rc=0）
+  之所以算數，是因為同一時段量到牆鐘仍在跳；若不同時證明後者，全綠只能證明環境當下安靜。
