@@ -110,6 +110,10 @@ RE_SECTION = re.compile(r"^§\d{1,2}$")
 RE_ADR_ID = re.compile(r"^\d{4}$")
 RE_BID = re.compile(r"^B-\d{3,}$")
 
+# erratum 可更正的欄枚舉：merge 驗於外層、pins.* 依 PIN_KEYS 映射驗於各 submodule——
+# 與 Lint18 的驗證面同一份真值，故自 PIN_KEYS 導出、不落第二份字面名冊。
+ERRATUM_FIELDS = ("merge",) + tuple(f"pins.{key}" for key, _sub in PIN_KEYS)
+
 EVENT_SCHEMAS = {
     "feature_close": {
         "required": ["type", "feature", "merge", "date", "summary", "pins",
@@ -125,6 +129,12 @@ EVENT_SCHEMAS = {
         # backlog_done：輕量軌收刀（非 NNN- branch、無 feature_close 事件）消化 BACKLOG 條目的
         # 唯一證據通道（Lint04/Lint05 對賬同源；user 拍板調規 2026-07-17——維護批首例）。
         "optional": ["notes", "backlog_done"],
+    },
+    # erratum＝對已入史事件列的 append 型更正（B-042 調閘形、ADR 0012 決定 5「既有列
+    # 絕不編輯」的機器可認出口）：Lint18 以更正視圖重驗 target 列、corrected 本身亦被實證。
+    "erratum": {
+        "required": ["type", "date", "target_line", "field", "corrected", "reason"],
+        "optional": ["notes"],
     },
 }
 
@@ -203,6 +213,23 @@ def _check_event(e):
     elif etype == "misc":
         if "backlog_done" in e and not _id_list_ok(e["backlog_done"], RE_BID):
             errs.append("backlog_done 須為 B-NNN 字串 list（可空）")
+    elif etype == "erratum":
+        tl = e["target_line"]
+        if not (isinstance(tl, int) and not isinstance(tl, bool) and tl >= 1):
+            errs.append(f"target_line 須為正整數（events.jsonl 行號）：{tl!r}")
+        if e["field"] not in ERRATUM_FIELDS:
+            errs.append(f"field 須為 {'/'.join(ERRATUM_FIELDS)} 之一：{e['field']!r}")
+        # ★須與 `_erratum_view` 的 `isinstance(cor, str)` 守衛同尺：此處若沿用
+        #   `str(e["corrected"])` 的寬鬆轉型，40 位純十進位數字的 JSON number
+        #   （＝corrected 少打引號）會兩邊都不報——Lint03 因 str() 後恰為 40 個合法 hex
+        #   字元而放行、視圖因非 str 而 continue，erratum 靜默零效、target 列舊紅照掛。
+        #   那正是硬語意③「絕不靜默 no-op」明禁之形，故此欄不吃 feature_close 的
+        #   merge／pins 那套 str() 寬鬆慣例。
+        if not (isinstance(e["corrected"], str) and RE_SHA.fullmatch(e["corrected"])):
+            errs.append(f"corrected 須為 40 位 hex SHA：{e['corrected']!r}")
+        r = e["reason"]
+        if not (isinstance(r, str) and r.strip() and "\n" not in r and "\r" not in r):
+            errs.append("reason 須為非空單行字串（一句話、不得換行）")
     return errs
 
 
@@ -2836,15 +2863,116 @@ def run_git_concurrently(calls):
         return [f.result() for f in [ex.submit(fn) for fn in calls]]
 
 
+def _erratum_view(rows, line_count):
+    """erratum 更正視圖（B-042 調閘形；六條硬語意之①③④⑤面）。
+
+    輸入＝Lint18 已解析之 (行號, 事件) 列表＋帳本總行數；回 (view, checks, findings)：
+    - view＝{(target_line, field): corrected}——同 target×欄多筆時 append 序後者勝（④）；
+    - checks＝[(erratum 行號, field, corrected), …]——**每筆**通過脫靶檢查者皆入列（含被
+      後筆蓋掉者），corrected 自驗（②）由呼叫端併入既有 cat-file 批次；
+    - findings＝脫靶 ERROR（③：target_line 超界／指向非事件列、指定欄不存在於 target 列）
+      與⑤（erratum 指向 erratum 列——更正的更正＝再 append 一筆指向**原始列**），
+      一律 fail-loud、絕不靜默 no-op。
+    格式殘缺（target_line 非正整數／field 非枚舉／corrected 非 40 hex）歸 Lint03、此處跳過。
+    """
+    by_line = dict(rows)
+    view, checks, out = {}, [], []
+    for n, e in rows:
+        if e.get("type") != "erratum":
+            continue
+        tl, fld, cor = e.get("target_line"), e.get("field"), e.get("corrected")
+        if not (isinstance(tl, int) and not isinstance(tl, bool) and tl >= 1
+                and fld in ERRATUM_FIELDS
+                and isinstance(cor, str) and RE_SHA.fullmatch(cor)):
+            # ★本 continue 的正當性全繫於「Lint03 會替這四腿出紅」：兩處判準必須同尺，
+            #   任一邊放寬即出現「Lint03 綠＋視圖跳過」的靜默零效缺口（違硬語意③）。
+            #   兩把尺**各有各的釘子**（確認輪校正——原註解點名的對稱釘子走 lint_events()
+            #   →_check_event，根本不呼叫本函式，視圖這半邊當時裸奔）：
+            #   Lint03 側＝TestLintEvents.test_erratum_bad_corrected_rejected；
+            #   視圖側＝test_malformed_erratum_rows_are_skipped_without_crashing 的
+            #   int("1"*40) 一筆（該值同時穿透兩把尺的差集，是唯一能分辨 str(cor) 放寬形者）。
+            continue                       # 格式面歸 Lint03、此處不重複報
+        where = f"{EVENTS}:行 {n}"
+        tgt = by_line.get(tl)
+        # ★單一判準 `tgt is None` 即涵蓋「超界」與「指向非事件列」兩形：by_line 的鍵取自
+        #   enumerate(lines, start=1) 之可解析列，恆為 1..line_count 的子集，故 tl>line_count
+        #   必然蘊含 tl∉by_line。另寫一條 `tl > line_count` 的 disjunct 永遠不會獨立成立
+        #   ＝走不到的死腿（L-019 同形），且寫壞成 `>=` 會把「指向最末列」的合法引用誤報脫靶。
+        #   line_count 僅供訊息文字（告知帳本規模）。
+        if tgt is None:
+            out.append(finding(ERROR, "Lint18", where,
+                               f"erratum 脫靶：target_line={tl} 超界或指向非事件列"
+                               f"（帳本共 {line_count} 行）——更正必須釘住一列真事件、"
+                               "絕不靜默略過"))
+            continue
+        if tgt.get("type") == "erratum":
+            out.append(finding(ERROR, "Lint18", where,
+                               f"erratum 不得指向 erratum 列（行 {tl}）——更正的更正＝"
+                               "再 append 一筆、target_line 指向原始列"))
+            continue
+        if fld == "merge":
+            present = "merge" in tgt
+        else:
+            pins = tgt.get("pins")
+            present = isinstance(pins, dict) and fld.split(".", 1)[1] in pins
+        if not present:
+            out.append(finding(ERROR, "Lint18", where,
+                               f"erratum 脫靶：target 列（行 {tl}）不存在指定欄 {fld}"
+                               "——絕不靜默略過"))
+            continue
+        view[(tl, fld)] = cor              # 同 target×欄多筆＝append 序後者勝（④）
+        checks.append((n, fld, cor))
+    return view, checks, out
+
+
+def _erratum_remedy(n, field):
+    """三處 ERROR 訊息共用的「已進 git 史」補救支（B-042 硬語意⑥）：附具體可執行的
+    erratum 形——欄名逐字、target_line 帶該列行號，照抄 append 即可讓紅消（出口真的走得通）。"""
+    return ("已進 git 史→依 ADR 0012 決定 5（events.jsonl 既有列絕不編輯）append 新事件"
+            "更正、不得回改舊列——具體形＝append "
+            f'{{"date":"YYYY-MM-DD","type":"erratum","target_line":{n},"field":"{field}",'
+            '"corrected":"<正確 40 位 hex SHA>","reason":"<一句話>"}'
+            "（Lint18 以更正視圖重驗該列；corrected 本身亦被實證、不可解即紅）")
+
+
+def _erratum_corrected_remedy():
+    """四處「erratum corrected 自驗失敗」ERROR 共用的補救支（B-042 碼品質輪補齊）。
+
+    與史值三處（`_erratum_remedy`）同構分兩支，差別在第二支說的是實話：**已入史的
+    erratum 列在現行設計下無可執行出口**——回改本列違 ADR 0012 決定 5；append erratum
+    指向本列被硬語意⑤（不得指向 erratum 列）擋；指向原始列只把 target 列救回（硬語意④
+    後者勝），本列自身的自驗紅仍在（checks 收錄每一筆 erratum、含被蓋掉者）。
+    ★故第二支導向升級主線由拍板層處置，絕不以「corrected 須填…」單句暗示回改已入史列
+    ——那正是 B-042 開帳要消滅的「附了去處卻走不通」形（在此重演即自打嘴巴）。
+    可達性不是理論：pins 面「不可解＝WARN」的寬貸就是為 upstream rebase 卷史而設，
+    而硬語意②把該寬貸從更正值拿掉的理由（「更正是新寫的、沒有卷史藉口」）只在寫入
+    當下成立；寫完入史後被卷走，這條紅就永久卡住 pre-commit。
+    """
+    return ("——補救分兩支：本 erratum 列尚未進 git 史（工作樹／staged）→直接覆寫本列的"
+            " corrected 為上述正確值；已進 git 史→現行設計下無可執行出口（回改本列違"
+            " ADR 0012 決定 5；append erratum 指向本列被「不得指向 erratum 列」擋；指向"
+            "原始列只救得回 target 列、本列自驗紅仍在）——請升級主線循拍板層處置，"
+            "勿自行回改已入史列")
+
+
 def lint_events_sha(root, cache=None):
     """Lint18：events 帳本逐列 SHA 向 git 實證（rev4:contracts G3／data-model §4 判定表）。
 
     merge 驗於外層（不可解／非 commit＝ERROR）；pins 依 PIN_KEYS 映射驗於各 submodule
     worktree（不可解＝WARN——upstream rebase 卷史後合法失聯；可解而非 commit＝ERROR；
     worktree 缺席＝該庫整批跳過）。含 pins 之列另做鍵集斷言（防查空集合恆綠）。
+
+    ★erratum 更正視圖（B-042 調閘形、六條硬語意）：①逐列實證前先掃全帳 erratum 列建視圖，
+    target 列的指定欄以 corrected 取代後才驗——已入史壞列因此有可執行出口；②每筆 erratum
+    的 corrected 自身也向對應 repo 實證（merge→外層、pins.*→各 submodule），不可解／非
+    commit＝該 erratum 列 ERROR——沒有任何東西被「豁免」；③脫靶（超界／非事件列／欄不
+    存在）＝ERROR、絕不靜默 no-op；④同 target×欄多筆＝append 序後者勝、但每筆各自過②；
+    ⑤erratum 指向 erratum 列＝ERROR；⑥三處 ERROR 訊息的「已進史」補救支附具體 erratum 形。
+    corrected 自驗與視圖覆蓋後的逐列實證共用同一批 cat-file 併發管線（G3 200ms 契約）。
     """
     out, rows = [], []
-    for n, line in enumerate(_jsonl_lines(_read(root, EVENTS) or ""), start=1):
+    lines = _jsonl_lines(_read(root, EVENTS) or "")
+    for n, line in enumerate(lines, start=1):
         if not line.strip():
             continue
         try:
@@ -2854,7 +2982,13 @@ def lint_events_sha(root, cache=None):
         if isinstance(e, dict):
             rows.append((n, e))
 
-    merges = [(n, e["merge"]) for n, e in rows if isinstance(e.get("merge"), str)]
+    view, err_checks, err_findings = _erratum_view(rows, len(lines))
+
+    merges = []
+    for n, e in rows:
+        m = view.get((n, "merge"), e.get("merge"))
+        if isinstance(m, str):
+            merges.append((n, m))
 
     keys = {key for key, _sub in PIN_KEYS}
     per_key = {key: [] for key in keys}
@@ -2871,18 +3005,27 @@ def lint_events_sha(root, cache=None):
                                   "逐列實證查到空集合而恆綠"))
             continue
         for key in keys:
-            if isinstance(pins[key], str):
-                per_key[key].append((n, pins[key]))
+            v = view.get((n, f"pins.{key}"), pins[key])
+            if isinstance(v, str):
+                per_key[key].append((n, v))
 
-    # 三批 cat-file（外層 merge＋每庫 pins）＋每庫存活探針，全部同池一次併發派出
+    # erratum corrected 自驗（②）依 field 分派到對應 repo 的批次
+    err_merge = [(n, c) for n, f_, c in err_checks if f_ == "merge"]
+    err_pins = {key: [(n, c) for n, f_, c in err_checks if f_ == f"pins.{key}"]
+                for key in keys}
+
+    # 三批 cat-file（外層 merge＋每庫 pins；erratum corrected 併同批、零額外 git 呼叫）
+    # ＋每庫存活探針，全部同池一次併發派出
     # ★存活判定走共用探針（見 submodule_head）：只看 .git 路徑存在會把斷裂 worktree 當成
     #   活庫，逐列報「rebase 卷史合法失聯」＝把「庫開不起來」誤植成「SHA 失聯」
     # ★探針不得排在批次之前序列跑（會破 G3 200ms 契約、理由見 run_git_concurrently）：
     #   故對尚不知死活的庫先樂觀派 cat-file，探針判死者其結果整批丟棄。
-    pending = [(key, sub) for key, sub in PIN_KEYS if per_key[key]]
+    pending = [(key, sub) for key, sub in PIN_KEYS if per_key[key] or err_pins[key]]
     results = run_git_concurrently(
-        [functools.partial(git_object_types, [s for _n, s in merges], root)]
-        + [functools.partial(git_object_types, [s for _n, s in per_key[key]],
+        [functools.partial(git_object_types,
+                           [s for _n, s in merges] + [c for _n, c in err_merge], root)]
+        + [functools.partial(git_object_types,
+                             [s for _n, s in per_key[key]] + [c for _n, c in err_pins[key]],
                              os.path.join(root, sub)) for key, sub in pending]
         + [functools.partial(submodule_head, root, sub, cache) for _key, sub in pending])
     mtypes = results[0]
@@ -2898,8 +3041,7 @@ def lint_events_sha(root, cache=None):
                                f"merge SHA {sha[:12]} 在外層不可解析——帳本每列 SHA 須對得上"
                                " git 物件（抄錯／造假／事後改史即紅）——補救分兩支：該列尚未"
                                "進 git 史（工作樹／staged）→以真實 merge commit SHA 覆寫該列；"
-                               "已進 git 史→依 ADR 0012 決定 5（events.jsonl 既有列絕不編輯）"
-                               "append 新事件更正、不得回改舊列"))
+                               + _erratum_remedy(n, "merge")))
         elif t != "commit":
             out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
                                f"merge SHA {sha[:12]} 解得物件型別 {t}、非 commit——多半是"
@@ -2907,19 +3049,34 @@ def lint_events_sha(root, cache=None):
                                "`cat-file` 輸出等）；正確值＝該刀 merge 回 default 的 commit"
                                " SHA（`git log --merges --format=%H -1`）——補救分兩支（同"
                                "「不可解」）：該列尚未進 git 史（工作樹／staged）→以真實"
-                               " merge commit SHA 覆寫該列；已進 git 史→依 ADR 0012 決定 5"
-                               "（events.jsonl 既有列絕不編輯）append 新事件更正、"
-                               "不得回改舊列"))
+                               " merge commit SHA 覆寫該列；" + _erratum_remedy(n, "merge")))
     out.extend(keyset)
+    out.extend(err_findings)
+
+    for n, c in err_merge:
+        t = mtypes.get(c)
+        if t is None:
+            out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
+                               f"erratum corrected {c[:12]} 在外層不可解析——更正本身也被驗、"
+                               "不可解＝零豁免；正確值＝該刀 merge 回 default 的 commit"
+                               " SHA（`git log --merges --format=%H -1`）"
+                               + _erratum_corrected_remedy()))
+        elif t != "commit":
+            out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
+                               f"erratum corrected {c[:12]} 在外層解得物件型別 {t}、非"
+                               " commit——更正本身也被驗；正確值＝該刀 merge 回 default 的"
+                               " commit SHA（`git log --merges --format=%H -1`）"
+                               + _erratum_corrected_remedy()))
 
     for key, sub in PIN_KEYS:
         items = per_key[key]
-        if not items:
+        errata = err_pins[key]
+        if not items and not errata:
             continue
         if key not in ptypes:
             out.append(finding(SKIP, "Lint18", sub,
                                f"{absent.get(key, '該庫不可查')}——pins.{key} 共 "
-                               f"{len(items)} 筆 SHA 實證跳過"))
+                               f"{len(items) + len(errata)} 筆 SHA 實證跳過"))
             continue
         for n, sha in items:
             t = ptypes[key].get(sha)
@@ -2933,9 +3090,23 @@ def lint_events_sha(root, cache=None):
                                    "非 commit——多半是抄到 tree／blob 的 SHA；正確值＝該刀"
                                    f"收邊時 {sub} 的 worktree HEAD（`git -C {sub} rev-parse"
                                    " HEAD`）——補救分兩支（同 merge 面）：該列尚未進 git 史"
-                                   "（工作樹／staged）→以真實 commit SHA 覆寫該列；已進"
-                                   " git 史→依 ADR 0012 決定 5（events.jsonl 既有列絕不編輯）"
-                                   "append 新事件更正、不得回改舊列"))
+                                   "（工作樹／staged）→以真實 commit SHA 覆寫該列；"
+                                   + _erratum_remedy(n, f"pins.{key}")))
+        for n, c in errata:
+            t = ptypes[key].get(c)
+            if t is None:
+                out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
+                                   f"erratum corrected {c[:12]} 在 {sub} 不可解析——更正本身"
+                                   "也被驗、不可解＝零豁免（pins 的 WARN 寬貸不適用於更正值）"
+                                   f"；正確值＝該刀收邊時 {sub} 的 worktree HEAD"
+                                   f"（`git -C {sub} rev-parse HEAD`）"
+                                   + _erratum_corrected_remedy()))
+            elif t != "commit":
+                out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
+                                   f"erratum corrected {c[:12]} 在 {sub} 解得物件型別 {t}、"
+                                   f"非 commit——更正本身也被驗；正確值＝該刀收邊時 {sub} 的"
+                                   f" worktree HEAD（`git -C {sub} rev-parse HEAD`）"
+                                   + _erratum_corrected_remedy()))
     return out
 
 
@@ -4384,6 +4555,10 @@ VALID_REVIEW = {
     "report": "reviews/20260801-cumulative.md",
     "findings": {"total": 3, "fixed": 1, "to_backlog": ["B-909"], "wontfix_adr": ["0012"]},
 }
+VALID_ERRATUM = {
+    "type": "erratum", "date": "2026-08-11", "target_line": 1, "field": "merge",
+    "corrected": "a1b2c3d4" * 5, "reason": "簿記誤植假 SHA、依 ADR 0012 決定 5 更正",
+}
 
 
 def _jl(*objs):
@@ -5609,6 +5784,88 @@ class TestLintEvents(unittest.TestCase):
         """上界同守：41 位亦非合法（收 40 是等號、不是下界）。"""
         e = dict(VALID_CLOSE); e["merge"] = "a" * 41
         self.assertEqual(len(lint_events(_jl(e))), 1)
+
+    # -- erratum 型格式面（B-042 調閘形；語意面歸 Lint18） -----------------------------
+    def test_erratum_valid_passes(self):
+        self.assertEqual(lint_events(_jl(VALID_ERRATUM)), [])
+
+    def test_erratum_missing_required_field_rejected(self):
+        """B-042 八臂⑦前半：四個專屬必填欄逐一缺欄＝格式 ERROR。"""
+        for k in ("target_line", "field", "corrected", "reason"):
+            e = dict(VALID_ERRATUM); e.pop(k)
+            f = lint_events(_jl(e))
+            self.assertEqual(len(f), 1, msg=f"{k}｜{f}")
+            self.assertIn(k, f[0]["msg"])
+
+    def test_erratum_bad_target_line_rejected(self):
+        """target_line 須為正整數（行號）；bool 是 int 子類、須另擋。"""
+        for bad in (0, -1, "2", 1.5, True):
+            e = dict(VALID_ERRATUM); e["target_line"] = bad
+            f = lint_events(_jl(e))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("target_line", f[0]["msg"])
+
+    def test_erratum_field_enum(self):
+        """B-042 八臂⑦中段：field 枚舉外＝格式 ERROR；三個合法值逐一放行。"""
+        for bad in ("pins", "summary", "Merge", "pins.mobile", 3):
+            e = dict(VALID_ERRATUM); e["field"] = bad
+            f = lint_events(_jl(e))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("field", f[0]["msg"])
+        for ok in ("merge", "pins.web", "pins.api"):
+            e = dict(VALID_ERRATUM); e["field"] = ok
+            self.assertEqual(lint_events(_jl(e)), [], msg=ok)
+
+    def test_erratum_fields_derived_from_pin_keys_not_literal_roster(self):
+        """★「ERRATUM_FIELDS 自 PIN_KEYS 導出、不落第二份字面名冊」須有機器守著（掃源）。
+
+        值斷言在此零分辨力：字面名冊與導出式對**現行** PIN_KEYS 求值全等，兩邊皆綠＝套套
+        邏輯（同 test_tools_roster_is_pinned… docstring 所指之形）；上面的
+        test_erratum_field_enum 更是把同一份字面手抄進測試，導不導出都不會紅。分辨點只在
+        源碼形，故掃源（前例＝TestToolsCliTruthTable.test_real_docs_sync_dispatch_is_pinned）。
+        真實後果：PIN_KEYS 日後增第三個子庫時，導出式讓 field＝pins.<新鍵> 自動通過本條
+        枚舉、Lint18 的 err_pins 派批與 pending 也一併跟上；換回字面則該子庫的 pins 永遠
+        無法被 erratum 更正——B-042 補起來的出口對新子庫靜默缺一半、且無一支測試會紅。
+        ★禁字亦自 PIN_KEYS 導出（不手抄），否則本釘子自己就成了第二份字面名冊。
+        """
+        src = _read(ROOT, "tools/docs-sync.py")
+        self.assertIsNotNone(src)
+        rows = [ln for ln in src.splitlines() if ln.startswith("ERRATUM_FIELDS =")]
+        self.assertEqual(len(rows), 1, msg=str(rows))
+        self.assertIn("PIN_KEYS", rows[0], msg=rows[0])
+        for key, _sub in PIN_KEYS:
+            self.assertNotIn(f'"pins.{key}"', rows[0], msg=rows[0])
+
+    def test_erratum_bad_corrected_rejected(self):
+        """B-042 八臂⑦後半：corrected 非 40 位小寫 hex＝格式 ERROR（與 RE_SHA 同尺）。
+
+        ★`int("1"*40)` 是本案唯一能分辨兩把尺的輸入（釘住「Lint03 與 `_erratum_view`
+        同尺」）：格式面若寫成 `RE_SHA.fullmatch(str(...))`，40 位純十進位數字 str() 後
+        恰為 40 個合法 hex 字元而放行，視圖面卻因 `isinstance(cor, str)` 為 False 而
+        continue——兩邊都不報＝erratum 靜默零效（硬語意③明禁）。其餘短整數（123）
+        兩把尺皆拒、對此變異零分辨力。
+        """
+        for bad in ("abc1234", "g" * 40, "A1B2C3D4" * 5, "a" * 41, 123, int("1" * 40)):
+            e = dict(VALID_ERRATUM); e["corrected"] = bad
+            f = lint_events(_jl(e))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("corrected", f[0]["msg"])
+
+    def test_erratum_reason_nonempty_single_line(self):
+        for bad in ("", "   ", "上一句\n下一句", "上一句\r下一句", 123):
+            e = dict(VALID_ERRATUM); e["reason"] = bad
+            f = lint_events(_jl(e))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("reason", f[0]["msg"])
+
+    def test_erratum_passes_type_filtered_consumers_unharmed(self):
+        """erratum 對既有以型篩選的消費點零誤傷：_backlog_done_ids 不撿（無 backlog_done
+        通道）、gen_state 型統計照計、gen_milestones 表格化不炸（無 summary＝該格畫 —）。"""
+        self.assertEqual(_backlog_done_ids([VALID_CLOSE, VALID_ERRATUM]), {"B-903"})
+        text = gen_state({"events": [VALID_MISC, VALID_ERRATUM], "adr_metas": []})
+        self.assertIn("erratum 1", text)
+        files = gen_milestones([VALID_MISC, VALID_ERRATUM])
+        self.assertIn("erratum", files["docs/generated/MILESTONES.md"])
 
 
 class TestLintCloseExistence(unittest.TestCase):
@@ -7267,8 +7524,9 @@ class TestEventsShaProof(unittest.TestCase):
         比沒有去處更糟（B-042① 的開帳教訓）。
 
         本案機器驗證去處第一支（該列尚未進 git 史→以真實 SHA 覆寫該列）：紅→照做→綠。
-        ★第二支（已進 git 史→append 更正事件）的可執行性缺口屬 B-042①（拍板級、
-        另議），本 commit 未觸碰；兩支去處文案自此於三筆訊息一致，① 修時一次覆蓋三處。
+        ★第二支（已進 git 史→append 更正事件）的可執行性由 TestErratumCorrectionView
+        承接（B-042 調閘形：erratum 更正視圖、三處訊息之出口逐處紅→照做→綠）；
+        兩支去處文案於三筆訊息一致。
         """
         with tempfile.TemporaryDirectory() as d:
             outer, pins = self._fixture(d)
@@ -7434,8 +7692,12 @@ class TestEventsShaProof(unittest.TestCase):
 
         退回逐筆 rev-parse 對真庫要 ~87 次 subprocess（約 1s）＝超 rev4:contracts G3
         「200ms 以內」十倍量級；本案把「批次而非逐筆」釘成可機器偵測的次數。
-        ★fixture 須多列（此處 3 列×3 庫＝9 個 SHA），單列時逐筆與批次派發次數同為 3、
-        分辨不出——故另立 assertLess 看住 fixture 不退化。
+        ★fixture 須多列（此處 3 個事件列×3 庫＝9 個 SHA），單列時逐筆與批次派發次數同為
+        3、分辨不出——故另立 assertLess 看住 fixture 不退化。
+        ★fixture 另含 erratum 列（外層一筆＋每庫一筆）：B-042 把 corrected 自驗併進這同三發
+        批次（「零額外 git 呼叫」），而零 erratum 的帳本量不到那條路徑——實測把 corrected
+        抽出批次、改成批次外各自 git_object_types 的退化寫法（重構時最自然的寫法）全綠
+        存活；帳本一有 N 筆 erratum，退化寫法每筆各開一發 git，drvfs 上直接吃掉 G3 預算。
         """
         with tempfile.TemporaryDirectory() as d:
             outer = [_init_outer(d)]
@@ -7448,6 +7710,14 @@ class TestEventsShaProof(unittest.TestCase):
             rows = [dict(VALID_CLOSE, merge=sha,
                          pins={key: shas[i] for key, shas in subs.items()})
                     for i, sha in enumerate(outer)]
+            # 三筆合法 erratum 各覆蓋第 1 列一欄（corrected 皆為該 repo 另一顆真 commit＝
+            # 覆蓋後仍全綠），使外層與兩庫的批次都必須順帶馱著自己的 corrected
+            rows += [{"date": "2026-08-11", "type": "erratum", "target_line": 1,
+                      "field": fld, "corrected": cor,
+                      "reason": "批次守衛 fixture：更正值須併入既有批次"}
+                     for fld, cor in ([("merge", outer[1])]
+                                      + [(f"pins.{key}", subs[key][1])
+                                         for key, _sub in PIN_KEYS])]
             _wfile(d, EVENTS,
                    "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
             real, cwds = subprocess.run, []
@@ -7542,6 +7812,387 @@ class TestEventsShaProof(unittest.TestCase):
             for _key, sub in PIN_KEYS:
                 hits = [c for c in probes if c == os.path.join(d, sub)]
                 self.assertEqual(len(hits), 1, msg=f"{sub}｜{probes}")
+
+
+class TestErratumCorrectionView(unittest.TestCase):
+    """B-042 調閘形：Lint18 erratum 更正視圖（六條硬語意）——已入史壞列的可執行出口。
+
+    紅訊息指示「append 新事件更正」後紅必須真的消（B-033④ 教訓形：附了去處卻走不通
+    比沒有去處更糟）。★真帳本現況全綠（B-042 明載非 live 紅），全部案例自建 fixture repo
+    造紅、絕不觸碰真 events.jsonl。
+    """
+
+    # ★與 TestEventsShaProof 共用同一份 fixture 實作（曾各存一份逐字重複的拷貝：兩份漂移
+    #   時「同名 helper 造出不同 repo」的測試會照樣綠、debug 成本極高）
+    _fixture = TestEventsShaProof._fixture
+
+    def _rows(self, d, *rows):
+        _wfile(d, EVENTS,
+               "".join((r if isinstance(r, str)
+                        else json.dumps(r, ensure_ascii=False)) + "\n" for r in rows))
+
+    @staticmethod
+    def _erratum(target_line, field, corrected, **over):
+        e = {"type": "erratum", "date": "2026-08-11", "target_line": target_line,
+             "field": field, "corrected": corrected, "reason": "fixture 造紅後更正"}
+        e.update(over)
+        return e
+
+    def test_bad_merge_without_erratum_is_error(self):
+        """八臂①：壞 merge SHA、無 erratum＝ERROR（造紅基線——後續各臂的前提）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins),
+                       dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+
+    def test_erratum_with_real_commit_clears_the_error(self):
+        """八臂②：＋erratum（corrected＝fixture 真 commit）→零 findings——紅訊息附的
+        出口真的走得通（B-042 開帳訴求本體）。兩子案＝merge 面兩筆 ERROR 逐處實證：
+        前段「不可解」（偽造 SHA）、後段「可解非 commit」（blob）；pins 面＝八臂⑤——
+        硬語意⑥的三處去處第二支至此各有自己的紅→照做→綠釘子。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            bad = dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins)
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins), bad)
+            self.assertEqual([x["level"] for x in lint_events_sha(d)], [ERROR],
+                             msg="前提：壞值須先紅，否則本案無判別力")
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins), bad,
+                       self._erratum(2, "merge", outer))
+            self.assertEqual(lint_events_sha(d), [],
+                             msg="照紅訊息 append erratum 後須轉綠——清不掉即出口失效")
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            bad = dict(VALID_CLOSE, merge=blob, pins=pins)
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins), bad)
+            self.assertEqual([x["level"] for x in lint_events_sha(d)], [ERROR],
+                             msg="前提：merge 解得 blob（非 commit）須先紅")
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins), bad,
+                       self._erratum(2, "merge", outer))
+            self.assertEqual(lint_events_sha(d), [],
+                             msg="「非 commit」面出口同樣要走得通（B-042 三處一次覆蓋）")
+
+    def test_erratum_corrected_unresolvable_is_error_on_erratum_row(self):
+        """八臂③：erratum corrected 不可解＝該 erratum 列 ERROR——更正本身也被驗、
+        零豁免（硬語意②）。target 列以壞 corrected 覆蓋後照樣紅、兩紅並陳。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins),
+                       self._erratum(1, "merge", "0" * 39 + "2"))
+            f = lint_events_sha(d)
+            hits = [x for x in f if x["where"] == f"{EVENTS}:行 2"
+                    and x["level"] == ERROR and "erratum corrected" in x["msg"]]
+            self.assertEqual(len(hits), 1, msg=str(f))
+            self.assertIn("不可解", hits[0]["msg"])
+
+    def test_offtarget_fails_loud(self):
+        """八臂④：脫靶（target_line 超界／指到非事件列）＝ERROR、絕不靜默 no-op
+        （硬語意③）。靜默略過＝erratum 看似入帳實則零效、操作者以為修完了。
+
+        ★第二子案另釘住訊息裡的「帳本共 N 行」＝**實體行數**（`len(lines)`）而非可解析
+        列數（`len(rows)`）：該子案的帳本恰為 3 個實體行、只有 2 筆可解析 rows，是兩者
+        唯一的判別點。這句話的唯一用途就是幫維運者判斷 target_line 是否打超界，報偏小的
+        規模等於把人往錯方向指（B-042 訴求本體＝紅訊息的出口要真的走得通）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins),
+                       self._erratum(99, "merge", outer))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+            self.assertIn("脫靶", f[0]["msg"])
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins),
+                       "{壞 JSON 列",
+                       self._erratum(2, "merge", outer))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 3")
+            self.assertIn("脫靶", f[0]["msg"])
+            # 帳本規模＝3 個實體行（可解析 rows 只有 2 筆）——報 rows 數即誤導
+            self.assertIn("帳本共 3 行", f[0]["msg"], msg=f[0]["msg"])
+
+    def test_pins_api_erratum_clears_and_missing_field_is_error(self):
+        """八臂⑤：pins.api 非 commit＋erratum→消；field 指定欄不存在於 target 列＝ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(os.path.join(d, "rust-api"), "rev-parse", "HEAD:app.ts").strip()
+            bad = dict(VALID_CLOSE, merge=outer, pins=dict(pins, api=blob))
+            self._rows(d, bad)
+            self.assertEqual([x["level"] for x in lint_events_sha(d)], [ERROR],
+                             msg="前提：pins.api 非 commit 須先紅")
+            self._rows(d, bad, self._erratum(1, "pins.api", pins["api"]))
+            self.assertEqual(lint_events_sha(d), [],
+                             msg="pins 面出口同樣要走得通（B-042 三處一次覆蓋）")
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, VALID_MISC, self._erratum(1, "pins.web", pins["web"]))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+            self.assertIn("不存在指定欄 pins.web", f[0]["msg"])
+
+    def test_merge_erratum_missing_field_on_target_is_error(self):
+        """硬語意③第三子案 merge 半邊：erratum 指定 merge 欄、target 列（misc）根本沒有
+        merge 欄＝ERROR、絕不靜默 no-op——否則實作等於憑空替該列造出 merge 值去驗，
+        corrected 填真 commit 即全帳零 finding、操作者以為更正生效實則零效（拍板③明禁形）。
+        ★釘住變異：merge 側 present 檢查退化為恆真（R2 實證 pins 半邊反例殺不到它、
+        變異後全綠存活——本案即該裸奔子案的反例）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, VALID_MISC, self._erratum(1, "merge", outer))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+            self.assertIn("不存在指定欄 merge", f[0]["msg"])
+
+    def test_erratum_pointing_at_erratum_is_error(self):
+        """八臂⑥：erratum 指向 erratum 列＝ERROR（硬語意⑤）——更正的更正＝再 append
+        一筆指向原始列，不得形成更正鏈。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=pins),
+                       self._erratum(1, "merge", outer),
+                       self._erratum(2, "merge", outer))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 3")
+            self.assertIn("不得指向 erratum 列", f[0]["msg"])
+
+    # 八臂⑦（格式面：缺欄／field 枚舉外／corrected 非 40 hex）＝TestLintEvents 的
+    # test_erratum_missing_required_field_rejected／…field_enum／…bad_corrected_rejected。
+
+    def test_malformed_erratum_rows_are_skipped_without_crashing(self):
+        """★`_erratum_view` 的格式跳過守衛（四腿）逐腿反例——白箱直呼、九個殘缺列
+        逐一斷言 view／checks／findings 三者皆空且不拋例外。
+
+        殘缺歸 Lint03（格式面）、此處只負責「安靜讓路」，但四腿各有實質後果、缺一即壞：
+        ①`fld in ERRATUM_FIELDS` 是唯一防崩線——`field:"summary"` 會讓 `fld.split(".",1)[1]`
+          吃 IndexError、`field:3` 吃 AttributeError，Lint18 整支拋 traceback 而非出 finding；
+        ②bool 腿有真語意——Python 的 `True == 1` 且 hash 相同，缺腿時 `target_line: true`
+          會被當成「更正第 1 列」而**真的生效**（view[(True,…)] 與 view.get((1,…)) 命中同格），
+          Lint18 靜默把第 1 列的紅清掉；
+        ③`isinstance(tl,int)`／`isinstance(cor,str)` 缺腿**有兩個變體**（確認輪補齊——原只論
+          證了前者、後者才是會被真寫出來的形）：整條拿掉＝`"2" >= 1`／`RE_SHA.fullmatch(3)`
+          直接 TypeError；換成寬鬆轉型 `RE_SHA.fullmatch(str(cor))`（同檔 feature_close 的
+          merge／pins 正是此慣例，故有人照抄）則**不崩**，而是讓殘缺值混進視圖與 checks：
+          view 值為 int ⇒ `lint_events_sha` 的 `isinstance(m, str)` 為 False ⇒ target 列整列
+          不入 merges、原有的 ERROR 被靜默吃掉（比 no-op 更糟）；checks 的 int 再流進
+          `git_object_types` 的 `"\\n" not in s` 拋 TypeError。此變體由 `int("1"*40)` 一筆釘住
+          （★不可改用 `3`：`str(3)` 非 40 位 hex、兩把尺都拒＝對本變體零分辨力）；
+        ④`tl >= 1`／`RE_SHA` 缺腿＝殘缺值混進視圖去覆蓋真欄。
+        """
+        base = [(1, dict(VALID_CLOSE)), (2, dict(VALID_MISC))]
+        ok = "a" * 40
+        for bad in (self._erratum(True, "merge", ok),      # bool 冒充行號（== 1）
+                    self._erratum(0, "merge", ok),         # 非正整數
+                    self._erratum("2", "merge", ok),       # 行號為字串
+                    self._erratum(1, "summary", ok),       # 枚舉外欄名（無 "." 可切）
+                    self._erratum(1, 3, ok),               # 欄名非字串
+                    self._erratum(1, "merge", "z" * 40),   # 非 hex
+                    self._erratum(1, "merge", ok[:39]),    # 長度不足
+                    self._erratum(1, "merge", 3),          # corrected 非字串
+                    self._erratum(1, "merge", int("1" * 40))):  # ★少打引號的 40 位十進位
+                                                           #   number——唯一能分辨
+                                                           #   `str(cor)` 寬鬆轉型變體者
+            rows = base + [(3, bad)]
+            view, checks, f = _erratum_view(rows, 3)
+            self.assertEqual((view, checks, f), ({}, [], []), msg=str(bad))
+
+    def test_same_target_field_later_erratum_wins(self):
+        """八臂⑧：同 target×欄兩筆合法 erratum＝append 序後者勝（硬語意④），
+        且每筆各自過 corrected 自驗。"""
+        # 白箱：視圖取後值、checks 兩筆俱在（後者勝不豁免前筆的自驗）
+        c1, c2 = "1" * 40, "2" * 40
+        rows = [(1, dict(VALID_CLOSE)),
+                (2, self._erratum(1, "merge", c1)),
+                (3, self._erratum(1, "merge", c2))]
+        view, checks, f = _erratum_view(rows, 3)
+        self.assertEqual(view, {(1, "merge"): c2})
+        self.assertEqual([c for _n, _f, c in checks], [c1, c2])
+        self.assertEqual(f, [])
+        # 黑箱：兩筆 corrected 皆真 commit→零 findings（各自自驗通過、視圖值可解）
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            _wfile(d, "second.md", "第二筆\n")
+            _git(d, "add", "second.md")
+            _git(d, "commit", "-qm", "c2")
+            outer2 = _git(d, "rev-parse", "HEAD").strip()
+            self._rows(d, dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins),
+                       self._erratum(1, "merge", outer),
+                       self._erratum(1, "merge", outer2))
+            self.assertEqual(lint_events_sha(d), [])
+        # 黑箱可辨：後筆 corrected＝blob（40 hex 格式合法）→後者勝＝target 以 blob 覆蓋
+        # 而紅（非 commit）＋後筆自驗紅；若誤取前值（真 commit）target 會靜默轉綠。
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            self._rows(d, dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins),
+                       self._erratum(1, "merge", outer),
+                       self._erratum(1, "merge", blob))
+            f = lint_events_sha(d)
+            self.assertTrue(any(x["where"] == f"{EVENTS}:行 1" and x["level"] == ERROR
+                                and "非 commit" in x["msg"] for x in f), msg=str(f))
+            self.assertTrue(any(x["where"] == f"{EVENTS}:行 3" and x["level"] == ERROR
+                                and "erratum corrected" in x["msg"] for x in f), msg=str(f))
+
+    def test_remedy_messages_carry_concrete_erratum_form(self):
+        """硬語意⑥：三處 ERROR（merge 不可解／merge 非 commit／pins 非 commit）教的
+        erratum 形**照抄即綠**——端到端釘死（B-042 訴求本體：出口真的走得通）。
+
+        ★不比對字串片段：那等於在測試裡手抄一份 EVENT_SCHEMAS 副本、與 schema 各走各的。
+        實測片段比對法對兩發變異全綠存活——模板拿掉 `"date":"YYYY-MM-DD",`（照抄者吃
+        Lint03「缺必填欄位「date」」）／模板尾端多一個 `"extra":1`（吃 Lint03「未知欄位」）；
+        兩者都讓「照做卻清不掉紅」重演，正是本案要防的那件事。
+        本案改為：自 finding 訊息正則抓出模板 → 只代入訊息以角括號標示的待填值 →
+        **原文 append** 進 fixture 帳本 → 斷言 Lint03（格式）與 Lint18（SHA 實證）雙雙全綠。
+        ★fixture 兩列、壞值落第 2 列：行號若寫死 1 會教操作者更正無辜列。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            api_blob = _git(os.path.join(d, "rust-api"),
+                            "rev-parse", "HEAD:app.ts").strip()
+            good = dict(VALID_CLOSE, merge=outer, pins=pins)
+            for bad, field, fix in (
+                    (dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins), "merge", outer),
+                    (dict(VALID_CLOSE, merge=blob, pins=pins), "merge", outer),
+                    (dict(VALID_CLOSE, merge=outer, pins=dict(pins, api=api_blob)),
+                     "pins.api", pins["api"])):
+                self._rows(d, good, bad)
+                f = lint_events_sha(d)
+                self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+                m = re.search(r"\{.*?\}", f[0]["msg"])
+                self.assertTrue(m, msg=f"訊息未附 erratum 形｜{f[0]['msg']}")
+                row = (m.group(0)
+                       .replace("YYYY-MM-DD", "2026-08-11")
+                       .replace("<正確 40 位 hex SHA>", fix)
+                       .replace("<一句話>", "照紅訊息所教的形 append 更正"))
+                # 訊息指對欄位與行號（寫死行號會把操作者帶去更正無辜列）
+                self.assertEqual({k: json.loads(row)[k] for k in ("field", "target_line")},
+                                 {"field": field, "target_line": 2}, msg=row)
+                self._rows(d, good, bad, row)          # ★原文 append、不經 dict 洗過
+                self.assertEqual(lint_events(_read(d, EVENTS)), [],
+                                 msg="照抄的 erratum 列自身須過格式面（Lint03）")
+                self.assertEqual(lint_events_sha(d), [],
+                                 msg="照抄後紅須真的消（Lint18）——清不掉即出口失效")
+
+    def test_corrected_error_messages_carry_two_branch_remedy(self):
+        """★四處「erratum corrected 自驗失敗」ERROR 的補救支：與史值三處同構分兩支，且第
+        二支說實話——已入史的 erratum 列在現行設計下無出口、導向升級主線由拍板層處置。
+
+        缺這條釘子時四筆一律只有「corrected 須填該刀…的真 commit SHA」單句：對已入史的列
+        而言那等於教人回改既有列（違 ADR 0012 決定 5），而合法路徑一條都不存在——回改本列
+        違紀、append erratum 指向本列被硬語意⑤擋、指向原始列只救得回 target 列（本案第二段
+        即該三行帳本的實證）。B-042 開帳要消滅的正是這種「附了去處卻走不通」形，在新增的
+        訊息上重演＝自打嘴巴。四筆逐一驗（merge／pins × 不可解／非 commit），任一筆退回
+        舊文案即紅；可達性見 CLAUDE.md §3 的 upstream rebase 例行程序（卷史合法失聯）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            api_blob = _git(os.path.join(d, "rust-api"),
+                            "rev-parse", "HEAD:app.ts").strip()
+            good = dict(VALID_CLOSE, merge=outer, pins=pins)
+            for field, bad_corrected in (("merge", "0" * 39 + "2"), ("merge", blob),
+                                         ("pins.api", "0" * 39 + "9"),
+                                         ("pins.api", api_blob)):
+                self._rows(d, good, self._erratum(1, field, bad_corrected))
+                f = lint_events_sha(d)
+                hits = [x for x in f if x["where"] == f"{EVENTS}:行 2"]
+                self.assertEqual(len(hits), 1, msg=str(f))
+                for needle in ("補救分兩支", "尚未進 git 史", "覆寫本列", "已進 git 史",
+                               "無可執行出口", "ADR 0012", "升級主線", "勿自行回改已入史列"):
+                    self.assertIn(needle, hits[0]["msg"],
+                                  msg=f"{field}／{bad_corrected[:8]}｜{hits[0]['msg']}")
+            # 「已入史即無出口」不是修辭：三行帳本（壞 pins 值列＋卷史失聯的更正＋正確的
+            # 更正）跑完後，target 列被④救回、被蓋掉那筆 erratum 的自驗紅仍在＝永久紅。
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=dict(pins, api="3" * 40)),
+                       self._erratum(1, "pins.api", "0" * 39 + "9"),
+                       self._erratum(1, "pins.api", pins["api"]))
+            self.assertEqual([(x["level"], x["where"]) for x in lint_events_sha(d)],
+                             [(ERROR, f"{EVENTS}:行 2")],
+                             msg="更正的更正救不了被蓋掉那列——第二支若教人回改即違 ADR 0012")
+
+    # --- pins 半邊 corrected 自驗反例（review R1：變異測試 M1／M2／M3／M18／M20／M22
+    #     六發全存活＝硬語意②的 pins 側守門在測試面恆綠——以下三案逐一釘住；merge 側
+    #     同型反例＝八臂③，此前 pins 側僅有 happy path 八臂⑤） --------------------------
+
+    def test_pins_erratum_corrected_unresolvable_is_error_on_erratum_row(self):
+        """pins 側硬語意②反例（不可解）：corrected 在子庫不可解＝該 erratum 列 ERROR
+        （pins 的 WARN 寬貸只給史值、不給更正值）；target 列以壞 corrected 覆蓋後僅 WARN。
+        ★釘住變異：pins 側 errata 迴圈整段停用（M1）／「不可解」分支靜默（M2）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(os.path.join(d, "rust-api"), "rev-parse", "HEAD:app.ts").strip()
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=dict(pins, api=blob)),
+                       self._erratum(1, "pins.api", "0" * 39 + "9"))
+            f = lint_events_sha(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(WARN, f"{EVENTS}:行 1"), (ERROR, f"{EVENTS}:行 2")],
+                             msg=str(f))
+            self.assertIn("pins.api", f[0]["msg"])
+            self.assertIn("不可解析", f[0]["msg"])
+            self.assertIn("erratum corrected", f[1]["msg"])
+            self.assertIn("在 rust-api 不可解析", f[1]["msg"])
+
+    def test_pins_erratum_corrected_blob_is_error_on_both_rows(self):
+        """pins 側硬語意②反例（非 commit）：corrected＝子庫 blob（40 hex 格式合法）＝
+        該 erratum 列 ERROR；target 列以 blob 覆蓋後亦紅（非 commit）——兩紅並陳、
+        零豁免。★釘住變異：「非 commit」分支靜默（M3）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(os.path.join(d, "rust-api"), "rev-parse", "HEAD:app.ts").strip()
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=dict(pins, api=blob)),
+                       self._erratum(1, "pins.api", blob))
+            f = lint_events_sha(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(ERROR, f"{EVENTS}:行 1"), (ERROR, f"{EVENTS}:行 2")],
+                             msg=str(f))
+            self.assertIn("非 commit", f[0]["msg"])
+            self.assertIn("erratum corrected", f[1]["msg"])
+            self.assertIn("在 rust-api 解得物件型別 blob、非 commit", f[1]["msg"])
+
+    def test_pins_erratum_validated_even_when_no_pins_row_enters_batch(self):
+        """pins 側硬語意②反例（純 erratum 派批）：target 列 pins 鍵集殘缺＝整列不入
+        per_key、該庫批次只剩 corrected 一筆——更正值仍必須被驗（blob→ERROR）。
+        ★釘住變異：派批條件漏 err_pins（M18、ERROR 退化成 SKIP）／空 items 提前
+        continue（M20、整筆消失）／cat-file 批漏併 corrected（M22、錯報成「不可解」）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            web_blob = _git(os.path.join(d, "base-web"),
+                            "rev-parse", "HEAD:app.ts").strip()
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins={"web": pins["web"]}),
+                       self._erratum(1, "pins.web", web_blob))
+            f = lint_events_sha(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(ERROR, f"{EVENTS}:行 1"), (ERROR, f"{EVENTS}:行 2")],
+                             msg=str(f))
+            self.assertIn("鍵集", f[0]["msg"])
+            self.assertIn("erratum corrected", f[1]["msg"])
+            self.assertIn("在 base-web 解得物件型別 blob、非 commit", f[1]["msg"])
+
+    def test_absent_worktree_skip_counts_errata_too(self):
+        """★硬語意②唯一的豁免路徑（庫缺席＝該庫整批跳過、更正值連帶不被驗）須在 SKIP
+        明細上如實現身：筆數＝史值筆數＋erratum corrected 筆數。
+
+        筆數若只數史值（`len(items)`），跳過明細會少報更正值那幾筆——而「沒被驗的東西
+        有幾個」正是 SKIP 這條訊息存在的唯一理由（rev4:FR-012 假綠面：不適用與檢了通過
+        在輸出上長得一樣即失守）。本案 rust-api 缺席、pins.api 一筆史值＋一筆 corrected。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d, subs=("base-web",))
+            self._rows(d, dict(VALID_CLOSE, merge=outer, pins=dict(pins, api="3" * 40)),
+                       self._erratum(1, "pins.api", "4" * 40))
+            f = lint_events_sha(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(SKIP, "rust-api")], msg=str(f))
+            self.assertIn("pins.api 共 2 筆 SHA 實證跳過", f[0]["msg"])
 
 
 # --- G7／Lint19 測試共用 fixture（★一律自建 root，真 repo 唯讀）------------------
