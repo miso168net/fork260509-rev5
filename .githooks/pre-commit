@@ -57,7 +57,11 @@ done
 # example 上游、修改型缺 `原行:` 即擋——不靠人工 review（fork 源倉須在 example 分支＝lint 首步
 # 斷言）；工具本體 staged 時亦直跑一次（無 test 介面、self-test 內建）。★兩條件取聯集只跑一次
 # ——判定冪等結果必同，drvfs 下單跑約 9s、重跑純付 I/O 稅（rev4:018 U4 實測）。
-if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/fork-delta-lint.py'; then
+# ★第三個觸發源＝constitution（003-auth-session T069 起）：`load_roster()` 讀 §III.1／§III.2
+#   兩表當授權名冊，該檔遂成 lint 的第二個載重輸入。不納入觸發集的話，純 §V.2 Amendment
+#   commit（收窄用途／改軌道名／調表格形制）全程綠燈，違規要等下一次 base-web pin bump 才紅
+#   ——而那時錯誤會被誤歸因給那顆 pin bump（訊息只說「軌道名不在授權名冊」）。fail-late 且誤導。
+if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/fork-delta-lint.py' -e '.specify/memory/constitution.md'; then
   # ★Day-1 具名跳過（創世期、B9 前）：基線源倉缺席＝工具首步斷言必 die（rc=2）、擋創世
   #   一鍋 commit。解除＝B9 bootstrap 建源倉後本分支自動恢復實跑；新機 clone 後的空窗由
   #   CLAUDE.md §6「掃描防線就位前不落 commit」＋bootstrap 承接（ADR 0001 決定 4 在案）。

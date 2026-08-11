@@ -3482,6 +3482,10 @@ I18N_FRONTEND_LOCALE = "base-web/src/locales/langs/zh-tw.ts"
 # ★回填由機器逼出、不靠人記得：登入節流刀寫下 AppError::Biz(Cow::Borrowed(LOCKED_MSG_KEY))
 # 這類常數形構造點時，scan_backend_msg_keys 會判「無法靜態解析」而 fail-loud，訊息本身就寫
 # 著「擴 I18N_CONST_ROSTER 名冊」——屆時同刀回填。
+# ★實況（003-auth-session U-L／T051 落地後）：登入節流刀**沒有**走常數形，而是採 Lint24 的
+#   另一條指定解法——六個構造點直書 `Cow::Borrowed("biz.auth.*")` 字面（同 002 既有構造點形），
+#   故上述觸發條件未成立、本名冊維持空表＝**誠實態而非漏填**。上面那段機制仍然有效，只是它
+#   預告的那把刀沒有觸發它；下一個寫出常數形構造點的刀仍會被 fail-loud 逼出回填。
 I18N_CONST_ROSTER = {}
 # 前端獨有內部詞彙表白名單（九鍵字面釘死；★白名單∩後端實發集必空、非空＝腐化 ERROR）：
 # biz.user.passwordViolation.* 八鍵＝密碼政策明細插值的前端內部詞彙表——與

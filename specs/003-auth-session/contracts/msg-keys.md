@@ -1,7 +1,7 @@
 # 契約 — msg key 與 i18n 字典（Lint24 面）
 
 後端 `msg` 載**穩定 i18n key**（語言無關、不在地化；憲法 §I.3）；前端經
-`$t(\`backend.${msg}\`, msg)` 轉譯、未命中回原文 fallback。
+``$t(`backend.${msg}`, msg)`` 轉譯、未命中回原文 fallback。
 
 ## 本刀新增 6 鍵（三語譯文）
 

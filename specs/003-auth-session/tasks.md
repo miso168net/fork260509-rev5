@@ -483,7 +483,7 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   `generate` 讓 `backend-msg-dict.md` 與 Grafana panel 首次生成——★三者（base-web locale／外層
   工具／外層生成物）須在**同一顆外層 commit** 落地，否則謂詞成立而豁免仍在＝到期即紅當場擋
 - [x] T067 [US5] base-web `src/service/request/index.ts` 的 `★BASE-WEB-I18N-WIRING(i)`（2 處）：
-  新增 `translateBackendMsg`／`translateDetailValue`（`$t(\`backend.${msg}\`, msg)` 原文
+  新增 `translateBackendMsg`／`translateDetailValue`（``$t(`backend.${msg}`, msg)`` 原文
   fallback）＋modal `content` 與 `showErrorMsg` 鏈改走轉譯；修改型 inline 帶 `原行:` 註解。
   ★**`★BASE-WEB-LOGOUT-UX-WIRING(ii)`**（reLogin toast）**不做**——注意此 (ii) 屬 LOGOUT-UX 軌道，
   與 T066 正在做的 `★BASE-WEB-I18N-WIRING(ii)` 是**不同軌道的同字母用途**，勿混。
@@ -496,7 +496,7 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ## Phase 8: Polish & Cross-Cutting Concerns（DoD 收攏）
 
-- [ ] T069 [P] `tools/fork-delta-lint.py` 加「軌道名 ∈ 授權名冊」斷言（FR-030／031）五子步：
+- [x] T069 [P] `tools/fork-delta-lint.py` 加「軌道名 ∈ 授權名冊」斷言（FR-030／031）五子步：
   ①名冊載入器（讀 `.specify/memory/constitution.md`、掃 §III.2 表格列 `^\|` 起、跳標題／分隔列、
   剝 `**` 與 `★`；名冊＝§III.2 ★軌道 ∪ §III.1 三軌道；★檔缺席／掃空＝**die**）②新增軌道名抽取
   正則（現行 `MARKER` 只捕 `原行:` 之後、捕不到軌道名）③判定接進 `find_missing`／`scan()` 第三類
@@ -507,37 +507,37 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   （★不可寫「六名」——Amendment 後六名中四名正式在冊、該斷言必然不成立）＋「真 repo 至少一個
   修改型對象被檢查」結構性自證。
   **DoD：self-test 全綠＋抽掉任一合法軌道名即紅指名**
-- [ ] T070 [P] ROUTES 終態機器核對：`python3 tools/docs-sync.py generate` 後
+- [x] T070 [P] ROUTES 終態機器核對：`python3 tools/docs-sync.py generate` 後
   `docs/generated/reference/routes.md` 恰 **16 列**（表頭外）；★確認 16 條皆為「每欄一行」形制、
   **零鏈式多動詞 handler**（`parse_router_routes` 對鏈式會靜默 fullmatch 通過＝漏報地雷）
-- [ ] T071 [P] B-050／B-051 順手收：`test_kit`（capture＋FailingConn）由
+- [x] T071 [P] B-050／B-051 順手收：`test_kit`（capture＋FailingConn）由
   `rust-api/server/src/model/facade/system_settings.rs` 遷至
   `rust-api/server/src/model/facade/mod.rs`（★門檻「第三個消費者」須**真消費**才成立——至少一支
   本刀**六支**新 facade 之一的測試實際使用 `test_kit::FailingConn` 驗 DbErr 落地；★T015 的
   `test_db` 是**另一支**、本刀專用、不與 `test_kit` 合併，故 B-051 的門檻語意不被稀釋成無門檻
   重構）＋為
   `sys_user_role::roles_of_user` 次段查詢的 DbErr 落地補獨立機器守
-- [ ] T072 非 vacuous 自證收攏（ADR 0024）逐項確認在案：軌道名名冊（三重）／captcha 字型涵蓋
+- [x] T072 非 vacuous 自證收攏（ADR 0024）逐項確認在案：軌道名名冊（三重）／captcha 字型涵蓋
   ＋產圖失敗 5000 出口／msg-dict 兩語鍵集（含 Biz 三新鍵走 contract case 逐鍵斷言）／
   denylist fail-closed／★denylist TTL 兩 reason 皆 `refresh_secs`／reuse 僅 `rotated`＋grace
   miss 觸發（`revoked` 缺 denylist **不**觸發）／節流三區／★3333 與 7777 → HTTP 200／
   ★refresh 驗章失敗→8888
-- [ ] T073 全量閘綠：容器內 `cargo test --workspace -- --test-threads=1`＋
+- [x] T073 全量閘綠：容器內 `cargo test --workspace -- --test-threads=1`＋
   `cargo build --release`＋`pnpm typecheck`＋`python3 tools/fork-delta-lint.py`＋
   `python3 tools/docs-sync.py generate && … check`。★`schema-gate.py check`（三閘）**不在本任務**
   ——它須排在 T074 的 §7 收尾**之後**（runtime 寫入已推進三支 sequence，未收尾前 gate2 必紅）
-- [ ] T074 走查 quickstart 全場景（§0~§7）＋★**執行 §7 收尾**（一次 psql 批次：
+- [x] T074 走查 quickstart 全場景（§0~§7）＋★**執行 §7 收尾**（一次 psql 批次：
   `single_session_default` 還原 `off` **並把 `updated_at`／`updated_by` 歸 NULL**〔★不可走
   updateSystemSetting API——該 API 必寫這兩欄、走 API 還原值仍留痕跡使 gate2 逐列紅〕＋清三表
   runtime 列＋`setval(seq,1,false)` 重設三支 sequence＋`sys_user.session_id` 歸 NULL；另清 §4
   造窗殘留的 L1 lock 鍵）→**收尾後才跑** `python3 tools/schema-gate.py check`。
   **DoD：gate2 seed 逐列綠（含 `system_settings` 該列審計兩欄為 NULL）**
-- [ ] T075 [P] 活書更新：`docs/arc42/ARCHITECTURE.md` as-built 敘事（auth 域模組拓樸、會話狀態
+- [x] T075 [P] 活書更新：`docs/arc42/ARCHITECTURE.md` as-built 敘事（auth 域模組拓樸、會話狀態
   機、節流三區、四條 ★ 軌道、觀測三序列）；★不回灌 ADR（拍板歸 ADR、實作結果歸收刀事件）
-- [ ] T076 [P] `docs/ops/BACKLOG.md` append 三筆新條目：①`fork-delta-lint` 射程擴 `.env*`＋
+- [x] T076 [P] `docs/ops/BACKLOG.md` append 三筆新條目：①`fork-delta-lint` 射程擴 `.env*`＋
   `build/`（含 `#` 註解前綴支援）②快速登入鈕暴露 dev seed 帳密——轉 prod 前必須拆除（綁 prod
   硬化刀）③schema-gate gate2 對 append-only 稽核表的 seed 比對面收窄
-- [ ] T077 `docs/ops/LESSONS.md` append 本刀踩坑（候選：`method_not_allowed_fallback` 與 layer
+- [x] T077 `docs/ops/LESSONS.md` append 本刀踩坑（候選：`method_not_allowed_fallback` 與 layer
   的相對次序決定 405 歸屬／contract blanket 信封斷言對 Public route 破裂免 DB 前提／gate2 seed
   對 runtime sequence 的不可逆敏感性）
 

@@ -402,7 +402,7 @@ biz.auth.captchaRequired`／≥5 回 `2222 biz.auth.locked`；軟區送正確驗
   `Cow::Borrowed("字面")` 構造——**非字面即 fail-loud**（防恆綠洞）；msg-dict 兩語鍵集閘與
   contract case 逐鍵斷言為補強、非唯一守。
 - **FR-026**: i18n 前端轉譯（★BASE-WEB-I18N-WIRING 三用途、甲案 rev4 全形）MUST：(i) request
-  層 modal content＋showErrorMsg 鏈改走 `translateBackendMsg`（`$t(\`backend.${msg}\`, msg)`
+  層 modal content＋showErrorMsg 鏈改走 `translateBackendMsg`（``$t(`backend.${msg}`, msg)``
   原文 fallback、detail 值連帶轉譯）／(ii) en-us.ts＋zh-cn.ts 插 backend 樹（22 鍵＝既有 16＋
   本刀 6；簡中照 rev4 鏡像重打字消化）＋zh-tw.ts 補 6 鍵（rev5 新檔免軌道）／(iii) app.d.ts
   backend **必填**型節（zh-cn 結構同步由必填型節＋pnpm typecheck 免費守）。`MSG_DICT_LOCALES`
