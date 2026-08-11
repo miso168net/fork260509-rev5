@@ -446,44 +446,49 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T059 [P] [US5] contract case ×4（`/auth/sendCaptcha`／`codeLogin`／`register`／`resetPwd`）
+- [x] T059 [P] [US5] contract case ×4（`/auth/sendCaptcha`／`codeLogin`／`register`／`resetPwd`）
   加入 `rust-api/server/tests/contract.rs`。★四支同形恆 2222 ⇒ 逐 case 錯配自證會退化，
   **須指定區別手法**（各自斷言 path 專屬的 case_key 對映，而非只比信封）
-- [ ] T060 [P] [US5] i18n 機器面測：`python3 tools/docs-sync.py generate` 後
+- [x] T060 [P] [US5] i18n 機器面測：`python3 tools/docs-sync.py generate` 後
   `docs/generated/reference/backend-msg-dict.md` 恰 **22 列**；兩語鍵集相等；
   `DAY1_EXEMPTIONS` 拔項後 `docs-sync check` 綠（空表安全）
 
 ### Implementation for User Story 5
 
-- [ ] T061 [P] [US5] `rust-api/server/src/handler/auth/alt_stub.rs` 新建：一支
+- [x] T061 [P] [US5] `rust-api/server/src/handler/auth/alt_stub.rs` 新建：一支
   `not_supported_stub()` 四端點共用、恆 `2222 biz.auth.notSupported`、`data: null`、零副作用
   （不落任何表、不查 DB）；★**依 Lint24 同步律**（見全程紀律）補
   `base-web/src/locales/langs/zh-tw.ts` 之 `biz.auth.notSupported`
-- [ ] T062 [US5] `rust-api/server/src/router.rs` 加四條（`/auth/{sendCaptcha,codeLogin,register,
+- [x] T062 [US5] `rust-api/server/src/router.rs` 加四條（`/auth/{sendCaptcha,codeLogin,register,
   resetPwd}` POST/Public）＋bump 條數常數至 **16**
-- [ ] T063 [P] [US5] base-web 三張表單 stub 化（`★BASE-WEB-AUTH-WIRING(b)`、各 2 行）：
+- [x] T063 [P] [US5] base-web 三張表單 stub 化（`★BASE-WEB-AUTH-WIRING(b)`、各 2 行）：
   `src/views/_builtin/login/modules/{code-login,register,reset-pwd}.vue`——import stub wrapper＋
-  **消滅假成功 toast**；修改型 inline 帶 `原行:` 註解
-- [ ] T064 [P] [US5] base-web `src/hooks/business/captcha.ts` 的 `★BASE-WEB-AUTH-WIRING(c)`
+  **消滅假成功 toast**；修改型 inline 帶 `原行:` 註解。
+  ★**前置（原稿缺）**：所 import 的 stub wrapper 在 rev5 不存在——rev4 藍本為獨立檔
+  `rev4-auth-stub.ts`，rev5 歸宿＝`src/service/api/rev5-auth.ts`（§III.1 WRAPPER 軌道、
+  `rev5-` 前綴自有檔、免 ★ 軌道授權）。四支 stub fetch（`sendCaptcha`／`codeLogin`／
+  `register`／`resetPwd`）於該檔補齊後 T063／T064 才有合規 import 對象；憲法 §III.2 (b)
+  收窄字面為「僅改 import 指向 stub wrapper」，表單直呼 `request` 即違收窄
+- [x] T064 [P] [US5] base-web `src/hooks/business/captcha.ts` 的 `★BASE-WEB-AUTH-WIRING(c)`
   （4 行）：`getCaptcha` 改打 `/auth/sendCaptcha` stub、移除 500ms 假延遲與假成功 toast。
   ★影響 code-login 與 register 兩表單；reset-pwd 的 code 欄無送碼入口＝已知 UX 態（ADR 記）
-- [ ] T065 [US5] base-web `src/typings/app.d.ts` 的 `★BASE-WEB-I18N-WIRING(iii)`：`App.I18n.Schema`
+- [x] T065 [US5] base-web `src/typings/app.d.ts` 的 `★BASE-WEB-I18N-WIRING(iii)`：`App.I18n.Schema`
   補 `backend` **必填**型節（逐鍵鏡像 locale 結構）。★LangType／locale 註冊／`zh-tw.ts` 標型
   重構**不做**（R3-15、仍延前端 UI 刀）。**DoD：`pnpm typecheck` 紅→補完 en-us／zh-cn 後綠**
-- [ ] T066 [US5] base-web locale 三語 22 鍵（`★BASE-WEB-I18N-WIRING(ii)`）：
+- [x] T066 [US5] base-web locale 三語 22 鍵（`★BASE-WEB-I18N-WIRING(ii)`）：
   `src/locales/langs/en-us.ts` 與 `zh-cn.ts` 插 backend 樹（★插入行必須是**獨佔一行**的
   `  backend: {`——`_locales_have_backend_tree` 為整行 fullmatch；譯文見 `contracts/msg-keys.md`、
   簡中照 rev4 鏡像重打字消化）＋`zh-tw.ts` 補齊至 22 鍵；★**同一次工作樹編輯內**（跨子庫，比照
   Lint24 同步律）拔 `tools/docs-sync.py` 的 `DAY1_EXEMPTIONS["gen.msg_dict"]`（到期即紅）＋跑
   `generate` 讓 `backend-msg-dict.md` 與 Grafana panel 首次生成——★三者（base-web locale／外層
   工具／外層生成物）須在**同一顆外層 commit** 落地，否則謂詞成立而豁免仍在＝到期即紅當場擋
-- [ ] T067 [US5] base-web `src/service/request/index.ts` 的 `★BASE-WEB-I18N-WIRING(i)`（2 處）：
+- [x] T067 [US5] base-web `src/service/request/index.ts` 的 `★BASE-WEB-I18N-WIRING(i)`（2 處）：
   新增 `translateBackendMsg`／`translateDetailValue`（`$t(\`backend.${msg}\`, msg)` 原文
   fallback）＋modal `content` 與 `showErrorMsg` 鏈改走轉譯；修改型 inline 帶 `原行:` 註解。
   ★**`★BASE-WEB-LOGOUT-UX-WIRING(ii)`**（reLogin toast）**不做**——注意此 (ii) 屬 LOGOUT-UX 軌道，
   與 T066 正在做的 `★BASE-WEB-I18N-WIRING(ii)` 是**不同軌道的同字母用途**，勿混。
   **DoD：`pnpm typecheck` 綠＋瀏覽器錯誤提示顯人話**
-- [ ] T068 [US5] 走查 quickstart §5＋worktree commit＋外層 bump pin
+- [x] T068 [US5] 走查 quickstart §5＋worktree commit＋外層 bump pin
 
 **Checkpoint**: 全部 US 獨立可用——本刀功能面完成。
 
@@ -628,7 +633,7 @@ fix 迴圈 → code-quality review → fix 迴圈），依 CLAUDE.md §2 防呆�
 | U-J | T032~T038 | `contract.rs`、`router.rs`、`facade/{sys_token,session_event,`★`mod}.rs`、`handler/auth/refresh.rs` |
 | U-K | T039~T047 | `contract.rs`、`router.rs`、`handler/auth/{login,refresh,logout,`★`mod}.rs`、`facade/sys_token.rs`、`rev5-auth.ts`、`user-avatar.vue` |
 | U-L | T048~T058 | `contract.rs`、`router.rs`、★`lib.rs`、★`handler/mod.rs`、`facade/sys_login_attempt.rs`、`throttle/mod.rs`、`captcha/mod.rs`、`handler/{captcha,auth/login}.rs`、`obs.rs`、`rev5-auth.{ts,d.ts}`、`store/modules/auth/index.ts`、`pwd-login.vue`、`zh-tw.ts` |
-| U-M | T059~T068 | `contract.rs`、`router.rs`、`handler/auth/{alt_stub,`★`mod}.rs`、三張表單、`captcha.ts`、`app.d.ts`、三語 locale、`docs-sync.py`、`service/request/index.ts` |
+| U-M | T059~T068 | `contract.rs`、`router.rs`、`handler/auth/{alt_stub,`★`mod}.rs`、三張表單、`captcha.ts`、`app.d.ts`、三語 locale、`docs-sync.py`、`service/request/index.ts`、★`rev5-auth.ts`（T063／T064 所 import 的 stub wrapper 落點——原稿漏列，U-M 實作期補） |
 | U-N | T069~T077 | `fork-delta-lint.py`、`facade/{mod,system_settings,sys_user_role}.rs`、`ARCHITECTURE.md`、`BACKLOG.md`、`LESSONS.md` |
 
 ★清單以「★」標出的項為 analyze 補洞（模組註冊檔 `lib.rs`／`auth/mod.rs`／`handler/mod.rs`／

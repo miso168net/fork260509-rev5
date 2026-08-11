@@ -2967,22 +2967,11 @@ REFERENCE_SOURCES = (COMPOSE_FILES + (ROUTER_SOURCE, ELEGANT_SOURCE)
 # 消費點五處（乙①②③接線，非本步）：①compute_generated 五產出器 ②cmd_generate 首段守衛
 # ③lint_reference_sources 本體（具名 SKIP 統一輸出點）④check_generated 的 Lint01 缺檔／
 # 多檔分支 ⑤lint_i18n_contract 兩個 early-return。
-# gen.msg_dict 解除謂詞的起點正則——★與 parse_locale_backend 的起點掃描共用同一條：
-# 兩處各寫一套，遲早出現「謂詞說可以重算、產出器卻 raise 找不到樹」的錯位。
+# locale backend 樹的起點正則（`parse_locale_backend` 的起點掃描唯一消費者）。
+# ★原本另有 gen.msg_dict 的解除謂詞 `_locales_have_backend_tree` 與此共用一條正則，
+# 該豁免於 2026-08-11 下架後謂詞即成孤兒，依本表五個先例（謂詞隨豁免一併移除、只留
+# 下架註記）刪去；留著會讓讀者誤以為 gen.msg_dict 豁免仍在運作。
 RE_LOCALE_BACKEND_OPEN = re.compile(r"\s*backend:\s*\{")
-
-
-def _locales_have_backend_tree(root):
-    """gen.msg_dict 解除謂詞（ADR 0020 甲案）：MSG_DICT_LOCALES **兩支皆**含頂層
-    `backend: {` 樹才算條件成立——字典生成器 compute_msg_dict_rows 兩支都要讀、
-    且兩語鍵集不等即 fail-loud，故任一支缺樹都不具備重算條件。"""
-    for _lang, rel in MSG_DICT_LOCALES:
-        text = _read(root, rel)
-        if text is None:
-            return False
-        if not any(RE_LOCALE_BACKEND_OPEN.fullmatch(line) for line in text.splitlines()):
-            return False
-    return True
 
 
 DAY1_EXEMPTIONS = {
@@ -2996,16 +2985,11 @@ DAY1_EXEMPTIONS = {
     # 參考真表自此恢復重算，來源＝該檔 ROUTES const 的窄假設直解）。
     # gen.screens：2026-08-04 B9 worktree 掛載、routes.ts 到位、解除謂詞成立——依「到期即紅」
     # 下架（原豁免＝前端 route 表於 worktree 掛載前不存在；screens 真表自此恢復重算）。
-    # ★2026-08-08 002-system-settings T011 改謂詞續留（ADR 0020 甲案、user 拍板）：原謂詞
-    # 「zh-tw.ts 存在」在本刀建檔即成立，但 en-us.ts 是 upstream 原樣檔、無 backend 樹，
-    # 屆時 compute_msg_dict_rows 讀第二支即 raise、generate 整支中止——兩表假設不一致。
-    # 給 en-us.ts 插 backend 段＝動 upstream 既有檔＝需開第一個 ★軌道，本刀不開。
-    "gen.msg_dict": (
-        "★射程＝MSG_DICT_LOCALES 兩支（compute_msg_dict_rows 兩支皆讀、cmd_generate 守衛亦然）"
-        "——zh-tw.ts 已於 B12 T011 建檔並帶 backend 樹，但 en-us.ts 為 upstream 原樣檔、無該樹，"
-        "插入需開第一個 ★軌道（ADR 0020 甲案：本刀不開、改謂詞續留）",
-        _locales_have_backend_tree,                      # 解除＝前端 i18n 接線刀（開 ★軌道補 en-us backend 樹）
-        "2026-08-04"),
+    # gen.msg_dict：2026-08-11 003-auth-session T066 開 ★BASE-WEB-I18N-WIRING(ii) 補齊
+    # en-us.ts（與 zh-cn.ts）backend 樹、解除謂詞 _locales_have_backend_tree 成立——依
+    # 「到期即紅」下架（原豁免＝en-us.ts 為 upstream 原樣檔無 backend 樹、插入需開第一個
+    # ★軌道〔ADR 0020 甲案於 002 改謂詞續留〕；拒因字典 backend-msg-dict 與 Grafana 面板
+    # 自此恢復重算——本筆為表內最後一項、兩表自此空表，空表安全由 lint／check 全綠承載）。
     # lint07.budget_roster：2026-08-04 B5 骨架落地、八檔齊備、解除謂詞成立——依「到期即紅」
     # 下架（原豁免＝BUDGETS 名冊八檔多數於 B5 前不存在；守衛#8 自此恢復全檢）。
     # lint24.day1：2026-08-08 002-system-settings T011——兩側源皆備（rust 掃描面自 T003 起
@@ -3017,10 +3001,7 @@ DAY1_EXEMPTIONS = {
 # 豁免鍵的**射程**映射：(該鍵涵蓋的 reference 來源檔, 該鍵涵蓋的 generated 產出路徑)。
 # ★與 DAY1_EXEMPTIONS 分表存放——前者答「何時解除」、本表答「豁免什麼」，合併會讓四欄制
 #   失去單一語意，且射程改動與解除條件改動是兩件事、不該互相牽動。
-DAY1_EXEMPT_SCOPE = {
-    "gen.msg_dict":  (tuple(rel for _lang, rel in MSG_DICT_LOCALES),
-                      (MSG_DICT_MD, MSG_DICT_PANEL)),
-}
+DAY1_EXEMPT_SCOPE = {}
 
 
 def _day1_released(key, root, exemptions=None):
