@@ -78,6 +78,10 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　帶目標＝輪詢待其出現後鎖定、resume 沿用原 runId；ARMED 首行夾帶冒煙、stall/runaway 保險絲、happy-path 靜默）；
 　完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢；完成通知一到→TaskStop 該 Monitor（防誤觸 stall）。
 　判死迴圈／卡死→TaskStop→修 script→以 resumeFromRunId 續跑（已完成 agent 走快取不重跑）。
+　★resume **只用於故障續跑、不是「讓某支 agent 重跑」的手段**（L-027）：快取判定不逐字比
+　prompt（實測改 script 後 resume 仍全數快取回放、tokens=0），且改共用的 fixPrompt 會讓前幾輪
+　已完成的 fix 一併重跑、看到自己已修好的檔案而回零改動→誤觸⑤不收斂。需某階段重跑＝**新開
+　一支只跑該階段的 workflow**（新 runId、零快取糾纏），CONTEXT 寫清已完成階段結論與勿重報清單。
 　hook 兜底：PostToolUse(Workflow) 注入配對提醒、PreToolUse(Workflow) 擋缺 zh-TW 之 script。
 主線例行只在單元邊界醒（看門狗告警除外）。★單元收尾**六步序、次序不可反**：
 　①復核 agent 回報（逐項自 grep 驗證、不採信）②load-bearing 自驗（容器內看 rc＋三閘）
