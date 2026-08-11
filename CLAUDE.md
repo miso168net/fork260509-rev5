@@ -13,8 +13,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - 程式碼住兩個 submodule 目錄，各有雙身分（本機＝源倉的 git worktree；對外層＝submodule gitlink）：
   - `base-web/`：分支長名 `rev5-admin-base-web`；前端（soybean-admin fork）。
   - `rust-api/`：分支長名 `rev5-admin-rust-api`；後端（rust；全新寫〔§I.5〕、無 fork-delta 最原始源基線）。
-- ★應用碼實作高度參照 rev4 為預設藍本：動工前先讀源倉 rev4 分支對應碼
-  （`origin/rev4-admin-*`、唯讀）；重打字消化、拷貝禁止；★註解一律重寫（rev5 語境、
+- ★應用碼實作高度參照 rev4 為預設藍本：動工前先讀 rev4 對應碼
+  （讀法與對照環境→§7、唯讀）；重打字消化、拷貝禁止；★註解一律重寫（rev5 語境、
   rev4 出處帶 rev4: 前綴）；rev5 拍板已推翻的行為不得帶回（憲法 §I.5＋本代 ADR 0019）。
 - 短名/長名分工：目錄與口語用短名；git branch／push 一律用長名。
 - fork 源倉目錄（repo 根下 `fork260509-soybean-admin-base/` 與 `fork260509-rev2-anew-rust-api/`、
@@ -53,7 +53,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW、
 　rust 全程 serial、容器內 build/test、review agent 只讀不寫 repo 檔、★絕不 push/merge、
-　★實作先讀 rev4 對應碼（源倉 rev4 分支唯讀）高度參照但重打字消化不拷貝、註解一律重寫
+　★實作先讀 rev4 對應碼（../fork260509-rev4/ 直讀、★該樹絕不寫入）高度參照但重打字消化不拷貝、註解一律重寫
 　（rev4 出處帶 rev4: 前綴）、rev5 拍板差異點不得帶回（ADR 0019）。
 ★workflow script 防呆六件套（缺一不發射）：
 　①agent prompt 全數烤進 script 本體模板字串；args 只傳短純量、script 首段逐欄斷言
@@ -169,8 +169,33 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - 絕不 `git submodule update`（會 reset worktree）；絕不 `git submodule add`（與 worktree 衝突；
   submodule 設定手寫 `.gitmodules`）。
 - 絕不直接編輯 fork 源倉；前後端改動一律走 `base-web/`、`rust-api/` worktree。
+- 絕不寫入 `../fork260509-rev4/`（含其子庫與兩份源倉）——活體對照基準；亦絕不對 rev4
+  stack 做 schema／seed／設定變更或 `down -v`（操作面詳 §7）。
 - 絕不手改 `docs/generated/**`；絕不用 spec-kit implement 指令；specify 不進 brainstorm 自動流程。
 - rust build/test 一律容器內跑且全程 serial（host 無 toolchain；平行 cargo 互撞 target）。
 - review agent 只讀不寫 repo 檔，findings 只放回傳訊息。
 - NOTES／任何帳本不記「已push/未push」揮發狀態，只記 SHA；repo 文件不引用 per-machine memory
   路徑；跨檔引用不用行號、不 deep-link BACKLOG/NOTES/STATE 的內部錨（只可整檔引用）。
+
+## 7. rev4 參照與對照環境（讀碼＋活體 UI 基準）
+
+- rev4＝已收官的上一代：既是應用碼藍本（§1 紀律），也是 UI 對照基準——rev5 做出來的
+  UI 須與其一致、以 CDP 對照驗收。
+- **讀碼**：`../fork260509-rev4/` 之 `base-web/` 與 `rust-api/`＝切在 `rev4-admin-*` 的真
+  worktree，與 rev5 源倉同名分支 tip 同版（2026-08-12 實測逐位一致）。直接 Read／Grep／
+  Glob，勝過 `git show` 逐檔撈。★它是可寫的真工作樹、無物理唯讀保護：絕不寫入（§6 硬
+  禁令）；派 agent 讀 rev4 時唯讀令必烤進 prompt。rev4 已收官不應再動——發現其 worktree
+  不乾淨、或其 HEAD 與 rev5 源倉 rev4 分支 tip 不一致＝有人動過、停手問 user。
+- **對照 stack**：於 `../fork260509-rev4/` 根跑
+  `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait`；例行只
+  up／stop／ps，拆除、機密、故障排除→rev4 自家 `docs/ops/RUNBOOK.md`（不在本檔重複）。
+  ★絕不 `down -v`（刪卷＝毀掉最終版對照資料、不可逆）；runtime 使用（登入、瀏覽、寫其
+  稽核表）屬正常，但絕不動其 schema／seed／設定；rev5 的 psql／schema-gate 絕不指向 rev4 庫。
+- **端口**（皆 127.0.0.1）：42080＝rev4 UI（對照基準）｜42089＝soybean example 原版基線
+  （apifox mock、`docker-compose.example.yml`）｜42079＝rev4 API 直連｜45432／46379／
+  48025＝pg／redis／mailpit。rev5 側 22080（UI）／22079（API）——4xxxx 對 2xxxx 不衝突、
+  兩 stack 併行是預期形。
+- **UI 對照流程**：host 瀏覽器以 `--remote-debugging-port=9229` 起，CDP 接
+  `127.0.0.1:9229`（Node 24 內建 WebSocket、勿裝 ws 套件），開分頁對照 42080（rev4）vs
+  22080（rev5）、必要時加 42089（原版基線）三方比。★一律用 127.0.0.1、不用 localhost
+  （兩者 origin 不同、token 不共享）；dev 帳號 Super／Admin／User、密碼 123456。
