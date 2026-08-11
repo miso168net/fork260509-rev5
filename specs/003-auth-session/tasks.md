@@ -506,7 +506,11 @@ single-session 前置翻 on 後同帳號二次登入使前一條得 7777；idle 
   「承襲指針散文中**本刀不開的兩名**（`MODAL-WIRING`／`BASE-WEB-DEVPROXY-WIRING`）不在名冊」反例
   （★不可寫「六名」——Amendment 後六名中四名正式在冊、該斷言必然不成立）＋「真 repo 至少一個
   修改型對象被檢查」結構性自證。
-  **DoD：self-test 全綠＋抽掉任一合法軌道名即紅指名**
+  **DoD：self-test 全綠＋抽掉 §III.2 ★軌道任一名即紅指名**
+  ★DoD 字面於 final holistic review 收窄（原寫「任一合法軌道名」對七名中的三名實測不成立）：
+  `BASE-WEB-ADAPT`／`BASE-WEB-WRAPPER`／`RUSTAPI-SOURCE-ISOLATION` 只出現在新增型 `NAME+`
+  標記或不出現於 base-web，抽掉它們不會有修改型對象去撞名冊。§III.1 半邊改由
+  `load_roster()` 的 `s1_rows != 3` 斷言承載（表錨或列形被改動即 die）。
 - [x] T070 [P] ROUTES 終態機器核對：`python3 tools/docs-sync.py generate` 後
   `docs/generated/reference/routes.md` 恰 **16 列**（表頭外）；★確認 16 條皆為「每欄一行」形制、
   **零鏈式多動詞 handler**（`parse_router_routes` 對鏈式會靜默 fullmatch 通過＝漏報地雷）

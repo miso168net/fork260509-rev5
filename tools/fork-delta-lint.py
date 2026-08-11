@@ -49,7 +49,7 @@ def load_roster():
     BASE-WEB-DEVPROXY-WIRING）不得被掃進名冊——證掃描面只及表格、不及散文。"""
     if not os.path.isfile(CONSTITUTION):
         die(f"constitution 不存在：{CONSTITUTION}（T069 名冊來源、缺之即無授權判準）")
-    roster, s2_rows, section = set(), 0, None
+    roster, s1_rows, s2_rows, section = set(), 0, 0, None
     for line in open(CONSTITUTION, encoding="utf-8").read().splitlines():
         if line.startswith("### III.1"):
             section = 1
@@ -68,12 +68,22 @@ def load_roster():
         if not name or name == "軌道" or set(name) <= set("-: "):
             continue
         roster.add(name)
-        if section == 2:
+        if section == 1:
+            s1_rows += 1
+        elif section == 2:
             s2_rows += 1
     if not roster:
         die("名冊掃描為空——constitution §III.1/§III.2 表格錨可能被改動（T069⑤ 非空斷言①）")
     if s2_rows < 4:
         die(f"§III.2 ★軌道表僅掃得 {s2_rows} 列（須 ≥4）——表錨或列形被改動（T069⑤ 非空斷言②）")
+    # ★§III.1 半邊的同形斷言（final holistic review 補：原三重斷言**全部只約束 §III.2**，
+    #   §III.1 三軌道可靜默自名冊掉線而 lint 全綠）。實測失效鏈：把 `### III.1` 改成
+    #   `### III-1`（或整表刪除）⇒ roster 由 7 名縮成 4 名、輸出仍宣稱「軌道名皆在名冊」，
+    #   直到某刀第一次用 BASE-WEB-ADAPT／BASE-WEB-WRAPPER 開**修改型**標記才報「不在名冊、
+    #   須先走 §V.2 Amendment」——指向錯誤修法（該軌道早已授權），真病灶不被指出。
+    #   與 .githooks/pre-commit 補 constitution 觸發源所修的是同一個「fail-late 且誤導」病。
+    if s1_rows != 3:
+        die(f"§III.1 預設可動軌道表掃得 {s1_rows} 列（須恰 3）——表錨或列形被改動；名冊會靜默少收三名而全鏈照綠（T069⑤ 非空斷言③）")
     for absent in ("MODAL-WIRING", "BASE-WEB-DEVPROXY-WIRING"):
         if absent in roster:
             die(f"{absent} 被掃進名冊——它只存在於承襲指針散文（§III.2 表外宣告 2、本刀未開），"
@@ -277,6 +287,23 @@ FAKE_TOAST = re.compile(r"\$message\s*(?:\?\.|\.)\s*success")
 
 # B-062：graceful fallback 守門標的（憲法 §III.2 ★BASE-WEB-I18N-WIRING(i) 收窄條件）。
 I18N_FALLBACK_FILE = "src/service/request/index.ts"
+
+# ★交付面「必存字面」守（final holistic review 補）：前兩組守的是「不得出現」，
+# 本組守的是「必須存在」——upstream rebase 對該 hunk 選了 upstream 版、或有人「清理」該行，
+# 五道閘（typecheck／fork-delta-lint／docs-sync／rust 全套／wire-schema）全部照綠，
+# 而交付面當場消失。逐檔逐形列舉，每列＝(檔, 必存正則, 違反時的後果說明)。
+REQUIRED_LITERALS = (
+    ("src/store/modules/route/index.ts",
+     re.compile(r"addConstantRoutes\(\s*\[\s*\.\.\.\s*staticRoute\.constantRoutes\s*,"),
+     "constant routes MUST 為**併入** static 常量集而非取代（憲法 §III.2 (a)／spec FR-020）；"
+     "回退成 upstream 的 `addConstantRoutes(data)` 後，seed constant=TRUE 為 0 列 ⇒ 後端回 [] ⇒ "
+     "login／403／404／500／iframe-page 五條 builtin 常量路由被整組清空，**登入頁本身不可達**"),
+    ("src/layouts/modules/global-header/components/user-avatar.vue",
+     re.compile(r"catch\s*\{"),
+     "登出前的 `await fetchLogout(...)` MUST 為 best-effort、**失敗不得阻斷** `resetStore()`"
+     "（憲法 §III.2 (i) 逐字收窄）；拿掉錯誤處理後，後端 logout 一失敗就整個卡在對話框、"
+     "使用者登不出去"),
+)
 
 
 def find_fake_success_toast(content):
@@ -596,7 +623,7 @@ def scan(roster):
 def scan_guard_targets():
     """B-061／B-062 兩組語意守（逐檔列舉、與 diff 掃描面無關——upstream rebase 解錯即回歸、
     而 base-web 無測試 runner，這裡是唯一機器面）。守門標的檔缺席＝die（結構性缺席不放行）。"""
-    toast_errs, t_errs = [], []
+    toast_errs, t_errs, missing_lit = [], [], []
     for rel in FAKE_TOAST_FILES:
         path = os.path.join(BASEWEB, rel)
         if not os.path.isfile(path):
@@ -635,7 +662,16 @@ def scan_guard_targets():
         die(f"B-062 守門標的 {I18N_FALLBACK_FILE} 的 translateBackendMsg 函式體內零個 `$t(` "
             f"呼叫——守門面結構性消失（`$t` 被搬進 helper／body 被抽空即此形），"
             f"fallback 紀律不再受任何機器面約束（憲法 §III.2 I18N-WIRING(i)）")
-    return toast_errs, t_errs
+    # ★交付面「必存字面」守：標的檔缺席或字面不見，兩者都是交付面消失，一律不放行。
+    #   ★這組與上兩組方向相反（守「必須存在」而非「不得出現」），故不需 checked 計數
+    #   自證——「檔讀不到」本身就 die、「讀到但沒命中」本身就是違規，兩態皆非恆綠。
+    for rel, pat, why in REQUIRED_LITERALS:
+        path = os.path.join(BASEWEB, rel)
+        if not os.path.isfile(path):
+            die(f"交付面守門標的不存在：{rel}——檔被移走／改名即守門面失效，先同步 REQUIRED_LITERALS 名冊")
+        if not pat.search(open(path, encoding="utf-8").read()):
+            missing_lit.append((rel, why))
+    return toast_errs, t_errs, missing_lit
 
 
 def main():
@@ -651,8 +687,8 @@ def main():
         # T069⑤ 結構性自證：真 repo 現有至少兩個修改型對象（B-058：route/index.ts 的 (a)、
         # user-avatar.vue 的 (i)）——一個都沒檢查到＝changed_files／掃描面壞掉、名冊斷言恆綠。
         die("真 repo 未檢查到任何修改型標記——掃描面失效、名冊斷言 vacuous（T069⑤ 結構性自證）")
-    toast_errs, t_errs = scan_guard_targets()
-    if errs or unmarked or rogue or toast_errs or t_errs:
+    toast_errs, t_errs, missing_lit = scan_guard_targets()
+    if errs or unmarked or rogue or toast_errs or t_errs or missing_lit:
         if errs:
             print(f"[fork-delta-lint] ✗ {len(errs)} 條 example 上游 inline 行被改動卻缺 `原行:` 標記"
                   f"（constitution §III L114；基線 {BASELINE}@{tip}）：")
@@ -678,6 +714,11 @@ def main():
             for rel, hit in toast_errs:
                 print(f"    {rel}｜{hit}")
             print("  補法：移除 success toast——三表單走誠實 stub（恆 2222）、送碼 hook 成功即倒數。")
+        if missing_lit:
+            print(f"[fork-delta-lint] ✗ {len(missing_lit)} 處交付面必存字面消失"
+                  f"（upstream rebase 選了 upstream 版、或該行被「清理」——五道閘皆看不見）：")
+            for rel, why in missing_lit:
+                print(f"    {rel}｜{why}")
         if t_errs:
             print(f"[fork-delta-lint] ✗ {len(t_errs)} 個 `$t(` 呼叫缺 fallback 引數"
                   f"（B-062；憲法 §III.2 I18N-WIRING(i)：未命中 MUST graceful fallback、不得顯裸 key）：")
@@ -686,7 +727,7 @@ def main():
             print("  補法：改 `$t(key, msg)` 或 `$t(key, named, msg)`（末參＝原文 fallback）。")
         sys.exit(1)
     print(f"[fork-delta-lint] ✓ base-web 修改型全帶原行（軌道名 {checked_total} 處皆在名冊）、"
-          f"新增型全圈界；B-061 假 toast／B-062 $t fallback 兩守綠"
+          f"新增型全圈界；B-061 假 toast／B-062 $t fallback／交付面必存字面 三守綠"
           f"（self-test 過；基線 {BASELINE}@{tip}）")
 
 

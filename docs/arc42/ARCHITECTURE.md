@@ -110,7 +110,10 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 - 一條會話＝一條 `rotation_chain`（sid）；`active` 唯一性之 DB 護欄 as-built＝m001 建的
   partial UNIQUE index `uq_sys_token_chain_active`（不變式＝constitution §I.7 島 A）。
 - TTL as-built：唯一輸入＝`session_idle_timeout`（分鐘、seed 60），公式住 `auth/jwt.rs`
-  ——`access = min(300, N×60/2)`／`refresh = N×60 + 300`，seed 下即 300s／3900s；
+  ——`access = min(300, N×60/2)`／`refresh = N×60 + access`，seed（N=60）下即 300s／3900s；
+  ★不可簡寫成 `+ 300`：`session_idle_timeout` 值域下界為 5，N∈[5,10) 時 access＝N×30＜300，
+  兩式分岔（N=5 實為 450 而非 600）；且島 D 的門檻＝`refresh − access` 恆等於 N×60 這件事，
+  只有在加 access 的形下才讀得通。
   rotate-grace 冪等窗＝`cache::GRACE_TTL_SECS`（30s）。
 - 撤銷讀面 as-built：redis 鍵 `session:denylist:{sid}` 存 reason 字面（`REASON_KICKED`／
   `REASON_REVOKED` 兩常數集中於 `cache/mod.rs`），enforce_mw 讀端映 7777 modal／
