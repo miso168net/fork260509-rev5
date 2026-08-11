@@ -6,23 +6,16 @@
   （merge cdf6eb7：B-049／B-052／B-045／B-011 關帳＋B-042 收②半、ADR 0026）｜帳面更正批
   （merge ea4a470：六條目對齊 rev5 實況＋L-014＋B-043 兩處置候選實證推翻，零關帳）｜
   **003-auth-session**（merge 537b021、本代最大一刀：五個 user story 全交付、ROUTES 4→16 終態、
-  測試 145→321、憲法 1.2.0→1.3.0、DAY1_EXEMPTIONS 自此空表）。
+  測試 145→321、憲法 1.2.0→1.3.0、DAY1_EXEMPTIONS 自此空表）｜**工具面維護批**（輕量軌、
+  merge b5e1be5：B-042／B-063／B-065／B-067／B-068／B-069 六筆關帳，憲法 1.3.1＋ADR 0035～0037）。
   啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文；
   ★其內裸 B／L 編號屬 rev4 空間、該目錄在 Lint25 掃描面外＝L-014）。
 - 兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；setup-reaper
   正向 ALTER ROLE 一輪待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 
-- **下一步＝兩條軌並存，先拍哪條走**：
-
-  **(甲) 工具面維護批（輕量軌；自足、不依賴任何 feature）**——003 收刀新登記的七筆全在 `tools/`
-  與 hooks，彼此獨立、規模小：B-063（fork-delta-lint 射程擴 `.env*`＋`build/`）／B-065（gate2 對
-  append-only 稽核表的 seed 比對面收窄，★拍板級）／B-067（wire_schema 裁判面補三型）／
-  B-068（fork-delta-lint 授權判定升成軌道×用途×檔案三元組）／B-069（wf-watchdog runaway 門檻對
-  扇出型 workflow 必穿）。★B-068 與 B-063 同檔宜同批；★B-068 需先解 §III.2「型別」欄與 as-built
-  的既有分歧，否則新判定會誤報。
-
-  **(乙) 下一個 feature**——三個候選的現況**已被 003 改寫**，排序依據隨之變動：
+- **下一步＝下一個 feature**（(甲) 工具面維護批已於 2026-08-12 收單，見上）：三個候選的現況
+  **已被 003 改寫**，排序依據隨之變動：
   - **B-008 四張管理頁 view**：前置條件**真的解鎖了**——`.env` 已翻 dynamic ⇒「僅 R_SUPER 可見、
     點擊 404」自此成立；且 §III.2 名冊已存在 ⇒ 該刀不再是「開第一個 ★ 軌道」而是「在既有名冊上
     加用途」。但仍卡 **12 支不存在的後端端點**（audit 5／ip-rule 5／policy-archive 2）。
