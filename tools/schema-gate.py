@@ -14,7 +14,9 @@
 
 契約＝specs/001-schema-baseline/contracts/gates.md（行為）＋contracts/schema-evolution.md
 （登記檔形＋啟動斷言七條）＋contracts/fixtures.md（凍結面）。零容差語意：一切比對＝全等，
-「容差」唯一合法形＝演進帳登記（docs/ops/reference-src/schema-evolution.json）。
+「容差」合法形恰兩種＝①演進帳登記（docs/ops/reference-src/schema-evolution.json）
+②B-065 表級收窄（RUNTIME_APPEND_TABLES 寫死本檔、配 seed 必空斷言；見下 gate2 seed 段）；
+除此之外一律全等。
 
 三閘：
   gate1 結構——左源＝specs/001-schema-baseline/fixtures/{columns,indexes,constraints}.json
@@ -27,7 +29,11 @@
         兩側同一 normalize（COPY 段整列排序＋setval 原位＋剝除 \\restrict／\\unrestrict
         token 行＋seaql_migrations COPY 段）後**未排序逐列 diff**（含 id 欄）；
         ★禁全檔排序後雜湊（會掩蓋 sequence 落值漂移與真差異）。sequence 名冊讀
-        seed-decision.json 之 sequences 節（勿手抄名字面）。
+        seed-decision.json 之 sequences 節（勿手抄名字面）。★B-065 表級收窄：
+        RUNTIME_APPEND_TABLES 三表（session_event／sys_login_attempt／sys_token）
+        兩側再剝其 COPY 資料列（段首欄名行照比＝結構漂移仍紅）＋其 sequence 之
+        setval 值正規化為佔位（行存在仍比、整行消失＝紅），並另斷言 seed 側此類表
+        必 0 列——runtime 寫入不再紅、往 seed 塞稽核列照樣紅。
   audit archetype——左源＝docs/ops/reference-src/archetype-map.json（15 表歸屬、形契約
         gates.md §3）；對實庫照相逐表驗四變體規則（C／D 子型硬編碼於工具、map note＝
         人讀註記）；created_by 可空性顯式驗（NN 恰四表）；表清單守門（實庫表集≠map
@@ -106,6 +112,29 @@ AUDIT_B_FORBIDDEN_PREFIXES = ("updated_", "deleted_")
 # （誤攔勿就地退回具名判準——等於白拍 ADR 0016），review 輪隨審計欄語意演進複核。
 AUDIT_B_EXEMPT = {}
 ORDER_EXEMPT = ("casbin_rule",)   # 委派建表、欄序不入親排（data-model §7）
+
+# ── B-065 runtime-append 表級收窄（user 2026-08-11 拍板「表級收窄寫死工具內」形）────
+# gate2 seed 對下列表改比「結構＋setval 存在性」：兩側 normalize 後剝其 COPY 資料列
+# （段首欄名行照比＝結構漂移仍紅）、其 sequence 之 setval **值**正規化為佔位（行本身
+# 保留——整行消失＝紅）；另斷言 seed 側（凍結 seed ⊕ 演進合成）此類表必 0 列（非 0＝
+# 具名 finding 紅）。動機：這些表 runtime 寫入即紅，曾迫使每次走查後全套 §7 收尾
+# （TRUNCATE＋setval——003 全刀付出三次收尾成本、L-015 實暴一次髒庫連鎖）。
+# 射程＝恰三表（003 實痛表；quickstart §7 收尾清的正是這三表三 sequence）。
+# ★sys_user_role 絕不入集——archetype 同標變體 C 但屬**有 seed 列的 join 表**（種子
+# 使用者的角色掛載），收窄它＝真 seed 面被弱化。其餘變體 B/C 零 seed 表
+# （sys_operation_log／sys_access_log／sys_pwd_custody／sys_user_email_verify）未實暴
+# runtime 寫入、暫不入集——日後要擴＝本常數加一行：鍵欄（表名）之「seed 必空」斷言
+# 對新成員自動生效；值欄（sequence 名）由凍結 columns.json 之 nextval default 機器
+# 對賬（TestConstantsPinned 值欄對賬測——值欄作用面＝setval 佔位、與鍵欄作用面＝剝列
+# 互相獨立，手抄錯名＝非收窄表的 setval 落值守門靜默弱化，該測指名紅、勿臆測手抄）。
+# ★安全邊界紀律：清單寫死本檔、絕不取自呼叫端——另一候選「runtime-tolerant 呼叫旗標」
+# 已被 user 否決：旗標＝呼叫端控制安全邊界（任何呼叫都能帶旗標把守門面調弱、閘形同
+# 虛設）。收窄語意權威＝主線將立之 ADR；本註解為工具面記載。
+RUNTIME_APPEND_TABLES = {
+    "session_event": "session_event_id_seq",
+    "sys_login_attempt": "sys_login_attempt_id_seq",
+    "sys_token": "sys_token_id_seq",
+}
 
 # rename map（data-model §3、4 組、全在 sys_operation_log）：僅供 vs rev4 快照血緣對賬
 # 場景（fixtures 產製一次性三驗腳本 import）；rev5 自家比對一律新欄名、check 不消費。
@@ -898,6 +927,71 @@ def assert_seed_roster(norm_frozen, roster):
                         f"名冊 {sorted(roster)}——凍結面受損或名冊源壞")
 
 
+# B-065 setval 值佔位字面：刻意不匹配 RE_SETVAL（無數字）——再過一次收窄即原樣保留、
+# 冪等自然成立；行本身仍在比對面、整行消失照紅。
+_RT_SETVAL_PLACEHOLDER = "<runtime>"
+
+
+def narrow_runtime_append(norm_text):
+    """B-065 表級收窄變換（兩側同則、冪等；輸入＝normalize 後文本）。
+
+    對 [`RUNTIME_APPEND_TABLES`] 各表：①剝其 COPY 資料列（段首欄名行與 ``\\.`` 照留
+    照比——結構漂移仍紅）②其 sequence 之 setval **值**正規化為佔位（行本身保留——
+    整行消失＝紅）。非收窄表一概不動（收窄不外溢）。冪等：佔位行不再匹配
+    [`RE_SETVAL`]、零列 COPY 段再剝仍零列。★seed 側必空斷言
+    （[`runtime_seed_empty_findings`]）須在本變換**之前**對左源施作——剝列後左源
+    恆零列、餵後者即恆綠假閘。
+    """
+    lines = norm_text.splitlines()
+    out, i, n = [], 0, len(lines)
+    seqs = frozenset(RUNTIME_APPEND_TABLES.values())
+    while i < n:
+        ln = lines[i]
+        m = RE_COPY_HDR.match(ln)
+        if m and m.group(1) in RUNTIME_APPEND_TABLES:
+            out.append(ln)                   # 段首欄名行照比
+            i += 1
+            while i < n and lines[i] != "\\.":
+                i += 1                       # 剝 runtime 資料列
+            if i < n:
+                out.append(lines[i])         # \.
+                i += 1
+            continue
+        mv = RE_SETVAL.match(ln)
+        if mv and mv.group(1) in seqs:
+            out.append(f"SELECT pg_catalog.setval('public.{mv.group(1)}', "
+                       f"{_RT_SETVAL_PLACEHOLDER});")
+            i += 1
+            continue
+        out.append(ln)
+        i += 1
+    return "\n".join(out) + "\n"
+
+
+def runtime_seed_empty_findings(norm_text):
+    """B-065 新斷言：seed 側（凍結 seed ⊕ 演進合成）收窄表必 0 列。
+
+    收窄後 gate2 對這些表的資料列**無感**，防線全繫於此：有人往 seed 塞稽核列
+    （或演進帳 seed_add 指向收窄表）→ 具名 finding 紅（rc 1）。★必須吃剝列**前**
+    的左源文本——[`narrow_runtime_append`] 之後恆零列、餵後者即恆綠
+    （同 [`compare_dump_owner`] 的輸入次序陷阱）。COPY 段缺席不在此報：收窄保留
+    段首欄名行、缺段由 diff 自紅（本腿與此論證＝TestRuntimeAppendNarrow 第⑧臂釘住；
+    L-019：降級腿有論證必有紅綠載體）。
+    """
+    findings = []
+    blocks = _copy_blocks(norm_text.splitlines())
+    for t in sorted(RUNTIME_APPEND_TABLES):
+        if t not in blocks:
+            continue
+        _cols, start, end = blocks[t]
+        if end > start:
+            findings.append(f"[gate2·seed] runtime-append 表 {t}｜seed 側有 "
+                            f"{end - start} 列資料——此類表 seed 必空（B-065 收窄"
+                            "前提：稽核列只能由 runtime 寫入實庫；seed 面塞列＝繞過"
+                            "收窄防線）")
+    return findings
+
+
 def compare_dump_owner(dump_text, expected):
     """實庫 dump 的 Owner 值一致性（B-011；配 [`normalize_seed_dump`] 第 ④ 類）。
 
@@ -1114,9 +1208,43 @@ _ST_DUMP = ("\\restrict TOKEN123\n"
             "\\unrestrict TOKEN123\n")
 
 
+# B-065 收窄自測 dump（三收窄表零列＋非收窄 t_ok 兩列＋★前綴鄰接假想表 sys_token_x
+# 帶一列與 setval——兩軸各取貼界線形釘死成員判定＝全名全等（L-020 貼界線值紀律：
+# 守門值取判別點附近、非安全距離外的 t_ok）：COPY 軸表名 sys_token_x＝收窄表
+# sys_token 的前綴延伸；setval 軸 sequence 名**刻意非慣例配名**取 sys_token_id_seq_x
+# ＝收窄 sequence sys_token_id_seq 的前綴延伸（慣例形 sys_token_x_id_seq 在 _x 處
+# 即分岔、貼不到 sequence 判別點——變異實測 M6 前綴版對它恆綠）。匹配若退化成前綴／
+# 子字串形（startswith／in 子串）即誤剝其列／誤佔位其 setval 值；
+# 欄名行取合成短形——收窄邏輯只認表名與 sequence 名、不管欄集內容；離線合成、不碰真庫）
+_RT_DUMP = ("COPY public.session_event (id, event_type) FROM stdin;\n"
+            "\\.\n"
+            "\n"
+            "COPY public.sys_login_attempt (id, success) FROM stdin;\n"
+            "\\.\n"
+            "\n"
+            "COPY public.sys_token (id, status) FROM stdin;\n"
+            "\\.\n"
+            "\n"
+            "COPY public.sys_token_x (id, status) FROM stdin;\n"
+            "9\tzz\n"
+            "\\.\n"
+            "\n"
+            "COPY public.t_ok (id, name) FROM stdin;\n"
+            "2\tb\n"
+            "1\ta\n"
+            "\\.\n"
+            "\n"
+            "SELECT pg_catalog.setval('public.session_event_id_seq', 1, false);\n"
+            "SELECT pg_catalog.setval('public.sys_login_attempt_id_seq', 1, false);\n"
+            "SELECT pg_catalog.setval('public.sys_token_id_seq', 1, false);\n"
+            "SELECT pg_catalog.setval('public.sys_token_id_seq_x', 7, true);\n"
+            "SELECT pg_catalog.setval('public.t_ok_id_seq', 2, true);\n")
+
+
 def check_self_test():
     """健康對必綠＋注入假漂移必紅（四類：結構／欄序／seed 值／sequence 落值）＋
-    normalize 冪等——任一敗＝AssertionError（呼叫端轉 rc 2、不讀真檔）。"""
+    normalize 冪等＋B-065 收窄三點探針——任一敗＝AssertionError（呼叫端轉 rc 2、
+    不讀真檔）。"""
     fix = _st_fixtures()
     healthy = synth_expected(fix, [])
     # gate1：健康綠
@@ -1205,6 +1333,19 @@ def check_self_test():
         raise AssertionError("gate2 seed 未攔加欄後的 COPY 段漂移")
     if compare_seed(apply_seed_entries(norm, [entry]), drift_dump) != []:
         raise AssertionError("gate2 seed add_column 合成後應綠而未綠")
+    # B-065 runtime-append 收窄三點探針（八臂全測歸 TestRuntimeAppendNarrow；此處常駐
+    # 防恆綠）：①收窄表 runtime 列剝後綠②非收窄表列漂移照紅③seed 側塞列必紅
+    rt_left = narrow_runtime_append(normalize_seed_dump(_RT_DUMP))
+    rt_hot = _RT_DUMP.replace(
+        "COPY public.session_event (id, event_type) FROM stdin;\n",
+        "COPY public.session_event (id, event_type) FROM stdin;\n7\tlogin\n")
+    if compare_seed(rt_left, narrow_runtime_append(normalize_seed_dump(rt_hot))) != []:
+        raise AssertionError("B-065 收窄未生效——收窄表 runtime 列仍被判 seed 漂移")
+    if not compare_seed(rt_left, narrow_runtime_append(
+            normalize_seed_dump(_RT_DUMP.replace("1\ta", "1\tX")))):
+        raise AssertionError("B-065 收窄外溢——非收窄表列漂移未被攔")
+    if not runtime_seed_empty_findings(normalize_seed_dump(rt_hot)):
+        raise AssertionError("B-065 seed 必空斷言未攔 seed 側稽核列")
     # audit：健康 A／B 合成對綠；B 表注入 updated_at 必紅
     amap = [{"table": "t_biz", "label": "A 業務全六欄",
              "active_unique": ["t_biz_code_active_uniq"], "note": ""},
@@ -1294,7 +1435,12 @@ def cmd_check(root=REPO_ROOT, container=None, user=DB_USER, db=DB_NAME,
         seed_expected = apply_seed_entries(frozen_norm, ledger["entries"])
         findings = compare_structure(expected, actual)
         findings += compare_column_order(dm_order, ledger["entries"], actual["columns"])
-        seed_findings = compare_seed(seed_expected, normalize_seed_dump(dump))
+        # B-065：必空斷言吃**左源**且先於剝列（左右搞反／次序反轉皆＝恆綠假閘；
+        # TestCmdCheckSeedEmptyWiring 釘住兩者）；兩側同則收窄後再逐列 diff
+        findings += runtime_seed_empty_findings(seed_expected)
+        seed_narrowed = narrow_runtime_append(seed_expected)
+        seed_findings = compare_seed(seed_narrowed,
+                                     narrow_runtime_append(normalize_seed_dump(dump)))
         findings += seed_findings
         # ★餵原文 dump（normalize 前）：normalize 已把 Owner 值抹成佔位，餵後者恆綠
         findings += compare_dump_owner(dump, user)
@@ -1315,8 +1461,9 @@ def cmd_check(root=REPO_ROOT, container=None, user=DB_USER, db=DB_NAME,
           f"（演進帳合成 {n_entries} 筆）")
     print(f"[check] ✓ gate2 欄序：{len(dm_order)} 親排表逐位全等"
           f"（{'、'.join(ORDER_EXEMPT)} 豁免）")
-    print(f"[check] ✓ gate2 seed：normalize 後 {len(seed_expected.splitlines())} 行"
-          f"逐列零差異（setval 名冊 {len(roster)} 支）")
+    print(f"[check] ✓ gate2 seed：normalize 後 {len(seed_narrowed.splitlines())} 行"
+          f"逐列零差異（setval 名冊 {len(roster)} 支；runtime-append 收窄 "
+          f"{len(RUNTIME_APPEND_TABLES)} 表）")
     print(f"[check] ✓ audit archetype：{len(map_rows)}/{len(map_rows)} 綠"
           "（表清單守門通過）")
     return 0
@@ -1696,6 +1843,99 @@ class TestSeedSynthesis(unittest.TestCase):
             apply_seed_entries(self.norm, [e])
 
 
+class TestRuntimeAppendNarrow(unittest.TestCase):
+    """B-065 表級收窄八臂紅綠（user 2026-08-11 拍板「收窄寫死工具內」形；離線合成
+    dump、不碰真庫）：①收窄表 actual 側 runtime 列→綠②seed 側塞列→紅（必空斷言、
+    具名）③非收窄表列漂移→照紅（不外溢）④setval 值異→綠、整行消失→紅⑤收窄表
+    COPY 段首欄名變動→照紅（結構面仍守）⑥normalize＋收窄全管線冪等⑦前綴鄰接表
+    sys_token_x 之列與 setval 值原樣保留（成員判定＝全名全等、退化成前綴匹配即紅）
+    ⑧收窄表 COPY 段整段缺席→必空斷言跳過不誤報、缺段由收窄後 diff 自紅（降級腿
+    論證的機器載體、L-019）。"""
+
+    @staticmethod
+    def _full(text):
+        return narrow_runtime_append(normalize_seed_dump(text))
+
+    def setUp(self):
+        self.left = self._full(_RT_DUMP)
+
+    def test_1_runtime_rows_green(self):
+        act = (_RT_DUMP
+               .replace("COPY public.session_event (id, event_type) FROM stdin;\n",
+                        "COPY public.session_event (id, event_type) FROM stdin;\n"
+                        "7\tlogin\n8\tlogout\n")
+               .replace("COPY public.sys_token (id, status) FROM stdin;\n",
+                        "COPY public.sys_token (id, status) FROM stdin;\n3\tactive\n")
+               .replace("'public.session_event_id_seq', 1, false",
+                        "'public.session_event_id_seq', 8, true"))
+        self.assertEqual(compare_seed(self.left, self._full(act)), [])
+
+    def test_2_seed_side_row_red_named(self):
+        stuffed = normalize_seed_dump(_RT_DUMP.replace(
+            "COPY public.sys_login_attempt (id, success) FROM stdin;\n",
+            "COPY public.sys_login_attempt (id, success) FROM stdin;\n1\tt\n"))
+        f = runtime_seed_empty_findings(stuffed)
+        self.assertEqual(len(f), 1, msg=f)       # 其餘兩表零列勿誤報
+        self.assertIn("sys_login_attempt", f[0])
+        self.assertIn("1 列", f[0])
+        self.assertIn("必空", f[0])
+
+    def test_3_non_narrowed_drift_still_red(self):
+        f = compare_seed(self.left, self._full(_RT_DUMP.replace("1\ta", "1\tX")))
+        self.assertTrue(f and "diff 非零" in f[0], msg=f)
+
+    def test_4_setval_value_green_line_missing_red(self):
+        act = _RT_DUMP.replace("'public.sys_token_id_seq', 1, false",
+                               "'public.sys_token_id_seq', 42, true")
+        self.assertEqual(compare_seed(self.left, self._full(act)), [])
+        gone = _RT_DUMP.replace(
+            "SELECT pg_catalog.setval('public.sys_token_id_seq', 1, false);\n", "")
+        f = compare_seed(self.left, self._full(gone))
+        self.assertTrue(f and "sys_token_id_seq" in f[0], msg=f)
+        # ★確認輪 M16 補釘：上面的子字串斷言會被 diff context 行（⑦臂貼界線 fixture
+        #   sys_token_id_seq_x）巧合撐綠——佔位若丟 sequence 名（寫死 <seq>），刪除行
+        #   不再含名、context 行仍在＝變異存活。此處直釘「收窄後左源保留 per-sequence
+        #   佔位行」的字面（沿用常數、不手抄佔位），把「行存在仍比、且知道是哪一支」
+        #   的語意掛上非巧合的機器載體。
+        self.assertIn(f"SELECT pg_catalog.setval('public.sys_token_id_seq', "
+                      f"{_RT_SETVAL_PLACEHOLDER});", self.left)
+
+    def test_5_copy_header_drift_red(self):
+        act = _RT_DUMP.replace(
+            "COPY public.session_event (id, event_type) FROM stdin;",
+            "COPY public.session_event (id, event_type, extra) FROM stdin;")
+        f = compare_seed(self.left, self._full(act))
+        self.assertTrue(f and "session_event" in f[0], msg=f)
+
+    def test_6_full_pipeline_idempotent(self):
+        self.assertEqual(self._full(self.left), self.left)
+        self.assertEqual(narrow_runtime_append(self.left), self.left)
+
+    def test_7_prefix_adjacent_table_untouched(self):
+        """L-020 貼界線：sys_token_x＝收窄表 sys_token 的前綴延伸、sys_token_id_seq_x
+        ＝收窄 sequence sys_token_id_seq 的前綴延伸——[`RE_COPY_HDR`]／[`RE_SETVAL`]
+        之 `(\\w+)` 全名捕獲＋dict／frozenset 全等成員判定若退化成前綴／子字串匹配，
+        其列即被誤剝、其 setval 值即被誤佔位；此處釘住兩者收窄後逐字原樣
+        （「收窄不外溢」宣稱的貼界線機器載體）。"""
+        self.assertIn("9\tzz", self.left)
+        self.assertIn(
+            "SELECT pg_catalog.setval('public.sys_token_id_seq_x', 7, true);",
+            self.left)
+
+    def test_8_missing_copy_block_skip_then_diff_red(self):
+        """L-019 補載體：[`runtime_seed_empty_findings`] 的「COPY 段缺席就跳過」腿
+        （continue）與其推給 diff 的論證「缺段由 diff 自紅」原本雙雙零紅綠——有論證
+        無覆蓋＝下一個人有充分理由把 continue「簡化」掉（拿掉即缺段側 KeyError、
+        本測以紅擋下）。雙釘：(a) 缺段側必空斷言不 raise 且回空（其餘兩收窄表零列
+        勿誤報）(b) 收窄後逐列 diff 非空且指名 sys_token（論證為真的機器載體）。"""
+        i = _RT_DUMP.index("COPY public.sys_token (")
+        j = _RT_DUMP.index("\\.\n", i) + len("\\.\n")
+        norm = normalize_seed_dump(_RT_DUMP[:i] + _RT_DUMP[j:])
+        self.assertEqual(runtime_seed_empty_findings(norm), [])
+        f = compare_seed(self.left, narrow_runtime_append(norm))
+        self.assertTrue(f and "sys_token" in f[0], msg=f)
+
+
 class TestPgDumpArgv(unittest.TestCase):
     """pg_dump 旗標渲染回歸：-e PGTZ=UTC 必掛 exec 子命令之後（兩形皆然）。
     曾有缺陷：compose 形把 -e 插在 docker compose 頂層 → `unknown shorthand flag: 'e'`
@@ -1782,10 +2022,66 @@ class TestCmdCheckGreenPath(unittest.TestCase):
         self.assertIn("演進帳合成 0 筆", lines[0])
         self.assertIn("gate2 欄序：14 親排表逐位全等", lines[1])
         self.assertIn("casbin_rule 豁免", lines[1])
-        n = len(normalize_seed_dump(fx["seed"]).splitlines())
-        self.assertIn(f"gate2 seed：normalize 後 {n} 行逐列零差異（setval 名冊 11 支）",
-                      lines[2])
+        # B-065 收窄後比對面行數：三收窄表 seed 側本就零列、setval 行原位改佔位——
+        # 行數與未收窄時相等（凍結面字面可釘）
+        n = len(narrow_runtime_append(normalize_seed_dump(fx["seed"])).splitlines())
+        self.assertEqual(n, len(normalize_seed_dump(fx["seed"]).splitlines()))
+        self.assertIn(f"gate2 seed：normalize 後 {n} 行逐列零差異（setval 名冊 11 支；"
+                      "runtime-append 收窄 3 表）", lines[2])
         self.assertIn("audit archetype：15/15 綠", lines[3])
+
+
+class TestCmdCheckSeedEmptyWiring(unittest.TestCase):
+    """B-065 佈線守門（[`cmd_check`] 面）：必空斷言「先於剝列」且「吃左源」原本只有
+    註解宣稱、無機器紅綠——次序反轉（先 [`narrow_runtime_append`] 再餵
+    [`runtime_seed_empty_findings`]）＝左源恆零列、恆綠假閘；左右搞反（改餵實庫 dump
+    右源）＝語意整個倒轉——runtime 寫入照樣紅、seed 塞列反而恆綠（L-018／L-019 同形；
+    [`compare_dump_owner`] 同款輸入陷阱有零 Owner 行 GateError 兜底、此處全靠本測）。
+    既有測試皆直呼兩函式、繞過佈線，故另立本類。合成形：temp root 之 seed.sql
+    **副本**在 session_event COPY 段塞一列，pg_dump 樁回**乾淨原文**——★左右可辨：
+    塞列位於收窄表 COPY 段、兩側剝列後逐列 diff 仍恰空、唯一紅源＝必空斷言吃到塞列
+    左源。現行佈線 rc 1＋具名 finding；次序反轉或左右搞反皆 rc 0 即本測紅。
+    不碰 specs/ 真檔。"""
+
+    def test_empty_assert_precedes_narrow_rc1_named(self):
+        fx = load_fixtures(REPO_ROOT)
+        dispatch = {SQL_COLUMNS: fx["columns"], SQL_INDEXES: fx["indexes"],
+                    SQL_CONSTRAINTS: fx["constraints"]}
+        lines = fx["seed"].splitlines(keepends=True)
+        i = next(k for k, ln in enumerate(lines)
+                 if ln.startswith("COPY public.session_event ("))
+        stuffed = "".join(lines[:i + 1] + ["9\taudit\n"] + lines[i + 1:])
+
+        class _R:
+            returncode, stderr = 0, ""
+
+            def __init__(self, out):
+                self.stdout = out
+
+        def fake_run(cmd, **kw):
+            if "pg_dump" in cmd:
+                return _R(fx["seed"])    # 右源＝乾淨原文（左右可辨、餵右源即恆綠可測）
+            return _R(json.dumps(dispatch[cmd[-1]]))
+
+        with tempfile.TemporaryDirectory() as d:
+            for rel in TestCmdCheckGreenPath._COPY:
+                dst = os.path.join(d, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copyfile(os.path.join(REPO_ROOT, rel), dst)
+            with open(os.path.join(d, "specs/001-schema-baseline/fixtures/seed.sql"),
+                      "w", encoding="utf-8") as fh:
+                fh.write(stuffed)        # 左源副本＝同一份塞列文本
+            _write_ledger(d, _VALID_LEDGER)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rc = cmd_check(root=d, run=fake_run)
+        msg = err.getvalue()
+        self.assertEqual(rc, 1, msg=msg)
+        self.assertIn("runtime-append 表 session_event", msg)
+        self.assertIn("seed 側有 1 列", msg)
+        # ★鑑別力自保：塞列在收窄表 COPY 段內、兩側剝列後 diff 必不紅——若此處也紅，
+        # 次序反轉／左右搞反版同樣 rc 1、本測即失去判別力
+        self.assertNotIn("diff 非零", msg)
 
 
 class TestSnapshotIsomorphism(unittest.TestCase):
@@ -2105,6 +2401,35 @@ class TestConstantsPinned(unittest.TestCase):
             self.assertEqual(len(key), 2)
             self.assertTrue(all(isinstance(x, str) and x for x in key))
             self.assertTrue(isinstance(reason, str) and reason.strip())
+
+    def test_runtime_append_tables_pinned(self):
+        """B-065 收窄集字面釘死（表→sequence 名、自 fixtures/seed.sql setval 行讀出）；
+        擴集＝同 commit 改本案＋常數註解射程論證——防常數縮水後六臂自測跟縮的套套
+        邏輯，並釘 sys_user_role 永不入集（有 seed 列的 join 表、收窄＝弱化真 seed 面）。"""
+        self.assertEqual(RUNTIME_APPEND_TABLES, {
+            "session_event": "session_event_id_seq",
+            "sys_login_attempt": "sys_login_attempt_id_seq",
+            "sys_token": "sys_token_id_seq"})
+        self.assertNotIn("sys_user_role", RUNTIME_APPEND_TABLES)
+
+    def test_runtime_append_seq_names_ledgered(self):
+        """B-065 值欄（sequence 名）機器對賬：鍵欄（表名）有「seed 必空」斷言自動守門，
+        值欄作用面（setval 佔位）與其獨立——擴集手抄錯名（如 sys_token→
+        sys_access_log_id_seq）＝**非收窄表**的 setval 落值守門靜默弱化（誤配線版對
+        L-015 之「刪列救不回 setval」形照綠、已離線實證），而字面 pin 測擴集者本來就要
+        改、改完照樣綠。左源＝凍結 columns.json 之 nextval default（11 表精確歸屬）；
+        另斷言值欄無重複（兩表同 sequence＝其一必錯）。"""
+        cols = load_fixtures(REPO_ROOT)["columns"]
+        for t, seq in RUNTIME_APPEND_TABLES.items():
+            want = f"nextval('{seq}'::regclass)"
+            self.assertTrue(
+                any(c["table"] == t and want in (c["default"] or "") for c in cols),
+                msg=f"RUNTIME_APPEND_TABLES 值欄對賬敗：凍結 columns.json 無"
+                    f"「table={t} 且 default 含 {want}」之欄——sequence 名 {seq} "
+                    f"非表 {t} 所屬（手抄錯名＝非收窄表 setval 守門靜默弱化）")
+        vals = list(RUNTIME_APPEND_TABLES.values())
+        self.assertEqual(len(vals), len(set(vals)),
+                         msg=f"RUNTIME_APPEND_TABLES 值欄重複：{sorted(vals)}")
 
     def test_paths_are_001_coordinates(self):
         """rev4 世代座標（specs/rev4:002）整組清償：路徑常數一律 001。"""
