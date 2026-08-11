@@ -37,3 +37,6 @@
 | 0032 | accepted | 2026-08-09 | root Cargo.toml「不引 argon2」翻案——引入六支 auth 依賴，後六支續留域外 | — | — | — |
 | 0033 | accepted | 2026-08-09 | 003-auth-session 已知態集五項（by-design／排程錨，非缺陷） | — | — | — |
 | 0034 | accepted | 2026-08-09 | contract 測 stub 連線改用 connect_lazy 假連線——research R7-1 的 MockDatabase 方案經實證不可行 | — | — | — |
+| 0035 | accepted | 2026-08-11 | §III.2 名冊兩處範圍欄註記對齊 as-built（PATCH 校正） | — | — | — |
+| 0036 | accepted | 2026-08-11 | gate2 seed 對 runtime-append 表的表級收窄 | — | — | — |
+| 0037 | accepted | 2026-08-11 | events 帳本新增 erratum 事件型與 Lint18 更正視圖 | — | — | — |

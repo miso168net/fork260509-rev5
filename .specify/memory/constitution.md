@@ -180,8 +180,8 @@
 | **★BASE-WEB-LOGIN-CAPTCHA-WIRING** | (i) 登入頁 captcha 軟區 | `src/store/modules/auth/index.ts`（修改型）／`src/views/_builtin/login/modules/pwd-login.vue`（修改型＋新增型） | login 簽名加 captcha 參並串通失敗 msg 回傳鏈；軟區為條件渲染、**非軟區時零行為變更**。用途 (ii)（`formRules` 放寬）不在授權內 |
 | **★BASE-WEB-I18N-WIRING** | (i) 後端 msg 轉譯 | `src/service/request/index.ts`（2 處修改型＋1 塊新增型） | `translateBackendMsg`／`translateDetailValue` 走 `$t` 並以原文 fallback；未命中 MUST graceful fallback，不得吞錯亦不得顯裸 key |
 | **★BASE-WEB-I18N-WIRING** | (ii) locale backend 樹 | `src/locales/langs/{en-us,zh-cn}.ts`（各 1 塊，新增型） | 插入錨為**獨佔一行**的 `  backend: {`；兩語鍵集 MUST 相等；譯文以該刀 contracts 之 msg-keys 為權威 |
-| **★BASE-WEB-I18N-WIRING** | (iii) Schema backend 型節 | `src/typings/app.d.ts`（1 處，修改型） | 僅補 `App.I18n.Schema` 之 `backend` **必填**型節。LangType 擴充／locale 註冊／`zh-tw.ts` 標型重構不在授權內 |
-| **★BASE-WEB-LOGOUT-UX-WIRING** | (i) 登出前撤銷接線 | `src/layouts/modules/global-header/components/user-avatar.vue`（3 處，修改型） | `onPositiveClick` 改 async、登出前 best-effort `await fetchLogout(...)`，**失敗不得阻斷** `resetStore()`。用途 (ii)（reLogin toast）不在授權內 |
+| **★BASE-WEB-I18N-WIRING** | (iii) Schema backend 型節 | `src/typings/app.d.ts`（1 塊，新增型圈界） | 僅補 `App.I18n.Schema` 之 `backend` **必填**型節。LangType 擴充／locale 註冊／`zh-tw.ts` 標型重構不在授權內 |
+| **★BASE-WEB-LOGOUT-UX-WIRING** | (i) 登出前撤銷接線 | `src/layouts/modules/global-header/components/user-avatar.vue`（1 處修改型＋2 處新增型） | `onPositiveClick` 改 async、登出前 best-effort `await fetchLogout(...)`，**失敗不得阻斷** `resetStore()`。用途 (ii)（reLogin toast）不在授權內 |
 
 **表外三項適用宣告**：
 1. 範圍欄的**處數為估值**，實作期以 `rev5-inline` 標記實數為準；**檔級名單則是硬邊界**——名單外的 base-web 既有檔一律無授權，需要動即回本節走 §V.2。
@@ -237,10 +237,11 @@
 
 ---
 
-**Version**: 1.3.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-09
+**Version**: 1.3.1 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-11
 
 **Amendment log**:
 - 1.1.0（2026-08-05）：§I.2 demo menu 條增「例外與釋義」二款（ADR 0005；MINOR）——①toggle-auth 示範鏈（function／function_toggle-auth）對 R_ADMIN／R_USER_COMMON 之初始勾選例外（4 列、承 rev4 終態）②hideInMenu「不啟用」射程釐清（upstream route meta 原樣值非隱藏治理、6 列白名單）。動機＝001 刀 /speckit-analyze D1（CRITICAL：seed 定稿與字面衝突、過目簽核不具修憲效力）與 D2；user 親決。
 - 1.2.0（2026-08-08）：§I.5 增「實作以 rev4 對應碼為預設藍本（先讀後寫、高度參照）」句＋前代 source 立場清單增「註解一律重寫」款（ADR 0019；MINOR）——動機＝應用碼施工意圖先前僅存對話、「全新寫」字面誤導新 session 從零發明；user 親決維持拷貝禁止強度（重打字消化）、放寬為逐段移植之替代案評估後棄。
 - 1.3.0（2026-08-09）：§III.2 首開四條 ★ 軌道八用途（BASE-WEB-AUTH-WIRING (a)(b)(c)／BASE-WEB-LOGIN-CAPTCHA-WIRING (i)／BASE-WEB-I18N-WIRING (i)(ii)(iii)／BASE-WEB-LOGOUT-UX-WIRING (i)）並改為機器可解表格形（fork-delta-lint 名冊斷言之來源）＋表外三項適用宣告；§I.7 首批五座行為島入憲（token rotation／single-session／denylist 撤銷／idle 逾時／登入失敗節流，含各自 fail-* 方向與跨島刻意不一致註）。ADR 0028；MINOR（§V.3 之「新增 ★ 軌道」與「行為島隨刀進場」兩款）——動機＝003-auth-session 為第一把同時撞到兩個空凍結位的刀：後端補齊六支端點後 base-web 必須接線（12 處分屬四條尚未存在的軌道），且五台狀態機的 fail-* 方向不入憲則日後反轉無 MAJOR 閘。授權逐用途收窄，rev4 更寬用途集中的三項 `(ii)` 類明文不授權。user 親決。
+- 1.3.1（2026-08-11）：§III.2 名冊兩處範圍欄註記對齊 as-built（ADR 0035；PATCH「文字校正、釐清」）——app.d.ts「1 處，修改型」→「1 塊，新增型圈界」；user-avatar.vue「3 處，修改型」→「1 處修改型＋2 處新增型」。授權邊界零變動（檔級名單／用途集／紀律欄一字不動）；動機＝B-068 將以名冊欄位為（軌道×用途×檔案）三元組判準，「型別」欄不準則新判定上線即誤報。user 核批工具面維護批（輕量軌；B-042 等六筆同批）組成時併同核可。
 - 1.0.0（2026-08-04）：創世初版——自 rev4 constitution v1.15.0 之可攜段搬入（§I.1～§I.6 改字可攜、§I.7 僅搬進場規則、§II 三筆拍板、§III fork-delta 紀律與 §III.1 三軌道、§III.2 僅機制骨架與補完判準、§IV 九題、§V 全段；rev4 專屬之十座已入憲行為島細目與六個 ★ 軌道細目一律不預載、循 §I.7 進場規則與 §III.2 Amendment 條款隨刀進場，兩處承襲指針句與 §IV 第 9 題候選來源括註為本次新增）；全域改字＝世代代號、兩子庫長分支名、fork 標記 token、service wrapper 前綴、前代參照世代整組前移一代。user 親審 diff 後定版（創世拍板）。ADR 0001（創世採用）同 commit 轉 accepted。
