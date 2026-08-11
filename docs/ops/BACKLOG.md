@@ -1,4 +1,4 @@
-<!-- next: B-070 -->
+<!-- next: B-071 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -33,4 +33,4 @@
 - B-065｜schema-gate gate2 對 append-only 稽核表（sys_token／session_event／sys_login_attempt 等變體 B/C）的 seed 比對面收窄候選：現行 gate2 對其 0 列 COPY 段＋setval 原位逐列 diff ⇒ 任何 runtime 寫入即紅、迫使每次走查後全套 §7 收尾（TRUNCATE＋setval——003 全刀為此付出三次收尾成本、L-015 實暴一次髒庫連鎖）。候選＝該類表的 seed 面改斷言「結構＋setval 存在性」而非逐列（0 列期望本身無資訊量）、或提供 gate2 的 runtime-tolerant 模式；★屬 001 凍結面調整、拍板級｜下一支動 schema-gate 的刀
 - B-067｜final holistic review 分流：`rust-api/server/tests/wire_schema.rs` 的**裁判面**仍停在 002 的兩個 definition（`Api.SystemManage.SystemSetting`／`UpdateSystemSettingReq`），003 新增的五個 wire DTO 無一被快照裁判消費——`wire-schema.py check` 只管 typings 漂移、不驗 rust DTO 符形，兩件事在 002 是分工的、003 只承接了前者。失效鏈：upstream 日後對 `Api.Auth.UserInfo` 加必填欄 → check 紅 → 重抽快照 → 轉綠 → **全樹零測試變紅**，而 rust handler 仍吐舊欄位。★當下兌現度不受影響（SC-001 由 `user_info.rs` 的 t019 四欄斷言承接）。處置＝補 `Api.Auth.{UserInfo,LoginToken,LoginCaptcha}` 三型裁判；★`Api.Route.MenuRoute` 因 `ElegantConstRoute` 抽成 `{}` 而退化為 `{id}`、補了也近 vacuous，誠實記為已知態｜下一支動 wire 契約面的刀
 - B-068｜final holistic review 分流：`tools/fork-delta-lint.py` 的授權判定只到**軌道裸名**層級，而憲法 §III.2 的授權單位是（軌道 × **用途** × **檔案**）三元組——借一個在冊軌道名，即可在無授權用途、甚至無授權檔上開 inline 標記而 lint 全綠。★同批被駁回的兩筆「用途後綴未驗」聚焦 FR-030 條文，本條聚焦授權單位的維度落差，兩者根因同一。處置＝名冊載入器改回傳（軌道→用途集→檔案集）結構，判定時三元組全比；★需先解決 §III.2 表格「型別」欄與 as-built 的既有分歧（app.d.ts 記修改型實為純新增、user-avatar.vue 記 3 處修改型實為 1 處）否則新判定會誤報｜下一支動 fork-delta-lint 的刀（與 B-063 同批）
-- B-069｜`tools/wf-watchdog.py` 的 runaway 門檻是寫死的「不重複 agent key > 25」，該值照**單元編排型** workflow 的規模訂（1 implementer＋3 輪 review×2＋確認輪 ≈ 14 支、25 為兩倍餘裕），但**扇出型** workflow（本刀 final holistic review＝5 維度 × N 筆 findings、正當總量 31 支）一定穿門檻。★危害不只噪音：告警文字寫「防呆③保險絲疑失效 → TaskStop wf」，而正確處置是**不要 TaskStop**；且它觸發後 Monitor 即結束＝在 run 未完成時自己拆掉看門狗（本刀實暴、主線因預先算過 31>25 才沒被誤導）。處置候選：①門檻隨 workflow 形態分級 ②改成相對於 script 內 `AGENT_FUSE` 的比例（較佳——script 自己就宣告了理論上限）｜下一支動 wf-watchdog 的刀
+- B-070｜`tools/wf-watchdog.py` 推導上限的 **resume 形缺口**＝已知態（B-069 修法之誠實限縮）：resume 沿用原 runId，持久 json 直到 resumed run 結束前仍是**前一輪**的 script 快照——resume 前若動過 `AGENT_FUSE`（CLAUDE.md §2「修 script→resume」即典型動機），推得上限即為舊值（調高＝偏窄假警報、調低＝偏寬弱化）。行為面無便宜修法：以 json mtime 區辨新舊快照，會把「鎖到已完成 run」形一併打回 floor＝B-069 原始誤報復活（完整論證在該工具常數區註解）；真修需框架端提供 run 級 script 識別｜框架出現 run 級 script 識別面時，或 resume 形實暴誤導一次時
