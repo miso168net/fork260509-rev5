@@ -15,23 +15,23 @@
 | 6 | `trust/mod.rs`：`apply_tunnel_fallback` | 252–271 | 同上 | U1 |
 | 7 | `trust/mod.rs`：`apply_cf_overlay`（四前置） | 274–299 | 同上 | U1 |
 | 8 | `trust/mod.rs`：`normalize_xff`／`parse_xff_token`／`strip_zone_and_parse` | 302–350 | 同上 | U1 |
-| 9 | `config.rs`：`load_trust_model`＋`RawTrustModel`＋flat env 退路 | 209–330 | `config.rs`（擴充） | U1 |
+| 9 | `config.rs`：`load_trust_model`＋`RawTrustModel`＋flat env 退路 | 166–331 | `config.rs`（擴充） | U1 |
 | 10 | `ipgate/mod.rs`：`RuleSet`／`Verdict`／`Decision`／`STRUCTURAL_EXEMPT` 六段 | 13–62 | `ipgate/mod.rs`（新） | U2 |
 | 11 | `ipgate/mod.rs`：`decide` 判定序 | 63–82 | 同上 | U2 |
 | 12 | `ipgate/mod.rs`：`would_self_lock` | 84–96 | 同上 | U2／U5 |
 | 13 | `ipgate/mod.rs`：`build_ruleset`（未知型 skip）／`try_load_ruleset`／`load_ruleset` | 98–137 | 同上 | U2 |
 | 14 | `ipgate/mod.rs`：`IPGATE_INVALIDATE_CHANNEL`＋`reload_and_publish`（keep-last-good） | 139–193 | 同上 | U3 |
-| 15 | `ipgate/mod.rs`：`spawn_ipgate_watcher`＋`subscribe_ipgate`＋`reread_keeping_last_good` | 195–310 | 同上 | U3 |
-| 16 | `middleware/mod.rs`：`RequestContext`（extensions 形）＋`request_context_mw`＋`build_request_context` | 56–130／388–410 | `middleware/mod.rs`（新）＋`request_context.rs`（改） | U4 |
+| 15 | `ipgate/mod.rs`：`spawn_ipgate_watcher`＋`subscribe_ipgate`＋`reread_keeping_last_good` | 190–315 | 同上 | U3 |
+| 16 | `middleware/mod.rs`：`RequestContext`（extensions 形）＋`request_context_mw`＋`build_request_context` | 56–168／388–436 | `middleware/mod.rs`（新）＋`request_context.rs`（改） | U4 |
 | 17 | `middleware/mod.rs`：`ip_gate_mw`（六步短路） | 184–260 | `middleware/mod.rs` | U4 |
 | 18 | `middleware/mod.rs`：`CF_VERIFIED_HEADER` 常數 | 28–30 | 同上 | U4 |
 | 19 | `throttle/mod.rs`：`DIM_IP`／`ip_bucket`（v4 /32・v6 /64・mapped 折疊・unspecified→None） | 197–228 | `throttle/mod.rs`（擴充） | U6 |
 | 20 | `throttle/mod.rs`：`parse_unlock_marker`（unix 秒十進位字串契約） | 246–252 | 同上 | U6／U7 |
 | 21 | `throttle/mod.rs`：`precheck` 之 ⓪L0 allow 短路＋IP 維並列判定＋合成 | 300–520 | 同上 | U6 |
 | 22 | `model/facade/sys_login_attempt.rs`：`count_recent_failures_by_ip`（`real_ip <<= $1::inet`＋GREATEST 兩源） | 177–213 | rev5 同名 facade（擴充） | U6 |
-| 23 | `handler/ip_rule.rs`：五支 handler＋`IpRuleListQuery`／`IpRuleRecord`／三個 Req DTO | 40–115 | `handler/ip_rule.rs`（新） | U5 |
-| 24 | `handler/ip_rule.rs`：`validate_wbip_type`／`normalize_cidr`／`map_mutate_err`／`guard_self_lock` | 115–250 | 同上 | U5 |
-| 25 | `handler/throttle.rs`：`unlock_login`＋`resolve_unlock_target`（★稽核先於生效） | 130–200 | `handler/throttle.rs`（新） | U7 |
+| 23 | `handler/ip_rule.rs`：`IpRuleListQuery`／`IpRuleRecord`／三個 Req DTO＋五支 handler | 40–107／260–461 | `handler/ip_rule.rs`（新） | U5 |
+| 24 | `handler/ip_rule.rs`：`validate_wbip_type`／`normalize_cidr`／`map_mutate_err`／`guard_self_lock` | 115–258 | 同上 | U5 |
+| 25 | `handler/throttle.rs`：`unlock_login`＋`resolve_unlock_target`（★稽核先於生效） | 80–196 | `handler/throttle.rs`（新） | U7 |
 | 26 | `model/facade/sys_ip_rule.rs`：`load_active`／`list`／`IpRuleWrite`／`IpRuleMutateError`／軟刪復原 | 全檔 762 行 | `model/facade/sys_ip_rule.rs`（新） | U5 |
 | 27 | `model/facade/sys_operation_log.rs`＋`model/audit.rs`：`AuditEvent`／`AuditOperation`／`AuditOperator` | — | `model/facade/sys_operation_log.rs`（新）＋`model/audit.rs`（新） | U5 |
 | 28 | `base-web/src/views/manage/ip-rule/{index.vue,modules/ip-rule-operate-drawer.vue,modules/ip-rule-search.vue}` | 三檔 | 同路徑（新增型） | U8 |
@@ -67,8 +67,11 @@
 | `toml` | **1.1.4** | 1.1.2 | 不在 lock | 1.1.4（完整字串 `1.1.4+spec-1.1.0`，`+` 後為建置註記、Cargo 不參與比對） | 分歧 → **user 拍板取 latest stable**（全新 lock 條目、無「沿現值零變動」可講；與 rev4 同為 1.1.x） |
 
 - 三支皆進 `[workspace.dependencies]`＋`server/Cargo.toml`（沿既有兩層釘版形制）。
-- **零新 feature flag**：`redis` 的 pub/sub 訂閱在既有 `connection-manager`＋`tokio-comp` 下
-  即可用（rev4 同組合）；`arc-swap`／`toml` 取 default。
+- **零新 redis feature flag**：`redis` 的 pub/sub 訂閱在既有 `connection-manager`＋
+  `tokio-comp` 下即可用（rev4 同組合）。三支新依賴的 features 亦沿 rev4 形：`arc-swap`／
+  `toml` 取 default；★`futures-util` 取 `default-features = false`——default 的
+  `async-await-macro` 會多拉一條 `futures-macro` lock 條目，而本刀唯一使用點
+  `StreamExt::next()`（見下一條）用不到它。
 - `futures-util` 的**唯一**使用點＝門鈴 watcher 的 `StreamExt::next()`（一行）。已評估「手寫
   `poll_fn`＋`Pin::new(..).poll_next(cx)` 以省依賴」並棄——該段位於規則熱重載路徑，寫錯的
   後果是「規則改了不生效且不易審出」，不值得為省一支已在 lock 圖內的 crate 換十行難審樣板。
@@ -174,8 +177,8 @@ dev 掛最小信任模型（**僅**容器網段入 `internal_default`、其餘�
 | `authz_entrypoint_lint` | `ALLOWED_DECISION_FILES = ["auth/enforce.rs"]`——★`ipgate::decide` 與 `would_self_lock` 是**授權判定以外**的判定（IP 閘非 casbin），須確認該 lint 的偵測面是否誤攔 | plan→tasks 第一步實測；若誤攔則擴 must-list 並在該 lint 內記明兩者語意分工 |
 | `entity_access_lint` | handler 零 path-root `entity::`、資料存取全走 facade | 沿既有紀律（rev4 同形，其 `handler/ip_rule.rs` 檔頭已自述） |
 | `docs-sync` Lint24（msg key 跨端契約） | 新增 `biz.ipRule.*` 等後端實發鍵 ⇒ 三處鍵集須同步（兩語 locale 之 `backend:` 樹＋治理錨點檔 `zh-tw.ts`） | spec FR-023；★`zh-tw.ts` 只放後端訊息鍵、**不**放路由／頁面鍵 |
-| `fork-delta-lint` | 新軌道名須入名冊；路由產物三檔的處置 | spec FR-041；★名冊斷言非 vacuous 之自證同 003 形 |
-| 新增機器守（本刀自建） | ①管理頁零 `v-html`／`innerHTML` ②路由產物三檔**重算冪等** | 兩者皆須附 self-test（植入反例必紅、ADR 0024） |
+| `fork-delta-lint` | ★名冊斷言（`find_rogue_tracks`）**只掃帶 `原行:` 的修改型標記**〔憲法 §III.2 表外宣告 3〕；本軌道三塊皆新增型（兩語 locale `route:`／`page:` 樹、`app.d.ts` 型節——後者沿 v1.3.1 之 I18N-WIRING (iii)「新增型圈界」先例）或生成檔（`is_generated` 於 `scan()` 全域豁免）⇒ 名冊斷言對本軌道**結構性不適用**、不可當驗收 | spec FR-041／SC-011；實得機器守＝`find_unmarked_additions` 的「圈界標記須存在」（不比對軌道名與用途）＋T042② 冪等檢查；該列「真被載入」以 `load_roster` 表列形守變異證（落 T002）。★`s2_rows < 4` 只是表錨／列形 tripwire、非名冊斷言本體——現表 8 列、Amendment 後 9 列，門檻推到 5 仍偵測不到刪一列，故**不採**該路徑 |
+| 新增機器守（本刀自建） | ①管理頁零 `v-html`／`innerHTML` ②路由產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋`typings/elegant-router.d.ts`）**重算冪等**＋「憲法該列生成檔集＝實產出檔集」斷言 | 兩者皆須附 self-test（植入反例必紅、ADR 0024） |
 | `reference/routes` 真表 | `ROUTES` 16→22 ⇒ `docs-sync generate` 重算 | 收刀簿記既有步驟 |
 
 ## R9 本輪查證對既有文件的三筆校正
