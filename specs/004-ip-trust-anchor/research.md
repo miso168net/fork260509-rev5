@@ -10,7 +10,7 @@
 | 1 | `trust/mod.rs`：`TrustModel`／`TunnelConfig`／`CdnEntry`／`MyPublicEntry`／`Binding` | 22–89 | `trust/mod.rs`（新） | U1 |
 | 2 | `trust/mod.rs`：`TrustModel::is_trusted`／`cdn_entry`／`my_public_entry`（★單一 helper） | 90–113 | 同上 | U1 |
 | 3 | `trust/mod.rs`：`Confidence` 七態＋`as_str` | 115–148 | 同上 | U1 |
-| 4 | `trust/mod.rs`：`SoftReason` 二態／`Evidence` 五變體 | 150–172 | 同上 | U1 |
+| 4 | `trust/mod.rs`：`SoftReason` 二態／`Evidence` 五變體 | 149–172 | 同上 | U1 |
 | 5 | `trust/mod.rs`：`resolve_client_ip` 三層 | 187–245 | 同上（★加硬化，見 R2-1） | U1 |
 | 6 | `trust/mod.rs`：`apply_tunnel_fallback` | 252–271 | 同上 | U1 |
 | 7 | `trust/mod.rs`：`apply_cf_overlay`（四前置） | 274–299 | 同上 | U1 |
@@ -20,10 +20,10 @@
 | 11 | `ipgate/mod.rs`：`decide` 判定序 | 63–82 | 同上 | U2 |
 | 12 | `ipgate/mod.rs`：`would_self_lock` | 84–96 | 同上 | U2／U5 |
 | 13 | `ipgate/mod.rs`：`build_ruleset`（未知型 skip）／`try_load_ruleset`／`load_ruleset` | 98–137 | 同上 | U2 |
-| 14 | `ipgate/mod.rs`：`IPGATE_INVALIDATE_CHANNEL`＋`reload_and_publish`（keep-last-good） | 139–193 | 同上 | U3 |
+| 14 | `ipgate/mod.rs`：`IPGATE_INVALIDATE_CHANNEL`＋`reload_and_publish`（keep-last-good） | 139–188 | 同上 | U3 |
 | 15 | `ipgate/mod.rs`：`spawn_ipgate_watcher`＋`subscribe_ipgate`＋`reread_keeping_last_good` | 190–315 | 同上 | U3 |
 | 16 | `middleware/mod.rs`：`RequestContext`（extensions 形）＋`request_context_mw`＋`build_request_context` | 56–168／388–436 | `middleware/mod.rs`（新）＋`request_context.rs`（改） | U4 |
-| 17 | `middleware/mod.rs`：`ip_gate_mw`（六步短路） | 184–260 | `middleware/mod.rs` | U4 |
+| 17 | `middleware/mod.rs`：`ip_gate_mw`（六步短路；★`blocked_breadcrumb` 觀測輔助段另在 221–278、本刀依 FR-018 需其等價物） | 183–208 | `middleware/mod.rs` | U4 |
 | 18 | `middleware/mod.rs`：`CF_VERIFIED_HEADER` 常數 | 28–30 | 同上 | U4 |
 | 19 | `throttle/mod.rs`：`DIM_IP`／`ip_bucket`（v4 /32・v6 /64・mapped 折疊・unspecified→None） | 197–228 | `throttle/mod.rs`（擴充） | U6 |
 | 20 | `throttle/mod.rs`：`parse_unlock_marker`（unix 秒十進位字串契約） | 246–252 | 同上 | U6／U7 |
@@ -38,9 +38,10 @@
 | 29 | `base-web/src/typings/api/*`：`Api.IpRule` 節 | — | `typings/api/rev5-ip-rule.d.ts`（新、ADAPT 軌） | U8 |
 | 30 | `deploy/nginx/nginx.conf`：`geo $cf_edge`／兩 map（**rev5 已完整具備、零改動**） | 41–61 | 不動 | — |
 
-**總量**：rev4 側約 3,600 生產行（trust 718＋ipgate 611＋ip_rule handler 1,550＋facade 762）
-＋middleware／throttle／config 的局部段。★全數依 §I.5＋ADR 0019 重打字消化、註解一律 rev5
-語境重寫（rev4 出處帶 `rev4:` 前綴）。
+**總量**：rev4 側約 3,600 行**整檔行數**（trust 718＋ipgate 611＋ip_rule handler 1,550＋
+facade 762）＋middleware／throttle／config 的局部段。★**其中生產段約 1,440 行**——四檔的
+`#[cfg(test)]` 分別起於 345／317／466／313，測試段佔逾六成；估工作量請用生產段、勿用整檔數。
+★全數依 §I.5＋ADR 0019 重打字消化、註解一律 rev5 語境重寫（rev4 出處帶 `rev4:` 前綴）。
 
 ## R2 rev5 拍板差異點清單（ADR 0019 要求②；★防回歸：以下 rev4 行為一律不得帶回）
 
@@ -176,7 +177,7 @@ dev 掛最小信任模型（**僅**容器網段入 `internal_default`、其餘�
 | `wire_schema` 裁判面 | 新 DTO 須入快照（`TYPINGS_GLOB` 掃 api 目錄）⇒ 靠新檔 `rev5-ip-rule.d.ts` 入面 | 同 003 之 `rev5-auth.d.ts` 先例 |
 | `authz_entrypoint_lint` | `ALLOWED_DECISION_FILES = ["auth/enforce.rs"]`——★`ipgate::decide` 與 `would_self_lock` 是**授權判定以外**的判定（IP 閘非 casbin），須確認該 lint 的偵測面是否誤攔 | plan→tasks 第一步實測；若誤攔則擴 must-list 並在該 lint 內記明兩者語意分工 |
 | `entity_access_lint` | handler 零 path-root `entity::`、資料存取全走 facade | 沿既有紀律（rev4 同形，其 `handler/ip_rule.rs` 檔頭已自述） |
-| `docs-sync` Lint24（msg key 跨端契約） | 新增 `biz.ipRule.*` 等後端實發鍵 ⇒ 三處鍵集須同步（兩語 locale 之 `backend:` 樹＋治理錨點檔 `zh-tw.ts`） | spec FR-023；★`zh-tw.ts` 只放後端訊息鍵、**不**放路由／頁面鍵 |
+| `docs-sync` Lint24（msg key 跨端契約） | 新增 `biz.ipRule.*` 等後端實發鍵 ⇒ 三處鍵集須同步（兩語 locale 之 `backend:` 樹＋治理錨點檔 `zh-tw.ts`）★＋`app.d.ts` 之 `Schema.backend` 型節（該處由 `pnpm typecheck` 守、不在 Lint24 射程） | spec FR-023；★`zh-tw.ts` 只放後端訊息鍵、**不**放路由／頁面鍵 |
 | `fork-delta-lint` | ★名冊斷言（`find_rogue_tracks`）**只掃帶 `原行:` 的修改型標記**〔憲法 §III.2 表外宣告 3〕；本軌道三塊皆新增型（兩語 locale `route:`／`page:` 樹、`app.d.ts` 型節——後者沿 v1.3.1 之 I18N-WIRING (iii)「新增型圈界」先例）或生成檔（`is_generated` 於 `scan()` 全域豁免）⇒ 名冊斷言對本軌道**結構性不適用**、不可當驗收 | spec FR-041／SC-011；實得機器守＝`find_unmarked_additions` 的「圈界標記須存在」（不比對軌道名與用途）＋T042② 冪等檢查；該列「真被載入」以 `load_roster` 表列形守變異證（落 T002）。★`s2_rows < 4` 只是表錨／列形 tripwire、非名冊斷言本體——現表 8 列、Amendment 後 9 列，門檻推到 5 仍偵測不到刪一列，故**不採**該路徑 |
 | 新增機器守（本刀自建） | ①管理頁零 `v-html`／`innerHTML` ②路由產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋`typings/elegant-router.d.ts`）**重算冪等**＋「憲法該列生成檔集＝實產出檔集」斷言 | 兩者皆須附 self-test（植入反例必紅、ADR 0024） |
 | `reference/routes` 真表 | `ROUTES` 16→22 ⇒ `docs-sync generate` 重算 | 收刀簿記既有步驟 |

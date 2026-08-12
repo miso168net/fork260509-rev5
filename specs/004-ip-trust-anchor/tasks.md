@@ -373,7 +373,9 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - [ ] T037 [US3] `tools/schema-gate.py`：runtime-append 收窄集**常數加一行**納入
   `sys_operation_log`（★這是 spec FR-042 明列的**排程工作項、不得當 bug 追**）；
   ★`sys_ip_rule` **MUST NOT** 納入（變體 A 業務表、列內容即真 seed 面）。
-  **DoD：該工具自測擴充後全綠；★變異測試——把 `sys_ip_rule` 誤加進收窄集時自測必紅**
+  **DoD：該工具自測擴充後全綠；★變異測試——把 `sys_ip_rule` 誤加進收窄集時自測必紅；
+  ★端到端證據（SC-011 指名）——往 `sys_ip_rule` 塞一列後 `schema-gate check` 轉紅、清列後
+  轉綠，證明該表未被順手收窄**
 - [ ] T038 [US3] 後端 msg key 五鍵落地（`biz.ipRule.{invalidRuleType,invalidCidr,conflict,
   notFound,selfLock}`）＋★**依 Lint24 同步律**在**同一次工作樹編輯內**把五鍵補進**四處**
   （譯文語意見 `contracts/msg-keys.md`；FR-023／FR-036）：①`base-web/src/locales/langs/zh-tw.ts`
@@ -560,7 +562,9 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - [ ] T063 `python3 tools/docs-sync.py generate`＋`git add docs/generated`
   （★`reference/routes.md` 應反映 **22 條**、`STATE.md` 反映新 pins 與 ADR／BACKLOG 統計、
   ★`reference/screens.md` 應含 `manage_ip-rule` 一列——該表由 `router/elegant/routes.ts` 的
-  `generatedRoutes` 重算，新頁必令其變動，漏帶即 Lint01 當場擋）
+  `generatedRoutes` 重算，新頁必令其變動，漏跑 generate 即 **Lint02** 當場擋〔訊息指名
+  `routes.ts` 來源側〕；同段 `routes.md` 亦同屬 Lint02——Lint01 只在生成檔缺席／多出時
+  觸發，勿誤引）
 
 ---
 
@@ -569,7 +573,8 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 ### Phase 依賴
 
 - **Phase 1（Setup）**：`T001→T002` 為**硬閘**（★Amendment accepted 前不得動 base-web 既有檔
-  ⇒ 阻塞 T041）；T003 可與 T004／T005 平行；`T004→T005→T006`。
+  ⇒ 阻塞 **T038／T041／T054**——凡動 base-web 既有檔者皆受管，非僅 T041）；T003 可與
+  T004／T005 平行；`T004→T005→T006`。
 - **Phase 2（Foundational）**：依賴 Phase 1（T004 依賴、T005/T006 設定）→ **阻塞全部 US**。
   `{T007、T011、T012 平行}→T008→T009→T010`；`T013` 依賴 T007＋T011（型別）；`T013→T014`；
   `T015` 全程可平行（純實測）。
@@ -592,8 +597,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `locales/langs/{en-us,zh-cn}.ts`＋`app.d.ts`（★`zh-tw.ts` **不在** T041 射程——該檔只有
   `backend:` 樹，契約 msg-keys 軌道歸屬表明文「路由／頁面鍵不進治理錨點檔」）。三者交集＝
   `en-us.ts`／`zh-cn.ts`／`app.d.ts`，同檔不同區塊，並行必衝且**只會在最後 `pnpm typecheck`
-  才發現**。⇒ US 的「獨立可驗收」成立於
-  **交付面**，不成立於**單元併發面**。
+  才發現**。⇒ US 的「獨立可驗收」成立於**交付面**，不成立於**單元併發面**。
 
 ### Within Each User Story
 
@@ -606,7 +610,8 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 ### Parallel Opportunities
 
 - Phase 2：T007／T011／T012 三支**主體檔**不相交、可分派；★但 T007／T011 共用 `lib.rs`、
-  T012 共用 `facade/mod.rs` 之**註冊行**——註冊行須序列化收攏於單一單元內。
+  T012 共用 `facade/mod.rs` 之**註冊行**——★**每一條註冊行只由單一單元追加**（不跨單元同時
+  改同一行）；逐行分派見 Implementation Strategy 之分批說明。
 - US1：T016／T017 兩支測試可分派；T020 與 T018／T019 檔域不相交。
 - US2：T023／T024 可分派；T026 與 T025／T027 檔域不相交。
 - US3：T031／T032 可分派；T033／T039 可分派；★T040 與 T041 **不可**併行（T041 的產物四檔由
@@ -621,7 +626,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 ## Parallel Example: Foundational
 
 ```text
-# 三支主體檔併行分派（★三支共用的模組註冊行由單一單元收攏）
+# 三支主體檔併行分派（★共用的模組註冊行每條只由單一單元追加、見分批說明）
 Task: "T007 trust 型別群＋is_trusted 單一 helper in rust-api/server/src/trust/mod.rs"
 Task: "T011 ipgate 純函式核（decide／六段豁免／would_self_lock）in rust-api/server/src/ipgate/mod.rs"
 Task: "T012 sys_ip_rule facade 讀端 in rust-api/server/src/model/facade/sys_ip_rule.rs"
@@ -641,7 +646,7 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | 單元 | T 區間 | 允許檔案清單（起始） |
 |---|---|---|
 | U-A ★主線 | T001~T003 | `docs/arc42/decisions/`、`.specify/memory/constitution.md` |
-| U-B | T004~T006 | 兩份 `Cargo.toml`、`config.rs`、`deploy/trust-model.dev.toml`、`docker-compose.dev.yml` |
+| U-B | T004~T006 | 兩份 `Cargo.toml`、★`rust-api/Cargo.lock`（由 `cargo build` 機器重算、禁手改）、`config.rs`、`deploy/trust-model.dev.toml`、`docker-compose.dev.yml` |
 | U-C | T007~T010 | `trust/mod.rs`、★`lib.rs` |
 | U-D | T011~T012 | `ipgate/mod.rs`、★`lib.rs`、`facade/{sys_ip_rule,mod}.rs` |
 | U-E | T013~T015 | `state.rs`、`main.rs`、`tests/common/mod.rs`、★`router.rs`（僅其 `mod tests` 的 stub_state）、★`auth/enforce.rs`（僅其 `mod tests` 的 `state_with`）、★`model/mod.rs`（僅其 `test_db::real_app_with`）、★`throttle/mod.rs`（僅其 `mod tests` 的 `throttle_app`）、兩支 lint |
@@ -654,7 +659,8 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | U-L | T056~T063 | `RUNBOOK.md`、`ARCHITECTURE.md`、`BACKLOG.md`、`LESSONS.md`、★`rust-api/server/tests/wire_schema.rs`（僅其「裁判面界線」註記、T060）、★`docs/generated/**`（★T063 由 `docs-sync.py generate` **機器重算**產出、**禁手改**——agent 只得跑該指令後 `git add`） |
 
 ★清單以「★」標出者為**模組註冊檔與散布點**（`lib.rs`／`handler/mod.rs`／`facade/mod.rs`／
-`AppState` 五處 struct literal〔枚舉見 T014〕／i18n 四處落點〔見 T038／T054〕）——漏列即 fix
+`AppState` 的四處**散布** struct literal〔`tests/common/mod.rs` 為 T014 主體檔、不另標星；
+五處完整枚舉見 T014〕／i18n 四處落點〔見 T038／T054〕）——漏列即 fix
 agent 撞清單外檔而 blocked（防呆⑥「清單只縮不擴」）。
 
 ★**`lib.rs` 的三個新註冊行分批追加**：U-C 加 `trust`／U-D 加 `ipgate`／U-F 加 `middleware`；

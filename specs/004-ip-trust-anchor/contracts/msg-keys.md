@@ -39,4 +39,5 @@
 | 上表六個 `biz.*` | 兩語 locale 檔的 **`backend:` 樹** | ★**既有 I18N-WIRING 用途 (ii) 授權內**——資料級鍵、不觸 Amendment（ADR 0021「零新 key」釋義） |
 | `route.manage_ip-rule`、`page.manage.ipRule.*` | 兩語 locale 檔的 **`route:` / `page:` 樹**（同檔、不同區塊） | ★**不在 (ii) 射程**（該用途的插入錨是 `backend:`）⇒ 屬本刀新開軌道 |
 | 上表六個 `biz.*` | 治理錨點檔（`zh-tw.ts`） | 純新增檔、不觸 ★ 軌道 |
+| 上表六個 `biz.*` 的**型節** | `src/typings/app.d.ts` 之 `App.I18n.Schema.backend.biz`（現只有 `auth`／`systemSettings`／`user` 三子節） | ★**既有 I18N-WIRING 用途 (iii) 授權內**——不補型則兩語 locale 標型失敗、`pnpm typecheck` 紅 |
 | 路由／頁面鍵 | ★**不進**治理錨點檔 | 該檔只承載後端訊息鍵、非 runtime locale |
