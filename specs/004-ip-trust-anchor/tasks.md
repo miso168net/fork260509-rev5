@@ -76,10 +76,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   keep-last-good／F3 fail-open 且唯一 fail-closed＝寫端自鎖、降級必告警／F4 信任錨為唯一位址
   輸入且兩集合同源對稱／F5 顯式放行跳節流而結構豁免不跳／★**F6 本刀新增：Tier-1 錨須傳輸層
   背書**，條文與理由見 data-model §4）②**既有登入節流島補來源維釐清**（帳號維三源 vs 來源維
-  恆兩源、刻意不對稱、防日後被「統一」）③**§III.2 第五條 ★ 軌道**（管理域新頁接線；範圍三塊
-  ＝兩語 locale 之 `route:`／`page:` 樹、型別宣告檔對應節、★**路由外掛產物四檔**
-  〔`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`；
-  ★檔級名單為硬邊界（§III.2 表外宣告 1），四支 MUST 逐支寫進條文、不得以「三檔」概稱〕；
+  恆兩源、刻意不對稱、防日後被「統一」）③**§III.2 第五條 ★ 軌道**（管理域新頁接線）——
+  ★**檔級名單為硬邊界（§III.2 表外宣告 1）：下列三塊共七支檔 MUST 逐支以路徑寫進條文範圍欄，
+  任一塊都不得出現無路徑的概稱**（本刀的 C1 缺陷正是「用『三檔』概稱掩蓋實際檔集」，同型錯誤
+  不得在條文內復發）：〔一〕`base-web/src/locales/langs/{en-us,zh-cn}.ts` 之 `route:`／`page:`
+  兩樹（各 1 塊、新增型）〔二〕`base-web/src/typings/app.d.ts` 之 `App.I18n.Schema.page` 型節
+  （1 塊、新增型圈界；★**必需非「如需」**——`page:` 為顯式型樹，`page.manage.ipRule.*` 不補型
+  即 typecheck 紅；既有 (iii) 只授權 `backend` 型節、涵蓋不到）〔三〕**路由外掛產物四檔**
+  ＝`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`；
   ★條文 MUST 明載本軌道之機器守實況（生成檔＝重算冪等檢查為唯一守／新增型兩塊＝僅「圈界標記
   須存在」，名冊斷言只掃修改型、對本軌道不適用），不以含糊措辭掩蓋覆蓋缺口；★產物檔紀律
   ＝「僅由外掛重算產出、禁止手改」＋**明文寫入「不要求逐行原文標記」及其理由**〔標記於下次
@@ -545,11 +549,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `additionalProperties: false`（理由同上）。★**只改註解、零斷言改動、零快照改動**。
   **DoD：容器內 `cargo test --test wire_schema -- --test-threads=1` 全綠；該檔 `git diff` 僅含
   註解行（無 `assert`／`const`／`fn` 行變動）**
-- [ ] T061 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
+- [ ] T061 走查 quickstart §7 收尾：★`TRUNCATE sys_ip_rule RESTART IDENTITY`（該表**刻意不在**
+  收窄集內、留列必使 gate2 紅）；操作稽核表已納入收窄集免清理。
+  ★**本 task MUST 早於 T062**——走查（§2 三次新增、§6 管理頁新增／軟刪〔軟刪不移列〕）會在
+  `sys_ip_rule` 留下實列，而 T062 的全量閘含 `schema-gate check`；次序倒置則該閘必紅、且紅得
+  「看起來像真缺陷」。**DoD：三閘綠**
+- [ ] T062 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
   ＋`cargo build --release`＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`
-  ＋`schema-gate check`＋本刀兩支新機器守。**DoD：全綠**
-- [ ] T062 走查 quickstart §7 收尾：★`TRUNCATE sys_ip_rule RESTART IDENTITY`（該表**刻意不在**
-  收窄集內、留列必使 gate2 紅）；操作稽核表已納入收窄集免清理。**DoD：三閘綠**
+  ＋`schema-gate check`＋本刀兩支新機器守。**前置＝T061 已清走查列。DoD：全綠**
 - [ ] T063 `python3 tools/docs-sync.py generate`＋`git add docs/generated`
   （★`reference/routes.md` 應反映 **22 條**、`STATE.md` 反映新 pins 與 ADR／BACKLOG 統計、
   ★`reference/screens.md` 應含 `manage_ip-rule` 一列——該表由 `router/elegant/routes.ts` 的
@@ -567,7 +574,8 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `{T007、T011、T012 平行}→T008→T009→T010`；`T013` 依賴 T007＋T011（型別）；`T013→T014`；
   `T015` 全程可平行（純實測）。
 - **Phase 3~7（US1~US5）**：皆依賴 Phase 2。實作序建議照優先序 US1→US2→US3→US4→US5。
-- **Phase 8（Polish）**：依賴全部 US；T063 須在 T036／T054（ROUTES 增列）之後。
+- **Phase 8（Polish）**：依賴全部 US；T063 須在 T036／T054（ROUTES 增列）與 T058／T059
+  （BACKLOG／LESSONS 增列）之後；★**T061→T062 為硬序**（走查清列先於全量閘，理由見 T061）。
 
 ### User Story 依賴
 

@@ -209,5 +209,8 @@ dev 掛最小信任模型（**僅**容器網段入 `internal_default`、其餘�
 | U8 | 前端三檔＋typings／wrapper＋i18n 三樹＋按鈕碼＋v-html 機器守＋路由產物冪等檢查 | U0（Amendment accepted）／U5 |
 | U9 | 部署 checklist＋已知態 ADR 群＋帳面處置 | 全部 |
 
-★U8 對 U0 的相依是**硬序**（憲法授權在前、動 base-web 既有檔在後）；U1～U7 為純後端、
-不受該閘阻擋，可先行。
+★**U5／U7／U8 對 U0 皆為硬序**（憲法授權在前、動 base-web 既有檔在後）——U8 動兩語 locale 的
+`route:`／`page:` 樹與產物四檔；★U5／U7 亦動 base-web **既有檔**，因其六個 backend msg 鍵須同步
+落 `locales/langs/{en-us,zh-cn}.ts` 的 `backend:` 樹與 `app.d.ts` 的 `Schema.backend` 型節
+（tasks 對應單元＝U-H／U-K，見 tasks.md 之 Amendment 硬閘條）。**純後端、不受該閘阻擋者＝
+U1～U4 與 U6**，可先行。
