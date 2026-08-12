@@ -1,0 +1,200 @@
+# Implementation Plan: 004 IP／信任錨——真實來源還原、存取閘、來源維節流、IP 規則管理
+
+**Branch**: `004-ip-trust-anchor` | **Date**: 2026-08-12 | **Spec**: [spec.md](./spec.md)
+
+**Input**: Feature specification from `/specs/004-ip-trust-anchor/spec.md`（45 FR／13 SC；
+階段 0 brainstorm 四題拍板＋Clarify 三題已收斂）
+
+## Summary
+
+把「三端備好、中間沒接」的 IP 域接通：反向代理側的邊緣權威驗證閘早已完整、`sys_ip_rule` 與其
+選單／政策／按鈕碼 seed 全在卻零列零碼、請求上下文型把交棒 seam 寫死在碼內——本刀交付中間段。
+七態信任錨（含 **Tier-1 位置錨的傳輸層背書硬化**，兌現懸了兩代的安全承諾）＋IP 存取閘（白＞黑＞
+預設放行、門鈴熱重載、keep-last-good）＋來源維登入節流啟用＋IP 規則管理頁前後端全套＋管理員
+解鎖端點＋部署 checklist。ROUTES 16→22；狀態容器 5→7 欄；開憲法 §I.7 第六座行為島（島 F、
+含新增的硬化條款 F6）＋§III.2 第五條 ★ 軌道。
+
+技術路線（research 定稿）：全面以 rev4 對應碼為藍本重打字消化（R1 三十列清單），以 R2 十一筆
+差異點清單防回歸。**預期零 migration、零 seed 變更**——六條 casbin 政策列（含解鎖端點）、五顆
+按鈕碼、選單列與其政策列經逐列複核**全在 001 凍結 seed**（R9-1 校正了 brainstorm 的相反記載）；
+三張稽核表的信心欄無 CHECK 約束，單字面擴為七態不需 DDL。★本刀是 rev5 **首個操作稽核表寫入者**，
+須自帶 schema 閘收窄（恰一表）。
+
+## Technical Context
+
+**Language/Version**: Rust 1.96.1（容器內）／TypeScript 5.x＋Vue 3（base-web fork）
+
+**Primary Dependencies**: 既有 axum 0.8.9／sea-orm 1.1.20／casbin 2.20.0／redis 1.3.0＋本刀新進
+三支（research R3 三源核對）：**arc-swap 1.9.2**（三源一致、零 lock 圖變動）、
+**futures-util 0.3.34**（user 拍板取 latest stable；連帶把 lock 內 0.3.33 推升）、
+**toml 1.1.4**（user 拍板取 latest stable；全新 lock 條目）。`ipnetwork` 經
+`sea_orm::prelude` 取用、不列直接依賴。★**零新 feature flag**（pub/sub 在既有
+`connection-manager`＋`tokio-comp` 下即可用）
+
+**Storage**: PostgreSQL（001 基線結構、**零 migration、零 seed 變更**）＋Redis（門鈴 pub/sub
+＋來源維節流 L1／解鎖標記；★門鈴須**另開專用連線**——既有多工連線句柄不可用於訂閱）
+
+**Testing**: `cargo test --workspace -- --test-threads=1`（容器內、全程 serial）＋contract
+16→22 case＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`＋`schema-gate check`
+＋本刀新建兩支機器守（管理頁零原始 HTML 插值／路由產物重算冪等，各附 self-test）；
+base-web 側零測試框架（前端執行單元的 TDD 迴圈退化為純 review 迴圈）
+
+**Target Platform**: Linux 容器（dev stack）；入口 `http://127.0.0.1:22080`
+
+**Project Type**: web（rust-api 後端＋base-web 前端 fork，兩 submodule worktree）
+
+**Performance Goals**: 無量化 SLA（dev workspace）。紀律面三條：①判定面每請求**零資料庫零快取
+查詢**（記憶體規則集 lock-free 讀）②來源維計數 SQL 必帶窗下界（索引 range scan 有界、防全歷史
+回掃）③轉發鏈**先取右端視窗再解析**（把解析成本上界鎖死、洪泛不放大成本）
+
+**Constraints**: 零 migration／零 seed 變更／13 碼矩陣不動且**零新錯誤變體**／★ 軌道未經
+Amendment 授權前不得動任何 base-web 既有檔／既有已知態集的兩條承重論證不得鬆動（spec FR-045）
+／rev4 樹唯讀
+
+**Scale/Scope**: 22 route（＋6）／10 facade（＋2）／2 middleware（新增層）／七態信心＋六段
+結構豁免／6 新訊息鍵／1 條新 ★ 軌道／§I.7 第六座行為島（5 條沿用＋1 條新增）／
+**10 個執行單元**（research R10；T 數由 `/speckit-tasks` 定）
+
+## Constitution Check
+
+*GATE: Phase 0 前初評（對憲法 v1.3.1）→ Phase 1 後複評（對 Amendment 後 v1.4.0）。*
+
+1. **§I.1 base-web 為權威**：**PASS**——本刀新建的五支規則端點與一支解鎖端點**無 upstream
+   既有呼叫端**（rev5 base-web fork 原版無此面），故非「fork 有而後端缺」的補齊，而是 rev5
+   自建管理能力；前端消費端由本刀同批交付（新增檔）。回傳型逐欄忠實於本刀 contracts。
+   驗收錨＝`contracts/wire-ip-rule.md`＋`wire-throttle-unlock.md`＋wire-schema 快照。
+2. **§III.2 base-web inline**：**涉及——授權以 Amendment 先行取得**。本刀動 base-web 既有檔
+   共 **5 檔**：兩語 locale（`route:`／`page:` 兩區塊，★非既有 I18N-WIRING (ii) 的 `backend:`
+   錨射程）＋型別宣告檔對應節（如需）＋**路由外掛重算產出的三支生成檔**（`imports.ts`／
+   `routes.ts`／`transform.ts`，皆 tracked upstream 檔）。授權鏈＝ADR draft → user 親決 →
+   accepted ＋ §III.2 新增一條軌道 ＋ §I.7 島 F 條文 ＋ bump 1.3.1→1.4.0 ＋
+   `docs-sync generate`。★**硬序約束**：Amendment accepted **之前不得動任何 base-web 既有檔**
+   （research R10 之 U0→U8 硬序）。★第三塊採**產物檔紀律**（禁手改＋重算冪等驗收、明文不要求
+   逐行標記及其理由，Clarify Q3）——此為 rev5 首例，形制須寫進條文本體而非只寫在 spec。
+   ★六個新訊息鍵進 `backend:` 樹屬**既有 (ii) 授權內**（資料級鍵、ADR 0021 釋義），不佔新軌道。
+3. **§I.2 menu 走 Casbin enforce**：PASS——`manage_ip-rule` 選單列與其 menu 維政策列**已在
+   seed**，動態選單模式下本就會回傳；本刀只是把 `component` 指向的 view 建出來。四顆按鈕權限碼
+   接既有機制。零 seed 改動、不啟用任何前端隱藏治理。
+4. **§I.3 wire 不變式**：PASS——信封三欄／`code` string／業務錯誤 HTTP 200／識別碼逐欄忠實
+   （規則 id 為 number＋2^53 守衛）／分頁形 `PageRes`／`msg` 載穩定 i18n key。
+   ★**13 碼矩陣零觸碰**：阻擋復用 `5003`、五類規則錯誤與解鎖畸形復用 `2222`，
+   **零新錯誤變體**（`PermissionDenied` 既有、research R9-2 已核）；envelope 例外仍恰 2。
+5. **§I.5 前代 source**：PASS——零拷貝、重打字消化、註解一律 rev5 語境重寫（rev4 出處帶
+   `rev4:` 前綴）；防回歸條款以 research R2 十一筆清單落地。例外清單不適用
+   （★地理區查詢元件的整檔拷貝例外**本刀明文不觸發**——該包不搬）。
+6. **§II 設計拍板**：PASS——三條拍板零抵觸（未知標頭忽略／動態選單模式／`/api` 前綴拓樸）。
+   ★但推翻一處**碼內舊拍板**：狀態容器「恰五欄」封條——須立 ADR 並同批改寫該檔頭註解，
+   且**保留剩餘域外欄位的邊界說明**（沿 ADR 0029 之後果段形）。
+7. **§III ★ 軌道**：**涉及——授權以 Amendment 先行取得**（同第 2 題）。屬「**新能力**」而非
+   用途補完（新路由、新元件、跨檔）⇒ 須 Amendment。同批併處理既有 §III.1 紀律欄措辭與
+   as-built 的張力（B-071）。
+8. **§I.6 業務表審計欄**：PASS（不觸發）——**零 create migration**。消費的四表皆 001 基線既有：
+   `sys_ip_rule`（變體 A、六審計欄齊備、軟刪配 partial unique）／三張稽核表（變體 B append-only、
+   本刀只寫入不改結構、零 update／delete）。★連帶紀律：`ip_confidence` 的值域由單字面擴為七態
+   **不屬結構變更**（該欄無 CHECK）；append-only 表的既有列**不遷移**（變體 B「不可竄改」）。
+   ★sequence 推進紀律見 data-model §7。
+9. **§I.7 行為島**：**涉及——授權以 Amendment 先行取得**。本刀落地第六座島（IP 存取閘＋信任錨
+   ＋來源維節流），依進場規則須同筆 MINOR Amendment 入憲：五條沿用前代已驗證形（F1 判定序與
+   集合語意／F2 真相分層 keep-last-good／F3 fail-open 且唯一 fail-closed＝寫端自鎖／F4 信任錨
+   為唯一位址輸入且兩集合同源對稱／F5 顯式放行跳節流而結構豁免不跳）＋**F6 為本刀新拍板**
+   （Tier-1 錨須傳輸層背書）。另對既有登入節流島補一句來源維釐清（帳號維三源 vs 來源維恆兩源、
+   刻意不對稱）＝已入憲 invariant 細項調整。設計以 state-machine 鏡頭（data-model §1.1 為
+   「現態×事件→次態＋副作用」矩陣、§5 為降級矩陣）。方向性反轉自此為 MAJOR。
+
+**Post-Phase-1 複評**（design 產物齊後）：九題判定不變——Q1／Q3～Q6／Q8 全 PASS；Q2／Q7／Q9
+維持「涉及、授權以 Amendment 先行取得」，授權鏈已在 research R10 定形為 U0 硬閘。design 階段
+**新增的憲法接觸面＝零**（三類產物皆為既有拍板的具象化）。★**GATE 狀態＝條件通過**：
+Amendment（ADR accepted＋bump 1.4.0）為 tasks 第一個 ★ 主線任務且為硬閘，未完成前 Q2／Q7／Q9
+不得視為 PASS、且不得動任何 base-web 既有檔；U1～U7 為純後端、不受該閘阻擋可先行。
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/004-ip-trust-anchor/
+├── plan.md              # 本檔
+├── research.md          # Phase 0：R1~R10（R1 rev4 對應碼清單、R2 差異點清單、R3 三源釘版）
+├── data-model.md        # Phase 1：§1~§7（含規則狀態機、七態、降級矩陣、島 F 六條）
+├── quickstart.md        # Phase 1：§0~§7 驗證指南（★構造轉發標頭為核心前提）
+├── contracts/
+│   ├── wire-ip-rule.md          # 規則管理五端點
+│   ├── wire-throttle-unlock.md  # 解鎖端點＋帳號維三件
+│   ├── trust-model-config.md    # 信任模型設定檔（TOML）＋dev/prod 樣例＋標頭契約
+│   └── msg-keys.md              # 新增六鍵＋軌道歸屬（兩類鍵落點不同）
+├── checklists/
+│   └── requirements.md  # spec 品質檢核（16/16）
+└── tasks.md             # Phase 2（/speckit-tasks 產出，非本命令）
+```
+
+### Source Code (repository root)
+
+```text
+rust-api/
+├── Cargo.toml                                    # ＋arc-swap／futures-util／toml
+└── server/
+    ├── Cargo.toml                                # 同上三支
+    ├── src/
+    │   ├── trust/mod.rs(新)                      # 七態＋三層＋兩覆蓋＋★硬化＋鏈正規化
+    │   ├── ipgate/mod.rs(新)                     # RuleSet／decide／結構豁免／would_self_lock
+    │   │                                         #   ／reload_and_publish／watcher
+    │   ├── middleware/mod.rs(新)                 # request_context_mw ＋ ip_gate_mw
+    │   ├── handler/
+    │   │   ├── ip_rule.rs(新)                    # 五支端點＋守門＋防自鎖
+    │   │   └── throttle.rs(新)                   # 解鎖端點（★稽核先於生效）
+    │   ├── model/
+    │   │   ├── audit.rs(新)                      # AuditEvent／Operation／Operator
+    │   │   └── facade/
+    │   │       ├── sys_ip_rule.rs(新)            # load_active／list／四寫端
+    │   │       ├── sys_operation_log.rs(新)      # ★rev5 首個寫入者
+    │   │       └── sys_login_attempt.rs(改)      # ＋count_recent_failures_by_ip
+    │   ├── throttle/mod.rs(改)                   # 來源維並列＋L0 allow 短路＋L-026
+    │   ├── request_context.rs(改)                # seam 換血（欄與取值器簽名不動）
+    │   ├── state.rs(改)                          # 5→7 欄＋封條註解改寫
+    │   ├── config.rs(改)                         # load_trust_model＋扁平退路
+    │   ├── router.rs(改)                         # ROUTES 16→22
+    │   └── main.rs(改)                           # boot：載信任模型／初載規則集／起 watcher
+    └── tests/
+        ├── contract.rs(改)                       # 16→22 case
+        └── {entity_access_lint,authz_entrypoint_lint}.rs(改?)  # ★R8：實測後才知是否需擴
+
+deploy/trust-model.dev.toml(新)                   # ★dev 最小設定（Clarify Q1）＝部署樣例活體
+docker-compose.dev.yml(改)                        # 掛載上檔＋指向的環境變數
+
+base-web/src/
+├── views/manage/ip-rule/{index.vue,modules/ip-rule-operate-drawer.vue,
+│                         modules/ip-rule-search.vue}(新)      # 新增型、免 ★ 授權
+├── service/api/rev5-ip-rule.ts(新)                            # WRAPPER 軌
+├── typings/api/rev5-ip-rule.d.ts(新)                          # ADAPT 軌
+├── locales/langs/{en-us,zh-cn}.ts(改)                         # ★新軌道（route:/page: 兩樹）
+│                                                              #   ＋既有 I18N-WIRING (ii)（backend: 六鍵）
+├── locales/langs/zh-tw.ts(改)                                 # 治理錨點檔＋六鍵（純新增檔、免軌道）
+├── typings/app.d.ts(改?)                                      # ★新軌道（如需）
+└── router/elegant/{imports,routes,transform}.ts(產物)          # ★新軌道之產物檔紀律（禁手改）
+
+tools/  # ①管理頁零原始 HTML 插值機器守 ②路由產物重算冪等檢查 ③schema-gate 收窄集＋一表
+docs/ops/RUNBOOK.md(改)                            # 部署 checklist 新節
+.specify/memory/constitution.md(改)                # §III.2 第五條軌道＋§I.7 島 F、1.4.0
+```
+
+**Structure Decision**: 沿 002／003 的兩子庫 worktree 結構，不新增頂層目錄。後端按**功能域分
+模組**（`trust`／`ipgate`／`middleware`）——與既有 `auth`／`cache`／`throttle`／`captcha` 同形；
+`trust` 與 `ipgate` 刻意分兩個模組而非合併為一個 `ip` 模組：前者是**純函式政策判定**（零 I/O、
+零狀態）、後者持有**可變判定面與門鈴**（ArcSwap＋pub/sub），兩者的可測性與生命週期截然不同，
+合併會使純函式面失去「可離線全態矩陣測試」的邊界。`middleware` 為 rev5 首次進場的層，只放
+請求層接線（抽標頭→呼叫純函式→注入上下文→判定短路），**零政策邏輯**。base-web 側一律新檔
+優先，既有檔改動嚴限新軌道射程。
+
+## Complexity Tracking
+
+無 Constitution Check violation；本節空。
+
+★判斷理由（沿 003 前例）：Q2／Q7／Q9 的「涉及」不是**違規**——★ 軌道與 §I.7 行為島是循憲法
+§V.2／§I.7 進場規則**正式取得授權**的路徑，憲法對此有明文機制。Complexity Tracking 的用途是
+「必須被辯護的違規」，走授權路徑者不屬此類；真正需要記錄的是授權鏈與硬序約束，已寫在
+Constitution Check Q2／Q7／Q9 與 research R10。
+
+★另記一項**本刀特有**的形制新例（供日後引用）：Q2 的第三塊（路由外掛產物檔）採
+「禁手改＋重算冪等」而非逐行標記，是 §III fork-delta 紀律首次遇到**標記在物理上不可維持**
+的檔類。此非豁免、而是**以更強的機器檢查替代較弱的註解紀律**（冪等檢查連單行手改都抓得到、
+標記則無強制力），理由已明文寫進軌道條文本體。
