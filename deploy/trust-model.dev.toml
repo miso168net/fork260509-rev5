@@ -1,0 +1,39 @@
+# ── rev5 dev 信任模型（004-ip-trust-anchor T006；契約＝specs/004-ip-trust-anchor/
+#    contracts/trust-model-config.md 之「dev 交付形」）──
+#
+# ★本檔存在的理由（不是驗收便利、是拓樸正確性）：
+#   後端的傳輸層對端**恆為反向代理容器**。它若不在受信集，信任錨判定的第一層（對端閘）
+#   會恆先觸發、直接回 direct，於是第二／三層與兩個覆蓋層在**任何環境（含 prod）**都是
+#   死碼、整套 IP 域形同虛設。
+#   ★前代實暴教訓（research R2-3，不得重演）：rev4 的驗收手冊寫了「構造轉發標頭模擬公網
+#   來源」的走查步驟，但其 compose／.env／部署腳本從未設過信任模型設定 ⇒ 全空集合下對端
+#   閘恆先觸發、構造標頭一律被忽略，那些步驟跑不出宣稱的結果。
+#
+# ★只填 internal_default、其餘五集合刻意留空的後果（research R7 有逐態對照表）：
+#   經反向代理的端到端走查**可達二態**——
+#     · fallback     ＝預設瀏覽行為（瀏覽器不帶轉發標頭 ⇒ 鏈兩跳皆受信 ⇒ 整鏈受信回退）
+#     · proxy_clean  ＝構造 `X-Forwarded-For: 203.0.113.x`（層③解出該公網位址）
+#   其餘五態在 dev 經反向代理不可達（需宣告 cdn／my_public／bindings／cf_gate_egress，
+#   或需對端不受信）——那五態改由整合測試以「直餵 TrustModel＋任意 peer／標頭」覆蓋。
+#   ⇒ 留空是**誠實分界**、不是漏填；要在 dev 追加態，是加設定而非改判定碼。
+
+# 容器網段（rust-api 服務所在的 compose 網路）＝docker 預設橋接位址池的**上位涵蓋段**。
+#
+# ★刻意取契約樣例的 /12、不釘當下實測到的那個 /16：base compose 的 `rev5_net` 未宣告
+#   `ipam.config` ⇒ 網段由 docker 從預設位址池（base 172.17.0.0/12、size 16，即
+#   172.17~172.31 各一個 /16）自動配發，換機器 clone 後首次 up、或本機 `docker compose down`
+#   後重建網路，都可能配到另一段。把當下實測值釘進交付物＝把「換段即失效」寫死進來，而那
+#   正是本檔存在要防的失敗形：集合有值、載入面回報「載入成功、零告警」，只是不再涵蓋對端
+#   ⇒ 層①對端閘恆先觸發、信心恆為 direct、後兩層與兩個覆蓋層全成死碼（fail-safe 方向、
+#   不會誤放行，但整套 IP 域一樣形同虛設，且 T013 的二態走查跑不出宣稱結果）。
+# ★零精度損失：dev 走查構造的 `203.0.113.x`（TEST-NET-3）不在 172.16.0.0/12 內，
+#   `proxy_clean` 路徑不受影響。
+# 佐證（2026-08-15 本機實測，僅供對照、非本行取值依據）：
+#     docker network inspect rev5-admin_rev5_net --format '{{json .IPAM.Config}}'
+#       → [{"Subnet":"172.23.0.0/16","Gateway":"172.23.0.1"}]  ⊂ 172.16.0.0/12
+internal_default = [
+  "172.16.0.0/12",   # docker 預設橋接網段
+]
+
+# cf_gate_egress／[tunnel]／[[cdn]]／[[my_public]]／[[bindings]] 五集合：dev 刻意不宣告
+# （缺鍵＝空集，FR-010「預設空、無隱含寬鬆預設」）。prod 樣例見上述 contracts 檔。

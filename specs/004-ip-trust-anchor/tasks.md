@@ -105,7 +105,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   「解鎖端點無 UI 按鈕」／「dev 經反向代理可達二態」（research R7）／「稽核覆蓋不對稱」
   （既有設定寫端不落操作稽核列、本刀新端點落列）③**明文解除**「三個來源節流鍵零消費者」之
   既有已知態紀錄（走 `supersedes` 或於本刀已知態 ADR 內明文解除）
-- [ ] T004 三個新依賴釘版（research R3 三源核對表）：`rust-api/Cargo.toml` 的
+- [x] T004 三個新依賴釘版（research R3 三源核對表）：`rust-api/Cargo.toml` 的
   `[workspace.dependencies]` 加 **arc-swap 1.9.2**（三源一致）／**futures-util 0.3.34**
   （★user 拍板取 latest stable；連帶把 lock 內既有的 0.3.33 推升）／**toml 1.1.4**
   （★user 拍板取 latest stable；全新 lock 條目）；`rust-api/server/Cargo.toml` 加對應三支
@@ -116,17 +116,26 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   pub/sub 在既有 `connection-manager`＋`tokio-comp` 下即可用＝**本刀零新 redis feature
   flag**）。**DoD：容器內 `cargo build` 綠；`Cargo.lock` 成長（★關掉 default 之下不應出現
   `futures-macro` 新條目）與 futures-util 升版逐筆記入 commit message**
-- [ ] T005 `rust-api/server/src/config.rs` 加信任模型載入：`load_trust_model(path, lookup)`
+- [x] T005 `rust-api/server/src/config.rs` 加信任模型載入：`load_trust_model(path, lookup)`
   ＋`RawTrustModel`（TOML 六集合、欄名見 `contracts/trust-model-config.md`）＋
   `trust_model_path` getter；★**三層失敗語意**——缺路徑／讀檔失敗→扁平環境變數退路
   （逗號分隔 CIDR 充 `internal_default`）／TOML 整體解析失敗→**全空**（★**不**套退路：設定
   存在但壞掉不得擴大信任）／單一集合含無效 CIDR→**只清空該集合**；三者皆**永不 panic**、
   皆發結構化告警。**DoD：四類輸入（完整／部分／整體壞／單集合壞）unit 測先紅後綠**
-- [ ] T006 dev 信任模型設定就位：新建 `deploy/trust-model.dev.toml`（★內容見
+- [x] T006 dev 信任模型設定就位：新建 `deploy/trust-model.dev.toml`（★內容見
   `contracts/trust-model-config.md` 之 dev 交付形——**僅** `internal_default` 填容器網段、
   其餘集合刻意留空，且註解須寫明「本檔存在的理由」與「只填這一項的後果＝可達二態」）＋
-  `docker-compose.dev.yml` 掛載該檔並設環境變數指向。**DoD：`docker compose … up -d --wait`
-  後 `docker compose logs rust-api | grep -i trust` 見載入成功、**無**缺席／解析失敗告警**
+  `docker-compose.dev.yml` 掛載該檔並設環境變數指向。
+  ★**2026-08-15 動工前接地更正——原 DoD 在本 task 的時點不可滿足**：原文要求
+  「`docker compose logs rust-api | grep -i trust` 見載入成功」，但**呼叫 `load_trust_model`
+  並記錄告警的 boot 接線屬 T013**（U-E）；T005／T006 落地時 `main.rs` 尚未呼叫它，
+  log 裡不會有任何 trust 字樣。⇒ DoD 拆兩段：
+  **本 task DoD（U-B）**：①`docker compose … up -d --wait` 綠 ②`docker compose exec -T
+  rust-api cat <掛載路徑>` 取得的內容與 `deploy/trust-model.dev.toml` 逐位元相同（證明掛載
+  真的生效、路徑真的對得上）③`docker compose config` 顯示該環境變數指向同一路徑
+  ④T005 的四類輸入 unit 測全綠。
+  **遞延至 T013 的半段**：`docker compose logs rust-api | grep -i trust` 見載入成功、
+  **無**缺席／解析失敗告警——boot 真的讀到那份 dev 設定，是 T013 接線的驗收面。
 
 **Checkpoint**: 憲法授權到手、依賴進場、信任模型在 dev 真的生效——可開 Foundational。
 
@@ -189,7 +198,16 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `ip_rules: Arc<ArcSwap<RuleSet>>`）＋★**檔頭封條註解改寫**（「恰五欄」→「恰七欄」，
   **保留** `mailer` 續留域外之邊界說明、不得整段刪除）＋`rust-api/server/src/main.rs` boot
   接線（載信任模型；★**規則集初載與 watcher 起動留 US2**、本 task 先以空規則集建欄）。
-  **DoD：先紅後綠；`cargo build --release` 仍可跑**
+  ★**2026-08-15 U-B 品質審查移交的一件**：`load_trust_model` 回傳的告警清單在本 task 逐筆
+  `tracing::warn!` 時，MUST **併補一筆 all-empty 告警**——「檔案存在且解析成功、但六集合
+  全空」目前**零訊號**（`flat_env_fallback` 對同一終態有補告警、有檔路徑卻沒有，不對稱）。
+  空檔／通篇註解的設定檔／唯一集合被第③層清空，三者都會落到與 rev4 實暴形相同的終態
+  （六集合全空 ⇒ 對端閘恆先觸發 ⇒ 後兩層與兩覆蓋層全成死碼），而前兩者現在悄無聲息。
+  本處是唯一會 log 的地方、成本近零。
+  **DoD：先紅後綠；`cargo build --release` 仍可跑；★併收 T006 遞延的半段——
+  `docker compose … up -d --wait` 後 `docker compose logs rust-api | grep -i trust` 見載入
+  成功、**無**缺席／解析失敗告警（＝證明 boot 真的讀到 `deploy/trust-model.dev.toml`；
+  T006 落地的時點 main.rs 尚未呼叫載入函式，該檢查在那時必然空手，故遞延至此）**
 - [ ] T014 `AppState` **窮舉式 struct literal 五處**同步七欄（★清單來源＝
   `grep -rn "AppState {" rust-api/server/` 的實測結果，排除 `state.rs` 的 struct 定義本體與三處
   `-> AppState {` 函式簽名；六處 literal 中 `main.rs` 的 boot 建構已由 T013 涵蓋、其餘五處在此）：

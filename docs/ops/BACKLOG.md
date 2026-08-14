@@ -1,8 +1,9 @@
-<!-- next: B-074 -->
+<!-- next: B-075 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
 
+- B-074｜IPv4-mapped IPv6 **網段字面**在信任模型設定面靜默失效：`trust::in_set`（`rust-api/server/src/trust/mod.rs`）只對**查詢側 IP** 過 `to_canonical`、**不折疊網段字面**，而 `config::parse_cidrs` 也原樣收下 ⇒ 維運若把某段寫成 `::ffff:10.0.0.0/104`，解析成功、**零告警**，但 `contains(10.0.0.5)` 恆 false、該集合永不命中（004 U-B 品質審查輪於容器內以 ipnetwork 0.20 實測確認）。方向為 **fail-safe**（只縮小信任、不會誤放行），故當時未列 blocker。★兩條候選處置：①載入面於 `parse_cidrs` 折疊 mapped 網段字面 ②載入面偵測到 mapped 形即發結構化告警並清空該集合（與三層語意的第③層同形）——後者較誠實：mapped 網段語意本就罕見，與其猜維運意圖不如讓他知道。★連帶已知態：在此之前，「設定寫了卻不生效」這個症狀在 mapped 形下無任何訊號可循｜下一把動信任模型載入面或 `trust::in_set` 的刀，或維運回報「設定寫了卻不生效」時
 - B-001｜承襲盤點機器閘＝**暫不建**（002-system-settings 收刀留帳、FR-028）：要求①的 K1 盤點表見該刀 brainstorm §2、要求②的實際消費對照表已於 plan research R10 回填。R10 結論＝五條 K1 全數消費、其中四條有機器強制錨（K1-07 覆蓋閘＋gen.router 真表／K1-25 wire-schema drift 閘＋coverage gate／K1-26 registry 紅綠矩陣／K1-27 contract case 與授權矩陣），K1-08 屬一次性選型無殘留紀律故無需錨——「靠人記得」面＝零，建閘的邊際收益低。★復議觸發條件：某刀出現「K1 條目被消費卻無任何機器錨」的情形，或盤點表與實際消費連續兩刀對不上｜觸發時重評
 - B-003｜memo 欄家族 UI 兌現——sys_user／sys_role／sys_menu／sys_ip_rule 四張管理列表的顯示欄＋編輯入口（語意：R_SUPER 備註用途、text 可多行；顯示於管理列表、不顯示於其它被取用處——下拉／引用／對外 API 不帶；rev4 設計入 schema 但各 UI 刀 brainstorm 均未兌現，語意權威＝001 刀 data-model）｜各對應管理 UI 刀 brainstorm 直接輸入
 - B-008｜四張 rev4 專屬管理頁 view 於 base-web 兌現——manage_system-settings／manage_policy-archive／manage_audit／manage_ip-rule（analyze D6：seed 選單與 casbin 政策隨 001 基線先行、`component` 指向之 view 於 rev5 base-web 尚不存在；期間該 4 項僅 R_SUPER 可見、點擊 404 屬已知態）。★2026-08-11 更新（003-auth-session 落地後，2026-08-09 那則勘誤的兩處前提皆已反轉）：①`base-web/.env` 已由 U-I／T028 翻為 `VITE_AUTH_ROUTE_MODE=dynamic` ⇒ 「僅 R_SUPER 可見、點擊 404」**自此成立**，不再是待兌現的前提；②「該刀第一件事＝憲法 §III.2 **首個** ★軌道 Amendment」亦已不成立——ADR 0028 已於 003 開立四條 ★ 軌道八用途，本條後續刀要做的是**在既有名冊上加用途／加軌道**，不是開第一個。另二實測：①`elegant/routes.ts` 的 manage 子樹只有 menu／role／user／user-detail，**連 route 條目本身都不存在**（`component` 指向 view.manage_* 那句的來源在後端 seed、不在前端）②新增任一 view 必然 inline 動 zh-cn.ts／en-us.ts（route 鍵為窮舉型 Record）與 app.d.ts（面級新增），另三張頁需 12 支不存在的後端端點（audit 5／ip-rule 5／policy-archive 2）｜各對應管理 UI 刀 brainstorm 直接輸入
