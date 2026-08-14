@@ -137,7 +137,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 **Purpose**: 信任錨純函式全形、規則判定純函式、狀態容器擴欄、測試設施。
 **⚠️ 本 phase 未完成前不得開任何 US。**
 
-- [ ] T007 [P] `rust-api/server/src/trust/mod.rs` 新建型別群（★同批於
+- [x] T007 [P] `rust-api/server/src/trust/mod.rs` 新建型別群（★同批於
   `rust-api/server/src/lib.rs` 加 `pub mod trust;`，否則整模組編譯不進 crate）：`TrustModel`
   六集合＋`TunnelConfig`／`CdnEntry`／`MyPublicEntry`／`Binding`＋`Confidence` **七態**與其
   `as_str`（DB／wire 小寫底線字面）＋`SoftReason` 二態＋`Evidence` 五變體；★**`is_trusted`
@@ -145,14 +145,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   （`internal_default ∪ tunnel ∪ cf_gate_egress ∪ cdn ∪ my_public ∪ Σbindings.internal`；
   ★**必含 tunnel＋cf_gate_egress**，兩集合分叉即前代缺陷復發、real_ip 塌縮為常數）。
   **DoD：七態字面 unit 測＋`is_trusted` 六集合各一命中案，先紅後綠**
-- [ ] T008 [P] `rust-api/server/src/trust/mod.rs` 鏈正規化：`normalize_xff`（★**先取右端視窗**
+- [x] T008 [P] `rust-api/server/src/trust/mod.rs` 鏈正規化：`normalize_xff`（★**先取右端視窗**
   再逐欄解析——把解析成本上界鎖死、洪泛不放大成本；方向不可反）＋`parse_xff_token`
   （剝連接埠／剝 IPv6 區域識別／剝方括號包裹）＋常數 `MAX_XFF_TOKENS`。
   ★**不可解析者丟棄**（＝該跳不存在、鏈的相對次序不變）。
   **DoD：先紅後綠，且必含**三語意區辨性測試**——同一輸入（含垃圾欄位）在「丟棄」得 A、在
   「遇垃圾即中止整條鏈」得 B、在「保留為佔位跳」得 C，三者結論相異（spec FR-009：若三者
   結論相同則該測試無鑑別力、等於沒守）；另含右端視窗方向反例（左端洪泛不得把真實來源擠出）**
-- [ ] T009 `rust-api/server/src/trust/mod.rs` 之 `resolve_client_ip` 三層＋★**F6 硬化**：
+- [x] T009 `rust-api/server/src/trust/mod.rs` 之 `resolve_client_ip` 三層＋★**F6 硬化**：
   鏈組成＝`normalize(xff) ++ [peer]`（對端接最右）；①對端閘（peer ∉ 受信集→直取 peer、
   轉發鏈整條忽略、`direct`）②Tier-1 位置錨（最右 CDN 段為錨；★**硬化：錨右鄰起直到傳輸層
   對端全屬受信基建，否則錨不成立、退層③**；受信判定 MUST 用 T007 的同一 helper、**不得**
@@ -163,7 +163,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   反向代理]` ⇒ 硬化前得 `cdn_anchored`＋**偽造位址**、硬化後**錨不成立退層③**得**攻擊者位址**
   ＋`proxy_clean`；(b) 合法形：鏈＝`[使用者, CDN 邊緣, 反向代理]` ⇒ 硬化前後**位址與信心皆
   逐位元相同**（零誤傷、SC-002 後半）**
-- [ ] T010 `rust-api/server/src/trust/mod.rs` 兩覆蓋層：`apply_tunnel_fallback`（基礎＝回退
+- [x] T010 `rust-api/server/src/trust/mod.rs` 兩覆蓋層：`apply_tunnel_fallback`（基礎＝回退
   ∧ peer ∈ 通道集 ∧ 訪客標頭有值 → 採信訪客位址、★**信心維持回退不升**）＋
   `apply_cf_overlay`（★**四前置全中**才比對：peer ∈ `cf_gate_egress` ∧ 驗證標記真 ∧ 訪客標頭
   有值 ∧ 基礎信心 ∈ **恰** {`cdn_anchored`,`proxy_clean`,`proxy_soft`}；相符→`cdn_verified`、
@@ -201,7 +201,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★五處皆**無 `..Default`**、加欄即編譯不過，漏一處＝implementer 一開工就撞編譯錯。
   ★`rust-api/server/src/handler/system_settings.rs` 之 `real_app()` **不在此列**——B-054 收攏後
   已是零建構薄轉呼（其本體＝`crate::model::test_db::real_app_with(None).await`），改它是空操作。
-  **DoD：既有 16 case contract 測與既有 321 支測試仍全綠**
+  **DoD：既有 16 case contract 測全綠；既有測試零回歸——★判準＝**動工前後同一指令逐 target 比對**，不引帳面數字（`321` 係 003 收刀快照、後續維護批已推走；2026-08-15 U-C 動工前實測＝server lib 260、全 target 合計 327＋2 ignored，見 L-029）**
 - [ ] T015 [P] ★**research R8 未定項實測**：在容器內跑
   `rust-api/server/tests/authz_entrypoint_lint.rs` 與 `entity_access_lint.rs`，確認
   `ipgate::decide` 與 `would_self_lock`（＝**IP 閘判定**，非 casbin 授權判定）是否被
@@ -481,7 +481,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   否則放行）＋解鎖標記讀取故障 **fail-closed** ★並**發降級告警**（data-model §5 該列觀測欄
   ＝告警；序列由 T030 pre-register，此處為其**發射點**——缺此則該序列恆 0、等於沒守）。
   ★同批修 **L-026**：三處上下界共用同一顆具名餘裕常數、註解與失敗訊息對齊碼。
-  **DoD：T045 由紅轉綠（★含三鍵真消費自證一案）；★既有帳號維 321 支測試零回歸；★T003③
+  **DoD：T045 由紅轉綠（★含三鍵真消費自證一案）；★既有帳號維測試零回歸（判準同 T014：動工前後逐 target 比對、不引帳面數字，L-029）；★T003③
   「三個來源節流鍵零消費者」已知態自此為真解除——無讀取端即帳面不實**
 - [ ] T048 [US4] `rust-api/server/src/handler/auth/login.rs` 接線：由 extensions 取上下文，
   把真實來源與 allow 袋餵進 `precheck`。★軟區與鎖定仍 MUST 在密碼雜湊驗證**之前**擋下、
@@ -581,6 +581,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - **Phase 1（Setup）**：`T001→T002` 為**硬閘**（★Amendment accepted 前不得動 base-web 既有檔
   ⇒ 阻塞 **T038／T041／T054**——凡動 base-web 既有檔者皆受管，非僅 T041）；T003 可與
   T004／T005 平行；`T004→T005→T006`。
+  ★**2026-08-15 動工前接地更正——T005 對 T007 是硬序，本行原敘述之相依方向倒置**：
+  `config::load_trust_model` 的回傳型是 `(trust::TrustModel, Vec<TrustLoadWarning>)`
+  （rev4 `config.rs:214` 簽名逐字；rev4 唯二呼叫端＝`main.rs:59`），故 **T005 依賴
+  T007 的型別群**。反之 `trust/mod.rs` 對 config **零依賴**（rev4 該檔 `use` 僅
+  `std::net::IpAddr` 與 `sea_orm::entity::prelude::IpNetwork`，且不需本刀三支新依賴）。
+  ⇒ **執行序改為 `T004 →（T007~T010）→ T005 → T006`**；單元順序＝**U-C 先於 U-B**，
+  T004 併入 U-B（其產物 `toml` 為 T005 所需、`arc-swap`／`futures-util` 為 U-E／U-G 所需，
+  皆晚於 U-C）。Phase 分段與各 task 內容不變，只改跑序。
 - **Phase 2（Foundational）**：依賴 Phase 1（T004 依賴、T005/T006 設定）→ **阻塞全部 US**。
   `{T007、T011、T012 平行}→T008→T009→T010`；`T013` 依賴 T007＋T011（型別）；`T013→T014`；
   `T015` 全程可平行（純實測）。
