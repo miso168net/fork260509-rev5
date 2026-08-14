@@ -2,9 +2,9 @@
 id: "0029"
 title: AppState 兩欄→五欄翻案——加 jwt／cache／captcha_secret，ip_rules／trust_model／mailer 續留域外
 date: 2026-08-09
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0041]
 provenance: "003-auth-session 之 T003①／T006；被翻案的拍板住在 rust-api/server/src/state.rs 檔頭 doc（002-system-settings T005 落地、其 research R3-8 為由），無 ADR 承載故 supersedes 留空"
 tags: [rust-api, state, dependency, decision-reversal]
 ---

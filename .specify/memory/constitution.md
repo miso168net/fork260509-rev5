@@ -122,6 +122,17 @@
 - 三區（自由／需驗證碼／鎖定）；滑動窗（PG）為**權威**、redis L1 為負快取。
 - 軟區與鎖定 MUST 在密碼雜湊驗證**之前**擋下，且**零稽核列、零計數桶**（拒絕不得消耗受害者的額度）。
 - fail-* 方向：redis 整體不可用＝**fail-open**（軟區 captcha 要求整層停用、續驗密碼，密碼錯仍計數）；L2（PG）查詢失敗＝**fail-open ＋ 補償**（計數歸零放行並置 `captcha_forced`）；captcha 標記 SET NX 瞬斷（redis 健康）＝**fail-closed 不罰**（拒該次、零計數桶）。
+- **來源維釐清**（004 補）：滑動窗計數的**下界來源數兩維蓄意不對稱**——帳號維**三源**（窗起點＋解鎖標記＋窗內最近成功登入）、來源維**恆兩源**（窗起點＋解鎖標記，**禁**「成功即重置」）。來源維若採成功即重置，攻擊者只需在同一來源穿插一次自有帳號的成功登入即可清零計數 ⇒ 整套來源維防護可被繞過。**MUST NOT 日後被「統一」**。
+- fail-* 方向補記（004 補）：**解鎖標記讀取故障＝fail-closed**（視為無標記＝該標的可能仍在鎖定中；良性方向＝至多少解鎖、不誤放行），與本島既有的「captcha 標記 SET NX 瞬斷＝fail-closed 不罰」同族。★解鎖標記為**帳號維與來源維共用**機制（同一格式契約、兩維各自的讀取端），故其方向記於本島而非島 F。
+
+**F. IP 存取閘＋信任錨＋來源維節流**（004-ip-trust-anchor 進場；F1～F5 沿前代已驗證形、F6 為本刀新拍板）
+- ★**本島射程**＝**位址的真相面**（信任錨）與**存取判定面**（規則集）。來源維節流的**狀態機本體**（三區、滑動窗、L1／L2 分層、計數下界、解鎖標記）屬**島 E**；本島只約束其**位址輸入**（F4）與**跳過條件**（F5）。
+- **F1 判定序與集合語意**：存取判定序**六步固定**——①健康／觀測端點放行 ②請求上下文缺席放行 ③結構豁免段放行 ④allow any-match 放行 ⑤deny any-match 拒絕 ⑥預設放行。規則集為 **any-match 集合語意**：白＞黑＞預設放行、**無優先序欄**、判定結果與載入順序無關。
+- **F2 真相分層**：資料庫為真相、記憶體判定面**每請求零外部查詢**；**執行中**真相暫不可讀 MUST **沿用上一份已知良好規則集、不清空**（啟動初載無「上一份」可沿用 ⇒ 空集＝全放行，方向同為 fail-open）。
+- **F3 fail-* 方向**：全鏈 **fail-open**；**唯一 fail-closed ＝寫端自鎖拒寫**（會把操作者自己鎖在門外的規則 MUST 拒寫、零落庫、零重載）。每次降級 MUST 發**結構化告警**。
+- **F4 信任錨為唯一位址輸入**：來源維度一切機制（存取閘、來源維節流、稽核落列、防自鎖）的位址輸入 MUST 為信任錨結果；**受信集與跳過集 MUST 由同一 helper 導出、內容對稱**——兩集合分叉即真實來源塌縮為常數（前代實暴缺陷）。
+- **F5 放行與節流的分界**：命中**顯式** allow 規則者跳過來源維節流；**結構豁免段 MUST NOT 跳**——結構豁免只豁免「阻擋」、不豁免「節流」。
+- **F6 Tier-1 錨須傳輸層背書**（本刀新增）：Tier-1 位置錨成立 MUST 附傳輸層背書——**錨右鄰起、直到傳輸層對端，全屬受信基建**；不成立即**棄錨、退 Tier-2**。受信判定 MUST 用 F4 的同一 helper，不得為此另立第三個集合。（無此背書時，攻擊者繞過 CDN 直打來源站並自帶「偽造位址, CDN 邊緣」轉發鏈即可讓錨成立、把任意位址寫成真實來源；前代把該風險壓在「部署方 MUST 鎖 origin 僅接受 CDN 邊緣連線」的**承重部署前提**上，本條入碼後該前提降級為**縱深防禦建議**。）
 
 **跨島註（方向刻意不一致，記於此以免日後被「統一」）**：登入流程讀 `session_idle_timeout` 設定鍵缺失＝**fail-loud**（`5000`、不猜 TTL 值），與 E 的節流設定鍵缺失走 fail-open 退常數方向相反——前者猜錯會靜默改變所有人的會話壽命，後者猜錯只影響阻力強度。
 
@@ -155,7 +166,7 @@
 
 | 軌道 | 範圍 | 紀律 |
 |---|---|---|
-| **BASE-WEB-ADAPT** | `.env*`＋`src/typings/api/` 新檔 | 新增為主、不改 inline；禁止刪除既有 type／field |
+| **BASE-WEB-ADAPT** | `.env*`＋`src/typings/api/` 新檔 | 新增為主；**inline 修改限根層 `.env*` 接管面**（§III.2 表外宣告 2 指定之 devproxy 涵蓋路徑）；禁止刪除既有 type／field |
 | **BASE-WEB-WRAPPER** | `src/service/api/rev5-*.ts` 新檔 | 一律新檔（`rev5-` 前綴）；不改既有 service 檔 |
 | **RUSTAPI-SOURCE-ISOLATION** | rust-api 整棵樹 | 全新寫；前代受控參照不拷貝（§I.5） |
 
@@ -182,6 +193,7 @@
 | **★BASE-WEB-I18N-WIRING** | (ii) locale backend 樹 | `src/locales/langs/{en-us,zh-cn}.ts`（各 1 塊，新增型） | 插入錨為**獨佔一行**的 `  backend: {`；兩語鍵集 MUST 相等；譯文以該刀 contracts 之 msg-keys 為權威 |
 | **★BASE-WEB-I18N-WIRING** | (iii) Schema backend 型節 | `src/typings/app.d.ts`（1 塊，新增型圈界） | 僅補 `App.I18n.Schema` 之 `backend` **必填**型節。LangType 擴充／locale 註冊／`zh-tw.ts` 標型重構不在授權內 |
 | **★BASE-WEB-LOGOUT-UX-WIRING** | (i) 登出前撤銷接線 | `src/layouts/modules/global-header/components/user-avatar.vue`（1 處修改型＋2 處新增型） | `onPositiveClick` 改 async、登出前 best-effort `await fetchLogout(...)`，**失敗不得阻斷** `resetStore()`。用途 (ii)（reLogin toast）不在授權內 |
+| **★BASE-WEB-MANAGE-PAGE-WIRING** | (i) IP 規則管理頁進場 | `src/locales/langs/{en-us,zh-cn}.ts`（各 1 塊，新增型圈界；僅限 `route:` 與 `page:` 兩樹）／`src/typings/app.d.ts`（1 塊，新增型圈界；僅限 `App.I18n.Schema.page` 型節）／`src/router/elegant/{imports,routes,transform}.ts`／`src/typings/elegant-router.d.ts`（後四支＝路由外掛產物、不標記） | **①②塊**（兩語 locale 之 route:／page: 兩樹、app.d.ts 之 Schema.page 型節）：新增型圈界標記須存在；兩語鍵集 MUST 相等；page 型節為**必需非「如需」**——page: 為顯式型樹，不補型即型別檢查紅（route: 因型為 Record<I18nRouteKey, string> 才自動導出）。**③塊（產物四檔）＝產物檔紀律**：僅由路由外掛重算產出、**禁止手改**；**不要求逐行原文標記**——理由是標記於下一次重算即被抹除、物理上不可維持，寫進紀律等於立一條保證會被違反的規則；驗收改採**重算冪等檢查**（重跑外掛後與版控內容零差異），其強度高於逐行標記：標記僅是註解、無強制力，冪等檢查連單行手改都抓得到。★**本軌道機器守實況**（誠實揭露、不以含糊措辭掩蓋覆蓋缺口）：名冊斷言僅掃帶 `原行:` 的**修改型**標記〔表外宣告 3〕，本軌道三塊皆新增型或生成檔 ⇒ 名冊斷言對本軌道**結構性不適用**、MUST NOT 當驗收；①②塊實得機器守＝「圈界標記須存在」（不比對軌道名與用途）；③塊受 fork-delta 檢查全域豁免，**重算冪等檢查是其唯一機器守**，故該檢查 MUST 併斷言「本列所列生成檔集＝外掛實際產出檔集」——本列漏列一支即該支完全無守 |
 
 **表外三項適用宣告**：
 1. 範圍欄的**處數為估值**，實作期以 `rev5-inline` 標記實數為準；**檔級名單則是硬邊界**——名單外的 base-web 既有檔一律無授權，需要動即回本節走 §V.2。
@@ -237,9 +249,10 @@
 
 ---
 
-**Version**: 1.3.1 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-11
+**Version**: 1.4.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-15
 
 **Amendment log**:
+- 1.4.0（2026-08-15）：**§I.7 第六座行為島入憲**（島 F：IP 存取閘＋信任錨＋來源維節流）——射程分界句＋F1 判定序與集合語意／F2 真相分層 keep-last-good／F3 fail-open 且唯一 fail-closed＝寫端自鎖／F4 信任錨為唯一位址輸入且兩集合同源對稱／F5 顯式放行跳節流而結構豁免不跳（五條沿前代已驗證形）＋★**F6「Tier-1 錨須傳輸層背書」為本刀新拍板**（兌現懸兩代的硬化案，錨右鄰起至傳輸層對端全屬受信基建否則棄錨退 Tier-2；反轉＝MAJOR，連帶把「鎖 origin 僅接受 CDN 邊緣連線」由承重部署前提降為縱深防禦建議）。**島 E 補兩句**：來源維計數下界恆兩源之刻意不對稱（禁「成功即重置」、防日後被統一）／解鎖標記讀取故障＝fail-closed（★該標記為帳號維與來源維**共用**機制，故方向記於島 E 而非島 F——記進島 F 只會落得「島 F 越界管轄帳號維」或「帳號維那半無家」二擇一）。**§III.2 開第五條 ★ 軌道** `BASE-WEB-MANAGE-PAGE-WIRING` (i) IP 規則管理頁進場，範圍**七支檔逐支寫出**（兩語 locale 之 `route:`／`page:` 兩樹＋`app.d.ts` 之 `Schema.page` 型節＋路由外掛產物四檔）——第三塊採**產物檔紀律**（禁手改＋重算冪等檢查，明文載「不要求逐行原文標記」及其理由＝標記於下次重算即被抹除、物理上不可維持），並明載本軌道機器守實況與覆蓋缺口（名冊斷言只掃修改型、對本軌道結構性不適用）。**§III.1 BASE-WEB-ADAPT 紀律欄措辭收斂**（B-071：「不改 inline」→「inline 修改限根層 `.env*` 接管面」；授權邊界零變動，僅使人讀憲法與 fork-delta-lint 既有寬鬆解一致）。ADR 0040；MINOR（§V.3 之「新增 ★ 軌道」「行為島隨刀進場」「已入憲 invariant 細項調整」三款）——動機＝004-ip-trust-anchor 同時撞到三個空凍結位（行為島／★ 軌道／島 E 的一處刻意不對稱），三者皆走憲法自備的授權路徑、非違規。三處拍板點 user 親決 2026-08-15（fail-closed 歸島／射程分界句要不要補／軌道命名），替代案與棄用理由逐項記於 ADR 0040。
 - 1.1.0（2026-08-05）：§I.2 demo menu 條增「例外與釋義」二款（ADR 0005；MINOR）——①toggle-auth 示範鏈（function／function_toggle-auth）對 R_ADMIN／R_USER_COMMON 之初始勾選例外（4 列、承 rev4 終態）②hideInMenu「不啟用」射程釐清（upstream route meta 原樣值非隱藏治理、6 列白名單）。動機＝001 刀 /speckit-analyze D1（CRITICAL：seed 定稿與字面衝突、過目簽核不具修憲效力）與 D2；user 親決。
 - 1.2.0（2026-08-08）：§I.5 增「實作以 rev4 對應碼為預設藍本（先讀後寫、高度參照）」句＋前代 source 立場清單增「註解一律重寫」款（ADR 0019；MINOR）——動機＝應用碼施工意圖先前僅存對話、「全新寫」字面誤導新 session 從零發明；user 親決維持拷貝禁止強度（重打字消化）、放寬為逐段移植之替代案評估後棄。
 - 1.3.0（2026-08-09）：§III.2 首開四條 ★ 軌道八用途（BASE-WEB-AUTH-WIRING (a)(b)(c)／BASE-WEB-LOGIN-CAPTCHA-WIRING (i)／BASE-WEB-I18N-WIRING (i)(ii)(iii)／BASE-WEB-LOGOUT-UX-WIRING (i)）並改為機器可解表格形（fork-delta-lint 名冊斷言之來源）＋表外三項適用宣告；§I.7 首批五座行為島入憲（token rotation／single-session／denylist 撤銷／idle 逾時／登入失敗節流，含各自 fail-* 方向與跨島刻意不一致註）。ADR 0028；MINOR（§V.3 之「新增 ★ 軌道」與「行為島隨刀進場」兩款）——動機＝003-auth-session 為第一把同時撞到兩個空凍結位的刀：後端補齊六支端點後 base-web 必須接線（12 處分屬四條尚未存在的軌道），且五台狀態機的 fail-* 方向不入憲則日後反轉無 MAJOR 閘。授權逐用途收窄，rev4 更寬用途集中的三項 `(ii)` 類明文不授權。user 親決。

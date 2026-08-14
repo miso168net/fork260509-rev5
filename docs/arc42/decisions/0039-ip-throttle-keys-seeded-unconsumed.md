@@ -2,9 +2,9 @@
 id: "0039"
 title: ip_* 三個來源節流鍵已 seed 但零執行面消費者＝已知態（解除謂詞＝B-019 落地）
 date: 2026-08-12
-status: accepted
+status: superseded
 supersedes: []
-superseded_by: []
+superseded_by: [0042]
 provenance: "輕量軌維護批（B-047／B-022 批）之帳面補登；成因＝003-auth-session brainstorm 明文承諾「ip_* 三鍵以 ADR 記已知態、解除謂詞＝B-019 落地」，但 ADR 0033 收錄的已知態五項不含此項，該事實最後只落在 003 spec 與 001 data-model（皆非活書）"
 tags: [auth, throttle, known-state]
 ---
