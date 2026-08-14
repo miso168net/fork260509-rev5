@@ -180,16 +180,17 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   **DoD：先紅後綠——四前置各缺一皆透傳（含「peer 不在驗證閘出口集但自帶驗證標記」之負向案，
   即防直連形態騙升）／不可升等三態（`direct`／`fallback`／`cdn_mismatch`）無作用／
   IPv4-mapped 折疊**
-- [ ] T011 [P] `rust-api/server/src/ipgate/mod.rs` 新建純函式核（★同批於 `lib.rs` 加
+- [x] T011 [P] `rust-api/server/src/ipgate/mod.rs` 新建純函式核（★同批於 `lib.rs` 加
   `pub mod ipgate;`）：`RuleSet{allow, deny}`＋`Verdict` 三值＋`Decision{verdict, matched_cidr}`
   ＋`STRUCTURAL_EXEMPT` **六段**（`127.0.0.0/8`／`::1/128`／`10.0.0.0/8`／`172.16.0.0/12`／
   `192.168.0.0/16`／`fc00::/7`）＋`decide`（判定序＝③豁免→④allow any-match→⑤deny any-match
   →⑥預設放行；★**集合語意、無優先序欄、與載入順序無關**）＋`build_ruleset`（★未知類型列
-  **skip＋告警**、不使整份載入失敗）＋`would_self_lock`（＝`decide(rs_after, ip).verdict ==
+  **skip＋告警**、不使整份載入失敗；★**告警半邊 2026-08-15 移交 T025**——本 task 只交出
+  `RuleSetBuild::skipped`（判定核維持零 I/O 才能全態離線測），發告警的義務見 T025 條目）＋`would_self_lock`（＝`decide(rs_after, ip).verdict ==
   Deny`；★**消費同一個 `decide`**、零內聯重複）。
   **DoD：先紅後綠——白＞黑（同網段兩類並存）／豁免段建 deny 仍放行／兩袋皆空→放行／
   未知類型 skip 而其餘規則照常／`would_self_lock` 對 allow 規則恆 false**
-- [ ] T012 [P] `rust-api/server/src/model/facade/sys_ip_rule.rs` 新建**讀端**
+- [x] T012 [P] `rust-api/server/src/model/facade/sys_ip_rule.rs` 新建**讀端**
   （`load_active` 回 `Vec<(IpNetwork, String)>`；寫端留 US3）＋`facade/mod.rs` 註冊
   （★終態十行須**嚴格 ASCII 升冪**：`sys_ip_rule` 在 `sys_login_attempt` **之前**〔`i` < `l`〕、
   `sys_operation_log` 在 `sys_menu` **之後** `sys_role` **之前**）。
@@ -220,7 +221,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★`rust-api/server/src/handler/system_settings.rs` 之 `real_app()` **不在此列**——B-054 收攏後
   已是零建構薄轉呼（其本體＝`crate::model::test_db::real_app_with(None).await`），改它是空操作。
   **DoD：既有 16 case contract 測全綠；既有測試零回歸——★判準＝**動工前後同一指令逐 target 比對**，不引帳面數字（`321` 係 003 收刀快照、後續維護批已推走；2026-08-15 U-C 動工前實測＝server lib 260、全 target 合計 327＋2 ignored，見 L-029）**
-- [ ] T015 [P] ★**research R8 未定項實測**：在容器內跑
+- [x] T015 [P] ★**research R8 未定項實測**：在容器內跑
   `rust-api/server/tests/authz_entrypoint_lint.rs` 與 `entity_access_lint.rs`，確認
   `ipgate::decide` 與 `would_self_lock`（＝**IP 閘判定**，非 casbin 授權判定）是否被
   `ALLOWED_DECISION_FILES` 的偵測面誤攔。**若誤攔**→擴 must-list 並在該 lint 內以註解記明
@@ -254,7 +255,17 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - [ ] T018 [US1] `rust-api/server/src/middleware/mod.rs` 新建（★同批於 `lib.rs` 加
   `pub mod middleware;`）：`request_context_mw`——自 `ConnectInfo` 取傳輸層對端、抽取轉發鏈與
   兩個邊緣標頭（★`CF_VERIFIED_HEADER` 常數落此檔）→呼叫 `trust` 純函式三層＋兩覆蓋→組
-  `RequestContext` 注入 request extensions（**每請求恰一次**）；★**本層零政策邏輯**
+  `RequestContext` 注入 request extensions（**每請求恰一次**）。
+  ★★**注入前 MUST 對真實來源位址做 `trust::to_canonical` 折疊**（2026-08-15 U-D 續跑之規格
+  確認輪移交；spec FR-008）：`trust::resolve_client_ip` **回傳的是未折疊的原位址**——該模組
+  內 `to_canonical` 只用在 `in_set` 與 `cdn_verified` 的比較，判定結果本身不折。若 mapped 形
+  （`::ffff:a.b.c.d`）就這樣進了上下文，兩個下游會**靜默失效**：①IP 閘的 `decide` 與寫端
+  `would_self_lock` 拿 v4 網段規則比對——`IpNetwork::contains` 對**家族不符恆回 false**
+  （實查 ipnetwork 0.20 `lib.rs:299~305`）⇒ **阻擋被繞過** ②來源維計數桶落 DB 後以 `<<=`
+  對 inet 欄比對 ⇒ **per-IP 計數恆 0**。rev4 同樣在注入前單點折疊（rev4:middleware/mod.rs:415，
+  其上方註解逐字點名這兩個後果）。★`peer_ip` **保持原形不折**（不參與桶比對）。
+  **DoD 併加一案**：mapped 形的真實來源經 middleware 後，`decide` 對其 v4 deny 規則確實命中。
+  ★**本層零政策邏輯**
   （判定全在 `trust` 純函式、middleware 純消費，違反即 F4 破功）。
   **DoD：T016 由紅轉綠**
 - [ ] T019 [US1] `rust-api/server/src/request_context.rs` **seam 換血**：三欄與取值器**簽名
@@ -300,6 +311,16 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 - [ ] T025 [US2] `rust-api/server/src/ipgate/mod.rs` 補動態面：`try_load_ruleset`／
   `load_ruleset`（啟動初載失敗→空集 fail-open）＋`IPGATE_INVALIDATE_CHANNEL` 常數＋
+  ★**2026-08-15 U-D 移交的必做項**：`load_ruleset`／`try_load_ruleset` MUST **消費**
+  `ipgate::RuleSetBuild::skipped`、**逐列發結構化告警**（帶命中網段與原始 `wbip_type`
+  字面），且不使整份載入失敗。★背景：T011 依主線指示把告警輸出點自純函式 `build_ruleset`
+  移到載入面（判定核維持零 I/O 才能全態離線測、被跳過的列因此是可離線斷言的回傳值），
+  但當時**沒有任何 task 承接告警義務** ⇒ 只取 `.rules` 而丟棄 `.skipped` 的寫法編譯器不會
+  提醒，營運面把 `wbip_type` 打成 `block` 的列會被靜默忽略、日誌與觀測兩面零訊號
+  （＝rev4 實暴形「設定看起來有值、實際沒生效」的複製品）。本條即補上那個家。
+  ★**刻意不進 data-model §5 降級矩陣、也不新增 obs 序列**：規則集照常載入、判定面不失真，
+  這是**輸入資料品質事件**而非系統降級；歸進降級矩陣會歸錯類，且 T030 的類別集逐字取自
+  該矩陣、連鎖改動不划算。data-model §1.1 與 research R5 兩處字面本就只要求「告警」。
   `reload_and_publish`（★re-read **成功才** store＋發門鈴；失敗→keep-last-good＋回錯由呼叫端
   退避；發送失敗／通知層缺席→告警但回成功，本機已生效）。**DoD：T023 由紅轉綠**
 - [ ] T026 [US2] `rust-api/server/src/cache/mod.rs` 加 `publish` 原語（沿既有 nil↔Err 分流
@@ -373,6 +394,10 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `list`（分頁＋三 filter：網段模糊／類型等值／刪除狀態三態）＋四寫端（新增／更新／軟刪
   〔`deleted_at`＋`deleted_by` **成對**寫〕／復原〔成對清空〕）＋`IpRuleMutateError`
   （唯一性衝突獨立變體，供 handler 映業務碼）；★寫端與操作稽核列**同一交易**。
+  ★**2026-08-15 U-D 續跑移交**：本 task 併含 `find_by_id`（讀單筆、**含軟刪列**）——
+  T035 的 `guard_self_lock` 要組「變更後規則集」，update／delete／restore 三個寫端都得先知道
+  目標列的現值（網段×類型），restore 的目標更本來就是軟刪列。原 tasks 只列了 `list` 與四寫端、
+  T035 只列 `guard_self_lock`，這支在帳面上無家、U-H 會在中途撞到。
   **DoD：真 DB 測先紅後綠——軟刪後同組合可重建、唯一性只約束有效列**
 - [ ] T035 [US3] `rust-api/server/src/handler/ip_rule.rs` 新建（★同批於 `handler/mod.rs` 加
   `pub mod ip_rule;`）：五支 handler＋DTO（camelCase，見 `contracts/wire-ip-rule.md`；★識別碼
@@ -680,8 +705,8 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | U-A ★主線 | T001~T003 | `docs/arc42/decisions/`、`.specify/memory/constitution.md` |
 | U-B | T004~T006 | 兩份 `Cargo.toml`、★`rust-api/Cargo.lock`（由 `cargo build` 機器重算、禁手改）、`config.rs`、`deploy/trust-model.dev.toml`、`docker-compose.dev.yml` |
 | U-C | T007~T010 | `trust/mod.rs`、★`lib.rs` |
-| U-D | T011~T012 | `ipgate/mod.rs`、★`lib.rs`、`facade/{sys_ip_rule,mod}.rs` |
-| U-E | T013~T015 | `state.rs`、`main.rs`、`tests/common/mod.rs`、★`router.rs`（僅其 `mod tests` 的 stub_state）、★`auth/enforce.rs`（僅其 `mod tests` 的 `state_with`）、★`model/mod.rs`（僅其 `test_db::real_app_with`）、★`throttle/mod.rs`（僅其 `mod tests` 的 `throttle_app`）、兩支 lint |
+| U-D | **T011~T012＋T015** | `ipgate/mod.rs`、★`lib.rs`、`facade/{sys_ip_rule,mod}.rs`、★兩支 lint（`tests/{authz_entrypoint_lint,entity_access_lint}.rs`；★2026-08-15 T015 自 U-E 移入——該 task 查的就是 `ipgate::decide`／`would_self_lock` 會不會被誤攔，而那兩支符號是 U-D 的產出，留在 U-E 等於在符號誕生一個單元之後才驗） |
+| U-E | **T013~T014**（T015 已移入 U-D） | `state.rs`、`main.rs`、`tests/common/mod.rs`、★`router.rs`（僅其 `mod tests` 的 stub_state）、★`auth/enforce.rs`（僅其 `mod tests` 的 `state_with`）、★`model/mod.rs`（僅其 `test_db::real_app_with`）、★`throttle/mod.rs`（僅其 `mod tests` 的 `throttle_app`）、兩支 lint |
 | U-F | T016~T022 | `middleware/mod.rs`、★`lib.rs`、`request_context.rs`、`facade/sys_login_attempt.rs`、`router.rs` |
 | U-G | T023~T030 | `ipgate/mod.rs`、`middleware/mod.rs`、`cache/mod.rs`、`main.rs`、`router.rs`、`obs.rs` |
 | U-H | T031~T038 | `contract.rs`、`router.rs`、`model/{audit,mod}.rs`、`facade/{sys_ip_rule,sys_operation_log,mod}.rs`、★`handler/{mod,ip_rule}.rs`、`tools/schema-gate.py`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
