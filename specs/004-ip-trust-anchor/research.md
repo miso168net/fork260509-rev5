@@ -15,7 +15,7 @@
 | 6 | `trust/mod.rs`：`apply_tunnel_fallback` | 252–271 | 同上 | U1 |
 | 7 | `trust/mod.rs`：`apply_cf_overlay`（四前置） | 274–299 | 同上 | U1 |
 | 8 | `trust/mod.rs`：`normalize_xff`／`parse_xff_token`／`strip_zone_and_parse` | 302–350 | 同上 | U1 |
-| 9 | `config.rs`：`load_trust_model`＋`RawTrustModel`＋flat env 退路 | 166–331 | `config.rs`（擴充） | U1 |
+| 9 | `config.rs`：`TrustLoadWarning`／`RawTrustModel` 五型＋`load_trust_model`＋`flat_env_fallback`＋★`parse_cidr_set`／`parse_cidrs`／`clear_warning`（單集合無效即清空該集合之實作面） | 161–370 | `config.rs`（擴充） | U1 |
 | 10 | `ipgate/mod.rs`：`RuleSet`／`Verdict`／`Decision`／`STRUCTURAL_EXEMPT` 六段 | 13–62 | `ipgate/mod.rs`（新） | U2 |
 | 11 | `ipgate/mod.rs`：`decide` 判定序 | 63–82 | 同上 | U2 |
 | 12 | `ipgate/mod.rs`：`would_self_lock` | 84–96 | 同上 | U2／U5 |
@@ -31,17 +31,26 @@
 | 22 | `model/facade/sys_login_attempt.rs`：`count_recent_failures_by_ip`（`real_ip <<= $1::inet`＋GREATEST 兩源） | 177–213 | rev5 同名 facade（擴充） | U6 |
 | 23 | `handler/ip_rule.rs`：`IpRuleListQuery`／`IpRuleRecord`／三個 Req DTO＋五支 handler | 40–107／260–461 | `handler/ip_rule.rs`（新） | U5 |
 | 24 | `handler/ip_rule.rs`：`validate_wbip_type`／`normalize_cidr`／`map_mutate_err`／`guard_self_lock` | 115–258 | 同上 | U5 |
-| 25 | `handler/throttle.rs`：`unlock_login`＋`resolve_unlock_target`（★稽核先於生效） | 80–196 | `handler/throttle.rs`（新） | U7 |
+| 25 | `handler/throttle.rs`：`UnlockReq` DTO＋`resolve_unlock_target`＋`unlock_login`（★稽核先於生效） | 74–204 | `handler/throttle.rs`（新） | U7 |
 | 26 | `model/facade/sys_ip_rule.rs`：`load_active`／`list`／`IpRuleWrite`／`IpRuleMutateError`／軟刪復原 | 全檔 762 行 | `model/facade/sys_ip_rule.rs`（新） | U5 |
 | 27 | `model/facade/sys_operation_log.rs`＋`model/audit.rs`：`AuditEvent`／`AuditOperation`／`AuditOperator` | — | `model/facade/sys_operation_log.rs`（新）＋`model/audit.rs`（新） | U5 |
 | 28 | `base-web/src/views/manage/ip-rule/{index.vue,modules/ip-rule-operate-drawer.vue,modules/ip-rule-search.vue}` | 三檔 | 同路徑（新增型） | U8 |
 | 29 | `base-web/src/typings/api/*`：`Api.IpRule` 節 | — | `typings/api/rev5-ip-rule.d.ts`（新、ADAPT 軌） | U8 |
-| 30 | `deploy/nginx/nginx.conf`：`geo $cf_edge`／兩 map（**rev5 已完整具備、零改動**） | 41–61 | 不動 | — |
+| 30 | `deploy/nginx/nginx.conf`：`geo $cf_edge`／兩 map（**rev5 已完整具備、零改動**） | 41–62 | 不動 | — |
 
 **總量**：rev4 側約 3,600 行**整檔行數**（trust 718＋ipgate 611＋ip_rule handler 1,550＋
 facade 762）＋middleware／throttle／config 的局部段。★**其中生產段約 1,440 行**——四檔的
 `#[cfg(test)]` 分別起於 345／317／466／313，測試段佔逾六成；估工作量請用生產段、勿用整檔數。
 ★全數依 §I.5＋ADR 0019 重打字消化、註解一律 rev5 語境重寫（rev4 出處帶 `rev4:` 前綴）。
+
+★**行號逐列機器核對已完成**（2026-08-14，TDD 實作動工前；核對法＝對 rev4 樹逐檔 grep 符號
+定義行、比對各列宣稱區間）。結果：**27 列準確**；三列已於本輪就地更正——第 9 列（原 166–331
+**漏掉整組實作面 helper**：`TrustLoadWarning` 在區間之前、`parse_cidr_set`／`parse_cidrs`／
+`clear_warning` 在區間之後，而後三者正是「單一集合含無效 CIDR → 只清空該集合」與結構化告警
+的落地處 ⇒ 照原區間讀會漏掉 T005 第三條失敗語意的整個實作）／第 25 列（DTO 落在區間之前）／
+第 30 列（第二個 map 收在 62 行）。四檔行數與 `#[cfg(test)]` 起點亦逐一複驗相符
+（718／611／1550／762；345／317／466／313）。**本表自此為已驗座標，讀不到預期符號請先疑
+自身檢索式**。
 
 ## R2 rev5 拍板差異點清單（ADR 0019 要求②；★防回歸：以下 rev4 行為一律不得帶回）
 

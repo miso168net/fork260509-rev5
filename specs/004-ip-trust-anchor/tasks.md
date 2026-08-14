@@ -71,7 +71,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 **Purpose**: 取得 base-web inline 的憲法授權、把三個新依賴帶進場、讓信任模型在 dev 真的生效。
 ★T001~T003 為主線任務（user 拍板環節，不入 agent 執行單元）。
 
-- [ ] T001 ★主線任務（user 親決）：撰寫憲法 Amendment 的 ADR draft 於
+- [x] T001 ★主線任務（user 親決）：撰寫憲法 Amendment 的 ADR draft 於
   `docs/arc42/decisions/`——①**§I.7 島 F 進場**（六條：F1 判定序與集合語意／F2 真相分層
   keep-last-good／F3 fail-open 且唯一 fail-closed＝寫端自鎖、降級必告警／F4 信任錨為唯一位址
   輸入且兩集合同源對稱／F5 顯式放行跳節流而結構豁免不跳／★**F6 本刀新增：Tier-1 錨須傳輸層
@@ -89,7 +89,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ＝「僅由外掛重算產出、禁止手改」＋**明文寫入「不要求逐行原文標記」及其理由**〔標記於下次
   重算即被抹除、物理上不可維持〕＋驗收採**重算冪等檢查**）④**B-071 之 §III.1 紀律欄措辭 PATCH**；
   draft 交 user 親決
-- [ ] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
+- [x] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
   （§I.7 島 F 六條＋島 E 釐清句＋§III.2 表格加第五條軌道一列＋§III.1 紀律欄措辭）＋bump
   1.3.1→1.4.0＋`python3 tools/docs-sync.py generate`；獨立 commit
   `docs(constitution): amend §I.7 島 F＋§III.2 第五條軌道（ADR 00NN、1.3.1→1.4.0）`。
@@ -98,7 +98,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   載入器讀進來（SC-011）。★射程提醒：這證的是「該列被讀進來」，不是「名冊斷言會擋本軌道的越界
   改動」——本軌道三塊皆新增型或生成檔，在名冊斷言（僅掃帶 `原行:` 的修改型）射程外。此 commit
   落地即解除 base-web 既有檔硬閘**
-- [ ] T003 ★主線任務（user 親決）：立連帶 ADR 於 `docs/arc42/decisions/`——①`AppState`
+- [x] T003 ★主線任務（user 親決）：立連帶 ADR 於 `docs/arc42/decisions/`——①`AppState`
   五欄→七欄翻案（`state.rs` 恰五欄封條；★改寫時**保留** `mailer` 續留域外的邊界說明）
   ②本刀已知態集：**持久化設定重評結論＝維持不開**（論證＝IP 維暴險受「權威源即真相」封頂：
   判定面不依賴快取、解鎖標記遺失可再解鎖自癒；★此重評觸發器由前一刀明文掛在本條目上）／
@@ -405,6 +405,12 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   （★**禁手改**；★該 `.d.ts` 是 `RouteKey`／`RouteMap` 的產出處——locale `route:` 樹型為
   `Record<I18nRouteKey, string>`，它未重算出 `manage_ip-rule` 鍵則 typecheck 必紅）。
   每處依 fork-delta 紀律標記（★產物四檔**除外**——依 T002 條文不要求逐行標記）。
+  ★**軌道名與用途識別符已於 T002 拍板落憲**（憲法 §III.2 第五列、ADR 0040 款三）＝
+  `BASE-WEB-MANAGE-PAGE-WIRING` 之 `(i)`；圈界標記逐字形＝
+  `[rev5-inline BASE-WEB-MANAGE-PAGE-WIRING(i)+ 004-ip-trust-anchor START]`／`… END]`
+  （沿 003 之 `app.d.ts:314`／`:368` 既有形）。★該軌道授權檔集恰七支、以載入器實測確認
+  （`en-us.ts`／`zh-cn.ts`／`app.d.ts`／`router/elegant/{imports,routes,transform}.ts`／
+  `typings/elegant-router.d.ts`）——清單外的 base-web 既有檔一律無授權。
   **DoD：`pnpm typecheck` 綠；`fork-delta-lint` 綠——★此處驗的是新增型「圈界標記須存在」，
   不是名冊斷言：本軌道三塊皆新增型或生成檔，在名冊斷言（僅掃帶 `原行:` 的修改型）射程外
   〔憲法 §III.2 表外宣告 3〕；四支生成檔由 T042② 的冪等檢查守**
@@ -654,7 +660,7 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | U-G | T023~T030 | `ipgate/mod.rs`、`middleware/mod.rs`、`cache/mod.rs`、`main.rs`、`router.rs`、`obs.rs` |
 | U-H | T031~T038 | `contract.rs`、`router.rs`、`model/{audit,mod}.rs`、`facade/{sys_ip_rule,sys_operation_log,mod}.rs`、★`handler/{mod,ip_rule}.rs`、`tools/schema-gate.py`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
 | U-I | T039~T043 | `rev5-ip-rule.{ts,d.ts}`、`views/manage/ip-rule/` 三檔、兩語 locale、`app.d.ts`、`router/elegant/` 三檔＋`typings/elegant-router.d.ts`（★路由外掛產物四檔）、`tools/`（兩支新守）、★`rust-api/server/tests/fixtures/wire-schema.json`（T039 之 DoD「快照納入新檔」的實體、由生成器重抽） |
-| U-J | T044~T049 | `facade/sys_login_attempt.rs`、`throttle/mod.rs`、`handler/auth/login.rs` |
+| U-J | T044~T049 | `facade/sys_login_attempt.rs`、`throttle/mod.rs`、`handler/auth/login.rs`、★`cache/mod.rs`（T047 需 IP 維 lock／unlock 鍵；rev5 現僅 `throttle_lock_user_key` 單一用途 builder、其檔內註解自述「IP 維屬後續刀」⇒ 本單元必動，2026-08-15 動工前接地補列） |
 | U-K | T050~T055 | `contract.rs`、`router.rs`、★`handler/{mod,throttle}.rs`、`throttle/mod.rs`、`cache/mod.rs`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
 | U-L | T056~T063 | `RUNBOOK.md`、`ARCHITECTURE.md`、`BACKLOG.md`、`LESSONS.md`、★`rust-api/server/tests/wire_schema.rs`（僅其「裁判面界線」註記、T060）、★`docs/generated/**`（★T063 由 `docs-sync.py generate` **機器重算**產出、**禁手改**——agent 只得跑該指令後 `git add`） |
 
