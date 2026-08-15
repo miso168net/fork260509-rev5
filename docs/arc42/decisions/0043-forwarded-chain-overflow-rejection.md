@@ -2,7 +2,7 @@
 id: "0043"
 title: 轉發鏈跳數逾上界即拒絕（fail-closed 第二腿）＋稽核轉錄保留判定窗＋計數維度分流
 date: 2026-08-15
-status: draft
+status: accepted
 supersedes: []
 superseded_by: []
 provenance: "004-ip-trust-anchor 之 U-F 規格確認輪實暴（稽核軌與判定軌截斷方向相反），經主線逐項複驗後升 user 親決；user 2026-08-15 拍板四項（見決定段）。落地單元＝tasks.md 之 Phase 9／U-M（T064~T072）"
