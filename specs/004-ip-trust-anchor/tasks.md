@@ -432,6 +432,18 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   「變更後集合」語意見 `contracts/wire-ip-rule.md`）；寫成功後呼 `reload_and_publish`。
   ★handler **零 path-root `entity::`**（資料存取全走 facade）。
   **DoD：T032 由紅轉綠**
+  ★**2026-08-15 U-M 收尾移交（允許檔清單缺口，動工前先補進去）**：本 task 使
+  `ipgate::reload_and_publish` 取得**第一個生產面呼叫者**，連帶讓兩處敘述失真，兩處都在
+  `rust-api/server/src/ipgate/mod.rs`（★該檔**必須**進 U-H 的允許檔清單，否則會撞防呆⑥）：
+  ①`spawn_ipgate_watcher` 的 doc 逐字寫著「[`reload_and_publish`] 目前**零生產面呼叫者**
+  （唯三呼叫點都在本檔測試模組）……US3 的 ip-rule 寫端（T031~T038）一接上，後兩腿即刻成為
+  真實成因」——接上後前半句即為假，MUST 改為現在式（該句刻意把觸發條件寫進句子本身，就是
+  為了讓這次改動有跡可循）。②`reload_and_publish` 自身的「呼叫契約」段若有「目前僅測試呼叫」
+  類敘述亦同批改對。★**驗收＝以 `grep -n "零生產面\|唯三呼叫點\|僅測試" ipgate/mod.rs`
+  枚舉，命中應為零**（L-030／L-032 的形：射程搬動而敘述沒跟著搬）。
+  ★另一項連帶：`sys_operation_log` 自本 task 起有真寫入者 ⇒ 稽核列的 `ip_confidence` 可能
+  讀到 `chain_rejected`，語意為「**鏈逾上界但請求仍被服務**」而**非**「被拒」
+  （spec FR-047 連帶句／data-model §1.2①；★兩表同一字面語意不同，查詢與說明 MUST 分表判讀）。
 - [ ] T036 [US3] `rust-api/server/src/router.rs` 加**五條 ROUTES**（路徑與動詞逐字對齊 001
   凍結 seed 之政策列：`getIpRuleList` GET／`addIpRule` POST／`updateIpRule` POST／
   `deleteIpRule` **DELETE**／`restoreIpRule` POST；★五條皆 `Protection::Policy`）＋bump 條數
@@ -656,6 +668,23 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★**本 task MUST 早於 T062**——走查（§2 三次新增、§6 管理頁新增／軟刪〔軟刪不移列〕）會在
   `sys_ip_rule` 留下實列，而 T062 的全量閘含 `schema-gate check`；次序倒置則該閘必紅、且紅得
   「看起來像真缺陷」。**DoD：三閘綠**
+  ★**2026-08-15 U-M 品質審查移交：`sys_user.session_id` 無守衛還原（本 task 最可能引爆）**。
+  機制：走查若把 `single_session_default` 翻 `on`（003 quickstart 的走查前置正是如此），
+  任何跑完**成功登入路徑**的真庫測試都會在第⑨步寫 `sys_user.session_id`；而 `sys_user`
+  **不在** `tools/schema-gate.py` 的 `RUNTIME_APPEND_TABLES`（實查恰 `session_event`／
+  `sys_login_attempt`／`sys_token` 三表）⇒ gate2 對它是**原位逐列 diff、殘值即紅**。
+  現存四支守衛無一支還原該欄（`SequenceResetGuard` 只 setval 三支 sequence／`ChainRowsCleanup`
+  只刪 `sys_token`／`LoginAttemptCleanup` 只刪 `sys_login_attempt`／`SessionEventCleanup`
+  只刪 `session_event`）。今日不觸發（seed 為 `off`＋三列 `session_policy='inherit'`），
+  ★但那是 **runtime 可改值**、守衛不該依賴它——這正是 L-031／L-036 的形（爆點與成因差好幾個單元）。
+  **本 task MUST 做**：於 `rust-api/server/src/model/mod.rs` 的 `test_db` 新增 `SessionIdCleanup`
+  （形制沿 `LoginAttemptCleanup`：起手掛、Drop 時 `UPDATE sys_user SET session_id = NULL
+  WHERE id = ANY(...)`，並比照既有守衛加一支「守衛核心自證」測），並掛到全部走成功登入路徑的
+  真庫測試——已知至少兩支：`login.rs` 的 `t019_login_success_returns_pair_token_row_and_one_audit_row`
+  與 `t019_login_starts_last_activity_clock_best_effort`（U-K 若新增成功路徑測亦須同批掛）。
+  ★`t069_chain_rejection_precedes_password_hashing_with_no_success_side_effect` 已自備
+  `purge_success_side_effects_of_user`（命令式、非 RAII），可於本 task 一併收攏成該守衛。
+  **DoD：變異測——把 `single_session_default` 設 `on` 跑那兩支測，收尾 `schema-gate check` 須綠**
 - [ ] T062 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
   ＋`cargo build --release`＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`
   ＋`schema-gate check`＋本刀兩支新機器守。**前置＝T061 已清走查列。DoD：全綠**
@@ -686,6 +715,9 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 **★user 2026-08-15 拍板四項**（逐項為本 Phase 的硬要求）：
 1. **稽核欄改為保留判定窗**（最右 `MAX_XFF_TOKENS` 欄、再以字元上限兜底）——使
    「稽核欄 ⊇ 判定窗」成為**結構性保證**：`real_ip` 必定出現在欄中，因為它就是從那個窗推出來的。
+   ★**後註（不改拍板原文、僅標明現行權威）**：上句的無條件形已於 2026-08-15 由 U-M 規格審查
+   以**逐位元反例**收窄——現行判準見**憲法 v1.5.1 的 F8**（兩個成立條件）與 LESSONS **L-037**。
+   拍板的**意圖**（稽核欄與判定窗共用同一組欄）未變、且已達成；變的只是「保證」二字的射程。
    棄案＝只把方向反過來（保留最右 1024 字元）：32 個長 IPv6 token 可達 ~1440 字元 > 1024，
    `real_ip` 仍可能落在欄外，不是結構性保證。
 2. **鏈超長即拒絕，且在 app 層做**（★user 明示「一定要在 app 層做」）。判準取
@@ -714,32 +746,32 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   bump 版本＋`docs-sync.py generate`；獨立 commit。**DoD：lint 全綠**
 - [x] T066 spec／data-model 面同步：七態→**八態**（spec FR-007／data-model §2.4／§1.2）＋
   新增拒絕腿的 FR＋降級矩陣是否新增列之判定（★預期**不**新增——拒絕不是降級，是明確處置）。
-- [ ] T067 `rust-api/server/src/trust/mod.rs`：加 `Confidence::ChainRejected`（字面
+- [x] T067 `rust-api/server/src/trust/mod.rs`：加 `Confidence::ChainRejected`（字面
   `chain_rejected`、經**同一個** `as_str` 出口——另開字串路徑即破「全 repo 無任何路徑能寫出
   值域外字面」這條 U-F 已驗證的不變式）＋★`rightmost_window_str`（判定窗的**字串**形；
   ★token 切分規則 MUST 只有一份，兩份就是 L-030 的形）＋`normalize_xff` 回報是否溢出。
   **DoD：先紅後綠；★八態字面測與 T016 的 `dedup().len() == 7` 同批改對**
-- [ ] T068 `rust-api/server/src/request_context.rs`：`sanitize_x_forwarded_for` 改為經
+- [x] T068 `rust-api/server/src/request_context.rs`：`sanitize_x_forwarded_for` 改為經
   `trust::rightmost_window_str` 取判定窗＋字元上限兜底；★既有兩支斷言
   （`sanitize_truncates_over_1024_chars`／`sanitize_counts_chars_not_bytes`）同批改對。
   **DoD：★新增一案證明「稽核欄 ⊇ 判定窗」——對逾限鏈斷言 `real_ip` 必出現在欄中**
-- [ ] T069 `rust-api/server/src/middleware/mod.rs`＋`rust-api/server/src/handler/auth/login.rs`：
+- [x] T069 `rust-api/server/src/middleware/mod.rs`＋`rust-api/server/src/handler/auth/login.rs`：
   溢出旗標帶進上下文；login 在**密碼雜湊驗證與節流 precheck 之前**拒絕，先寫稽核列
   （`ip_confidence = chain_rejected`）再回 **`5003`／`system.forbidden`／HTTP 403**
   （★復用既有 `PermissionDenied`＝**零新 AppError 變體、零新 msg key、零 Lint24 四處同步**；
   與 IP 閘阻擋同家族）。★三個 `record_attempt(…, &ctx)` 呼叫點仍 MUST 逐位元不變。
   **DoD：先紅後綠；含「拒絕後未進 precheck」與「拒絕前未做密碼雜湊」兩案**
-- [ ] T070 `rust-api/server/src/model/facade/sys_login_attempt.rs`：帳號維計數查詢加
+- [x] T070 `rust-api/server/src/model/facade/sys_login_attempt.rs`：帳號維計數查詢加
   `AND ip_confidence IS DISTINCT FROM 'chain_rejected'`。**DoD：★鑑別力測——同一組測資下，
   拿掉該過濾即紅（否則等於沒守）**
 - [x] T071 ★**寫進 T046 條文、不新開 task**：來源維計數查詢**刻意不加**該過濾（鍵是攻擊者
   自己的位址、納入才封得住成長），並補一支測試釘住「刻意不加」——★沒有這支測，日後有人
   「順手統一兩維」就把封頂拿掉了、且零訊號。
-- [ ] T072 走查（quickstart 新增一節：發一條 >32 跳的鏈、斷言得 403／`5003`、稽核列
+- [x] T072 走查（quickstart 新增一節：發一條 >32 跳的鏈、斷言得 403／`5003`、稽核列
   `ip_confidence = chain_rejected` 且 `x_forwarded_for` 含 `real_ip`）＋全量閘。
   ★走查後 MUST 依 §1 收尾清列（L-031）。
 
-**Checkpoint**: 鏈超長拒絕腿成立、稽核欄複驗性成為結構性保證。
+**Checkpoint**: 鏈超長拒絕腿成立；稽核欄與判定窗**共用同一組欄**（此半為結構性保證、有機器守），**複驗性帶憲法 v1.5.1 的兩個成立條件**（(a) `real_ip` 由鏈推導 (b) 窗未逾字元上限）。
 
 
 ---

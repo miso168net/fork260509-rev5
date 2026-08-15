@@ -55,9 +55,19 @@ curl -s "$BASE/auth/login" -H 'content-type: application/json' \
 
 查稽核列（psql 進 rev5 庫；★絕不指向對照環境的庫）：
 
-```sql
-SELECT real_ip, peer_ip, ip_confidence, attempted_user_name
-FROM sys_login_attempt ORDER BY created_at DESC LIMIT 2;
+```bash
+# ★psql 一律走**容器內環境變數**形，且**本行是本檔 psql 形的單一定義點**——§1 收尾／
+#   §1b／§5／§7 皆沿用 `$PG`（新開 shell 需重跑這一行）。
+#   裸 `psql -c` 在 host 上必失敗：rev5 的庫在 compose 的 postgres 容器內，host 沒有 PG
+#   server（實得 `connection to server on socket "/var/run/postgresql/.s.PGSQL.5432"
+#   failed`）；即使連得上，寫死 `-U postgres -d rev5_admin` 也會
+#   `FATAL: role "root" does not exist`（LESSONS L-015 實暴）。真值＝compose 的
+#   POSTGRES_USER／POSTGRES_DB，故一律由容器內的環境變數展開。
+PG='docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres'
+
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+  SELECT real_ip, peer_ip, ip_confidence, attempted_user_name
+  FROM sys_login_attempt ORDER BY created_at DESC LIMIT 2"'
 ```
 
 **預期**：兩列的 `ip_confidence` 分別為 `proxy_clean`（帶標頭那筆、`real_ip`＝`203.0.113.11`）
@@ -66,10 +76,14 @@ FROM sys_login_attempt ORDER BY created_at DESC LIMIT 2;
 ### ★§1 收尾（必做，**不可留到 §7**）
 
 ```bash
-# 走查留下的登入嘗試列會毒化**下一次** `cargo test --workspace`：
-psql -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')"
-psql -c "SELECT setval('sys_login_attempt_id_seq', 1, false)"
+# 走查留下的登入嘗試列會毒化**下一次** `cargo test --workspace`（`$PG` 定義見上一塊）：
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('"'"'Super'"'"','"'"'Admin'"'"','"'"'User'"'"')" \
+  -c "SELECT setval('"'"'sys_login_attempt_id_seq'"'"', 1, false)" \
+  -c "SELECT count(*) AS remaining FROM sys_login_attempt"'
 ```
+
+**預期**：`remaining` 為 0。
 
 ★**為什麼這一步不能省、也不能延到 §7**（2026-08-15 U-F 走查實暴，見 `docs/ops/LESSONS.md`
 的 L-031）：`sys_login_attempt` 確實在 schema 閘的 runtime-append 收窄集內，所以留列**不會**
@@ -92,9 +106,8 @@ psql -c "SELECT setval('sys_login_attempt_id_seq', 1, false)"
 `captcha/mod.rs`、`refresh.rs` …），重排即讓那批引用整批失準。
 
 ```bash
-# ★本節自帶 psql 呼叫形、不假設任何 shell alias：真值是 compose 的 POSTGRES_USER／
-#   POSTGRES_DB，寫死 `-U postgres -d rev5_admin` 會當場 `FATAL: role … does not exist`
-#   （LESSONS L-015 實暴）。以下命令皆為**實跑過**的形。
+# ★`$PG` 與 §1 同一顆（此處重列一份讓本節可獨立起跑、不假設任何 shell alias；理由與
+#   L-015 逐字記載見 §1）。以下命令皆為**實跑過**的形。
 PG='docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres'
 
 # 造一條 36 跳的鏈：35 跳洪泛（198.18.0.1~35）＋真實來源 SIM_A。
@@ -127,7 +140,7 @@ $PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -x -c "
 | 欄 | 值 | 這一格在守什麼 |
 |---|---|---|
 | `ip_confidence` | `chain_rejected` | 第八態落欄（FR-007）；帳號維計數即以此字面逐字排除該列 |
-| `real_ip` | `203.0.113.11/32` | ★拒絕態下**仍有位址**（取自判定窗）——來源維計數要數這些列（FR-050），無位址即無從歸戶 |
+| `real_ip` | `203.0.113.11/32` | ★拒絕態下**恆有位址**——來源維計數要數這些列（FR-050），無位址即無從歸戶。★**出處視判定腿而定**：本例走層③故取自判定窗，層①直連腿／④回退腿／通道覆蓋層則取自傳輸層對端或訪客標頭（逐腿列舉見 `trust::Confidence::ChainRejected` doc） |
 | `peer_ip` | 反向代理容器位址（如 `172.23.0.7/32`） | 鑑識三欄齊活 |
 | `xff_head` | 自 `198.18.0.6` 起 | ★溢出窗外的左端 5 跳**不在欄裡**＝轉錄真的取了判定窗 |
 | `contains_real_ip` | `t` | ★**F8 的走查面**：兩軌取同一組欄，故本例 `real_ip` 可由該欄複驗。★**本例成立不等於恆成立**——F8 v1.5.1 明列兩個條件：(a) `real_ip` 由鏈推導 (b) 窗未逾字元上限；本例兩者皆滿足（最右 32 跳皆短 v4 字面、窗長遠低於上限）。一般化條件見 FR-046 |
@@ -274,11 +287,12 @@ curl -s "$BASE/auth/login" -H 'content-type: application/json' \
 **預期**：解鎖回 `"0000"`；隨後該來源回到自由區（`auth.login.failed`）。
 
 ```bash
-# 畸形參數 → 零稽核零狀態
-BEFORE=$(psql -tAc "SELECT count(*) FROM sys_operation_log")
+# 畸形參數 → 零稽核零狀態（`$PG` 定義見 §1；新開 shell 需重跑那一行）
+COUNT_SQL='psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM sys_operation_log"'
+BEFORE=$($PG sh -lc "$COUNT_SQL")
 curl -s "$BASE/systemManage/unlockLogin" -H "$AUTH" -H 'content-type: application/json' \
   -d '{"dimension":"nonsense"}' | jq '.code, .msg'
-psql -tAc "SELECT count(*) FROM sys_operation_log"   # 預期與 $BEFORE 相同
+$PG sh -lc "$COUNT_SQL"   # 預期與 $BEFORE 相同
 ```
 
 **預期**：`"2222"` ＋ `biz.throttle.invalidUnlockTarget`，稽核列數**不變**。
@@ -301,17 +315,21 @@ psql -tAc "SELECT count(*) FROM sys_operation_log"   # 預期與 $BEFORE 相同
 ## 7. 收尾（★必做）
 
 ```bash
+# 0) `$PG` 定義見 §1（新開 shell 需重跑那一行；★裸 `psql -c` 在 host 上必失敗）
 # 1) 清掉走查建立的 IP 規則列——sys_ip_rule 是變體 A 業務表、
 #    ★刻意不納入 schema 閘的 runtime-append 收窄集，留列會使 gate2 逐列比對紅
-psql -c "TRUNCATE sys_ip_rule RESTART IDENTITY"
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "TRUNCATE sys_ip_rule RESTART IDENTITY"'
 
 # 2) 操作稽核表已納入收窄集（本刀常數加一行）⇒ schema 閘面免清理
 #    ★但「在收窄集內」只豁免 seed 內容比對，**不等於留列無害**——見下一步
 # 3) ★登入嘗試列：收窄集豁免不了測試套件（SequenceResetGuard 會 setval 回 1，
 #    留列佔住 id=1 即讓 login integration 五支撞主鍵）。各節走查後就該清，
 #    此處為兜底；理由見 §1 收尾與 LESSONS L-031
-psql -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')"
-psql -c "SELECT setval('sys_login_attempt_id_seq', 1, false)"
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('"'"'Super'"'"','"'"'Admin'"'"','"'"'User'"'"')" \
+  -c "SELECT setval('"'"'sys_login_attempt_id_seq'"'"', 1, false)" \
+  -c "SELECT count(*) AS remaining FROM sys_login_attempt"'
 
 # 4) 三閘
 python3 tools/docs-sync.py check && python3 tools/schema-gate.py check
