@@ -657,6 +657,82 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ---
 
+## Phase 9: 轉發鏈超長拒絕腿（★user 2026-08-15 拍板追加；T064~T072）
+
+**★執行位置**：U-F 之後、**U-J 之前**（T046 的來源維計數查詢尚未寫、可一次寫對）。
+實務上排在 U-G 之後跑——ADR 的 user 親決窗口可與 U-G 的執行時間重疊，不空等。
+**★與 U-G 不可並發**：兩者皆動 `middleware/mod.rs`。
+
+**成因**（004 U-F 規格確認輪實暴、經主線複驗）：稽核軌 `sanitize_x_forwarded_for` 保留
+**最左** 1024 字元，判定軌 `trust::normalize_xff` 保留**最右** 32 欄——方向相反 ⇒ 鏈逾
+1024 字元時稽核欄留下的正好是判定丟掉的那一半。且 nginx 以 `$proxy_add_x_forwarded_for`
+在**最右**附加對端 ⇒ 入庫的 1024 字元 **100% 由攻擊者選定**，他可以寫一條看似合理的**假鏈**
+讓事後看稽核列的人讀到（證據**代筆**，不只是證據缺失）。可達性：nginx 未設
+`large_client_header_buffers`（預設 4 8k）⇒ 約 2KB 的鏈穿得過 production 入口。
+★**判定不受影響**（取窗方向是對的、`real_ip` 正確、IP 閘與節流皆不受繞過），純鑑識面。
+★**本刀才使其承重**：003 期 `real_ip` 取自 `X-Real-IP`、該欄純裝飾；004 起該欄成為唯一證據面。
+
+**★user 2026-08-15 拍板四項**（逐項為本 Phase 的硬要求）：
+1. **稽核欄改為保留判定窗**（最右 `MAX_XFF_TOKENS` 欄、再以字元上限兜底）——使
+   「稽核欄 ⊇ 判定窗」成為**結構性保證**：`real_ip` 必定出現在欄中，因為它就是從那個窗推出來的。
+   棄案＝只把方向反過來（保留最右 1024 字元）：32 個長 IPv6 token 可達 ~1440 字元 > 1024，
+   `real_ip` 仍可能落在欄外，不是結構性保證。
+2. **鏈超長即拒絕，且在 app 層做**（★user 明示「一定要在 app 層做」）。判準取
+   **跳數 > `MAX_XFF_TOKENS`**（＝現行取窗上界；不新增門檻、不新增要同步的常數）。
+   副效果：凡被服務的請求鏈皆 ≤32 跳 ⇒ 稽核欄裝的就是整條鏈。
+3. **拒絕時仍寫稽核列**，且計數維度切法為——**帳號維計數排除、來源維計數納入**。
+   ★依據：憲法島 E 那句括號逐字是「拒絕不得消耗**受害者**的額度」。帳號維鍵＝
+   `attempted_user_name`＝受害者（不排除的話，攻擊者拿受害者帳號名發敵意鏈就能把他**無限期
+   鎖死**、連密碼都不用試）；來源維鍵＝`real_ip`＝**攻擊者自己**（納入才能在 50 次後鎖住他、
+   把稽核表成長封回 ~50 列／窗）。★「零稽核列」是島 E 當時達成該目的的**手段**、不是不變式
+   本身；把計數查詢的過濾面改掉，「寫列」與「消耗額度」即脫鉤。
+4. **判別面＝`ip_confidence` 第八個值**。`sys_login_attempt` 11 欄無可挪用者
+   （`region` 為 GeoIP 保留、ADR 0014 釘死恆空；`trace_id` 屬追蹤面），加欄＝migration ⇒ 破本刀
+   「零 migration」硬預期；而 `ip_confidence` 是 nullable text **無 CHECK**（data-model §1.2
+   標題逐字「值域擴張、零 DDL」）⇒ 加第八值零 DDL。
+
+- [ ] T064 ★主線任務（user 親決）：撰寫 ADR draft 於 `docs/arc42/decisions/`——承載上述四項
+  拍板＋憲法 §I.7 **F3 的 fail-closed 例外集由一項擴為兩項**（新增「轉發鏈跳數逾上界即拒絕」腿）。
+  ★**分級爭點 MUST 在 ADR 內把兩種框定與論證都寫出來交 user 拍**，不得由 Claude 逕定：
+  〔MINOR 之論證〕F3 的「全鏈 fail-open」講的是**降級鏈**（data-model §5 十三列），那些一條
+  都沒變；而「鏈超長截斷」原本**不在**降級矩陣裡、是 FR-009 的正常判定行為 ⇒ 沒有任何已入憲
+  的方向被翻轉，屬「新增不變式＋例外集細項調整」＝MINOR。
+  〔MAJOR 之論證〕同一情境（鏈超長）的處置由 open 變 closed，§V.3 之「§I.7 方向性不變式反轉」
+  字面涵蓋之 ⇒ MAJOR。
+- [ ] T065 ★主線任務（親決後）：ADR 轉 accepted＋改寫憲法 §I.7 之 F3（及必要的新條文）＋
+  bump 版本＋`docs-sync.py generate`；獨立 commit。**DoD：lint 全綠**
+- [ ] T066 spec／data-model 面同步：七態→**八態**（spec FR-007／data-model §2.4／§1.2）＋
+  新增拒絕腿的 FR＋降級矩陣是否新增列之判定（★預期**不**新增——拒絕不是降級，是明確處置）。
+- [ ] T067 `rust-api/server/src/trust/mod.rs`：加 `Confidence::ChainRejected`（字面
+  `chain_rejected`、經**同一個** `as_str` 出口——另開字串路徑即破「全 repo 無任何路徑能寫出
+  值域外字面」這條 U-F 已驗證的不變式）＋★`rightmost_window_str`（判定窗的**字串**形；
+  ★token 切分規則 MUST 只有一份，兩份就是 L-030 的形）＋`normalize_xff` 回報是否溢出。
+  **DoD：先紅後綠；★八態字面測與 T016 的 `dedup().len() == 7` 同批改對**
+- [ ] T068 `rust-api/server/src/request_context.rs`：`sanitize_x_forwarded_for` 改為經
+  `trust::rightmost_window_str` 取判定窗＋字元上限兜底；★既有兩支斷言
+  （`sanitize_truncates_over_1024_chars`／`sanitize_counts_chars_not_bytes`）同批改對。
+  **DoD：★新增一案證明「稽核欄 ⊇ 判定窗」——對逾限鏈斷言 `real_ip` 必出現在欄中**
+- [ ] T069 `rust-api/server/src/middleware/mod.rs`＋`rust-api/server/src/handler/auth/login.rs`：
+  溢出旗標帶進上下文；login 在**密碼雜湊驗證與節流 precheck 之前**拒絕，先寫稽核列
+  （`ip_confidence = chain_rejected`）再回 **`5003`／`system.forbidden`／HTTP 403**
+  （★復用既有 `PermissionDenied`＝**零新 AppError 變體、零新 msg key、零 Lint24 四處同步**；
+  與 IP 閘阻擋同家族）。★三個 `record_attempt(…, &ctx)` 呼叫點仍 MUST 逐位元不變。
+  **DoD：先紅後綠；含「拒絕後未進 precheck」與「拒絕前未做密碼雜湊」兩案**
+- [ ] T070 `rust-api/server/src/model/facade/sys_login_attempt.rs`：帳號維計數查詢加
+  `AND ip_confidence IS DISTINCT FROM 'chain_rejected'`。**DoD：★鑑別力測——同一組測資下，
+  拿掉該過濾即紅（否則等於沒守）**
+- [ ] T071 ★**寫進 T046 條文、不新開 task**：來源維計數查詢**刻意不加**該過濾（鍵是攻擊者
+  自己的位址、納入才封得住成長），並補一支測試釘住「刻意不加」——★沒有這支測，日後有人
+  「順手統一兩維」就把封頂拿掉了、且零訊號。
+- [ ] T072 走查（quickstart 新增一節：發一條 >32 跳的鏈、斷言得 403／`5003`、稽核列
+  `ip_confidence = chain_rejected` 且 `x_forwarded_for` 含 `real_ip`）＋全量閘。
+  ★走查後 MUST 依 §1 收尾清列（L-031）。
+
+**Checkpoint**: 鏈超長拒絕腿成立、稽核欄複驗性成為結構性保證。
+
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase 依賴
@@ -748,6 +824,7 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | U-D | **T011~T012＋T015** | `ipgate/mod.rs`、★`lib.rs`、`facade/{sys_ip_rule,mod}.rs`、★兩支 lint（`tests/{authz_entrypoint_lint,entity_access_lint}.rs`；★2026-08-15 T015 自 U-E 移入——該 task 查的就是 `ipgate::decide`／`would_self_lock` 會不會被誤攔，而那兩支符號是 U-D 的產出，留在 U-E 等於在符號誕生一個單元之後才驗） |
 | U-E | **T013~T014**（T015 已移入 U-D） | `state.rs`、`main.rs`、`tests/common/mod.rs`、★`router.rs`（僅其 `mod tests` 的 stub_state）、★`auth/enforce.rs`（僅其 `mod tests` 的 `state_with`）、★`model/mod.rs`（僅其 `test_db::real_app_with`）、★`throttle/mod.rs`（僅其 `mod tests` 的 `throttle_app`）、兩支 lint |
 | U-F | T016~T022 | `middleware/mod.rs`、★`lib.rs`、`request_context.rs`、`facade/sys_login_attempt.rs`、`router.rs`、★`main.rs`（T018 要「自 `ConnectInfo` 取傳輸層對端」，而 rev5 現行 serve 是裸 `axum::serve(listener, server::app(state))`、**完全沒備線** ⇒ 必須改成 `into_make_service_with_connect_info::<SocketAddr>()`，否則 `ConnectInfo` 恆缺席、上下文永遠注入不了。rev4 同形〔rev4:main.rs:125〕。2026-08-15 動工前接地補列）、★`handler/auth/login.rs`（**僅**兩點：`:129` 的上下文取得改由 extensions〔＝T048 前半、見該條目〕與 `record_attempt` 內 `LoginAttempt` 字面補 `peer_ip` 欄；★三個 `record_attempt(…, &ctx)` **呼叫點 MUST 逐位元不變**——那才是 T019 DoD 所指的「三處落列點」）、★`model/mod.rs`（**僅**其 `LoginAttempt` 測試 fixture 補一欄）｜2026-08-15 動工前本列僅列主體檔，實作期撞牆後擴列：`LoginAttempt` 是無 `Default` 的純欄位字面，加 `peer_ip` 欄在 Rust 上**沒有任何不動建構點的寫法**（實測 `E0063` 命中 3 處清單外建構點） |
+| **U-M**（★2026-08-15 追加） | **T064~T072** | `docs/arc42/decisions/`、`.specify/memory/constitution.md`、`specs/004-ip-trust-anchor/{spec,data-model,quickstart}.md`、`trust/mod.rs`、`request_context.rs`、`middleware/mod.rs`、`handler/auth/login.rs`、`facade/sys_login_attempt.rs`｜★執行位置＝**U-G 之後、U-J 之前**；與 U-G 不可並發（同動 `middleware/mod.rs`） |
 | U-G | T023~T030 | `ipgate/mod.rs`、`middleware/mod.rs`、`cache/mod.rs`、`main.rs`、`router.rs`、`obs.rs` |
 | U-H | T031~T038 | `contract.rs`、`router.rs`、`model/{audit,mod}.rs`、`facade/{sys_ip_rule,sys_operation_log,mod}.rs`、★`handler/{mod,ip_rule}.rs`、`tools/schema-gate.py`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
 | U-I | T039~T043 | `rev5-ip-rule.{ts,d.ts}`、`views/manage/ip-rule/` 三檔、兩語 locale、`app.d.ts`、`router/elegant/` 三檔＋`typings/elegant-router.d.ts`（★路由外掛產物四檔）、`tools/`（兩支新守）、★`rust-api/server/tests/fixtures/wire-schema.json`（T039 之 DoD「快照納入新檔」的實體、由生成器重抽） |
