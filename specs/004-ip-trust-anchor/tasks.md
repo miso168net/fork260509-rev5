@@ -195,7 +195,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   （★終態十行須**嚴格 ASCII 升冪**：`sys_ip_rule` 在 `sys_login_attempt` **之前**〔`i` < `l`〕、
   `sys_operation_log` 在 `sys_menu` **之後** `sys_role` **之前**）。
   **DoD：真 DB 測（含 sequence 重設守衛）先紅後綠**
-- [ ] T013 `rust-api/server/src/state.rs` 五欄→七欄（加 `trust_model: Arc<TrustModel>`＋
+- [x] T013 `rust-api/server/src/state.rs` 五欄→七欄（加 `trust_model: Arc<TrustModel>`＋
   `ip_rules: Arc<ArcSwap<RuleSet>>`）＋★**檔頭封條註解改寫**（「恰五欄」→「恰七欄」，
   **保留** `mailer` 續留域外之邊界說明、不得整段刪除）＋`rust-api/server/src/main.rs` boot
   接線（載信任模型；★**規則集初載與 watcher 起動留 US2**、本 task 先以空規則集建欄）。
@@ -209,7 +209,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `docker compose … up -d --wait` 後 `docker compose logs rust-api | grep -i trust` 見載入
   成功、**無**缺席／解析失敗告警（＝證明 boot 真的讀到 `deploy/trust-model.dev.toml`；
   T006 落地的時點 main.rs 尚未呼叫載入函式，該檢查在那時必然空手，故遞延至此）**
-- [ ] T014 `AppState` **窮舉式 struct literal 五處**同步七欄（★清單來源＝
+- [x] T014 `AppState` **窮舉式 struct literal 五處**同步七欄（★清單來源＝
   `grep -rn "AppState {" rust-api/server/` 的實測結果，排除 `state.rs` 的 struct 定義本體與三處
   `-> AppState {` 函式簽名；六處 literal 中 `main.rs` 的 boot 建構已由 T013 涵蓋、其餘五處在此）：
   ①`rust-api/server/tests/common/mod.rs` 之 `stub_state`
