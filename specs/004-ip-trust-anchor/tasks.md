@@ -243,18 +243,24 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T016 [P] [US1] `rust-api/server/src/middleware/mod.rs` 之 `#[cfg(test)]`：
+- [x] T016 [P] [US1] `rust-api/server/src/middleware/mod.rs` 之 `#[cfg(test)]`：
   **七態逐態**整合測（直餵 `TrustModel`＋任意對端與標頭；★對照 research R7——七態全數在此層
   覆蓋，**不得**寫成需經反向代理的形）＋上下文缺席 fail-open 案。**先確認紅**
-- [ ] T017 [P] [US1] `rust-api/server/src/request_context.rs` 之 `#[cfg(test)]`：seam 換血後
+- [x] T017 [P] [US1] `rust-api/server/src/request_context.rs` 之 `#[cfg(test)]`：seam 換血後
   的既有不變式仍成立（轉發鏈欄仍原樣淨化、欄位私有之編譯期守門仍在）＋★**邊界案反轉**測
   （「來源位址缺席→空字串→由資料庫擋下」路徑**消失**，對端恆有值）。**先確認紅**
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] `rust-api/server/src/middleware/mod.rs` 新建（★同批於 `lib.rs` 加
+- [x] T018 [US1] `rust-api/server/src/middleware/mod.rs` 新建（★同批於 `lib.rs` 加
   `pub mod middleware;`）：`request_context_mw`——自 `ConnectInfo` 取傳輸層對端、抽取轉發鏈與
   兩個邊緣標頭（★`CF_VERIFIED_HEADER` 常數落此檔）→呼叫 `trust` 純函式三層＋兩覆蓋→組
+  ★**前提（2026-08-15 接地補記）**：`ConnectInfo` 在 rev5 **尚未備線**——`main.rs` 現行為裸
+  `axum::serve(listener, server::app(state))`，須改成
+  `axum::serve(listener, server::app(state).into_make_service_with_connect_info::<SocketAddr>())`
+  （rev4:main.rs:125 同形）。★另一面：`tower::ServiceExt::oneshot` 形的契約測試**不經**該
+  make-service ⇒ `ConnectInfo` 在那些測試裡恆缺席，middleware MUST 容忍缺席（不注入上下文、
+  由下游 fail-open），這正是 T016 的「上下文缺席 fail-open 案」要釘的形。
   `RequestContext` 注入 request extensions（**每請求恰一次**）。
   ★★**注入前 MUST 對真實來源位址做 `trust::to_canonical` 折疊**（2026-08-15 U-D 續跑之規格
   確認輪移交；spec FR-008）：`trust::resolve_client_ip` **回傳的是未折疊的原位址**——該模組
@@ -268,22 +274,40 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★**本層零政策邏輯**
   （判定全在 `trust` 純函式、middleware 純消費，違反即 F4 破功）。
   **DoD：T016 由紅轉綠**
-- [ ] T019 [US1] `rust-api/server/src/request_context.rs` **seam 換血**：三欄與取值器**簽名
+- [x] T019 [US1] `rust-api/server/src/request_context.rs` **seam 換血**：三欄與取值器**簽名
   一律不動**——`real_ip` 內容改為信任錨結果之正規化字串、`ip_confidence` 由單一字面改為七態、
   轉發鏈欄原樣淨化轉錄不變；★`IP_CONFIDENCE_NGINX_PEER` 常數**退役**（由 `Confidence::as_str`
   取代）；`from_headers` 退為**測試建構途徑**、請求路徑改由 extensions 取；★欄位私有與
   `compile_fail` doctest **續存不得刪**。
   **DoD：T017 由紅轉綠；★既有 login 三處落列點零改動仍編譯通過（seam 承諾的驗證點）**
-- [ ] T020 [P] [US1] `rust-api/server/src/model/facade/sys_login_attempt.rs`：insert 擴充
+- [x] T020 [P] [US1] ★（2026-08-15 補記：本條**連帶**改動見下）`rust-api/server/src/model/facade/sys_login_attempt.rs`：insert 擴充
   **`peer_ip` 落欄**（此前恆 NULL）——鑑識三欄（對端／真實／信心）自此齊活。
   **DoD：真 DB 測斷言三欄皆有值、且信心為七態之一，先紅後綠**
-- [ ] T021 [US1] `rust-api/server/src/router.rs` 掛 `request_context_mw` layer（★層序：
+  ★**連帶改動（2026-08-15 實作期實證、非選項）**：`LoginAttempt` 無 `Default`、為純欄位字面
+  ⇒ 加 `peer_ip` 欄必然波及其**全部**建構點，清單外恰三處：`handler/auth/login.rs:447`
+  （production 落列點，`record_attempt` 內）／`handler/auth/login.rs:925`（測試 fixture）／
+  `model/mod.rs:711`（測試 fixture）。三處皆只補一欄。
+  ★**另一半更關鍵**：本條 DoD 的「三欄皆有值」要成立，login 必須拿得到 mw 注入的上下文，
+  而它現在走 `RequestContext::from_headers(&headers)`——`&HeaderMap` **取不到 extensions**。
+  ⇒ **T048 的前半（由 extensions 取上下文）必須在本單元就到位**，否則 T020／T022 的 DoD
+  在本單元結構性不可達。棄案：讓 mw 反寫請求標頭好讓 `from_headers` 讀到判定結果——那等於
+  再開一條**可偽造**的信心傳遞通道，與 FR-018「handler 絕不自讀轉發標頭」及 FR-003 單一權威
+  相抵，且 T048 接線後還得再拆一次。
+- [x] T021 [US1] `rust-api/server/src/router.rs` 掛 `request_context_mw` layer（★層序：
   須在 `enforce_mw` 與所有 handler **之前**——否則下游取不到上下文；與既有動詞探測 fallback
   的組裝次序不得互換）。**DoD：既有 16 case 全綠；新增一支層序反例測（mw 掛在 handler 之後
   則上下文缺席、下游走 fail-open）先紅後綠**
-- [ ] T022 [US1] 走查 quickstart §1：帶／不帶構造轉發標頭各發一次失敗登入，查
+- [x] T022 [US1] 走查 quickstart §1：帶／不帶構造轉發標頭各發一次失敗登入，查
   `sys_login_attempt` 尾二列。**DoD：帶標頭那筆＝`proxy_clean`＋模擬公網位址；不帶那筆＝
   `fallback`；★兩列 `peer_ip` 皆有值**
+  ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
+  `DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')`
+  ＋`setval('sys_login_attempt_id_seq', 1, false)`。★**不可留到 T061**——留列會讓**下一次**
+  `cargo test --workspace` 的 `handler::auth::login::integration_tests` 五支撞主鍵
+  （`SequenceResetGuard` 於 Drop 時 setval 回 1、走查列佔住 id=1），而同一次執行的
+  `user_info` 測掛了 `LoginAttemptCleanup` 會把證據清掉 ⇒ 重跑即綠、外觀是 flaky。
+  ★`schema-gate check` **抓不到**（該表在 runtime-append 收窄集內，收窄只豁免 seed 內容比對）。
+  ★單元收尾第②步（容器內看 rc）MUST 排在清列**之後**，否則不是測不到就是必紅。
 
 **Checkpoint**: 稽核來源三欄如實——US1 可獨立驗收（rev5 第一次「稽核紀錄可當證據」）。
 
@@ -526,11 +550,19 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★同批修 **L-026**：三處上下界共用同一顆具名餘裕常數、註解與失敗訊息對齊碼。
   **DoD：T045 由紅轉綠（★含三鍵真消費自證一案）；★既有帳號維測試零回歸（判準同 T014：動工前後逐 target 比對、不引帳面數字，L-029）；★T003③
   「三個來源節流鍵零消費者」已知態自此為真解除——無讀取端即帳面不實**
-- [ ] T048 [US4] `rust-api/server/src/handler/auth/login.rs` 接線：由 extensions 取上下文，
+- [ ] T048 [US4] `rust-api/server/src/handler/auth/login.rs` 接線：★**前半（由 extensions 取上下文）已於 2026-08-15 提前至 U-F 落地**——T020／T022 的 DoD 依賴它，留在本條會使 US1 結構性不可驗收；本條**餘下**的是：
   把真實來源與 allow 袋餵進 `precheck`。★軟區與鎖定仍 MUST 在密碼雜湊驗證**之前**擋下、
   且拒絕分支**零稽核列零計數桶**。**DoD：先紅後綠——拒絕後解鎖再登入仍可（證明不消耗桶）**
 - [ ] T049 [US4] 走查 quickstart §4：同一來源輪換帳號名至軟門檻→要求驗證碼；另一來源不受
   影響；★穿插成功登入後**仍**要求驗證碼。**DoD：三項皆符**
+  ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
+  `DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')`
+  ＋`setval('sys_login_attempt_id_seq', 1, false)`。★**不可留到 T061**——留列會讓**下一次**
+  `cargo test --workspace` 的 `handler::auth::login::integration_tests` 五支撞主鍵
+  （`SequenceResetGuard` 於 Drop 時 setval 回 1、走查列佔住 id=1），而同一次執行的
+  `user_info` 測掛了 `LoginAttemptCleanup` 會把證據清掉 ⇒ 重跑即綠、外觀是 flaky。
+  ★`schema-gate check` **抓不到**（該表在 runtime-append 收窄集內，收窄只豁免 seed 內容比對）。
+  ★單元收尾第②步（容器內看 rc）MUST 排在清列**之後**，否則不是測不到就是必紅。
 
 **Checkpoint**: 來源維節流生效、三鍵有消費者——US4 可獨立驗收。
 
@@ -571,6 +603,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `docs-sync generate` 跑得完（不拋 `BackendDictError`）；`pnpm typecheck` 綠；
   `fork-delta-lint` 綠**
 - [ ] T055 [US5] 走查 quickstart §5：兩維各解鎖一次、畸形參數零稽核。**DoD：三項皆符**
+  ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
+  `DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')`
+  ＋`setval('sys_login_attempt_id_seq', 1, false)`。★**不可留到 T061**——留列會讓**下一次**
+  `cargo test --workspace` 的 `handler::auth::login::integration_tests` 五支撞主鍵
+  （`SequenceResetGuard` 於 Drop 時 setval 回 1、走查列佔住 id=1），而同一次執行的
+  `user_info` 測掛了 `LoginAttemptCleanup` 會把證據清掉 ⇒ 重跑即綠、外觀是 flaky。
+  ★`schema-gate check` **抓不到**（該表在 runtime-append 收窄集內，收窄只豁免 seed 內容比對）。
+  ★單元收尾第②步（容器內看 rc）MUST 排在清列**之後**，否則不是測不到就是必紅。
 
 **Checkpoint**: 解鎖端點與兩維標記到位——US5 可獨立驗收。
 
@@ -707,7 +747,7 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | U-C | T007~T010 | `trust/mod.rs`、★`lib.rs` |
 | U-D | **T011~T012＋T015** | `ipgate/mod.rs`、★`lib.rs`、`facade/{sys_ip_rule,mod}.rs`、★兩支 lint（`tests/{authz_entrypoint_lint,entity_access_lint}.rs`；★2026-08-15 T015 自 U-E 移入——該 task 查的就是 `ipgate::decide`／`would_self_lock` 會不會被誤攔，而那兩支符號是 U-D 的產出，留在 U-E 等於在符號誕生一個單元之後才驗） |
 | U-E | **T013~T014**（T015 已移入 U-D） | `state.rs`、`main.rs`、`tests/common/mod.rs`、★`router.rs`（僅其 `mod tests` 的 stub_state）、★`auth/enforce.rs`（僅其 `mod tests` 的 `state_with`）、★`model/mod.rs`（僅其 `test_db::real_app_with`）、★`throttle/mod.rs`（僅其 `mod tests` 的 `throttle_app`）、兩支 lint |
-| U-F | T016~T022 | `middleware/mod.rs`、★`lib.rs`、`request_context.rs`、`facade/sys_login_attempt.rs`、`router.rs` |
+| U-F | T016~T022 | `middleware/mod.rs`、★`lib.rs`、`request_context.rs`、`facade/sys_login_attempt.rs`、`router.rs`、★`main.rs`（T018 要「自 `ConnectInfo` 取傳輸層對端」，而 rev5 現行 serve 是裸 `axum::serve(listener, server::app(state))`、**完全沒備線** ⇒ 必須改成 `into_make_service_with_connect_info::<SocketAddr>()`，否則 `ConnectInfo` 恆缺席、上下文永遠注入不了。rev4 同形〔rev4:main.rs:125〕。2026-08-15 動工前接地補列）、★`handler/auth/login.rs`（**僅**兩點：`:129` 的上下文取得改由 extensions〔＝T048 前半、見該條目〕與 `record_attempt` 內 `LoginAttempt` 字面補 `peer_ip` 欄；★三個 `record_attempt(…, &ctx)` **呼叫點 MUST 逐位元不變**——那才是 T019 DoD 所指的「三處落列點」）、★`model/mod.rs`（**僅**其 `LoginAttempt` 測試 fixture 補一欄）｜2026-08-15 動工前本列僅列主體檔，實作期撞牆後擴列：`LoginAttempt` 是無 `Default` 的純欄位字面，加 `peer_ip` 欄在 Rust 上**沒有任何不動建構點的寫法**（實測 `E0063` 命中 3 處清單外建構點） |
 | U-G | T023~T030 | `ipgate/mod.rs`、`middleware/mod.rs`、`cache/mod.rs`、`main.rs`、`router.rs`、`obs.rs` |
 | U-H | T031~T038 | `contract.rs`、`router.rs`、`model/{audit,mod}.rs`、`facade/{sys_ip_rule,sys_operation_log,mod}.rs`、★`handler/{mod,ip_rule}.rs`、`tools/schema-gate.py`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
 | U-I | T039~T043 | `rev5-ip-rule.{ts,d.ts}`、`views/manage/ip-rule/` 三檔、兩語 locale、`app.d.ts`、`router/elegant/` 三檔＋`typings/elegant-router.d.ts`（★路由外掛產物四檔）、`tools/`（兩支新守）、★`rust-api/server/tests/fixtures/wire-schema.json`（T039 之 DoD「快照納入新檔」的實體、由生成器重抽） |

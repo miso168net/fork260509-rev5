@@ -63,6 +63,29 @@ FROM sys_login_attempt ORDER BY created_at DESC LIMIT 2;
 **預期**：兩列的 `ip_confidence` 分別為 `proxy_clean`（帶標頭那筆、`real_ip`＝`203.0.113.11`）
 與 `fallback`（不帶那筆）；**兩列的 `peer_ip` 皆有值**（此前恆 NULL）。
 
+### ★§1 收尾（必做，**不可留到 §7**）
+
+```bash
+# 走查留下的登入嘗試列會毒化**下一次** `cargo test --workspace`：
+psql -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')"
+psql -c "SELECT setval('sys_login_attempt_id_seq', 1, false)"
+```
+
+★**為什麼這一步不能省、也不能延到 §7**（2026-08-15 U-F 走查實暴，見 `docs/ops/LESSONS.md`
+的 L-031）：`sys_login_attempt` 確實在 schema 閘的 runtime-append 收窄集內，所以留列**不會**
+讓 `schema-gate check` 轉紅——但那只豁免了 **seed 內容比對**這一個面。真正被毒到的是**測試
+套件**：測試起手掛的 `test_db::SequenceResetGuard` 在 Drop 時執行
+`setval('sys_login_attempt_id_seq', 1, false)`（★這是 gate2 逐列 diff 凍結 seed 第 446 行
+`setval('public.sys_login_attempt_id_seq', 1, false)` 所**要求**的，不能改成 `max(id)`），
+於是走查留下的 committed 列一旦佔住 `id=1`，下一支 insert 就撞
+`duplicate key value violates unique constraint "sys_login_attempt_pkey"`——
+`handler::auth::login::integration_tests` **五支當場紅**。
+
+★**最惡劣的是證據自毀**：同一次測試執行裡的 `handler::auth::user_info` 掛了
+`LoginAttemptCleanup::new(&["Super","Admin","User"])`，而 `user_info` 在字典序上排在 `login`
+之後 ⇒ 它會把走查列清掉。所以**重跑第二次就全綠**，看起來像 flaky test。若把「跑全量」排在
+走查之前，更是連紅都看不到。
+
 ## 2. IP 存取閘（US2／SC-013 ②）
 
 ```bash
@@ -161,6 +184,8 @@ curl -s "$BASE/auth/login" -H 'content-type: application/json' \
 ——若變回 `auth.login.failed`＝「成功即重置」被誤加進來源維（該形是可繞過整套來源維防護的
 破口，計數下界必須恰兩源）。
 
+★**本節同樣會寫 `sys_login_attempt`，收尾請比照 §1 收尾那兩行清理**（理由同 §1）。
+
 ## 5. 管理員解鎖（US5）
 
 ```bash
@@ -185,6 +210,8 @@ psql -tAc "SELECT count(*) FROM sys_operation_log"   # 預期與 $BEFORE 相同
 
 **預期**：`"2222"` ＋ `biz.throttle.invalidUnlockTarget`，稽核列數**不變**。
 
+★**本節同樣會寫 `sys_login_attempt`，收尾請比照 §1 收尾那兩行清理**（理由同 §1）。
+
 ## 6. 管理頁走查（US3／SC-009）
 
 以 CDP 接 `127.0.0.1:9229`，開分頁對照 **22080（rev5）** vs **42080（rev4 同頁）**：
@@ -205,9 +232,15 @@ psql -tAc "SELECT count(*) FROM sys_operation_log"   # 預期與 $BEFORE 相同
 #    ★刻意不納入 schema 閘的 runtime-append 收窄集，留列會使 gate2 逐列比對紅
 psql -c "TRUNCATE sys_ip_rule RESTART IDENTITY"
 
-# 2) 操作稽核表已納入收窄集（本刀常數加一行）⇒ 免清理
+# 2) 操作稽核表已納入收窄集（本刀常數加一行）⇒ schema 閘面免清理
+#    ★但「在收窄集內」只豁免 seed 內容比對，**不等於留列無害**——見下一步
+# 3) ★登入嘗試列：收窄集豁免不了測試套件（SequenceResetGuard 會 setval 回 1，
+#    留列佔住 id=1 即讓 login integration 五支撞主鍵）。各節走查後就該清，
+#    此處為兜底；理由見 §1 收尾與 LESSONS L-031
+psql -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')"
+psql -c "SELECT setval('sys_login_attempt_id_seq', 1, false)"
 
-# 3) 三閘
+# 4) 三閘
 python3 tools/docs-sync.py check && python3 tools/schema-gate.py check
 ```
 
