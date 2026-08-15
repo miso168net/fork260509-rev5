@@ -317,7 +317,7 @@ fail-closed 例外無法在真實操作流程中驗證。與 US2 同級。
   ★兩者**只動信心、不動位址**。
 - **FR-007**: 信心等級 MUST 為**八態**、入庫與線上契約皆用小寫底線字面：`cdn_verified`／
   `proxy_clean`／`direct`／`cdn_anchored`／`proxy_soft`／`cdn_mismatch`／`fallback`／
-  **`chain_rejected`**（第八態隨 ADR 0043／憲法 F7 進場，標記「鏈跳數逾上界、請求被拒」；
+  **`chain_rejected`**（第八態隨 ADR 0043／憲法 F7 進場，標記「鏈跳數逾上界、**未被推理採信**」；
   ★它**不是**一種信心程度，而是「**這條鏈逾上界、未被推理採信**」的判別面。
   ★**語意刻意寫成事實而非政策後果**（U-M 規格審查修正）：`trust` 層的**標記是全域的**
   （`request_context_mw` 每請求都跑），而**拒絕只在登入端點**（FR-047 射程）⇒ 非登入端點
