@@ -34,12 +34,20 @@
 
 | 表 | `peer_ip` | `real_ip` | `ip_confidence` |
 |---|---|---|---|
-| `sys_login_attempt` | inet 可空｜★**本刀開始填**（此前恆 NULL） | inet NN｜內容改由信任錨推導 | text 可空、**無 CHECK**｜單字面 → **七態** |
+| `sys_login_attempt` | inet 可空｜★**本刀開始填**（此前恆 NULL） | inet NN｜內容改由信任錨推導 | text 可空、**無 CHECK**｜單字面 → **八態** |
 | `sys_access_log` | 同上（本刀不寫該表，B-016 域外） | 同上 | 同上 |
 | `sys_operation_log` | 本刀新寫入者，見 §1.3 | 同上 | 同上 |
 
 ★**既有列不遷移**：憲法 §I.6 變體 B 明定 append-only 表「無 update、不可竄改」⇒ 前一刀寫入的
 `nginx_peer` 列**原樣保留為歷史事實**；查詢端須容忍新舊字面並存。
+
+★**第八態 `chain_rejected` 的兩個連帶**（ADR 0043／憲法 F7）：
+① 它標記「該請求**未被服務**」，語意上不與其餘七態同軸——其餘七態答「這個位址多可信」，
+   它答「這條鏈根本沒被推理」。讀稽核列時 MUST 先分流本值再談信心。
+② **計數維度分流**：帳號維計數查詢 MUST 以 `AND ip_confidence IS DISTINCT FROM 'chain_rejected'`
+   排除該列（鍵＝`attempted_user_name`＝受害者），來源維計數 MUST **不加**該過濾
+   （鍵＝`real_ip`＝攻擊者自身，納入才封得住稽核表成長）。★用 `IS DISTINCT FROM` 而非 `<>`：
+   本欄 nullable，`<>` 對 NULL 回 NULL ⇒ 既有 NULL 列會被整組漏掉。
 
 ### 1.3 `sys_operation_log`（archetype B append-only；★rev5 首個寫入者）
 
@@ -104,12 +112,16 @@
 |---|---|
 | `real_ip` | 信任錨推導結果之**正規化**字串（此前＝標頭原文） |
 | `x_forwarded_for` | 原樣淨化轉錄（零 CR/LF、長度上限）——**不變** |
-| `ip_confidence` | 七態字面（此前＝單一字面） |
+| `ip_confidence` | 八態字面（此前＝單一字面） |
 | `peer_ip`（新增消費） | 傳輸層對端 |
 
 ★三欄私有＋取值器簽名不變、編譯期守門（欄位私有之 `compile_fail` doctest）續存。
 
-### 2.4 信心等級（七態，DB／wire 穩定小寫底線字面）
+### 2.4 信心等級（八態，DB／wire 穩定小寫底線字面）
+
+★**七 vs 八的分野**：三層錨還原（`resolve_client_ip`）只產出**前七態**；第八態
+`chain_rejected` 由 F7 的拒絕腿產出、不經錨還原。故「信任錨七態」與「`ip_confidence`
+八態」兩種說法**都對**，講的是不同的東西——引用時看清楚主詞是「錨的結論」還是「欄的值域」。
 
 `cdn_verified`／`proxy_clean`／`direct`／`cdn_anchored`／`proxy_soft`／`cdn_mismatch`／
 `fallback`。判定矩陣＝research R4；**dev 經反向代理可達二態**＝research R7。
@@ -172,6 +184,15 @@ CF 兩標頭 ───────→ 兩覆蓋層（只動信心／通道改位
 | 解鎖標記讀取故障 | **fail-closed** | 視為無標記（該來源可能仍在鎖定中） | 告警 |
 | 請求上下文缺席 | fail-open | 閘門放行；來源維整層跳過 | 告警 |
 | 寫端自鎖 | **fail-closed** | 拒寫、零落庫、零重載 | 業務錯誤回應 |
+
+★**刻意不在本矩陣內者**（各附判準，防日後被「補齊」）：
+
+| 事件 | 為何不是降級 |
+|---|---|
+| **轉發鏈跳數逾上界即拒絕**（憲法 F7／FR-047） | 拒絕是**明確處置**、不是系統退化——本矩陣的每一列都是「某個東西壞了，我們選一個方向繼續跑」，而這條腿是系統**照設計判斷後拒絕服務**。它的可觀測面＝結構化告警＋`ip_confidence = chain_rejected` 的稽核列，**MUST NOT 新增降級序列**（FR-049）。★誤列進來的後果不只是分類錯：`ip_domain_degraded_total` 是掛告警規則的序列，把「防護正常生效」計進去等於讓該告警在被攻擊時噴假警報。 |
+| **`build_ruleset` 遇未知 `wbip_type` 列** | 屬**輸入資料品質事件**（庫裡有一列型別欄寫錯），非系統降級；其觀測面＝載入面的結構化告警。 |
+| **IP 閘阻擋**（FR-018） | 閘門擋下該擋的來源是它在正常工作；觀測面＝`ipgate_blocked_total`＋阻擋告警。 |
+| **快取整體不可用** | 觀測沿用既有帳號維訊號（`throttle_degraded_total` 的三個 redis 源），本刀不為它新增序列。 |
 
 ## §6 錯誤碼對應（★13 碼矩陣零觸碰、零新變體）
 

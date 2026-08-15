@@ -17,7 +17,7 @@
 技術路線（research 定稿）：全面以 rev4 對應碼為藍本重打字消化（R1 三十列清單），以 R2 十一筆
 差異點清單防回歸。**預期零 migration、零 seed 變更**——六條 casbin 政策列（含解鎖端點）、五顆
 按鈕碼、選單列與其政策列經逐列複核**全在 001 凍結 seed**（R9-1 校正了 brainstorm 的相反記載）；
-三張稽核表的信心欄無 CHECK 約束，單字面擴為七態不需 DDL。★本刀是 rev5 **首個操作稽核表寫入者**，
+三張稽核表的信心欄無 CHECK 約束，單字面擴為八態不需 DDL。★本刀是 rev5 **首個操作稽核表寫入者**，
 須自帶 schema 閘收窄（恰一表）。
 
 ## Technical Context
@@ -51,7 +51,7 @@ base-web 側零測試框架（前端執行單元的 TDD 迴圈退化為純 revie
 Amendment 授權前不得動任何 base-web 既有檔／既有已知態集的兩條承重論證不得鬆動（spec FR-045）
 ／rev4 樹唯讀
 
-**Scale/Scope**: 22 route（＋6）／10 facade（＋2）／2 middleware（新增層）／七態信心＋六段
+**Scale/Scope**: 22 route（＋6）／10 facade（＋2）／2 middleware（新增層）／八態信心＋六段
 結構豁免／6 新訊息鍵／1 條新 ★ 軌道／§I.7 第六座行為島（5 條沿用＋1 條新增）／
 **12 個執行單元**（research R10 之 U0～U9 骨架於 tasks 期細分為 U-A～U-L；T 數＝63）
 
@@ -97,7 +97,7 @@ Amendment 授權前不得動任何 base-web 既有檔／既有已知態集的兩
    as-built 的張力（B-071）。
 8. **§I.6 業務表審計欄**：PASS（不觸發）——**零 create migration**。消費的四表皆 001 基線既有：
    `sys_ip_rule`（變體 A、六審計欄齊備、軟刪配 partial unique）／三張稽核表（變體 B append-only、
-   本刀只寫入不改結構、零 update／delete）。★連帶紀律：`ip_confidence` 的值域由單字面擴為七態
+   本刀只寫入不改結構、零 update／delete）。★連帶紀律：`ip_confidence` 的值域由單字面擴為八態
    **不屬結構變更**（該欄無 CHECK）；append-only 表的既有列**不遷移**（變體 B「不可竄改」）。
    ★sequence 推進紀律見 data-model §7。
 9. **§I.7 行為島**：**涉及——授權以 Amendment 先行取得**。本刀落地第六座島（IP 存取閘＋信任錨
@@ -122,7 +122,7 @@ Amendment（ADR accepted＋bump 1.4.0）為 tasks 第一個 ★ 主線任務且�
 specs/004-ip-trust-anchor/
 ├── plan.md              # 本檔
 ├── research.md          # Phase 0：R1~R10（R1 rev4 對應碼清單、R2 差異點清單、R3 三源釘版）
-├── data-model.md        # Phase 1：§1~§7（含規則狀態機、七態、降級矩陣、島 F 六條）
+├── data-model.md        # Phase 1：§1~§7（含規則狀態機、八態、降級矩陣、島 F 八條）
 ├── quickstart.md        # Phase 1：§0~§7 驗證指南（★構造轉發標頭為核心前提）
 ├── contracts/
 │   ├── wire-ip-rule.md          # 規則管理五端點
@@ -142,7 +142,7 @@ rust-api/
 └── server/
     ├── Cargo.toml                                # 同上三支
     ├── src/
-    │   ├── trust/mod.rs(新)                      # 七態＋三層＋兩覆蓋＋★硬化＋鏈正規化
+    │   ├── trust/mod.rs(新)                      # 八態＋三層＋兩覆蓋＋★硬化＋鏈正規化
     │   ├── ipgate/mod.rs(新)                     # RuleSet／decide／結構豁免／would_self_lock
     │   │                                         #   ／reload_and_publish／watcher
     │   ├── middleware/mod.rs(新)                 # request_context_mw ＋ ip_gate_mw

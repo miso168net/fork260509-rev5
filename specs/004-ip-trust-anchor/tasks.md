@@ -695,7 +695,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
    「零 migration」硬預期；而 `ip_confidence` 是 nullable text **無 CHECK**（data-model §1.2
    標題逐字「值域擴張、零 DDL」）⇒ 加第八值零 DDL。
 
-- [ ] T064 ★主線任務（user 親決）：撰寫 ADR draft 於 `docs/arc42/decisions/`——承載上述四項
+- [x] T064 ★主線任務（user 親決）：撰寫 ADR draft 於 `docs/arc42/decisions/`——承載上述四項
   拍板＋憲法 §I.7 **F3 的 fail-closed 例外集由一項擴為兩項**（新增「轉發鏈跳數逾上界即拒絕」腿）。
   ★**分級爭點 MUST 在 ADR 內把兩種框定與論證都寫出來交 user 拍**，不得由 Claude 逕定：
   〔MINOR 之論證〕F3 的「全鏈 fail-open」講的是**降級鏈**（data-model §5 十三列），那些一條
@@ -703,9 +703,9 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   的方向被翻轉，屬「新增不變式＋例外集細項調整」＝MINOR。
   〔MAJOR 之論證〕同一情境（鏈超長）的處置由 open 變 closed，§V.3 之「§I.7 方向性不變式反轉」
   字面涵蓋之 ⇒ MAJOR。
-- [ ] T065 ★主線任務（親決後）：ADR 轉 accepted＋改寫憲法 §I.7 之 F3（及必要的新條文）＋
+- [x] T065 ★主線任務（親決後）：ADR 轉 accepted＋改寫憲法 §I.7 之 F3（及必要的新條文）＋
   bump 版本＋`docs-sync.py generate`；獨立 commit。**DoD：lint 全綠**
-- [ ] T066 spec／data-model 面同步：七態→**八態**（spec FR-007／data-model §2.4／§1.2）＋
+- [x] T066 spec／data-model 面同步：七態→**八態**（spec FR-007／data-model §2.4／§1.2）＋
   新增拒絕腿的 FR＋降級矩陣是否新增列之判定（★預期**不**新增——拒絕不是降級，是明確處置）。
 - [ ] T067 `rust-api/server/src/trust/mod.rs`：加 `Confidence::ChainRejected`（字面
   `chain_rejected`、經**同一個** `as_str` 出口——另開字串路徑即破「全 repo 無任何路徑能寫出

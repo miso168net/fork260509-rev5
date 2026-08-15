@@ -59,7 +59,7 @@ facade 762）＋middleware／throttle／config 的局部段。★**其中生產�
 | 1 | Tier-1 錨**盲剝**錨右側（`chain[..anchor_idx]` 只看左側、右側不論內容一律丟棄） | ★錨右側**全部**須屬受信基建集，否則**錨不成立、退 Tier-2** | spec FR-005（brainstorm 題二拍板）；rev4:B-080 硬化案兌現 |
 | 2 | 安全保證壓在「部署方 MUST 鎖 origin 僅接受 CDN 邊緣連線」之**承重部署前提** | 降級為**縱深防禦建議**（硬化已入碼） | 同上；spec FR-043 |
 | 3 | dev 無任何信任模型設定（compose／`.env`／腳本全查無）⇒ 對端閘恆先觸發、其驗收手冊第 3 節的「構造 XFF 四步走查」**跑不出宣稱結果** | dev **必掛**最小信任模型（僅容器網段入內網預設集） | spec FR-010 後段（Clarify Q1） |
-| 4 | 信心字面單一來源＝`Confidence::as_str` 七態 | 同（★rev5 前一刀的 `nginx_peer` 字面**退役**、由七態表取代） | spec FR-007；三張稽核表 `ip_confidence` 無 CHECK ⇒ 零 migration |
+| 4 | 信心字面單一來源＝`Confidence::as_str` 七態 | 同（★rev5 前一刀的 `nginx_peer` 字面**退役**、由八態表取代；★第八態 `chain_rejected` 隨 ADR 0043 進場、非錨產出） | spec FR-007；三張稽核表 `ip_confidence` 無 CHECK ⇒ 零 migration |
 | 5 | `region` 欄由 GeoIP（xdb crate 整檔拷貝例外）填值 | **整包不搬**、該欄恆空 | ADR 0014 第 2 款；spec §Out of Scope |
 | 6 | 設定源模組名 `crate::redis` | rev5 為 `crate::cache`（前一刀已改名） | rev5 as-built |
 | 7 | `sys_operation_log` 的寫入者遍佈各域（含 settings 寫端同 txn 審計鏈） | 本刀**只為新端點**落列；**既有 settings 寫端維持不落列**、不回改 | spec FR-032；002 之 FR-016 刻意決定 |
@@ -172,6 +172,9 @@ dev 掛最小信任模型（**僅**容器網段入 `internal_default`、其餘�
 ⇒ **經反向代理的端到端走查可達二態**（`fallback`／`proxy_clean`）；其餘五態由整合測試以
 「直餵 TrustModel＋任意 peer／標頭」覆蓋（純函式與直打後端埠皆可注）。SC-001 的「七態逐態
 至少一案」落在整合層、SC-013 的四項落在端到端層——兩者射程不同，tasks 不得混寫。
+★**SC-001 的「七」不隨 ADR 0043 改為「八」**：`chain_rejected` 由 F7 的拒絕腿產出、**不經
+三層錨還原**，故不在本節這張「錨判定矩陣」的射程內；其覆蓋歸 T069 的兩案與 T072 的走查。
+（寫在此處是因為「值域八態」與「錨七態」並存時，最容易被下一個讀者「順手統一」。）
 
 ★**這正是 dev 掛設定的價值**：不掛設定時 `proxy_clean` 亦不可達（層①恆短路），阻擋／計數
 隔離／防自鎖三項端到端全滅（R2-3）。
