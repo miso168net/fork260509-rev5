@@ -324,16 +324,16 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T023 [P] [US2] `rust-api/server/src/ipgate/mod.rs` 之 `#[cfg(test)]`：`reload_and_publish`
+- [x] T023 [P] [US2] `rust-api/server/src/ipgate/mod.rs` 之 `#[cfg(test)]`：`reload_and_publish`
   三分支（重載成功→換版＋發門鈴／★重載失敗→**keep-last-good 不清空**＋回錯／通知層缺席或
   發送失敗→告警但回成功）＋`load_ruleset` 啟動初載失敗→空集放行。**先確認紅**
-- [ ] T024 [P] [US2] `rust-api/server/src/middleware/mod.rs` 之 `#[cfg(test)]`：`ip_gate_mw`
+- [x] T024 [P] [US2] `rust-api/server/src/middleware/mod.rs` 之 `#[cfg(test)]`：`ip_gate_mw`
   **六步判定序**逐步各一案（①健康／觀測放行 ②上下文缺席放行 ③豁免段放行 ④allow 放行
   ⑤deny 拒絕 ⑥預設放行）。**先確認紅**
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] `rust-api/server/src/ipgate/mod.rs` 補動態面：`try_load_ruleset`／
+- [x] T025 [US2] `rust-api/server/src/ipgate/mod.rs` 補動態面：`try_load_ruleset`／
   `load_ruleset`（啟動初載失敗→空集 fail-open）＋`IPGATE_INVALIDATE_CHANNEL` 常數＋
   ★**2026-08-15 U-D 移交的必做項**：`load_ruleset`／`try_load_ruleset` MUST **消費**
   `ipgate::RuleSetBuild::skipped`、**逐列發結構化告警**（帶命中網段與原始 `wbip_type`
@@ -347,23 +347,23 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   該矩陣、連鎖改動不划算。data-model §1.1 與 research R5 兩處字面本就只要求「告警」。
   `reload_and_publish`（★re-read **成功才** store＋發門鈴；失敗→keep-last-good＋回錯由呼叫端
   退避；發送失敗／通知層缺席→告警但回成功，本機已生效）。**DoD：T023 由紅轉綠**
-- [ ] T026 [US2] `rust-api/server/src/cache/mod.rs` 加 `publish` 原語（沿既有 nil↔Err 分流
+- [x] T026 [US2] `rust-api/server/src/cache/mod.rs` 加 `publish` 原語（沿既有 nil↔Err 分流
   慣例）。**DoD：真 redis 測先紅後綠**
-- [ ] T027 [US2] `rust-api/server/src/ipgate/mod.rs` 之 watcher：`spawn_ipgate_watcher`＋
+- [x] T027 [US2] `rust-api/server/src/ipgate/mod.rs` 之 watcher：`spawn_ipgate_watcher`＋
   `subscribe_ipgate`＋`reread_keeping_last_good`。★三個易漏點必須全中——(a) **專用 pub/sub
   連線**：既有多工連線句柄**不可**用於訂閱，須由 `config::redis_url()` 另開 client
   (b) 訂閱建連帶 **5 秒 timeout**：無 timeout 時對端黑洞會使 watcher 永久 hang 而**不 backoff**
   (c) **重連（含首次訂閱成功）後補一次重讀**：否則 backoff 窗內錯過的門鈴永不收斂。
   斷線 backoff 1s 指數上限 30s、訂閱成功重置。
   **DoD：先紅後綠——訂閱失敗→backoff 不脫鉤／重連後補讀生效／重讀失敗→keep-last-good**
-- [ ] T028 [US2] `rust-api/server/src/middleware/mod.rs` 加 `ip_gate_mw`：六步判定序＋
+- [x] T028 [US2] `rust-api/server/src/middleware/mod.rs` 加 `ip_gate_mw`：六步判定序＋
   阻擋回應（★復用既有 `PermissionDenied`／`5003`／HTTP 403、**零新錯誤變體**）＋阻擋時發
   帶結構化欄位的告警（含命中網段）。**DoD：T024 由紅轉綠**
-- [ ] T029 [US2] `rust-api/server/src/main.rs` boot 補規則集初載＋起 watcher；
+- [x] T029 [US2] `rust-api/server/src/main.rs` boot 補規則集初載＋起 watcher；
   `rust-api/server/src/router.rs` 掛 `ip_gate_mw` layer（★層序：在 `request_context_mw`
   **之後**〔需上下文〕、在 `enforce_mw` **之前**〔IP 閘先於身分驗證〕）。
   **DoD：既有測試全綠；新增層序反例測先紅後綠**
-- [ ] T030 [US2] `rust-api/server/src/obs.rs`（★U-G 以外的單元動不到此檔 ⇒ 本 task 是本刀
+- [x] T030 [US2] `rust-api/server/src/obs.rs`（★U-G 以外的單元動不到此檔 ⇒ 本 task 是本刀
   obs.rs 的**唯一**落點）：①**降級五類**各 pre-register 一支計數器，類別集合逐字取自
   **data-model §5 降級矩陣**（信任模型載入失敗〔涵蓋設定檔缺席／整體損壞／單一集合無效三列〕
   ／規則集載入失敗〔初載＋執行中重載〕／門鈴與 watcher 故障〔PUBLISH 失敗、通知層缺席、
@@ -626,6 +626,10 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   指針不展開
 - [ ] T057 [P] `docs/arc42/ARCHITECTURE.md` 對應節 as-built（信任錨與 IP 閘的位置、
   七態語意、門鈴機制、dev 可達二態）
+  ★併入**觀測面序列枚舉的收尾掃描**（U-G 品質審查發現、該輪已補上當時的兩條）：以
+  `grep -n 'metrics::counter!\|metrics::gauge!\|metrics::histogram!' rust-api/server/src/`
+  枚舉全部發射點，逐條比對 ARCHITECTURE.md「觀測面」段的現在式清單——本刀後續單元
+  （U-H～U-M）若再新增序列，該段不會自己跟上，這是唯一一道會抓到的關卡
 - [ ] T058 [P] `docs/ops/BACKLOG.md` 帳面處置（spec §2.2）：**B-019 關帳**／**B-073 關帳**／
   **B-071 關帳**（隨 T002 之 PATCH）／B-020 改寫（per-IP 半邊關、通用化半邊續留）／B-008 改寫
   （ip-rule 頁出列、端點卡數 12→7）／B-003 改寫（備註欄四分之一關）／B-072 改寫

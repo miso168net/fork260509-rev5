@@ -86,7 +86,13 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
 - **觀測面**：`/metrics` Prometheus exposition；序列一律 boot 時 pre-register 顯式 0
   （防「事件未發生＝序列缺席」使 `rate()` 失去基線——`obs.rs` 檔頭鐵律）。auth 刀新增
   三序列：`denylist_hit_total`（source＝redis／pg 恰二）、`throttle_degraded_total`
-  （source 恰六、值集權威＝003 research R5）、`throttle_soft_zone_total`（無 label）；
+  （source 恰十二、值集權威＝`obs::THROTTLE_DEGRADED_SOURCES`；003 立為六源、004 之
+  IP 域刀重推為十二源）、`throttle_soft_zone_total`（無 label）；004 之 IP 域刀再新增
+  兩序列：`ip_domain_degraded_total`（kind 恰五、值集權威＝`obs.rs` 的
+  `IP_DOMAIN_DEGRADED_KINDS`〔**crate 內私有 const**、非跨 crate API〕，逐字取自該刀
+  data-model §5 降級矩陣）、`ipgate_blocked_total`（**無 label**——阻擋**不屬
+  降級類**，且網段做 label 等於把序列基數交給營運面輸入；命中網段等結構化欄位改由
+  `ip_gate_mw` 的告警承載，理由見 `obs::IPGATE_BLOCKED_TOTAL` 的 doc）；
   另有 002 起的 `casbin_enforce_total`（decision 三值）與 axum-prometheus HTTP 請求級
   三序列。
 
@@ -143,7 +149,7 @@ count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
 - 圖形驗證碼＝無狀態簽章題（HS256、leeway=0、nonce 消耗標記 SET NX＝一次性）；
   發題對任意 userName 一律發（零存在性洩漏）、題綁發題帳號。
 - 降級腿方向（redis 失聯＝軟區停用續驗密碼、PG 查詢失敗＝歸零放行＋`captcha_forced`
-  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰六。
+  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰十二。
 
 ## §7 部署
 
