@@ -12,6 +12,11 @@
 | biz.auth.captchaRequired | 請完成圖形驗證碼後再試 | Please complete the captcha and try again |
 | biz.auth.locked | 嘗試次數過多，請稍後再試 | Too many attempts; please try again later |
 | biz.auth.notSupported | 該功能尚未開放 | This feature is not available yet |
+| biz.ipRule.conflict | 相同網段與類型的規則已存在 | A rule with the same network and type already exists |
+| biz.ipRule.invalidCidr | 網段格式不正確 | Invalid network address format |
+| biz.ipRule.invalidRuleType | 規則類型不正確 | Invalid rule type |
+| biz.ipRule.notFound | 找不到指定的規則，或其狀態不允許此操作 | The rule was not found, or its state does not allow this action |
+| biz.ipRule.selfLock | 此規則會使你目前的連線被阻擋，已拒絕寫入 | This rule would block your current connection; the change was rejected |
 | biz.systemSettings.invalidValue | 設定值不合法（型別不符、超出範圍或非允許選項） | Invalid setting value (wrong type, out of range or not an allowed option) |
 | biz.systemSettings.notFound | 找不到指定的設定鍵 | The specified setting key was not found |
 | biz.user.passwordViolation.forbidUsername | 不可與使用者名稱相同 | must not be identical to the user name |

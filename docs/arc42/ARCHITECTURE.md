@@ -171,8 +171,8 @@ count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
   非軟區零行為變更。
 - **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
   `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
-  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（22 鍵、
-  兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
+  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**27 鍵**＝
+  003 之 22 鍵＋004 T038 之 `biz.ipRule.*` 五鍵；兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
 - **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
   `fetchLogout`（失敗不阻斷 `resetStore()`）。
 

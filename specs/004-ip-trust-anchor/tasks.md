@@ -399,22 +399,22 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T031 [P] [US3] `rust-api/server/tests/contract.rs` 加**五個 case**
+- [x] T031 [P] [US3] `rust-api/server/tests/contract.rs` 加**五個 case**
   （`get-ip-rule-list`／`add-ip-rule`／`update-ip-rule`／`delete-ip-rule`／`restore-ip-rule`；
   斷言重點見 `contracts/wire-ip-rule.md` 末表）。**先確認紅**
-- [ ] T032 [P] [US3] `rust-api/server/src/handler/ip_rule.rs` 之 `#[cfg(test)]`：守門與防自鎖
+- [x] T032 [P] [US3] `rust-api/server/src/handler/ip_rule.rs` 之 `#[cfg(test)]`：守門與防自鎖
   ——類型非二值／網段不可解析**皆寫前拒零寫入**、唯一性衝突映**業務碼非伺服器錯誤**、
   ★**防自鎖四寫端各一案**（含「刪 allow 規則亦須過自鎖」與「復原後與現有列衝突」）。
   **先確認紅**
 
 ### Implementation for User Story 3
 
-- [ ] T033 [P] [US3] `rust-api/server/src/model/audit.rs` 新建（`AuditEvent`／`AuditOperation`／
+- [x] T033 [P] [US3] `rust-api/server/src/model/audit.rs` 新建（`AuditEvent`／`AuditOperation`／
   `AuditOperator`；★同批於 `model/mod.rs` 加 `pub mod audit;`）＋
   `rust-api/server/src/model/facade/sys_operation_log.rs` 新建（★**rev5 首個寫入者**）
   ＋`facade/mod.rs` 註冊（ASCII 升冪位置見 T012）。
   **DoD：真 DB 測（含 sequence 重設守衛）先紅後綠**
-- [ ] T034 [US3] `rust-api/server/src/model/facade/sys_ip_rule.rs` 補**寫端**：
+- [x] T034 [US3] `rust-api/server/src/model/facade/sys_ip_rule.rs` 補**寫端**：
   `list`（分頁＋三 filter：網段模糊／類型等值／刪除狀態三態）＋四寫端（新增／更新／軟刪
   〔`deleted_at`＋`deleted_by` **成對**寫〕／復原〔成對清空〕）＋`IpRuleMutateError`
   （唯一性衝突獨立變體，供 handler 映業務碼）；★寫端與操作稽核列**同一交易**。
@@ -423,7 +423,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   目標列的現值（網段×類型），restore 的目標更本來就是軟刪列。原 tasks 只列了 `list` 與四寫端、
   T035 只列 `guard_self_lock`，這支在帳面上無家、U-H 會在中途撞到。
   **DoD：真 DB 測先紅後綠——軟刪後同組合可重建、唯一性只約束有效列**
-- [ ] T035 [US3] `rust-api/server/src/handler/ip_rule.rs` 新建（★同批於 `handler/mod.rs` 加
+- [x] T035 [US3] `rust-api/server/src/handler/ip_rule.rs` 新建（★同批於 `handler/mod.rs` 加
   `pub mod ip_rule;`）：五支 handler＋DTO（camelCase，見 `contracts/wire-ip-rule.md`；★識別碼
   上 wire 為 number＋2^53 守衛、`deleted` 由 `deleted_at.is_some()` 導出、
   **刪除時間與刪除者不上 wire**）＋`validate_wbip_type`（二值封閉）＋`normalize_cidr`
@@ -444,18 +444,18 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★另一項連帶：`sys_operation_log` 自本 task 起有真寫入者 ⇒ 稽核列的 `ip_confidence` 可能
   讀到 `chain_rejected`，語意為「**鏈逾上界但請求仍被服務**」而**非**「被拒」
   （spec FR-047 連帶句／data-model §1.2①；★兩表同一字面語意不同，查詢與說明 MUST 分表判讀）。
-- [ ] T036 [US3] `rust-api/server/src/router.rs` 加**五條 ROUTES**（路徑與動詞逐字對齊 001
+- [x] T036 [US3] `rust-api/server/src/router.rs` 加**五條 ROUTES**（路徑與動詞逐字對齊 001
   凍結 seed 之政策列：`getIpRuleList` GET／`addIpRule` POST／`updateIpRule` POST／
   `deleteIpRule` **DELETE**／`restoreIpRule` POST；★五條皆 `Protection::Policy`）＋bump 條數
   常數。★**零新 casbin 政策列**（seed 143–147 已在）。**DoD：T031 由紅轉綠；契約覆蓋閘無缺
   case 無殭屍 case**
-- [ ] T037 [US3] `tools/schema-gate.py`：runtime-append 收窄集**常數加一行**納入
+- [x] T037 [US3] `tools/schema-gate.py`：runtime-append 收窄集**常數加一行**納入
   `sys_operation_log`（★這是 spec FR-042 明列的**排程工作項、不得當 bug 追**）；
   ★`sys_ip_rule` **MUST NOT** 納入（變體 A 業務表、列內容即真 seed 面）。
   **DoD：該工具自測擴充後全綠；★變異測試——把 `sys_ip_rule` 誤加進收窄集時自測必紅；
   ★端到端證據（SC-011 指名）——往 `sys_ip_rule` 塞一列後 `schema-gate check` 轉紅、清列後
   轉綠，證明該表未被順手收窄**
-- [ ] T038 [US3] 後端 msg key 五鍵落地（`biz.ipRule.{invalidRuleType,invalidCidr,conflict,
+- [x] T038 [US3] 後端 msg key 五鍵落地（`biz.ipRule.{invalidRuleType,invalidCidr,conflict,
   notFound,selfLock}`）＋★**依 Lint24 同步律**在**同一次工作樹編輯內**把五鍵補進**四處**
   （譯文語意見 `contracts/msg-keys.md`；FR-023／FR-036）：①`base-web/src/locales/langs/zh-tw.ts`
   ②`base-web/src/locales/langs/en-us.ts` 之 `backend:` 樹 ③`base-web/src/locales/langs/zh-cn.ts`
@@ -671,8 +671,8 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★**2026-08-15 U-M 品質審查移交：`sys_user.session_id` 無守衛還原（本 task 最可能引爆）**。
   機制：走查若把 `single_session_default` 翻 `on`（003 quickstart 的走查前置正是如此），
   任何跑完**成功登入路徑**的真庫測試都會在第⑨步寫 `sys_user.session_id`；而 `sys_user`
-  **不在** `tools/schema-gate.py` 的 `RUNTIME_APPEND_TABLES`（實查恰 `session_event`／
-  `sys_login_attempt`／`sys_token` 三表）⇒ gate2 對它是**原位逐列 diff、殘值即紅**。
+  **不在** `tools/schema-gate.py` 的 `RUNTIME_APPEND_TABLES`（該常數自 U-H／T037 起為
+  **四表**＝`session_event`／`sys_login_attempt`／`sys_token`／`sys_operation_log`）⇒ gate2 對它是**原位逐列 diff、殘值即紅**。
   現存四支守衛無一支還原該欄（`SequenceResetGuard` 只 setval 三支 sequence／`ChainRowsCleanup`
   只刪 `sys_token`／`LoginAttemptCleanup` 只刪 `sys_login_attempt`／`SessionEventCleanup`
   只刪 `session_event`）。今日不觸發（seed 為 `off`＋三列 `session_policy='inherit'`），

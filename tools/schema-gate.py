@@ -30,7 +30,8 @@
         token 行＋seaql_migrations COPY 段）後**未排序逐列 diff**（含 id 欄）；
         ★禁全檔排序後雜湊（會掩蓋 sequence 落值漂移與真差異）。sequence 名冊讀
         seed-decision.json 之 sequences 節（勿手抄名字面）。★B-065 表級收窄：
-        RUNTIME_APPEND_TABLES 三表（session_event／sys_login_attempt／sys_token）
+        RUNTIME_APPEND_TABLES 四表（session_event／sys_login_attempt／sys_token／
+        sys_operation_log——末者隨 004-ip-trust-anchor T037／FR-042 入集）
         兩側再剝其 COPY 資料列（段首欄名行照比＝結構漂移仍紅）＋其 sequence 之
         setval 值正規化為佔位（行存在仍比、整行消失＝紅），並另斷言 seed 側此類表
         必 0 列——runtime 寫入不再紅、往 seed 塞稽核列照樣紅。
@@ -119,10 +120,17 @@ ORDER_EXEMPT = ("casbin_rule",)   # 委派建表、欄序不入親排（data-mod
 # 保留——整行消失＝紅）；另斷言 seed 側（凍結 seed ⊕ 演進合成）此類表必 0 列（非 0＝
 # 具名 finding 紅）。動機：這些表 runtime 寫入即紅，曾迫使每次走查後全套 §7 收尾
 # （TRUNCATE＋setval——003 全刀付出三次收尾成本、L-015 實暴一次髒庫連鎖）。
-# 射程＝恰三表（003 實痛表；quickstart §7 收尾清的正是這三表三 sequence）。
+# 射程＝恰四表：003 實痛三表（quickstart §7 收尾清的正是那三表三 sequence）＋
+# ★sys_operation_log（004-ip-trust-anchor T037／spec FR-042 **明列的排程工作項**）。
+# ★末者入集的時點理由：該表在 004 之前是**零寫入者**，本刀的 IP 規則四寫端使它取得
+# rev5 首個寫入者（data-model §1.3）——寫端一落列，gate2 對它的 seed 逐列 diff 即紅，
+# 那是**預期的**、不是回歸；入集是 spec 排定的處置，不得當 bug 追。
+# ★sys_ip_rule **MUST NOT 入集**：它是 archetype 變體 A 業務表、列內容即真 seed 面
+# （zero-seed 亦是一種 seed 面宣告），收窄它＝管理面誤寫一列規則不再被閘看見。
+# 該表的 runtime 測試殘留一律走既有紀律（quickstart §7 TRUNCATE＋setval 收尾）。
 # ★sys_user_role 絕不入集——archetype 同標變體 C 但屬**有 seed 列的 join 表**（種子
 # 使用者的角色掛載），收窄它＝真 seed 面被弱化。其餘變體 B/C 零 seed 表
-# （sys_operation_log／sys_access_log／sys_pwd_custody／sys_user_email_verify）未實暴
+# （sys_access_log／sys_pwd_custody／sys_user_email_verify）未實暴
 # runtime 寫入、暫不入集——日後要擴＝本常數加一行：鍵欄（表名）之「seed 必空」斷言
 # 對新成員自動生效；值欄（sequence 名）由凍結 columns.json 之 nextval default 機器
 # 對賬（TestConstantsPinned 值欄對賬測——值欄作用面＝setval 佔位、與鍵欄作用面＝剝列
@@ -133,6 +141,7 @@ ORDER_EXEMPT = ("casbin_rule",)   # 委派建表、欄序不入親排（data-mod
 RUNTIME_APPEND_TABLES = {
     "session_event": "session_event_id_seq",
     "sys_login_attempt": "sys_login_attempt_id_seq",
+    "sys_operation_log": "sys_operation_log_id_seq",
     "sys_token": "sys_token_id_seq",
 }
 
@@ -2022,12 +2031,12 @@ class TestCmdCheckGreenPath(unittest.TestCase):
         self.assertIn("演進帳合成 0 筆", lines[0])
         self.assertIn("gate2 欄序：14 親排表逐位全等", lines[1])
         self.assertIn("casbin_rule 豁免", lines[1])
-        # B-065 收窄後比對面行數：三收窄表 seed 側本就零列、setval 行原位改佔位——
+        # B-065 收窄後比對面行數：收窄各表 seed 側本就零列、setval 行原位改佔位——
         # 行數與未收窄時相等（凍結面字面可釘）
         n = len(narrow_runtime_append(normalize_seed_dump(fx["seed"])).splitlines())
         self.assertEqual(n, len(normalize_seed_dump(fx["seed"]).splitlines()))
         self.assertIn(f"gate2 seed：normalize 後 {n} 行逐列零差異（setval 名冊 11 支；"
-                      "runtime-append 收窄 3 表）", lines[2])
+                      "runtime-append 收窄 4 表）", lines[2])
         self.assertIn("audit archetype：15/15 綠", lines[3])
 
 
@@ -2405,12 +2414,18 @@ class TestConstantsPinned(unittest.TestCase):
     def test_runtime_append_tables_pinned(self):
         """B-065 收窄集字面釘死（表→sequence 名、自 fixtures/seed.sql setval 行讀出）；
         擴集＝同 commit 改本案＋常數註解射程論證——防常數縮水後六臂自測跟縮的套套
-        邏輯，並釘 sys_user_role 永不入集（有 seed 列的 join 表、收窄＝弱化真 seed 面）。"""
+        邏輯，並釘 sys_user_role 永不入集（有 seed 列的 join 表、收窄＝弱化真 seed 面）。
+        ★004-ip-trust-anchor T037：sys_operation_log 入集（spec FR-042 排定）。
+        ★同案釘死 sys_ip_rule **永不入集**——它是變體 A 業務表、列內容即真 seed 面
+        （zero-seed 亦是宣告）；誤加進收窄集時本案當場紅，這正是該誤加唯一的機器守
+        （收窄之後 gate2 對該表的資料列全無感，錯誤本身零徵狀）。"""
         self.assertEqual(RUNTIME_APPEND_TABLES, {
             "session_event": "session_event_id_seq",
             "sys_login_attempt": "sys_login_attempt_id_seq",
+            "sys_operation_log": "sys_operation_log_id_seq",
             "sys_token": "sys_token_id_seq"})
         self.assertNotIn("sys_user_role", RUNTIME_APPEND_TABLES)
+        self.assertNotIn("sys_ip_rule", RUNTIME_APPEND_TABLES)
 
     def test_runtime_append_seq_names_ledgered(self):
         """B-065 值欄（sequence 名）機器對賬：鍵欄（表名）有「seed 必空」斷言自動守門，
