@@ -3,10 +3,10 @@
 
 ## git
 - default branch：rev5-admin-root
-- pins：base-web=af47464｜rust-api=854fad8
+- pins：base-web=af47464｜rust-api=8b46290
 
 ## constitution
-- 版本：1.5.1
+- 版本：1.6.0
 
 ## 帳面統計
 - ADR：43（accepted 41、superseded 2）
