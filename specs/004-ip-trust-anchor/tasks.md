@@ -533,6 +533,13 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★**GREATEST 恰兩源**＝窗起點＋解鎖標記，無標記綁 SQL **NULL**〔`GREATEST` 非 strict、
   自然退化〕、**MUST NOT** 用哨兵值；★子查詢必帶窗下界防全歷史回掃）。
   **DoD：T044 由紅轉綠**
+  ★**ADR 0043／FR-050 追加（U-M 已先行、勿與帳號維統一）**：本查詢 MUST **不加**
+  `AND ip_confidence IS DISTINCT FROM 'chain_rejected'` 過濾——來源維鍵＝`real_ip`＝
+  **攻擊者自身**，納入才封得住稽核表成長（不納入＝攻擊者拿到一條永遠不會被鎖的寫入通道）；
+  帳號維（T070）則**必須加**該過濾，鍵＝`attempted_user_name`＝受害者。
+  **DoD 追加：MUST 有一支測試釘住「刻意不加」**——「沒加東西」本身無跡可尋，沒有這支測，
+  日後有人「順手統一兩維」就把成長封頂拿掉了、且零訊號。測法＝同一來源造一批
+  `chain_rejected` 列，斷言來源維計數**有**數到它們。
 - [ ] T047 [US4] `rust-api/server/src/throttle/mod.rs` 擴來源維：`DIM_IP` 常數＋`ip_bucket`
   粒度導出＋★**三鍵讀取端**（`IpThrottleSettings{max_fails, window_minutes, captcha_after}`
   ＋`load_ip_settings`＋鍵名常數三顆 `ip_max_fails`／`ip_window_minutes`／`ip_captcha_after`
@@ -725,7 +732,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - [ ] T070 `rust-api/server/src/model/facade/sys_login_attempt.rs`：帳號維計數查詢加
   `AND ip_confidence IS DISTINCT FROM 'chain_rejected'`。**DoD：★鑑別力測——同一組測資下，
   拿掉該過濾即紅（否則等於沒守）**
-- [ ] T071 ★**寫進 T046 條文、不新開 task**：來源維計數查詢**刻意不加**該過濾（鍵是攻擊者
+- [x] T071 ★**寫進 T046 條文、不新開 task**：來源維計數查詢**刻意不加**該過濾（鍵是攻擊者
   自己的位址、納入才封得住成長），並補一支測試釘住「刻意不加」——★沒有這支測，日後有人
   「順手統一兩維」就把封頂拿掉了、且零訊號。
 - [ ] T072 走查（quickstart 新增一節：發一條 >32 跳的鏈、斷言得 403／`5003`、稽核列
