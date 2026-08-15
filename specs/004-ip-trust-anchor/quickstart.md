@@ -86,6 +86,77 @@ psql -c "SELECT setval('sys_login_attempt_id_seq', 1, false)"
 之後 ⇒ 它會把走查列清掉。所以**重跑第二次就全綠**，看起來像 flaky test。若把「跑全量」排在
 走查之前，更是連紅都看不到。
 
+## 1b. 轉發鏈超長即拒絕（ADR 0043／憲法 F7／F8；★2026-08-15 追加、屬 U-M）
+
+★編號取 `1b` **刻意不重排 §2～§7**：那些節號被碼註逐處引用（`handler/route.rs`、
+`captcha/mod.rs`、`refresh.rs` …），重排即讓那批引用整批失準。
+
+```bash
+# ★本節自帶 psql 呼叫形、不假設任何 shell alias：真值是 compose 的 POSTGRES_USER／
+#   POSTGRES_DB，寫死 `-U postgres -d rev5_admin` 會當場 `FATAL: role … does not exist`
+#   （LESSONS L-015 實暴）。以下命令皆為**實跑過**的形。
+PG='docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres'
+
+# 造一條 36 跳的鏈：35 跳洪泛（198.18.0.1~35）＋真實來源 SIM_A。
+# ★nginx 以 $proxy_add_x_forwarded_for 在**最右**再附加它觀察到的對端 ⇒ 後端收到 37 跳
+#   ＞ MAX_XFF_TOKENS（32），判定窗＝最右 32 跳（自 198.18.0.6 起）。
+CHAIN=$(python3 -c "print(', '.join([f'198.18.0.{i}' for i in range(1,36)]+['$SIM_A']))")
+
+curl -s -o /dev/null -w 'HTTP=%{http_code}\n' "$BASE/auth/login" \
+  -H 'content-type: application/json' -H "X-Forwarded-For: $CHAIN" \
+  -d '{"userName":"Super","password":"wrong"}'
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+  -H "X-Forwarded-For: $CHAIN" \
+  -d '{"userName":"Super","password":"wrong"}' | jq -c '{code, msg, data}'
+```
+
+**預期**：`{"code":"5003","msg":"system.forbidden","data":null}` ＋ **HTTP 403**
+（★復用既有 `PermissionDenied`：零新碼、零新 msg key）。
+
+```bash
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -x -c "
+  SELECT ip_confidence, real_ip::text AS real_ip, peer_ip::text AS peer_ip,
+         left(x_forwarded_for, 40) AS xff_head, right(x_forwarded_for, 40) AS xff_tail,
+         (x_forwarded_for LIKE '"'"'%203.0.113.11%'"'"')  AS contains_real_ip,
+         (x_forwarded_for LIKE '"'"'%198.18.0.1,%'"'"')   AS contains_overflowed_hop
+  FROM sys_login_attempt ORDER BY id DESC LIMIT 1"'
+```
+
+**預期**（2026-08-15 實跑值）：
+
+| 欄 | 值 | 這一格在守什麼 |
+|---|---|---|
+| `ip_confidence` | `chain_rejected` | 第八態落欄（FR-007）；帳號維計數即以此字面逐字排除該列 |
+| `real_ip` | `203.0.113.11/32` | ★拒絕態下**仍有位址**（取自判定窗）——來源維計數要數這些列（FR-050），無位址即無從歸戶 |
+| `peer_ip` | 反向代理容器位址（如 `172.23.0.7/32`） | 鑑識三欄齊活 |
+| `xff_head` | 自 `198.18.0.6` 起 | ★溢出窗外的左端 5 跳**不在欄裡**＝轉錄真的取了判定窗 |
+| `contains_real_ip` | `t` | ★**F8 的走查面**：稽核欄 ⊇ 判定窗，`real_ip` 必可由該欄複驗 |
+| `contains_overflowed_hop` | `f` | 同上的反面：轉錄若走原文，`198.18.0.1,` 會出現 |
+
+★**拒絕不是降級**（FR-049）：`ip_domain_degraded_total` **不得**因本節而動——該序列是掛
+告警規則的，把「防護正常生效」計進去等於讓它在被攻擊時噴假警報。
+
+```bash
+curl -s http://127.0.0.1:22079/metrics | grep ip_domain_degraded_total
+```
+
+**預期**：本節前後該序列的值**不變**（僅 boot 期既有值）。
+
+### ★§1b 收尾（必做，**不可留到 §7**）
+
+```bash
+# 本節與上面的 curl 都會落 committed 的 sys_login_attempt 列 ⇒ 毒化**下一次** cargo test
+# （SequenceResetGuard 會 setval 回 1，留列佔住 id=1 即讓 login integration 撞主鍵）。
+# 成因與「證據自毀」性質見 §1 收尾與 LESSONS L-031。
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('"'"'Super'"'"','"'"'Admin'"'"','"'"'User'"'"')" \
+  -c "SELECT setval('"'"'sys_login_attempt_id_seq'"'"', 1, false)" \
+  -c "SELECT count(*) AS remaining FROM sys_login_attempt"'
+```
+
+**預期**：`remaining` 為 0。★清完**才**跑全量（`cargo test --workspace -- --test-threads=1`）
+——次序反了拿到的綠是走查**前**的快照（L-031 第③點）。
+
 ## 2. IP 存取閘（US2／SC-013 ②）
 
 ```bash
