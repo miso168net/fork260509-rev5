@@ -12,12 +12,12 @@
 - ADR：44（accepted 42、superseded 2）
 - BACKLOG 待辦：38（next：B-090）｜滯後：1
 - LESSONS：47 筆（next：L-048）
-- events：25 筆（feature_close 3、misc 22）
+- events：26 筆（feature_close 4、misc 22）
 
 ## 最近事件（尾 3 筆、新在前）
+- 2026-08-17｜feature_close｜004-ip-trust-anchor｜IP 信任錨縱切（本代第四刀、B-019 關帳）：真實來源還原八態／IP 存取閘（結構豁免、防自鎖、門鈴熱重載）／IP 規則管理頁與五支端點（含回收桶、sys_operation_log 首個寫入者）／來源維節流（節流自此雙維度）／管理員解鎖端點。ROUTES 16→22 終態、rust 測試 321→512、憲法 1.3.1→1.6.2（島 F 入憲＝第六座行為島＋§III.2 第五條 ★ 軌道）。
 - 2026-08-12｜misc｜輕量軌維護批（帳面缺口七件＋B-022 關帳拍板、零碼改動）：B-047 應關未關補記關帳（ADR 0031 明令走收刀事件、003 收刀漏記，而 405→4040 早已實作＝條目描述之現況全反轉）／四筆失效觸發器重定（B-018／B-020／B-021／B-029 皆掛在已走過的刀上）／兩筆帳面孤兒登記（B-072 渲染端轉義、B-073 管理員解鎖端點）／B-008 與 B-024 殘句修文／CLAUDE.md §2 補 resume 分岔／ADR 0038 替代登入維持誠實 stub、ADR 0039 ip_* 三鍵已知態。
 - 2026-08-12｜misc｜工具面維護批（輕量軌）：六筆關帳——wf-watchdog runaway 告警不再自我卸除＋上限自 script 快照推導／fork-delta-lint 掃描面擴 .env* 與 build/、授權判定升（軌道×用途×檔案）三元組／wire_schema 裁判面補 Api.Auth 三型／gate2 seed 對 runtime-append 三表表級收窄／Lint18 認得 erratum 更正事件、紅訊息出口自此可執行。
-- 2026-08-11｜feature_close｜003-auth-session｜auth 域整批收刀（本代最大一刀、SDD＋Workflow 編排全流程首次走完）：US1 真登入＋角色化 dynamic 選單／US2 refresh rotation＋30 秒 grace 冪等／US3 撤銷矩陣（logout・被踢・閒置）／US4 節流三區＋圖形驗證碼整套首版／US5 替代登入誠實 stub＋三語 i18n 轉譯。ROUTES 4→16（終態）、測試 145→321、tasks 77/77。憲法 1.2.0→1.3.0（ADR 0028：§III.2 首開四條 ★ 軌道八用途＋§I.7 首批五座行為島）；DAY1_EXEMPTIONS 拔最後一項、自此空表。
 
 ## reference 對賬
 - reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）
