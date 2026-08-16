@@ -532,11 +532,11 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T044 [P] [US4] `rust-api/server/src/model/facade/sys_login_attempt.rs` 之 `#[cfg(test)]`：
+- [x] T044 [P] [US4] `rust-api/server/src/model/facade/sys_login_attempt.rs` 之 `#[cfg(test)]`：
   ★**GREATEST 兩源負向自證**——「穿插成功登入不重置來源計數」（★若誤加第三源「窗內最近成功
   登入」，本測必紅；該形是可繞過整套來源維防護的破口）＋`/64` 聚合＋解鎖標記進下界。
   **先確認紅**
-- [ ] T045 [P] [US4] `rust-api/server/src/throttle/mod.rs` 之 `#[cfg(test)]`：計數桶粒度
+- [x] T045 [P] [US4] `rust-api/server/src/throttle/mod.rs` 之 `#[cfg(test)]`：計數桶粒度
   （v4 `/32`／v6 `/64`／IPv4-mapped 折疊／`unspecified`→無桶）＋雙維合成四組合＋
   ★L0 短路兩案（顯式 allow 規則→跳節流；**結構豁免段→不跳**）＋★**三鍵真消費自證**——把
   `ip_captcha_after`／`ip_max_fails`／`ip_window_minutes` 改成與 seed 不同的值，斷言來源維
@@ -546,19 +546,19 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] `rust-api/server/src/model/facade/sys_login_attempt.rs` 加
+- [x] T046 [US4] `rust-api/server/src/model/facade/sys_login_attempt.rs` 加
   `count_recent_failures_by_ip`（★`real_ip <<= $1::inet` 使兩種粒度自然對 inet 欄生效；
   ★**GREATEST 恰兩源**＝窗起點＋解鎖標記，無標記綁 SQL **NULL**〔`GREATEST` 非 strict、
   自然退化〕、**MUST NOT** 用哨兵值；★子查詢必帶窗下界防全歷史回掃）。
   **DoD：T044 由紅轉綠**
   ★**ADR 0043／FR-050 追加（U-M 已先行、勿與帳號維統一）**：本查詢 MUST **不加**
   `AND ip_confidence IS DISTINCT FROM 'chain_rejected'` 過濾——來源維鍵＝`real_ip`＝
-  **攻擊者自身**，納入才封得住稽核表成長（不納入＝攻擊者拿到一條永遠不會被鎖的寫入通道）；
+  **攻擊者自身且由信任錨錨定** ⇒ 納入不誤傷第三方，並讓拒絕列消耗攻擊者自身在「一般登入」通道上的來源額度。★**勿以「封成長」為由統一兩維**——該理由已於 2026-08-16 實測證偽：拒絕腿在 `throttle::precheck` **之前**就 return（機器守＝`t069_chain_rejection_precedes_the_throttle_precheck`），敵意鏈請求**從不進入來源維判定** ⇒ 加不加過濾都封不住**該腿自身**的落列速率（其速率上界在反向代理層的 `limit_req`、列寬上界＝ADR 0043 決定 1）；
   帳號維（T070）則**必須加**該過濾，鍵＝`attempted_user_name`＝受害者。
   **DoD 追加：MUST 有一支測試釘住「刻意不加」**——「沒加東西」本身無跡可尋，沒有這支測，
-  日後有人「順手統一兩維」就把成長封頂拿掉了、且零訊號。測法＝同一來源造一批
+  日後有人「順手統一兩維」就把**鍵不對稱**這條拍板拿掉了、且零訊號。★該測的 doc **MUST NOT** 以「封成長」為理由（已實測證偽）。測法＝同一來源造一批
   `chain_rejected` 列，斷言來源維計數**有**數到它們。
-- [ ] T047 [US4] `rust-api/server/src/throttle/mod.rs` 擴來源維：`DIM_IP` 常數＋`ip_bucket`
+- [x] T047 [US4] `rust-api/server/src/throttle/mod.rs` 擴來源維：`DIM_IP` 常數＋`ip_bucket`
   粒度導出＋★**三鍵讀取端**（`IpThrottleSettings{max_fails, window_minutes, captcha_after}`
   ＋`load_ip_settings`＋鍵名常數三顆 `ip_max_fails`／`ip_window_minutes`／`ip_captcha_after`
   ＋退路常數三顆 `DEFAULT_IP_*`＝seed 同值 **50／15／10**；★**形沿 rev5 帳號維 `load_settings`**
@@ -575,10 +575,10 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★同批修 **L-026**：三處上下界共用同一顆具名餘裕常數、註解與失敗訊息對齊碼。
   **DoD：T045 由紅轉綠（★含三鍵真消費自證一案）；★既有帳號維測試零回歸（判準同 T014：動工前後逐 target 比對、不引帳面數字，L-029）；★T003③
   「三個來源節流鍵零消費者」已知態自此為真解除——無讀取端即帳面不實**
-- [ ] T048 [US4] `rust-api/server/src/handler/auth/login.rs` 接線：★**前半（由 extensions 取上下文）已於 2026-08-15 提前至 U-F 落地**——T020／T022 的 DoD 依賴它，留在本條會使 US1 結構性不可驗收；本條**餘下**的是：
+- [x] T048 [US4] `rust-api/server/src/handler/auth/login.rs` 接線：★**前半（由 extensions 取上下文）已於 2026-08-15 提前至 U-F 落地**——T020／T022 的 DoD 依賴它，留在本條會使 US1 結構性不可驗收；本條**餘下**的是：
   把真實來源與 allow 袋餵進 `precheck`。★軟區與鎖定仍 MUST 在密碼雜湊驗證**之前**擋下、
   且拒絕分支**零稽核列零計數桶**。**DoD：先紅後綠——拒絕後解鎖再登入仍可（證明不消耗桶）**
-- [ ] T049 [US4] 走查 quickstart §4：同一來源輪換帳號名至軟門檻→要求驗證碼；另一來源不受
+- [x] T049 [US4] 走查 quickstart §4：同一來源輪換帳號名至軟門檻→要求驗證碼；另一來源不受
   影響；★穿插成功登入後**仍**要求驗證碼。**DoD：三項皆符**
   ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
   `TRUNCATE sys_login_attempt RESTART IDENTITY`
@@ -621,9 +621,38 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   與標的導出（畸形即回、**先於**任何稽核與狀態變更）→②**先寫操作稽核列**（失敗→內部錯誤
   中止、快取不動）→③寫解鎖標記＋清該維鎖定鍵。★標記值格式＝**unix 秒十進位字串**
   （與 T047 讀端同一契約）。**DoD：T051 由紅轉綠**
+  ★**併入：來源維 key builder 回家＋`cache/mod.rs` 三處敘述勘誤**（004 U-J 移交）。
+  U-J 因其允許清單不含 `cache/mod.rs`，把 `throttle_lock_ip_key`（`throttle:lock:ip:{bucket}`）
+  與 `throttle_unlock_ip_key`（`throttle:unlock:ip:{bucket}`）暫置於 `throttle/mod.rs`，
+  並在其 doc 逐字記下「家該在 cache、落此純因檔案邊界」。
+  **本 task MUST**：①把兩支搬回 `cache/mod.rs` 與 `throttle_lock_user_key` 併列，
+  連同本 task 要新增的帳號維解鎖鍵 `throttle:unlock:user:{name}` **四支一次收攏**；
+  ②同批修 `cache/mod.rs` 三處已失真敘述——「key builder **六支**」的數量、
+  「集中渲染、勿散落魔法字串」的單一權威宣稱、以及 `throttle_lock_user_key` doc 的
+  「（unlock／suppressed、ip 維）本刀皆不存在」（ip 維 lock／unlock 兩鍵**已存在**；
+  且來源維**讀端**在 T047 就落地了、不是隨本 task）；③搬完刪掉 `throttle/mod.rs` 的暫置註。
+  ★**危害不是風格**：本 task 的解鎖端點必須**呼叫同一支** builder 才導得出對得上的鍵——
+  兩處各自 `format!` ＝鎖用 A 形寫、解鎖用 B 形刪，**解鎖會靜默無效**（DEL 不存在的鍵不報錯）。
+  ★連帶：`specs/004-ip-trust-anchor/tasks.md` 的 U-J 涉檔表原列 `cache/mod.rs`（與 U-J 實際
+  允許清單相牴），**已於本次移交同批改為「移交 U-K／T052」**。
 - [ ] T053 [US5] 帳號維**三件補齊**（★既有節流查詢函式本體**零改動**——前一刀交棒時已預留
   參數位）：解鎖標記鍵（帳號維鍵形）＋讀取端（把標記值餵進計數下界）＋計數標籤。
   **DoD：帳號維解鎖生效之真 redis＋真 DB 測先紅後綠**
+  ★**併入：三處「發射點尚未落地」敘述的時態校正**（004 U-J 移交；本 task 落地後**六個 label
+  全數有發射點**，一次寫成終態、只改一次）：
+  ①`obs.rs` 模組 doc——原「來源維五源＋`unlock_marker_read`，其發射點都排在後續 task
+  （T047／T053）」⇒ **來源維五源與 `unlock_marker_read` 已隨 T047 落地**，僅餘帳號維
+  `redis_unlock_marker` 屬本 task（★是**部分**為假、不是整句為假，改寫時勿全刪）；
+  ②`obs.rs` 之 `DEGRADED_KIND_UNLOCK_MARKER_READ` doc——「發射點屬**他單元**（T047／T053）」
+  ⇒ 刪去「屬他單元」（T047 就是本刀），改記「發射點＝`throttle::precheck` 的來源維解鎖標記
+  讀端（004 T047）；帳號維讀端＝本 task」；
+  ③`middleware/mod.rs` 的「`unlock_marker_read` 要等 T047／T053 才有」⇒ 改為
+  「生產發射點在 `throttle::precheck`（004 T047 已落地），本檔測試守不到它」。
+  ★`THROTTLE_DEGRADED_SOURCES` 恰十二＋逐字期望陣列、`warn_degraded` doc 的現況段
+  **經複核皆正確、勿一併改**。
+  ★另併：`model/mod.rs` 之 `REDIS_TTL_SLACK_SECS` 消費者盤點「`throttle/mod.rs`（**4 處**）」
+  現已為 **6 處**——★建議改寫成**不帶數字**的形（「消費者見 `throttle::integration_tests::
+  assert_ttl_within` 一支」），否則每加一支 TTL 測就要跨檔同步一次數字、同型必然復發。
 - [ ] T054 [US5] 後端 msg key 一鍵（`biz.throttle.invalidUnlockTarget`）＋★依 Lint24 同步律
   同批補**四處**：`zh-tw.ts`／`en-us.ts` 之 `backend:` 樹／`zh-cn.ts` 之 `backend:` 樹／
   `base-web/src/typings/app.d.ts` 之 `App.I18n.Schema.backend.biz` **新增 `throttle` 型節**
@@ -669,6 +698,15 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `grep -n 'metrics::counter!\|metrics::gauge!\|metrics::histogram!' rust-api/server/src/`
   枚舉全部發射點，逐條比對 ARCHITECTURE.md「觀測面」段的現在式清單——本刀後續單元
   （U-H～U-M）若再新增序列，該段不會自己跟上，這是唯一一道會抓到的關卡
+  ★**併入：活書 §6「登入失敗節流三區」as-built 擴為雙維**（004 U-J 移交；該節現仍是純帳號維
+  敘述，而來源維自 U-J 起已上線）：①節標題改為「登入失敗節流三區（帳號維＋來源維）」
+  ②ASCII 圖改為**兩條並列的 count**（帳號維鍵＝`attempted_user_name`；來源維鍵＝`real_ip`
+  計數桶 v4 `/32`／v6 `/64`），並標出合成規則「任一硬鎖→硬鎖；否則任一軟區→軟區；否則放行」
+  ③「門檻三鍵 as-built」擴為**六鍵**，補 `ip_captcha_after`／`ip_max_fails`／`ip_window_minutes`
+  （seed **10／50／15**）④★補一句**兩維的方向差**——來源維下界**恆兩源**、禁 reset-on-success；
+  來源維計數**刻意不排除** `chain_rejected` 而帳號維**必須排除**（ADR 0043／FR-050，理由＝
+  **鍵不對稱**、★勿寫成「封成長」，該理由已於憲法 v1.6.1 勘誤）。這一句是最容易被日後
+  「順手統一」抹掉的拍板結論。
 - [ ] T058 [P] `docs/ops/BACKLOG.md` 帳面處置（spec §2.2）：**B-019 關帳**／**B-073 關帳**／
   **B-071 關帳**（隨 T002 之 PATCH）／B-020 改寫（per-IP 半邊關、通用化半邊續留）／B-008 改寫
   （ip-rule 頁出列、端點卡數 12→7）／B-003 改寫（備註欄四分之一關）／B-072 改寫
@@ -811,8 +849,8 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `AND ip_confidence IS DISTINCT FROM 'chain_rejected'`。**DoD：★鑑別力測——同一組測資下，
   拿掉該過濾即紅（否則等於沒守）**
 - [x] T071 ★**寫進 T046 條文、不新開 task**：來源維計數查詢**刻意不加**該過濾（鍵是攻擊者
-  自己的位址、納入才封得住成長），並補一支測試釘住「刻意不加」——★沒有這支測，日後有人
-  「順手統一兩維」就把封頂拿掉了、且零訊號。
+  自己的位址且由信任錨錨定 ⇒ 納入不誤傷第三方、並消耗攻擊者自身的來源額度；★**勿寫「封成長」**，該理由已實測證偽），並補一支測試釘住「刻意不加」——★沒有這支測，日後有人
+  「順手統一兩維」就把**鍵不對稱**這條拍板拿掉了、且零訊號。
 - [x] T072 走查（quickstart 新增一節：發一條 >32 跳的鏈、斷言得 403／`5003`、稽核列
   `ip_confidence = chain_rejected` 且 `x_forwarded_for` 含 `real_ip`）＋全量閘。
   ★走查後 MUST 依 §1 收尾清列（L-031）。
@@ -917,7 +955,7 @@ implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality revi
 | U-G | T023~T030 | `ipgate/mod.rs`、`middleware/mod.rs`、`cache/mod.rs`、`main.rs`、`router.rs`、`obs.rs` |
 | U-H | T031~T038 | `contract.rs`、`router.rs`、`model/{audit,mod}.rs`、`facade/{sys_ip_rule,sys_operation_log,mod}.rs`、★`handler/{mod,ip_rule}.rs`、`tools/schema-gate.py`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
 | U-I | T039~T043 | `rev5-ip-rule.{ts,d.ts}`、`views/manage/ip-rule/` 三檔、兩語 locale、`app.d.ts`、`router/elegant/` 三檔＋`typings/elegant-router.d.ts`（★路由外掛產物四檔）、`tools/`（兩支新守）、★`rust-api/server/tests/fixtures/wire-schema.json`（T039 之 DoD「快照納入新檔」的實體、由生成器重抽） |
-| U-J | T044~T049 | `facade/sys_login_attempt.rs`、`throttle/mod.rs`、`handler/auth/login.rs`、★`cache/mod.rs`（T047 需 IP 維 lock／unlock 鍵；rev5 現僅 `throttle_lock_user_key` 單一用途 builder、其檔內註解自述「IP 維屬後續刀」⇒ 本單元必動，2026-08-15 動工前接地補列） |
+| U-J | T044~T049 | `facade/sys_login_attempt.rs`、`throttle/mod.rs`、`handler/auth/login.rs`、★`cache/mod.rs`＝**已移交 U-K／T052**（2026-08-16：U-J 的允許清單未含它，兩支來源維 key builder 暫置 `throttle/mod.rs`；as-built 已證 U-J 不動它也做得完，而 U-K 的解鎖端點本就要動該檔、四支鍵一次收攏成終態）
 | U-K | T050~T055 | `contract.rs`、`router.rs`、★`handler/{mod,throttle}.rs`、`throttle/mod.rs`、`cache/mod.rs`、★**i18n 四處**＝`locales/langs/{zh-tw,en-us,zh-cn}.ts`＋`typings/app.d.ts`（後三者為既有檔，僅其 `backend:`／`Schema.backend` 節） |
 | U-L | T056~T063 | `RUNBOOK.md`、`ARCHITECTURE.md`、`BACKLOG.md`、`LESSONS.md`、★`rust-api/server/tests/wire_schema.rs`（僅其「裁判面界線」註記、T060）、★`docs/generated/**`（★T063 由 `docs-sync.py generate` **機器重算**產出、**禁手改**——agent 只得跑該指令後 `git add`） |
 

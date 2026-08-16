@@ -236,19 +236,61 @@ SELECT count(*) FROM sys_ip_rule WHERE wbip_cidr = '203.0.113.0/24';   -- 預期
 # （規則 id 由列表取；deleted/restore 語意見 contracts/wire-ip-rule.md）
 curl -s "$BASE/systemManage/getIpRuleList?deleted=active" -H "$AUTH" | jq '.data.records[] | {id, wbipCidr, wbipType}'
 
-# SIM_A 連續失敗至軟門檻 → 預期要求驗證碼（帳號名每次不同，證明是「來源維」在擋）
-for i in $(seq 1 12); do
+# ★門檻取自 seed（data-model §1.4）——先讀出來，下面的發數才對得上；seed 若被調過就照
+#   讀到的值換算（軟門檻＝N ⇒ 第 ① 步發 N−1 次、第 ③ 步的第二發即轉 2222）。
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+  SELECT setting_key, setting_value FROM system_settings
+  WHERE setting_key IN ('"'"'ip_captcha_after'"'"','"'"'ip_max_fails'"'"','"'"'ip_window_minutes'"'"')
+  ORDER BY 1"'
+```
+
+**預期**：`ip_captcha_after=10`／`ip_max_fails=50`／`ip_window_minutes=15`（以下發數按此換算）。
+
+```bash
+# ① SIM_A 連續失敗 9 發（＝軟門檻 10 減一，仍在自由區）
+#    ★帳號名每發都不同 ⇒ 帳號維構造上不可能觸發，之後看到的 2222 只能出自來源維
+for i in $(seq 1 9); do
   curl -s "$BASE/auth/login" -H 'content-type: application/json' \
     -H "X-Forwarded-For: $SIM_A" \
     -d "{\"userName\":\"ghost$i\",\"password\":\"x\"}" | jq -r .msg
 done
 ```
 
-**預期**：前段回 `auth.login.failed`，達軟門檻後轉 `auth.login.captchaRequired`
-——★**帳號名每次都不同**，帳號維不可能觸發，只能是來源維。
+**預期**（2026-08-16 U-J 實跑值）：9 發全數 `auth.login.failed`。
 
 ```bash
-# SIM_B 同時測 → 預期完全不受 SIM_A 的計數影響（計數隔離）
+# ② ★負向自證前半：此刻仍在自由區 ⇒ 成功登入免題
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+  -H "X-Forwarded-For: $SIM_A" \
+  -d '{"userName":"Super","password":"123456"}' | jq -r .code
+```
+
+**預期**：`"0000"`。
+
+★★**這一發的位置不可調換到軟門檻之後**（2026-08-16 U-J 走查實暴、本節據此改寫）：軟區是
+對**該來源的每一發**都要求驗證碼，帳密再正確也一樣（實跑得 `2222`／`biz.auth.captchaRequired`），
+而 shell 走查解不了圖形題 ⇒ 原本「先打滿 12 發、再期望成功登入回 `0000`」的寫法**做不到**。
+負向自證的成功登入因此必須落在自由區內，鑑別力改由第 ③ 步承載。
+
+```bash
+# ③ ★負向自證後半：成功登入 MUST NOT 重置來源計數
+#    ——②之後若計數歸零，這三發會全部停在 auth.login.failed
+for i in 10 11 12; do
+  curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+    -H "X-Forwarded-For: $SIM_A" \
+    -d "{\"userName\":\"ghost$i\",\"password\":\"x\"}" | jq -r .msg
+done
+```
+
+**預期**（2026-08-16 U-J 實跑值）：`ghost10` 仍 `auth.login.failed`（它是第 10 次失敗——
+★成功登入沒有把前 9 次抹掉），`ghost11`／`ghost12` 轉 **`biz.auth.captchaRequired`**。
+——三發全數 `auth.login.failed`＝「成功即重置」被誤加進來源維（該形是可繞過整套來源維防護的
+破口：攻擊者只需在同一來源穿插一次自有帳號的成功登入即可清零計數；計數下界必須恰兩源）。
+★msg 鍵是 **`biz.auth.captchaRequired`**（rev5 的 Biz 構造點鍵走 `biz.<domain>.<case>`）
+——本節原記 rev4 的 `auth.login.captchaRequired`，2026-08-16 實跑更正。
+
+```bash
+# ④ SIM_B 同時測 → 預期完全不受 SIM_A 的計數影響（計數隔離）
 curl -s "$BASE/auth/login" -H 'content-type: application/json' \
   -H "X-Forwarded-For: $SIM_B" \
   -d '{"userName":"ghost99","password":"x"}' | jq -r .msg
@@ -257,20 +299,45 @@ curl -s "$BASE/auth/login" -H 'content-type: application/json' \
 **預期**：`auth.login.failed`（不是 captchaRequired）。
 
 ```bash
-# ★負向自證（SC-006）：穿插一次成功登入，來源計數 MUST NOT 重置
-curl -s "$BASE/auth/login" -H 'content-type: application/json' \
-  -H "X-Forwarded-For: $SIM_A" \
-  -d '{"userName":"Super","password":"123456"}' | jq -r .code
-curl -s "$BASE/auth/login" -H 'content-type: application/json' \
-  -H "X-Forwarded-For: $SIM_A" \
-  -d '{"userName":"ghost100","password":"x"}' | jq -r .msg
+# 順帶自證位址還原真的走了 §1 那條路（否則本節擋的可能是別的桶）：
+# ★`success` MUST 進 GROUP BY（2026-08-16 U-J 走查覆核追加）：本節要守的判別面是「**失敗列**
+#   不增加」，而第 ② 步的成功登入自己也落一列稽核（login 第⑩步的寫入點 (c) 無條件落列）
+#   ——混算成功列會讓總數被一個與本節無關的維度推移，鑑別力當場鈍化。
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+  SELECT host(real_ip) AS real_ip, ip_confidence, success, count(*)
+  FROM sys_login_attempt GROUP BY 1,2,3 ORDER BY 1,3"'
 ```
 
-**預期**：成功登入回 `"0000"`，但下一發**仍是** `auth.login.captchaRequired`
-——若變回 `auth.login.failed`＝「成功即重置」被誤加進來源維（該形是可繞過整套來源維防護的
-破口，計數下界必須恰兩源）。
+**預期**（2026-08-16 U-J 走查覆核實跑值）：三列——
+`203.0.113.11｜proxy_clean｜f｜10`、`203.0.113.11｜proxy_clean｜t｜1`、
+`203.0.113.22｜proxy_clean｜f｜1`。
 
-★**本節同樣會寫 `sys_login_attempt`，收尾請比照 §1 收尾那兩行清理**（理由同 §1）。
+★判別面＝**SIM_A 的失敗列恰 10**（＝軟區那兩發拒絕**零稽核列零計數桶**）；失敗列變 12
+＝拒絕分支開始落列，攻擊者對著軟區反覆敲門即可把來源推進硬鎖。
+★SIM_A 的**總**列數是 **11**＝9（①九發失敗）＋1（②成功登入自己那一列）＋1（③ghost10 失敗）
+——2026-08-16 覆核前本節誤記為 10（漏算 ② 的成功列），依那個數字走查會把正常結果（11）
+讀成「多出 1 列＝拒絕分支落列」的**假警報**、而真回歸值其實是 13。這正是本查詢要拆
+`success` 的理由：拆開之後兩邊各自對得上、不必再靠總數心算。
+
+### ★§4 收尾（必做，**不可留到 §7**）
+
+```bash
+# ★謂詞是 TRUNCATE、**不是** §1 收尾那條 `IN ('Super','Admin','User')`（2026-08-16 U-I
+#   品質審查實查、U-J 走查覆核）：本節用的是 **ghost 帳號**，而 `login::record_attempt`
+#   逐字寫入送入的帳號名 ⇒ 那批列完全不在該謂詞射程內，留列同樣佔住 id=1 並毒化下一次
+#   `cargo test`（成因＝L-031）。
+# ★第二句 `sys_token` 亦不可省：第 ② 步是**成功**登入，login 第⑧步無條件落一列 committed
+#   憑證，而 `SequenceResetGuard` 的名冊含 `sys_token_id_seq` ⇒ 留列即撞 `sys_token_pkey`。
+# ★判別面＝兩個 `remaining` 皆為 0，**不是**「三閘綠」——兩表都在 schema 閘的
+#   runtime-append 收窄集內，留列時 `schema-gate check` 恆四項全綠。
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "TRUNCATE sys_login_attempt RESTART IDENTITY" \
+  -c "SELECT count(*) AS login_attempt_remaining FROM sys_login_attempt" \
+  -c "TRUNCATE sys_token RESTART IDENTITY" \
+  -c "SELECT count(*) AS token_remaining FROM sys_token"'
+```
+
+**預期**：兩個 `remaining` 皆為 0。★清完**才**跑全量（次序反了拿到的綠是走查**前**的快照）。
 
 ## 5. 管理員解鎖（US5）
 
@@ -297,7 +364,9 @@ $PG sh -lc "$COUNT_SQL"   # 預期與 $BEFORE 相同
 
 **預期**：`"2222"` ＋ `biz.throttle.invalidUnlockTarget`，稽核列數**不變**。
 
-★**本節同樣會寫 `sys_login_attempt`，收尾請比照 §1 收尾那兩行清理**（理由同 §1）。
+★**本節同樣會寫 `sys_login_attempt`，收尾請比照 §4 收尾那一塊**（★**不是** §1 收尾那條
+`IN ('Super','Admin','User')`：本節用的是 ghost 帳號〔`ghost200`〕、不在該謂詞射程內；
+成因與 §4 收尾同一條，2026-08-16 U-J 走查一併更正）。
 
 ## 6. 管理頁走查（US3／SC-009）
 
@@ -375,9 +444,12 @@ curl -s -o /dev/null -w 'SIM_B=%{http_code}\n' "$BASE/auth/loginCaptcha?userName
 # 3) ★登入嘗試列：收窄集豁免不了測試套件（SequenceResetGuard 會 setval 回 1，
 #    留列佔住 id=1 即讓 login integration 五支撞主鍵）。各節走查後就該清，
 #    此處為兜底；理由見 §1 收尾與 LESSONS L-031
+#    ★**兜底這一句用 TRUNCATE、不用 §1 收尾那條 `IN (...)`**（2026-08-16 U-J 走查更正）：
+#      §4／§5 用的是 ghost 帳號，`login::record_attempt` 逐字寫入送入的帳號名 ⇒ 那批列
+#      不在 `IN ('Super','Admin','User')` 的射程內，兜底若沿用該謂詞就兜不到。
+#      凍結 seed 對本表期望 0 列，TRUNCATE 嚴格涵蓋且免去「下次又多一種帳號名」的維護面。
 $PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c "DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('"'"'Super'"'"','"'"'Admin'"'"','"'"'User'"'"')" \
-  -c "SELECT setval('"'"'sys_login_attempt_id_seq'"'"', 1, false)" \
+  -c "TRUNCATE sys_login_attempt RESTART IDENTITY" \
   -c "SELECT count(*) AS remaining FROM sys_login_attempt"'
 
 # 3b) ★★會話憑證列：**成功登入必落一列 committed `sys_token`**（login 第⑧步無條件 insert）

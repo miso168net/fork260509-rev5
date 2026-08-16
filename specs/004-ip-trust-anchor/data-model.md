@@ -55,7 +55,7 @@
    落此值）。★逐字對照 `trust::Confidence::ChainRejected` 的 rustdoc——**兩處不得分岔**。
 ② **計數維度分流**：帳號維計數查詢 MUST 以 `AND ip_confidence IS DISTINCT FROM 'chain_rejected'`
    排除該列（鍵＝`attempted_user_name`＝受害者），來源維計數 MUST **不加**該過濾
-   （鍵＝`real_ip`＝攻擊者自身，納入才封得住稽核表成長）。★用 `IS DISTINCT FROM` 而非 `<>`：
+   （鍵＝`real_ip`＝攻擊者自身**且由信任錨錨定** ⇒ 不誤傷第三方，並讓拒絕列消耗攻擊者自身在「一般登入」通道上的來源額度；★**勿以「封成長」為由統一兩維**——該理由已於 2026-08-16 實測證偽：拒絕腿在 `throttle::precheck` **之前**就 return（機器守＝`t069_chain_rejection_precedes_the_throttle_precheck`），敵意鏈請求**從不進入來源維判定** ⇒ 加不加過濾都封不住**該腿自身**的落列速率（其速率上界在反向代理層的 `limit_req`、列寬上界＝ADR 0043 決定 1））。★用 `IS DISTINCT FROM` 而非 `<>`：
    本欄 nullable，`<>` 對 NULL 回 NULL ⇒ 既有 NULL 列會被整組漏掉。
 
 ### 1.3 `sys_operation_log`（archetype B append-only；★rev5 首個寫入者）
