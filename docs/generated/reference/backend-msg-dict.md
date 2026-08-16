@@ -19,6 +19,7 @@
 | biz.ipRule.selfLock | 此規則會使你目前的連線被阻擋，已拒絕寫入 | This rule would block your current connection; the change was rejected |
 | biz.systemSettings.invalidValue | 設定值不合法（型別不符、超出範圍或非允許選項） | Invalid setting value (wrong type, out of range or not an allowed option) |
 | biz.systemSettings.notFound | 找不到指定的設定鍵 | The specified setting key was not found |
+| biz.throttle.invalidUnlockTarget | 解鎖對象不正確 | Invalid unlock target |
 | biz.user.passwordViolation.forbidUsername | 不可與使用者名稱相同 | must not be identical to the user name |
 | biz.user.passwordViolation.maxBytes | 位元組數超過上限 | byte length exceeds the limit |
 | biz.user.passwordViolation.maxLength | 長度超過政策上限 | length exceeds the policy maximum |

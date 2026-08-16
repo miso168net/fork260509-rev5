@@ -341,32 +341,140 @@ $PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
 
 ## 5. 管理員解鎖（US5）
 
-```bash
-# 把 SIM_A 推到硬門檻後解鎖
-curl -s "$BASE/systemManage/unlockLogin" -H "$AUTH" -H 'content-type: application/json' \
-  -d "{\"dimension\":\"ip\",\"target\":\"$SIM_A\"}" | jq .code
+★**觀測面一律取「軟區 → 自由區」、不追硬鎖**（2026-08-16 U-K 走查更正；本節原記
+「把 SIM_A 推到硬門檻後解鎖」**做不到**）：兩維的軟區拒絕都**零計數零稽核列**
+（`precheck` 於 `authenticate` 之前 return），故計數在 shell 走查下**永遠停在軟門檻**
+——來源維卡在 10（硬門檻 50）、帳號維卡在 2（硬門檻 5）。解鎖的判別力不因此打折：
+標記把計數下界推到「現在」⇒ 計數歸零 ⇒ 退出**當時所在的那一區**，軟區與硬鎖驗的是
+同一件事。
 
+### 5a. 來源維（`dimension:"ip"`）
+
+```bash
+# ① SIM_A 連續失敗 10 發（＝來源軟門檻 ip_captcha_after；帳號名每發都不同 ⇒ 帳號維
+#    構造上不可能觸發，之後看到的 2222 只能出自來源維）
+for i in $(seq 1 10); do
+  curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+    -H "X-Forwarded-For: $SIM_A" \
+    -d "{\"userName\":\"ghost$i\",\"password\":\"x\"}" | jq -r .msg
+done
+
+# ② 前提自證：此刻已在軟區
 curl -s "$BASE/auth/login" -H 'content-type: application/json' \
   -H "X-Forwarded-For: $SIM_A" \
-  -d '{"userName":"ghost200","password":"x"}' | jq -r .msg
+  -d '{"userName":"ghost11","password":"x"}' | jq -r '.code, .msg'
+
+# ③ 解鎖（target＝**位址字面**，後端自行導成計數桶 203.0.113.11/32）
+curl -s "$BASE/systemManage/unlockLogin" -H "$AUTH" -H 'content-type: application/json' \
+  -d "{\"dimension\":\"ip\",\"target\":\"$SIM_A\"}" | jq -c '{code, msg}'
+
+# ④ 解鎖後回到自由區
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+  -H "X-Forwarded-For: $SIM_A" \
+  -d '{"userName":"ghost200","password":"x"}' | jq -r '.code, .msg'
 ```
 
-**預期**：解鎖回 `"0000"`；隨後該來源回到自由區（`auth.login.failed`）。
+**預期**（2026-08-16 U-K 實跑值）：①十發全數 `auth.login.failed`；②`"2222"`＋
+`biz.auth.captchaRequired`；③`{"code":"0000","msg":"common.success"}`；
+④`"1000"`＋`auth.login.failed`（**回到自由區**）。
+
+### 5b. 帳號維（`dimension:"user"`）
 
 ```bash
-# 畸形參數 → 零稽核零狀態（`$PG` 定義見 §1；新開 shell 需重跑那一行）
+# ⑤ ghost99 自 SIM_B 連續失敗 2 發（＝帳號軟門檻 login_throttle_captcha_after）
+for i in 1 2; do
+  curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+    -H "X-Forwarded-For: $SIM_B" \
+    -d '{"userName":"ghost99","password":"x"}' | jq -r .msg
+done
+
+# ⑥ 前提自證：已在帳號維軟區。★換 SIM_B 是**判別手段不是排版**：SIM_B 的來源計數
+#    此刻僅 2（< 軟門檻 10）⇒ 這一顆 2222 只能出自帳號維；沿用 SIM_A 則兩維同時在軟區、
+#    看不出是哪一維觸發（回應刻意不揭露維度，FR-025）。
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+  -H "X-Forwarded-For: $SIM_B" \
+  -d '{"userName":"ghost99","password":"x"}' | jq -r '.code, .msg'
+
+# ⑦ 解鎖（帳號維給 userName、不給 target）
+curl -s "$BASE/systemManage/unlockLogin" -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"dimension":"user","userName":"ghost99"}' | jq -c '{code, msg}'
+
+# ⑧ 解鎖後回到自由區
+curl -s "$BASE/auth/login" -H 'content-type: application/json' \
+  -H "X-Forwarded-For: $SIM_B" \
+  -d '{"userName":"ghost99","password":"x"}' | jq -r '.code, .msg'
+```
+
+**預期**（2026-08-16 U-K 實跑值）：⑤兩發皆 `auth.login.failed`；⑥`"2222"`＋
+`biz.auth.captchaRequired`；⑦`{"code":"0000","msg":"common.success"}`；
+⑧`"1000"`＋`auth.login.failed`。
+
+### 5c. 畸形參數 → 零稽核零狀態
+
+```bash
+# `$PG` 定義見 §1（新開 shell 需重跑那一行）
 COUNT_SQL='psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM sys_operation_log"'
 BEFORE=$($PG sh -lc "$COUNT_SQL")
-curl -s "$BASE/systemManage/unlockLogin" -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"dimension":"nonsense"}' | jq '.code, .msg'
+for body in '{"dimension":"nonsense"}' '{"dimension":"user"}' \
+            '{"dimension":"ip","target":"not-an-ip"}' '{"dimension":"ip","target":"0.0.0.0"}'; do
+  printf '%s → ' "$body"
+  curl -s "$BASE/systemManage/unlockLogin" -H "$AUTH" -H 'content-type: application/json' \
+    -d "$body" | jq -c '{code, msg}'
+done
 $PG sh -lc "$COUNT_SQL"   # 預期與 $BEFORE 相同
 ```
 
-**預期**：`"2222"` ＋ `biz.throttle.invalidUnlockTarget`，稽核列數**不變**。
+**預期**：四形全數 `"2222"` ＋ `biz.throttle.invalidUnlockTarget`（維度不明／該維必填欄
+缺席／位址不可解析／`unspecified` 哨兵——★rev5 恰**一把鍵**，rev4 的
+`invalidDimension`／`invalidTarget` 兩把不帶回），稽核列數**不變**。
 
-★**本節同樣會寫 `sys_login_attempt`，收尾請比照 §4 收尾那一塊**（★**不是** §1 收尾那條
-`IN ('Super','Admin','User')`：本節用的是 ghost 帳號〔`ghost200`〕、不在該謂詞射程內；
-成因與 §4 收尾同一條，2026-08-16 U-J 走查一併更正）。
+```bash
+# 稽核列內容（data-model §1.3 欄值表）
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+  SELECT operation, entity_table, entity_id, payload_after, host(real_ip) AS real_ip,
+         ip_confidence, created_by FROM sys_operation_log ORDER BY id"'
+```
+
+**預期**（2026-08-16 U-K 實跑值）：恰兩列，皆 `operation=unlock`／
+`entity_table=login_throttle`／`entity_id` 為 NULL；payload 分別是
+`{"dimension":"ip","userName":null,"target":"203.0.113.11/32"}`（★`target` 是**計數桶
+字面**、不是送進去的位址原文）與 `{"dimension":"user","userName":"ghost99","target":null}`；
+`created_by=1`（Super）。★`real_ip` 為反向代理位址、`ip_confidence=fallback`＝**正常**：
+解鎖那兩發 curl 沒帶構造標頭（見 §0 的核心驗收前提），與被解鎖的標的無關。
+
+★**本節同樣會寫 `sys_login_attempt` 與 `sys_operation_log`，收尾見下**（★**不是** §1 收尾
+那條 `IN ('Super','Admin','User')`：本節用的是 ghost 帳號、不在該謂詞射程內；成因與 §4
+收尾同一條）。
+
+### ★§5 收尾（必做，**不可留到 §7**）
+
+```bash
+# ★三表都要清：sys_login_attempt（ghost 失敗列）／sys_token（§0 取 $TOKEN 那發成功登入）
+#   ／sys_operation_log（本節兩列解鎖稽核）。前兩表的理由＝L-031＋SequenceResetGuard 名冊
+#   （見 §4 收尾）；第三表雖在收窄集內（留列不會讓 schema-gate 轉紅），但違「測後零殘留」，
+#   且會讓下一輪走查的 `$BEFORE` 基線帶著上一輪的殘量。
+# ★判別面＝三個 remaining 皆為 0，**不是**「三閘綠」。
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "TRUNCATE sys_login_attempt RESTART IDENTITY" \
+  -c "SELECT count(*) AS login_attempt_remaining FROM sys_login_attempt" \
+  -c "TRUNCATE sys_token RESTART IDENTITY" \
+  -c "SELECT count(*) AS token_remaining FROM sys_token" \
+  -c "TRUNCATE sys_operation_log RESTART IDENTITY" \
+  -c "SELECT count(*) AS operation_log_remaining FROM sys_operation_log"'
+
+# ★redis 節流鍵亦須清（解鎖標記 TTL＝該維滑動窗＝15 分鐘）：留著它，下一輪走查的
+#   ①與⑤會**一進場就在自由區**、前提自證整段失去判別力（「重跑就綠」的假象）。
+#   密碼一律以容器內 /run/secrets/redis_password 展開（同 §7 之 1b）。
+RD='docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T redis'
+$RD sh -lc 'RC="redis-cli -a $(cat /run/secrets/redis_password) --no-auth-warning";
+  for k in $($RC --scan --pattern "throttle:unlock:*") $($RC --scan --pattern "throttle:lock:*"); do
+    $RC DEL "$k" >/dev/null; done;
+  echo "--- 殘留複查（應為空）---"; $RC --scan --pattern "throttle:unlock:*";
+  $RC --scan --pattern "throttle:lock:*"'
+```
+
+**預期**：三個 `remaining` 皆為 0，redis 殘留複查無輸出。
+★清完**才**跑全量（次序反了拿到的綠是走查**前**的快照）。
 
 ## 6. 管理頁走查（US3／SC-009）
 

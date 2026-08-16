@@ -609,14 +609,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T050 [P] [US5] `rust-api/server/tests/contract.rs` 加 `unlock-login` case。**先確認紅**
-- [ ] T051 [P] [US5] `rust-api/server/src/handler/throttle.rs` 之 `#[cfg(test)]`：兩維各一案
+- [x] T050 [P] [US5] `rust-api/server/tests/contract.rs` 加 `unlock-login` case。**先確認紅**
+- [x] T051 [P] [US5] `rust-api/server/src/handler/throttle.rs` 之 `#[cfg(test)]`：兩維各一案
   解鎖生效／畸形參數→業務碼且**零稽核零狀態**／★**稽核寫入失敗即中止且快取一概不動**
   （「已生效但零稽核列」構造不可達）／未鎖標的冪等成功。**先確認紅**
 
 ### Implementation for User Story 5
 
-- [ ] T052 [US5] `rust-api/server/src/handler/throttle.rs` 新建（★同批於 `handler/mod.rs` 加
+- [x] T052 [US5] `rust-api/server/src/handler/throttle.rs` 新建（★同批於 `handler/mod.rs` 加
   `pub mod throttle;`）：`unlock_login`＋`resolve_unlock_target`；★**動作序寫死**＝①維度解析
   與標的導出（畸形即回、**先於**任何稽核與狀態變更）→②**先寫操作稽核列**（失敗→內部錯誤
   中止、快取不動）→③寫解鎖標記＋清該維鎖定鍵。★標記值格式＝**unix 秒十進位字串**
@@ -635,7 +635,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   兩處各自 `format!` ＝鎖用 A 形寫、解鎖用 B 形刪，**解鎖會靜默無效**（DEL 不存在的鍵不報錯）。
   ★連帶：`specs/004-ip-trust-anchor/tasks.md` 的 U-J 涉檔表原列 `cache/mod.rs`（與 U-J 實際
   允許清單相牴），**已於本次移交同批改為「移交 U-K／T052」**。
-- [ ] T053 [US5] 帳號維**三件補齊**（★既有節流查詢函式本體**零改動**——前一刀交棒時已預留
+- [x] T053 [US5] 帳號維**三件補齊**（★既有節流查詢函式本體**零改動**——前一刀交棒時已預留
   參數位）：解鎖標記鍵（帳號維鍵形）＋讀取端（把標記值餵進計數下界）＋計數標籤。
   **DoD：帳號維解鎖生效之真 redis＋真 DB 測先紅後綠**
   ★**併入：三處「發射點尚未落地」敘述的時態校正**（004 U-J 移交；本 task 落地後**六個 label
@@ -653,7 +653,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★另併：`model/mod.rs` 之 `REDIS_TTL_SLACK_SECS` 消費者盤點「`throttle/mod.rs`（**4 處**）」
   現已為 **6 處**——★建議改寫成**不帶數字**的形（「消費者見 `throttle::integration_tests::
   assert_ttl_within` 一支」），否則每加一支 TTL 測就要跨檔同步一次數字、同型必然復發。
-- [ ] T054 [US5] 後端 msg key 一鍵（`biz.throttle.invalidUnlockTarget`）＋★依 Lint24 同步律
+- [x] T054 [US5] 後端 msg key 一鍵（`biz.throttle.invalidUnlockTarget`）＋★依 Lint24 同步律
   同批補**四處**：`zh-tw.ts`／`en-us.ts` 之 `backend:` 樹／`zh-cn.ts` 之 `backend:` 樹／
   `base-web/src/typings/app.d.ts` 之 `App.I18n.Schema.backend.biz` **新增 `throttle` 型節**
   （★該子節此前不存在、需整節新增；後三處為 base-web 既有檔，補在既有
@@ -663,7 +663,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★**零新 casbin 政策列**（seed 148 已在）。**DoD：T050 由紅轉綠；`docs-sync lint` 綠；
   `docs-sync generate` 跑得完（不拋 `BackendDictError`）；`pnpm typecheck` 綠；
   `fork-delta-lint` 綠**
-- [ ] T055 [US5] 走查 quickstart §5：兩維各解鎖一次、畸形參數零稽核。**DoD：三項皆符**
+- [x] T055 [US5] 走查 quickstart §5：兩維各解鎖一次、畸形參數零稽核。**DoD：三項皆符**
   ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
   `TRUNCATE sys_login_attempt RESTART IDENTITY`
   ★**謂詞由 `IN ('Super','Admin','User')` 改為 TRUNCATE**（004 U-I 品質審查實查證實）：
@@ -707,7 +707,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   來源維計數**刻意不排除** `chain_rejected` 而帳號維**必須排除**（ADR 0043／FR-050，理由＝
   **鍵不對稱**、★勿寫成「封成長」，該理由已於憲法 v1.6.1 勘誤）。這一句是最容易被日後
   「順手統一」抹掉的拍板結論。
-- [ ] T058 [P] `docs/ops/BACKLOG.md` 帳面處置（spec §2.2）：**B-019 關帳**／**B-073 關帳**／
+- [ ] T058 [P] `docs/ops/BACKLOG.md` 帳面處置（spec §2.2）：**B-019 關帳**／~~B-073 關帳~~（★**已於 U-K 收尾提前關帳**——其斷言「unlock marker 恆 NULL、無寫入者」自 T052 起為假、屬現在式假述，不宜留到 U-L；本 task 只需複核已刪、勿重複處置）／
   **B-071 關帳**（隨 T002 之 PATCH）／B-020 改寫（per-IP 半邊關、通用化半邊續留）／B-008 改寫
   （ip-rule 頁出列、端點卡數 12→7）／B-003 改寫（備註欄四分之一關）／B-072 改寫
   （★防線已備、真實渲染點續掛稽核頁刀——**不宣稱關帳**）

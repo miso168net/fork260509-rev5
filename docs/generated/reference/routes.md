@@ -24,5 +24,6 @@
 | /systemManage/getIpRuleList | GET | Policy | get-ip-rule-list | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
 | /systemManage/restoreIpRule | POST | Policy | restore-ip-rule | 否 |
+| /systemManage/unlockLogin | POST | Policy | unlock-login | 否 |
 | /systemManage/updateIpRule | POST | Policy | update-ip-rule | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
