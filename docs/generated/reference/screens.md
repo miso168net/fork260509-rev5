@@ -26,6 +26,7 @@
 | iframe-page | /iframe-page/:url | layout.base$view.iframe-page | route.iframe-page |
 | login | /login/:module(pwd-login\|code-login\|register\|reset-pwd\|bind-wechat)? | layout.blank$view.login | route.login |
 | manage | /manage | layout.base | route.manage |
+| manage_ip-rule | /manage/ip-rule | view.manage_ip-rule | route.manage_ip-rule |
 | manage_menu | /manage/menu | view.manage_menu | route.manage_menu |
 | manage_role | /manage/role | view.manage_role | route.manage_role |
 | manage_user | /manage/user | view.manage_user | route.manage_user |

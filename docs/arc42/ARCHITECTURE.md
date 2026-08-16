@@ -15,8 +15,9 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 **明確不做**：多租戶、對外開放 API、行動端。
 
 **目前建置狀態**：文件地基（創世）＋schema 基線（001）＋系統設定縱切（002）＋auth 會話
-縱切（003：真登入／rotation／撤銷矩陣／節流三區／圖形驗證碼／i18n 接線）就位；
-其餘域隨波次建置。
+縱切（003：真登入／rotation／撤銷矩陣／節流三區／圖形驗證碼／i18n 接線）＋IP 信任錨縱切
+（004：真實來源還原**七態**＋轉發鏈逾上界的拒絕腿一態〔＝`ip_confidence` 欄值域共八態，但第八態由三層矩陣**之前**的短路產生、不是矩陣的出口〕／IP 存取閘與門鈴熱重載／IP 規則管理頁與五支端點／來源維節流／
+管理員解鎖端點）就位；其餘域隨波次建置。
 
 ## §2 約束
 
@@ -61,7 +62,9 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
 - **entity crate**：15 表 sea-orm entity，欄集與 schema 快照逐欄一致
   （`tools/entity-drift-gate.py` 守恆；其中 `casbin_rule` 委派 adapter 建基底、不入比對面，
   故實比對 14 表）；ORM 關聯與行為層紀律見 §8 資料慣例。
-- **server crate 管線形**（請求單向流）：router（`ROUTES` 註冊表＝路徑／method／handler／
+- **server crate 管線形**（請求單向流）：`request_context_mw`（信任錨還原＋請求上下文注入，
+  最外側業務層；004）→`ip_gate_mw`（IP 存取閘，**先於身分驗證**）→router（`ROUTES` 註冊表
+  ＝路徑／method／handler／
   授權態單一來源；動詞不符由 `method_not_allowed_fallback` 收斂為 4040＋HTTP 404，末端
   外殼再剝除 axum 自動附加的 `allow` 標頭——信封與標頭兩面皆與未註冊路徑不可區分＝零
   存在性洩漏，組裝次序載於 ADR 0031、剝除掛點論證見 router.rs 碼註）→enforce_mw（真驗章
@@ -78,24 +81,91 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   驗章 middleware＋denylist 降級鏈＋casbin 單一判定進入點）／`handler/auth/`（`login.rs`
   十一步登入鏈、`refresh.rs` rotation＋reuse＋idle、`logout.rs` 撤銷、`user_info.rs`、
   `alt_stub.rs` 替代登入誠實 stub 四出口）／`handler/captcha.rs`＋`captcha/`（圖形驗證碼
-  簽章題）／`throttle/`（登入失敗節流三區狀態機）／`cache/`（redis session 加速層：
-  denylist／grace／last_activity／throttle L1 鍵面）；資料面 `model/facade/` 八支
-  （session_event／sys_login_attempt／sys_menu／sys_role／sys_token／sys_user／
-  sys_user_role／system_settings）＋src 側測試共用設施 `model::test_db`（守衛四件套、
-  真 app 建構 `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
+  簽章題）／`throttle/`（登入失敗節流狀態機——003 起帳號維、004 起雙維）／`cache/`
+  （redis session 加速層：denylist／grace／last_activity／throttle L1 與解鎖標記鍵面）；
+  資料面 `model/facade/` **十支**（session_event／sys_ip_rule／sys_login_attempt／
+  sys_menu／sys_operation_log／sys_role／sys_token／sys_user／sys_user_role／
+  system_settings）＋src 側測試共用設施 `model::test_db`（守衛**八件**＝`SequenceResetGuard`
+  ／`ChainRowsCleanup`／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
+  `OperationLogCleanup`／`SessionIdCleanup`＋列態 fixture `UserStatusFixture`，各支「為何
+  非有不可」逐條寫在其型 doc；其中**六支**各配一支核心自證測——`OperationLogCleanup` 依其
+  型 doc 的收窄集理由刻意不配、`IpRuleCleanup` 尚無（帳在 B-085）。另有真 app 建構
+  `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
+- **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
+  兩層覆蓋、`apply_chain_overflow` 鏈長短路、`to_canonical` 折疊、`TrustModel::is_trusted`）／
+  `ipgate/`（規則判定純函式 `decide`＋`build_ruleset`＋防自鎖 `would_self_lock`＋讀端
+  `load_ruleset`＋門鈴 `reload_and_publish`／`spawn_ipgate_watcher`）／`middleware/`
+  （`request_context_mw`＋`ip_gate_mw` 兩支）／`request_context.rs`（`RequestContext` 型＋
+  三個建構點 `from_trust`／`from_headers`／`new`——鑑識三欄的唯一產出處）／`config.rs` 的
+  `load_trust_model`（啟動時一次載入、唯讀共享）。狀態容器 `AppState` 自本刀起為**七欄**
+  （既有五欄＋`trust_model`／`ip_rules`；ADR 0041）。
 - **觀測面**：`/metrics` Prometheus exposition；序列一律 boot 時 pre-register 顯式 0
   （防「事件未發生＝序列缺席」使 `rate()` 失去基線——`obs.rs` 檔頭鐵律）。auth 刀新增
   三序列：`denylist_hit_total`（source＝redis／pg 恰二）、`throttle_degraded_total`
-  （source 恰六、值集權威＝003 research R5）、`throttle_soft_zone_total`（無 label）；
+  （source 恰十二、值集權威＝`obs::THROTTLE_DEGRADED_SOURCES`；003 立為六源、004 之
+  IP 域刀重推為十二源）、`throttle_soft_zone_total`（無 label）；004 之 IP 域刀再新增
+  兩序列：`ip_domain_degraded_total`（kind 恰五、值集權威＝`obs.rs` 的
+  `IP_DOMAIN_DEGRADED_KINDS`〔**crate 內私有 const**、非跨 crate API〕，逐字取自該刀
+  data-model §5 降級矩陣）、`ipgate_blocked_total`（**無 label**——阻擋**不屬
+  降級類**，且網段做 label 等於把序列基數交給營運面輸入；命中網段等結構化欄位改由
+  `ip_gate_mw` 的告警承載，理由見 `obs::IPGATE_BLOCKED_TOTAL` 的 doc）；
   另有 002 起的 `casbin_enforce_total`（decision 三值）與 axum-prometheus HTTP 請求級
   三序列。
+  ★**本清單的複驗法**（現在式清單不會自己跟上新刀，故把量測法寫在此處而非只寫結論）：
+  `grep -rn 'metrics::counter!\|metrics::gauge!\|metrics::histogram!' rust-api/server/src/`
+  枚舉**全部發射點**，逐條比對本段——序列名一律經 `obs.rs` 的具名常數或
+  `pre_register_metrics` 的字面，故枚舉面完整。2026-08-16（004 收刀前）實跑結果＝
+  **本段清單與發射點全等、零缺零多**（U-H～U-M 五個單元未再新增序列）。
 
 ## §6 Runtime
 
-不變式凍結面住 constitution §I.7（五座行為島＋fail-* 方向）；本節只寫 as-built 執行形
+不變式凍結面住 constitution §I.7（六座行為島＋fail-* 方向）；本節只寫 as-built 執行形
 ——模組落點、常數實值、欄與鍵名（§I.7 進場規則明文把這一類留在活書）。凍結條文一律
 以「主題＋落點＋指島」形給指針，不複述 MUST 文字（複述＝同一事實兩個人寫的家，
 Amendment 改憲法而活書靜默過期）。
+
+### 信任錨與 IP 存取閘
+
+- **位置**：兩支 middleware 掛在管線最外側業務層（掛載序見 §5「server crate 管線形」）；
+  IP 閘**先於身分驗證**——被擋的來源不該有機會走到驗章與政策判定，該序由
+  `wired_router_ip_gate_runs_before_identity_enforcement` 釘住。
+- **信任錨還原**（`trust::resolve_client_ip`）：鏈＝`normalize(XFF) ++ [傳輸層對端]`——反向
+  代理以 `$proxy_add_x_forwarded_for` 在**最右**附加其觀察到的對端，故鏈右端恆為我方基建。
+  三層判定序（①對端閘②CDN 位置錨③受信轉發 walk）＋兩層覆蓋（通道回退、邊緣驗證升等），
+  凍結面＝constitution §I.7 島 F。對端的權威源＝
+  `into_make_service_with_connect_info::<SocketAddr>()`（缺席即退回讀**可偽造**的標頭並發
+  告警；無機器守＝ops/BACKLOG B-075）。
+- **態語意**：錨還原產出**七態**，而 `ip_confidence` 欄值域為**八態**——第八態
+  `chain_rejected` 是三層矩陣**之前**的短路（鏈跳數逾 `trust::MAX_XFF_TOKENS`＝**32**），
+  與其餘七態**不同軸**（ADR 0043）。字面的唯一產出點＝`trust::Confidence::as_str`：
+  `cdn_verified`（邊緣驗證交叉比對相符，最高）／`proxy_clean`（walk 解出、每跳合預期）／
+  `direct`（對端不受信、直取對端，偽造不了）／`cdn_anchored`（位置錨解出、未經交叉比對）／
+  `proxy_soft`（walk 經 `dual_role` 出口或綁定右鄰不符）／`cdn_mismatch`（驗證標記為真但
+  推導不一致＝異常留痕）／`fallback`（整鏈受信／無可取，退回對端，最低）／`chain_rejected`。
+  ★末者 **MUST NOT 讀作「該請求未被服務」**：標記由 `request_context_mw` **全域**施加、
+  而**拒絕只在登入端點** ⇒ 同一字面在 `sys_login_attempt` 恆為「被拒」（該表唯一寫入者是
+  login）、在 `sys_operation_log` 則是「鏈逾上界但請求**仍被服務**」——**分表判讀**。
+- **IP 閘判定序六步**：①健康／觀測端點放行（`middleware::GATE_BYPASS_ENDPOINTS`＝
+  `/health`、`/metrics`）②請求上下文缺席放行（fail-open，計
+  `ip_domain_degraded_total{kind="request_context_absent"}`）③結構豁免六段（loopback v4／v6、
+  RFC1918 三段、ULA `fc00::/7`）④allow 袋 any-match ⑤deny 袋 any-match（阻擋＋
+  `ipgate_blocked_total`＋帶命中網段的結構化告警）⑥預設放行。★**白＞黑**由「④寫在⑤之前」
+  這個固定序表達、**不是**由任何排序欄位表達 ⇒ 判定與載入順序無關。★③只豁免**阻擋**、
+  **不豁免節流**（來源維 L0 短路直讀 allow 袋、不經 `ipgate::decide`）。
+- **判定面**：`AppState.ip_rules` 為 `ArcSwap<RuleSet>`（放行袋／阻擋袋），每請求零外部
+  查詢；變更時**整份換版**，來源不可讀時沿用上一份良好規則。**門鈴機制**（規則熱重載）：
+  四個寫端（新增／編輯／軟刪／復原）於同交易 commit 後呼
+  `ipgate::reload_and_publish`——重讀有效列→`ArcSwap` 換版→redis `PUBLISH ipgate:invalidate`
+  （頻道名單一權威＝`ipgate::IPGATE_INVALIDATE_CHANNEL`）；各行程的 `spawn_ipgate_watcher`
+  訂閱該頻道、收訊即 `reread_keeping_last_good`。★**payload 不帶語意、收訊端只認頻道** ⇒
+  繞過端點的 SQL 直改（如走查的 `TRUNCATE`）**不會按門鈴**，須手動 `PUBLISH` 一次。
+  ★訂閱連線顯式開 TCP keepalive——建連逾時罩不到訂閱成功**之後**的半開連線（L-034）。
+- **dev 可達二態**（誠實分界、不是漏填）：dev 掛的最小信任模型
+  （`deploy/trust-model.dev.toml`——只填 `internal_default`、其餘五集合刻意留空）下，經
+  反向代理的端到端走查**可達二態**＝`fallback`（不帶構造標頭⇒鏈兩跳皆受信⇒整鏈受信回退）
+  與 `proxy_clean`（帶 `X-Forwarded-For: 203.0.113.x`）；其餘五態需宣告 `cdn`／`my_public`／
+  `bindings`／`cf_gate_egress` 或需對端不受信 ⇒ dev 結構性不可達，改由整合測試以「直餵
+  `TrustModel`＋任意 peer／標頭」覆蓋。★要在 dev 追加態，**是加設定、不是改判定碼**。
 
 ### 會話狀態機（sys_token）
 
@@ -127,23 +197,46 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   ＝constitution §I.7 島 D。
 - 會話終止稽核＝`session_event` append-only 四事件（reuse／kicked／idle／logout）。
 
-### 登入失敗節流三區
+### 登入失敗節流三區（帳號維＋來源維）
 
 ```
-count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
-  0 ~ captcha_after(2)-1 ＝ 自由區 → 密碼驗證、失敗落列推計數（1000）
-  captcha_after ~ max_fails(5)-1 ＝ 軟區 → 須先過圖形驗證碼（缺／錯／過期＝2222
+帳號維 count（滑動窗、PG sys_login_attempt 權威；鍵＝attempted_user_name 送出原文）
+  0 ~ captcha_after(2)-1         ＝ 自由區 → 密碼驗證、失敗落列推計數（1000）
+  captcha_after ~ max_fails(5)-1 ＝ 軟區   → 須先過圖形驗證碼（缺／錯／過期＝2222
       captchaRequired），過關才進密碼驗證
-  ≥ max_fails ＝ 鎖定 → 2222 locked（L1 redis 負快取短路）
+  ≥ max_fails(5)                 ＝ 鎖定   → 2222 locked（L1 redis 負快取短路）
+來源維 count（滑動窗、同一張表；鍵＝real_ip 經 throttle::ip_bucket 導出的計數桶——
+              v4 逐位址 /32、v6 先截主機位元聚合至 /64）
+  0 ~ ip_captcha_after(10)-1            ＝ 自由區
+  ip_captcha_after ~ ip_max_fails(50)-1 ＝ 軟區
+  ≥ ip_max_fails(50)                    ＝ 鎖定（該維自己的 L1 鎖鍵）
+合成（spec FR-025 逐字）：任一維硬鎖 → 硬鎖；否則任一維軟區 → 軟區；否則放行。
+  ★兩維的拒絕**共用同一組 msg key**——回應不揭露是哪一維觸發的。
+  ★來源不可得（real_ip 為 unspecified 哨兵）或命中 allow 袋 ⇒ 來源維整層跳過、帳號維
+    照常（前者＝fail-open，後者＝憲法島 F 之 F5 的 L0 短路）。
 ```
 
-- 門檻三鍵 as-built：`login_throttle_captcha_after`／`login_throttle_max_fails`／
-  `login_throttle_window_minutes` 住 system_settings（seed 2／5／15）；判定次序
-  （密碼雜湊驗證之前）與「零稽核列、零計數桶」義務＝constitution §I.7 島 E。
+- 門檻**六鍵** as-built（皆住 system_settings）：帳號維＝`login_throttle_captcha_after`／
+  `login_throttle_max_fails`／`login_throttle_window_minutes`（seed **2／5／15**）；
+  來源維＝`ip_captcha_after`／`ip_max_fails`／`ip_window_minutes`（seed **10／50／15**）。
+  判定次序（密碼雜湊驗證之前）與「零稽核列、零計數桶」義務＝constitution §I.7 島 E。
+- ★★**兩維的方向差**（004 U-J／T046 拍板結論，**最容易被日後「順手統一」抹掉**）：
+  - **計數窗下界**：帳號維取 `GREATEST` **三源**（窗起點／窗內最近一次成功登入／解鎖標記）
+    ⇒ reset-on-success 由查詢形免費兌現；來源維**恆兩源**（窗起點／解鎖標記）、
+    **禁 reset-on-success**——第三源移植過來即反轉為破口：攻擊者持任一有效帳號在同一來源
+    穿插一次成功登入就能清零該來源計數，恰好繞過本維所針對的輪換帳號名攻擊。
+  - **`chain_rejected` 列的計入**：帳號維**必須排除**（`ip_confidence IS DISTINCT FROM
+    'chain_rejected'`）、來源維**刻意不排除**（FR-050／ADR 0043）。理由＝**鍵不對稱**：
+    帳號維鍵是 `attempted_user_name`＝**受害者**且由攻擊者在 body 內自選，納入即等於
+    「攻擊者可指定誰被鎖」；來源維鍵是 `real_ip`＝**攻擊者自身**且由信任錨錨定（塞標頭
+    改不動它），納入不會誤傷第三方、還讓拒絕列消耗他自己的來源額度。
+    ★**勿寫成「封成長」**——那個舊理由已於 2026-08-16 實測**證偽**並隨憲法 v1.6.1 勘誤：
+    拒絕腿在 `throttle::precheck` **之前**就 return，敵意鏈請求從不進入來源維判定，
+    加不加過濾都封不住該腿自身的落列速率（速率上界在反向代理層的 `limit_req`）。
 - 圖形驗證碼＝無狀態簽章題（HS256、leeway=0、nonce 消耗標記 SET NX＝一次性）；
   發題對任意 userName 一律發（零存在性洩漏）、題綁發題帳號。
 - 降級腿方向（redis 失聯＝軟區停用續驗密碼、PG 查詢失敗＝歸零放行＋`captcha_forced`
-  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰六。
+  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰十二。
 
 ## §7 部署
 
@@ -153,8 +246,8 @@ count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
 
 ### fork-delta 接線現況（base-web）
 
-授權面＝constitution §III.2 名冊（授權歸憲法、本節只記 as-built 接線形）。003 起四條
-★ 軌道已實接：
+授權面＝constitution §III.2 名冊（授權歸憲法、本節只記 as-built 接線形；**條數以該名冊
+為準、本節刻意不複述**——複述即第二份會漂的手抄計數）。003 起實接之 ★ 軌道逐條如下：
 
 - **★BASE-WEB-AUTH-WIRING**：(a) `store/modules/route/index.ts` constant routes **併入**
   static 常量集（seed `constant=TRUE` 現 0 列、取代形會清空五條 builtin）；(b) 三張替代
@@ -165,14 +258,27 @@ count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
   非軟區零行為變更。
 - **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
   `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
-  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（22 鍵、
+  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**28 鍵**＝
+  003 之 22 鍵＋004 T038 之 `biz.ipRule.*` 五鍵＋004 T054 之 `biz.throttle.*` 一鍵；
   兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
 - **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
   `fetchLogout`（失敗不阻斷 `resetStore()`）。
+- **★BASE-WEB-MANAGE-PAGE-WIRING**：(i) IP 規則管理頁進場——兩語 locale 之 `route:` 樹加
+  `manage_ip-rule`、`page:` 樹加 `manage.ipRule.*`；`app.d.ts` 補 `Schema.page` 型節；
+  路由外掛產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋
+  `typings/elegant-router.d.ts`）**由外掛重算產出**、採**產物檔紀律**（禁手改、不逐行標記
+  ——標記於下次重算即被抹除、物理上不可維持）。
 
-機器守（`tools/fork-delta-lint.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
+機器守（`tools/fork-delta-lint.py`、`tools/view-render-guard.py`、
+`tools/route-artifact-gate.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
 授權名冊斷言（名冊掃自 constitution §III.1/§III.2 表格、掃空即 die）；新增型圈界；
-「假成功 toast 不得回歸」四檔靜態斷言與「`$t` fallback 不得退化」斷言（B-061／B-062 收單）。
+「假成功 toast 不得回歸」四檔靜態斷言與「`$t` fallback 不得退化」斷言（B-061／B-062 收單）；
+管理頁 `views/manage/**` 零原始 HTML 插值（FR-038）。
+★**射程界線**：`fork-delta-lint` 的 `scan()` 對「基線沒有的檔」結構性豁免 ⇒ **rev5 新檔的
+檔頭標記不受機器守**（004 U-I 變異實測：拿掉新檔標記，lint 仍全綠），該面屬紀律；受機器
+守的是**基線既有檔**的修改型與圈界。★路由外掛產物四檔受 fork-delta **全域豁免**，其唯一
+機器守＝`route-artifact-gate` 的產出檔集對賬／重算冪等／零手改三道（★第三道以**上游基線**
+為種：以版控為種重算時，外掛的 magicast 增量合併會讓手改過的行原封不動活下來、第二道全綠）。
 
 ### 資料慣例
 

@@ -31,7 +31,7 @@
 | 0026 | accepted | 2026-08-09 | gate2 seed normalize 擴入「環境相依噪音」族——版本行剝除＋Owner 值正規化，配 owner 一致性補償守門 | — | — | — |
 | 0027 | accepted | 2026-08-09 | dev 驗收入口統一為 http://127.0.0.1:22080——curl 與瀏覽器全程鎖同一 origin | — | — | — |
 | 0028 | accepted | 2026-08-09 | 憲法 Amendment 1.2.0→1.3.0——§III.2 首批四條 ★ 軌道八用途授權＋§I.7 首批五座行為島入憲 | — | — | — |
-| 0029 | accepted | 2026-08-09 | AppState 兩欄→五欄翻案——加 jwt／cache／captcha_secret，ip_rules／trust_model／mailer 續留域外 | — | — | — |
+| 0029 | superseded | 2026-08-09 | AppState 兩欄→五欄翻案——加 jwt／cache／captcha_secret，ip_rules／trust_model／mailer 續留域外 | — | — | 0041 |
 | 0030 | accepted | 2026-08-09 | ADR 0021 §3 射程收窄——app.d.ts backend 型節本刀提前，LangType／locale 註冊／zh-tw.ts 標型重構仍延後 | — | — | — |
 | 0031 | accepted | 2026-08-09 | 動詞不符回 4040＋HTTP 404——B-047 兩候選取①，正面處置「13 碼矩陣無動詞不符語意」的張力 | — | — | — |
 | 0032 | accepted | 2026-08-09 | root Cargo.toml「不引 argon2」翻案——引入六支 auth 依賴，後六支續留域外 | — | — | — |
@@ -41,4 +41,9 @@
 | 0036 | accepted | 2026-08-11 | gate2 seed 對 runtime-append 表的表級收窄 | — | — | — |
 | 0037 | accepted | 2026-08-11 | events 帳本新增 erratum 事件型與 Lint18 更正視圖 | — | — | — |
 | 0038 | accepted | 2026-08-12 | 替代登入四流程維持誠實 stub——rev5 不提供自助註冊／驗證碼登入／自助重設密碼 | — | — | — |
-| 0039 | accepted | 2026-08-12 | ip_* 三個來源節流鍵已 seed 但零執行面消費者＝已知態（解除謂詞＝B-019 落地） | — | — | — |
+| 0039 | superseded | 2026-08-12 | ip_* 三個來源節流鍵已 seed 但零執行面消費者＝已知態（解除謂詞＝B-019 落地） | — | — | 0042 |
+| 0040 | accepted | 2026-08-15 | 憲法 Amendment 1.4.0——§I.7 第六座行為島（島 F）＋§III.2 第五條 ★ 軌道（管理域新頁接線）＋島 E 來源維釐清＋§III.1 ADAPT 紀律欄措辭收斂 | — | — | — |
+| 0041 | accepted | 2026-08-15 | AppState 由恰五欄擴為恰七欄（信任模型＋規則判定面）——翻案 ADR 0029 之五欄封條 | — | 0029 | — |
+| 0042 | accepted | 2026-08-15 | 004-ip-trust-anchor 已知態集（四項續存＋一項重評不動）＋明文解除「ip_* 三鍵零消費者」 | — | 0039 | — |
+| 0043 | accepted | 2026-08-15 | 轉發鏈跳數逾上界即拒絕（fail-closed 第二腿）＋稽核轉錄保留判定窗＋計數維度分流 | — | — | — |
+| 0044 | accepted | 2026-08-17 | pre-commit 全鏈時間門檻改為雙錨（警戒 45s／硬擋 90s），並把「收刀簿記型實測」列為每刀例行量測 | — | — | — |

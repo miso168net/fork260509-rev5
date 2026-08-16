@@ -71,6 +71,13 @@ services:
       # resources/ip2region.xdb 對不上實際位置、dev region 解析恆降級、稽核 region 恆空）。
       # prod 映像 COPY＋路徑設定仍屬部署刀（rev4:B-081 主體、rev4:L-084 四處 COPY）。
       XDB_FILEPATH: /app/xdb/resources/ip2region.xdb
+      # ═══ 004-ip-trust-anchor T006：dev 信任模型設定（spec FR-010 後段「dev MUST 交付並
+      #     掛載一份最小信任模型」）═══
+      # 值＝路徑本身（★非 `_FILE` 形——`_FILE` 在 rev5 是 config::env_or_file 的保留語意
+      # 「該鍵指向一個檔、把檔的*內容*當作值」，此處路徑就是值，用 `_FILE` 會撞語意）。
+      # ★掛載點刻意在 /app **之外**：本服務已有 `./rust-api:/app` bind mount，在其內部再掛
+      #   巢狀檔會在 host 的 ./rust-api/ 下具現出目錄、污染子庫工作樹。
+      APP_TRUST_MODEL_PATH: /etc/rev5/trust-model.toml
       # ═══ rev4:020-email-verify dev 覆寫七鍵（data-model §5；base Gmail 形→dev mailpit 形；
       #     APP_SMTP_USERNAME 不設鍵＝空語意＝跳過 AUTH、dev 亦不設）═══
       APP_SMTP_HOST: mailpit
@@ -88,6 +95,8 @@ services:
       # ★ 只掛 registry 子目錄——整掛 /usr/local/cargo 會蓋掉 bin/（cargo、watchexec 執行檔）
       - rust_api_cargo_cache:/usr/local/cargo/registry
       - rust_api_target:/app/target
+      # 004 T006：dev 信任模型設定（唯讀；路徑與上方 APP_TRUST_MODEL_PATH 必須一致）
+      - ./deploy/trust-model.dev.toml:/etc/rev5/trust-model.toml:ro
     ports:
       - "127.0.0.1:22079:8080"
     healthcheck:

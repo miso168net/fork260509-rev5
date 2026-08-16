@@ -10025,8 +10025,23 @@ class TestGateWiring(unittest.TestCase):
         _wfile(d, HOOK_REL, hook)              # ★乾跑真 hook 檔文，不重寫等價品
         for rel in TOOLS_PY:
             _wfile(d, rel, STUB_TOOL)
-        _wfile(d, "base-web", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
+        # ★`base-web` 佔位刻意建成**真 gitlink**（巢狀 git repo）而非檔案，理由有二、缺一不可：
+        #   ①hook 的 view-render-guard 段以 `[ -d base-web/src ]` 為實跑前提——佔位是檔案時該
+        #     條件恆假 ⇒ 整段在本 harness 十餘次乾跑中**一次都不會被執行**，新增的觸發案會恆綠
+        #     （004 U-I 實暴：把 hook 該段整段拆掉，全套件仍 494 OK）。
+        #   ②但**不能只改成普通目錄**：`_run` 走 `git add -- base-web`，普通目錄會被展開成
+        #     `base-web/src/...` 逐檔入 index，hook 的 `grep -qxF 'base-web'`（整行精確比對）
+        #     當場落空 ⇒ 連 fork-delta 與 wire-schema 兩段也一起靜默不觸發（實測：staged 只剩
+        #     BASE 三行）。巢狀 repo 才會被記成 mode 160000、staged 路徑逐字為 `base-web`，
+        #     與真 submodule 同形。
+        _init_sub(d, "base-web")
+        os.makedirs(os.path.join(d, "base-web", "src"))
+        _wfile(d, "base-web/src/.gitkeep", "掃描射程佔位：本測只驗觸發條件\n")
         _wfile(d, "rust-api", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
+        # ★名冊外工具的樁**顯式寫**：view-render-guard／route-artifact-gate 刻意不入 TOOLS_PY
+        #   （self-test 隨 check 連帶跑、同 fork-delta-lint 既有形），故不會被上方迴圈掃到；
+        #   漏寫則 hook 執行到該行即「檔案不存在」rc≠0，測到的是沙盒不保真、不是 hook 行為。
+        _wfile(d, "tools/view-render-guard.py", STUB_TOOL)
         # ★基線源倉目錄佔位（B7 hook 裁製、ADR 0001 決定 4）：hook 的 fork-delta 段以
         #   「源倉目錄存在」為實跑前提（Day-1 缺席＝具名跳過）。本 fixture 建目錄＝契約
         #   測試模擬 B9 後穩態；Day-1 缺席情境由 day1_skip 專屬測試另測（成對紅綠）。
@@ -10157,12 +10172,14 @@ class TestGateWiring(unittest.TestCase):
         wire-schema check --staged-gate（快照 drift 閘）、僅工具本體 staged 時不得觸發
         ——此案同時是全庫唯一釘住該閘接線的守衛（整段刪掉即紅、防靜默關閘）。"""
         wire_gate = ["tools/wire-schema.py check --staged-gate"]
+        # ★`base-web` staged 時 view-render-guard 先於 fork-delta 觸發（hook 內次序即此）。
+        vrg = ["tools/view-render-guard.py check"]
         self.assertEqual(self._run(["base-web"]),
-                         (0, self.BASE + ["tools/fork-delta-lint.py"] + wire_gate))
+                         (0, self.BASE + vrg + ["tools/fork-delta-lint.py"] + wire_gate))
         self.assertEqual(self._run(["tools/fork-delta-lint.py"]),
                          (0, self.BASE + ["tools/fork-delta-lint.py"]))
         self.assertEqual(self._run(["base-web", "tools/fork-delta-lint.py"]),
-                         (0, self.BASE + ["tools/fork-delta-lint.py"] + wire_gate))
+                         (0, self.BASE + vrg + ["tools/fork-delta-lint.py"] + wire_gate))
 
     def test_dry_run_fork_delta_day1_skip_when_baseline_absent(self):
         """★Day-1 具名跳過（B7 hook 裁製、ADR 0001 決定 4）：基線源倉目錄缺席時
@@ -10201,6 +10218,37 @@ class TestGateWiring(unittest.TestCase):
         finally:
             os.rename(snap + ".away", snap)
 
+    def test_dry_run_view_render_guard_trigger_conditions(self):
+        """★管理頁「零原始 HTML 插值」守門（004 T042①）的**接線**守衛——全庫唯一釘住它的案。
+        staged 含 base-web gitlink 或工具本體即觸發恰一次、兩者同 staged 仍恰一次（聯集）、
+        平時（NOTES）不觸發。
+        ★**為何非有不可**：hook 的守門動作住 shell 面，整段被刪掉時工具本體與其 self-test
+        全都還在、照樣全綠——004 U-I 實測拆掉該段後 `docs-sync test`（494）與 `lint` 皆不紅。
+        ★把斷言寫進 view-render-guard 自身的 self-test **對本失效模式零效果**：self-test 只隨
+        `check` 連帶跑，而 `check` 的唯一觸發點正是被拆掉的那一段（循環依賴）。"""
+        gate = ["tools/view-render-guard.py check"]
+        self.assertEqual(self._run(["base-web"]),
+                         (0, self.BASE + gate + ["tools/fork-delta-lint.py",
+                                                 "tools/wire-schema.py check --staged-gate"]))
+        self.assertEqual(self._run(["tools/view-render-guard.py"]), (0, self.BASE + gate))
+        self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
+
+    def test_dry_run_view_render_guard_day1_skip_when_worktree_absent(self):
+        """★Day-1 具名跳過（同 fork-delta／entity-drift 兩處既有模式、ADR 0001 決定 4 第三例）：
+        `base-web/src` 缺席（fresh clone、bootstrap 前）時不實跑且 hook 放行。
+        與 trigger_conditions 案**成對**＝worktree 在必跑、缺席必跳（兩向紅綠，防閘門被拆或
+        被反向寫死成「永遠跳過」）。
+        ★條件刻意取 `base-web/src` 而非掃描射程 `views/manage` 本身：worktree 在位卻少了
+        `views/manage` ＝目錄被搬走／改名，那正是工具要 fail-loud 的情境，不得在此被吞掉。"""
+        src = os.path.join(self.d, "base-web", "src")
+        os.rename(src, src + ".away")
+        try:
+            self.assertEqual(self._run(["base-web"]),
+                             (0, self.BASE + ["tools/fork-delta-lint.py",
+                                              "tools/wire-schema.py check --staged-gate"]))
+        finally:
+            os.rename(src + ".away", src)
+
     def test_dry_run_non_zero_action_fails_the_hook(self):
         """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
         ★四分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，行尾 `|| exit 1` 被拿掉＝該
@@ -10216,9 +10264,14 @@ class TestGateWiring(unittest.TestCase):
         # 分支 c：工具自測非零。
         self.assertEqual(self._run(["tools/schema-gate.py"], fail="schema-gate.py"),
                          (1, self.BASE + ["tools/schema-gate.py test"]))
-        # 分支 d：fork-delta-lint 非零。
+        # 分支 d：fork-delta-lint 非零（★其前另跑 view-render-guard、該支回 0 故續行）。
         self.assertEqual(self._run(["base-web"], fail="fork-delta-lint.py"),
-                         (1, self.BASE + ["tools/fork-delta-lint.py"]))
+                         (1, self.BASE + ["tools/view-render-guard.py check",
+                                          "tools/fork-delta-lint.py"]))
+        # 分支 d2：view-render-guard 非零→立即 exit，其後的 fork-delta 與 wire-schema 全不得跑。
+        # ★此案與 trigger_conditions 成對，是「守門被拆＝commit 照過」這條失效的唯一機器守。
+        self.assertEqual(self._run(["base-web"], fail="view-render-guard.py"),
+                         (1, self.BASE + ["tools/view-render-guard.py check"]))
         # 分支 e：entity-drift-gate 非零（rev4:B-110 閘；漂移／異常皆須擋 commit）。
         self.assertEqual(self._run(["rust-api"], fail="entity-drift-gate.py"),
                          (1, self.BASE + ["tools/entity-drift-gate.py check"]))
