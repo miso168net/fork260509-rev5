@@ -175,10 +175,22 @@ count（15 分鐘滑動窗、PG sys_login_attempt 權威）：
   003 之 22 鍵＋004 T038 之 `biz.ipRule.*` 五鍵；兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
 - **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
   `fetchLogout`（失敗不阻斷 `resetStore()`）。
+- **★BASE-WEB-MANAGE-PAGE-WIRING**：(i) IP 規則管理頁進場——兩語 locale 之 `route:` 樹加
+  `manage_ip-rule`、`page:` 樹加 `manage.ipRule.*`；`app.d.ts` 補 `Schema.page` 型節；
+  路由外掛產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋
+  `typings/elegant-router.d.ts`）**由外掛重算產出**、採**產物檔紀律**（禁手改、不逐行標記
+  ——標記於下次重算即被抹除、物理上不可維持）。
 
-機器守（`tools/fork-delta-lint.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
+機器守（`tools/fork-delta-lint.py`、`tools/view-render-guard.py`、
+`tools/route-artifact-gate.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
 授權名冊斷言（名冊掃自 constitution §III.1/§III.2 表格、掃空即 die）；新增型圈界；
-「假成功 toast 不得回歸」四檔靜態斷言與「`$t` fallback 不得退化」斷言（B-061／B-062 收單）。
+「假成功 toast 不得回歸」四檔靜態斷言與「`$t` fallback 不得退化」斷言（B-061／B-062 收單）；
+管理頁 `views/manage/**` 零原始 HTML 插值（FR-038）。
+★**射程界線**：`fork-delta-lint` 的 `scan()` 對「基線沒有的檔」結構性豁免 ⇒ **rev5 新檔的
+檔頭標記不受機器守**（004 U-I 變異實測：拿掉新檔標記，lint 仍全綠），該面屬紀律；受機器
+守的是**基線既有檔**的修改型與圈界。★路由外掛產物四檔受 fork-delta **全域豁免**，其唯一
+機器守＝`route-artifact-gate` 的產出檔集對賬／重算冪等／零手改三道（★第三道以**上游基線**
+為種：以版控為種重算時，外掛的 magicast 增量合併會讓手改過的行原封不動活下來、第二道全綠）。
 
 ### 資料慣例
 

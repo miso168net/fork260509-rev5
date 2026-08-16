@@ -467,15 +467,15 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `pnpm typecheck` 紅。
   **DoD：`python3 tools/docs-sync.py lint` 綠；`python3 tools/docs-sync.py generate` 跑得完
   （不拋 `BackendDictError`）；`pnpm typecheck` 綠；`fork-delta-lint` 綠**
-- [ ] T039 [P] [US3] `base-web/src/typings/api/rev5-ip-rule.d.ts` 新建（`Api.IpRule` 節；
+- [x] T039 [P] [US3] `base-web/src/typings/api/rev5-ip-rule.d.ts` 新建（`Api.IpRule` 節；
   ADAPT 軌、新檔）＋`base-web/src/service/api/rev5-ip-rule.ts` 新建（五支 wrapper；WRAPPER 軌、
   新檔）。**DoD：`pnpm typecheck` 綠；wire-schema 快照納入該新檔**
-- [ ] T040 [US3] `base-web/src/views/manage/ip-rule/` 三檔新建（`index.vue`＋
+- [x] T040 [US3] `base-web/src/views/manage/ip-rule/` 三檔新建（`index.vue`＋
   `modules/ip-rule-operate-drawer.vue`＋`modules/ip-rule-search.vue`；新增型、檔頭一行標記
   圈界）：列表（含備註欄）＋搜尋＋新增／編輯抽屜＋回收桶復原＋四顆按鈕接既有權限碼機制。
   ★**自由文字欄一律純文字插值**、禁 `v-html`／`innerHTML`。
   **DoD：`pnpm typecheck` 綠**
-- [ ] T041 [US3] ★**新軌道射程內的既有檔改動**（★T002 未 accepted 前不得動）：
+- [x] T041 [US3] ★**新軌道射程內的既有檔改動**（★T002 未 accepted 前不得動）：
   `base-web/src/locales/langs/{en-us,zh-cn}.ts` 之 `route:` 樹加 `manage_ip-rule`、`page:` 樹加
   `manage.ipRule.*`（★兩語鍵集 MUST 相等）＋`base-web/src/typings/app.d.ts` 型節（★**必需**
   ——`page:` 為顯式型樹，`page.manage.ipRule.*` 不補型則 typecheck 紅；`route:` 才是自動導出）
@@ -493,7 +493,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   **DoD：`pnpm typecheck` 綠；`fork-delta-lint` 綠——★此處驗的是新增型「圈界標記須存在」，
   不是名冊斷言：本軌道三塊皆新增型或生成檔，在名冊斷言（僅掃帶 `原行:` 的修改型）射程外
   〔憲法 §III.2 表外宣告 3〕；四支生成檔由 T042② 的冪等檢查守**
-- [ ] T042 [US3] 本刀兩支新機器守（★各附 self-test、植入反例必紅——ADR 0024 非 vacuous）：
+- [x] T042 [US3] 本刀兩支新機器守（★各附 self-test、植入反例必紅——ADR 0024 非 vacuous）：
   ①`views/manage/**` 零 `v-html`／`innerHTML` 斷言（掛 pre-commit）②路由產物**四檔**
   （`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之
   **重算冪等檢查**（重跑外掛後與版控內容零差異）。★②並 MUST 併斷言「§III.2 第五條軌道該列
@@ -502,7 +502,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   落點沿既有 lint 家族。
   **DoD：兩支綠；★兩支的 self-test 各自證明「拿掉守門即紅」；★②另證兩道變異——「把憲法該列
   的生成檔集少列一支→檢查轉紅」與「手改任一支生成檔的一行→檢查轉紅」**
-- [ ] T043 [US3] 走查 quickstart §2＋§3＋§6（★依 quickstart 原序跑；§2 用的 `addIpRule`
+- [x] T043 [US3] 走查 quickstart §2＋§3＋§6（★依 quickstart 原序跑；§2 用的 `addIpRule`
   端點本 phase 才存在 ⇒ US2「Independent Test」明文遞延的「經端點的完整鏈路」由本 task 承接）：
   ①**§2 IP 存取閘端到端**——對 SIM_B 建阻擋規則→該來源得 **403**／信封碼 `5003`、SIM_A
   同時仍得 200（SC-013 ②）；★**全程未重啟服務**（＝SC-004「寫入後未重啟即生效」的端到端
@@ -512,6 +512,12 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   備註欄標記字元顯示為字面。
   **DoD：①四項狀態碼逐項符（403／200／200／200）且期間零服務重啟；②`SELECT count(*)` 證明
   自鎖案零寫入；③六步全通**
+  ★**走查後 MUST 立刻清列**（004 U-I 品質審查補、L-031 防法①）：`TRUNCATE sys_token
+  RESTART IDENTITY`——§6 步驟 1 逐字要求「以 Super 登入」，**必落一列 committed `sys_token`**，
+  而本 task 原文完全沒有清列條文（同類走查 task T055 與第 303／577 行兩處都有）。
+  ★`schema-gate check` **抓不到**：該表在 runtime-append 收窄集內，收窄只豁免 **seed 內容
+  比對**這一個面，不等於留列無害——毒化的是**下一次** `cargo test` 的 sequence 假設。
+  ★**單元收尾第②步（容器內看 rc）MUST 排在清列之後**，否則拿到的綠是走查前的快照。
 
 **Checkpoint**: 規則管理前後端閉環、防自鎖成立——US3 可獨立驗收。
 
@@ -575,7 +581,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - [ ] T049 [US4] 走查 quickstart §4：同一來源輪換帳號名至軟門檻→要求驗證碼；另一來源不受
   影響；★穿插成功登入後**仍**要求驗證碼。**DoD：三項皆符**
   ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
-  `DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')`
+  `TRUNCATE sys_login_attempt RESTART IDENTITY`
+  ★**謂詞由 `IN ('Super','Admin','User')` 改為 TRUNCATE**（004 U-I 品質審查實查證實）：
+  本節走查用的是 **ghost 帳號**（`ghost1`~`ghost12`／`ghost99`／`ghost100`／`ghost200`），
+  而 `login::record_attempt` **逐字寫入送入的帳號名** ⇒ 那批列完全不在舊謂詞射程內、留列後
+  同樣佔住 `id=1` 並以同一機制毒化下一次 `cargo test`。凍結 seed 對本表期望 0 列，
+  TRUNCATE 嚴格涵蓋且免去「下次又多一種帳號名」的維護面。
+  ★**判別面＝該步的 `remaining` 為 0**，不是「三閘綠」——本表在 runtime-append 收窄集內、
+  留列時 `schema-gate check` 恆四項全綠
   ＋`setval('sys_login_attempt_id_seq', 1, false)`。★**不可留到 T061**——留列會讓**下一次**
   `cargo test --workspace` 的 `handler::auth::login::integration_tests` 五支撞主鍵
   （`SequenceResetGuard` 於 Drop 時 setval 回 1、走查列佔住 id=1），而同一次執行的
@@ -623,7 +636,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `fork-delta-lint` 綠**
 - [ ] T055 [US5] 走查 quickstart §5：兩維各解鎖一次、畸形參數零稽核。**DoD：三項皆符**
   ★**走查後 MUST 立刻清列**（2026-08-15 U-F 實暴、見 L-031 與 quickstart §1 收尾）：
-  `DELETE FROM sys_login_attempt WHERE attempted_user_name IN ('Super','Admin','User')`
+  `TRUNCATE sys_login_attempt RESTART IDENTITY`
+  ★**謂詞由 `IN ('Super','Admin','User')` 改為 TRUNCATE**（004 U-I 品質審查實查證實）：
+  本節走查用的是 **ghost 帳號**（`ghost1`~`ghost12`／`ghost99`／`ghost100`／`ghost200`），
+  而 `login::record_attempt` **逐字寫入送入的帳號名** ⇒ 那批列完全不在舊謂詞射程內、留列後
+  同樣佔住 `id=1` 並以同一機制毒化下一次 `cargo test`。凍結 seed 對本表期望 0 列，
+  TRUNCATE 嚴格涵蓋且免去「下次又多一種帳號名」的維護面。
+  ★**判別面＝該步的 `remaining` 為 0**，不是「三閘綠」——本表在 runtime-append 收窄集內、
+  留列時 `schema-gate check` 恆四項全綠
   ＋`setval('sys_login_attempt_id_seq', 1, false)`。★**不可留到 T061**——留列會讓**下一次**
   `cargo test --workspace` 的 `handler::auth::login::integration_tests` 五支撞主鍵
   （`SequenceResetGuard` 於 Drop 時 setval 回 1、走查列佔住 id=1），而同一次執行的
@@ -663,6 +683,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   `additionalProperties: false`（理由同上）。★**只改註解、零斷言改動、零快照改動**。
   **DoD：容器內 `cargo test --test wire_schema -- --test-threads=1` 全綠；該檔 `git diff` 僅含
   註解行（無 `assert`／`const`／`fn` 行變動）**
+  ★**併入枚舉射程（004 U-I 移交）**：`wire-schema` 快照 definitions 由 **38 → 45**（T039 新增
+  七支 `Api.IpRule.*`）。同語意命中**兩處**、原文只點名一處：①`rust-api/server/tests/wire_schema.rs`
+  的「38 definitions 內出現次數＝0」（本 task 原射程；實測新值 45，`additionalProperties` 出現
+  次數仍為 **0**、結論不變）②`base-web/src/service/api/rev5-auth.ts` 的「wire-schema 快照
+  38 definitions 零擴」——★該句的**主張仍為真**（service 檔不在 `TYPINGS_GLOB` 抽取面內），
+  失準的只有數字。**建議整個拿掉數字**改寫成「快照零擴」：該句的載重是「本檔不在抽取面內」
+  這個**結構事實**，掛一個會隨每把刀變動的計數只會製造下一次失準。
+
 - [ ] T061 走查 quickstart §7 收尾：★`TRUNCATE sys_ip_rule RESTART IDENTITY`（該表**刻意不在**
   收窄集內、留列必使 gate2 紅）；操作稽核表已納入收窄集免清理。
   ★**本 task MUST 早於 T062**——走查（§2 三次新增、§6 管理頁新增／軟刪〔軟刪不移列〕）會在
@@ -685,6 +713,14 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★`t069_chain_rejection_precedes_password_hashing_with_no_success_side_effect` 已自備
   `purge_success_side_effects_of_user`（命令式、非 RAII），可於本 task 一併收攏成該守衛。
   **DoD：變異測——把 `single_session_default` 設 `on` 跑那兩支測，收尾 `schema-gate check` 須綠**
+  ★**DoD 判別力修正（004 U-I 品質審查）**：原 DoD 寫「三閘綠」，而**三閘在結構上判不出這件事**
+  ——`sys_token` 與 `sys_login_attempt` 都在 runtime-append 收窄集內，留列時 `schema-gate check`
+  **恆四項全綠**（這正是該缺口潛伏至今的原因）。照原 DoD 執行會拿到「綠」卻留著毒化下一次
+  `cargo test` 的列。**DoD 改為：三閘綠 ＋ §7 第 3 步與第 3b 步的兩個 `remaining` 皆為 0**
+  ——後者才是唯一有判別力的面。
+  ★本 task 另 MUST 涵蓋 §7 現有的 `sys_login_attempt` 步與門鈴步（1b／1c），以及本刀新增的
+  `sys_token` 步（3b）——原摘要只點名 `sys_ip_rule`。
+
 - [ ] T062 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
   ＋`cargo build --release`＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`
   ＋`schema-gate check`＋本刀兩支新機器守。**前置＝T061 已清走查列。DoD：全綠**

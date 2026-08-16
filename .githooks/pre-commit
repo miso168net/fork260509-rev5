@@ -53,6 +53,26 @@ for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secr
     python3 "$t" test || exit 1
   fi
 done
+# 管理頁「零原始 HTML 插值」機器守（spec 004 FR-038／T042①）：base-web gitlink 變動（pin bump）或
+# 本工具本體 staged 時，掃 base-web/src/views/manage/** 的原始 HTML 注入用法。自由文字欄（IP 規則
+# 備註欄是第一個）一旦從預設插值改成原始 HTML 插值，**畫面上看不出差別**——備註是純文字時兩者
+# 渲染一樣，要等到有人存進帶事件處理器的標記才爆、且爆的是別人的瀏覽器；型別檢查（都是 string）
+# 與 code review（一行 diff、像是換個寫法）都抓不穩，只有機器守擋得住。
+# ★純檔案掃描、毫秒級、不碰 docker／node，故可掛進秒級預算（工具檔頭同段論證）。
+# ★不進上方 `for t in …` 自測名冊迴圈：該迴圈與 docs-sync 的 TOOLS_PY 真表逐字對賬（混入名冊外
+#   工具即紅），而本工具的 self-test 每次 check 都連帶跑（同 fork-delta-lint 既有形、防恆綠）。
+if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/view-render-guard.py'; then
+  # ★worktree 未就位具名跳過（fresh clone、bootstrap 前）：掃描射程整棵缺席時工具回 rc=2，
+  #   會擋住創世期 commit——同 fork-delta／entity-drift 兩處既有 Day-1 模式（ADR 0001 決定 4）。
+  #   ★條件刻意取 `base-web/src`（worktree 在不在）而非掃描射程 views/manage 本身：worktree
+  #   在位卻少了 views/manage＝目錄被搬走／改名，那正是工具要 fail-loud 的情境，不能在這裡
+  #   被跳過分支吞掉（吞掉＝守門實質下線而 hook 全綠）。
+  if [ -d "$HOOK_DIR/../base-web/src" ]; then
+    python3 tools/view-render-guard.py check || exit 1
+  else
+    echo "[pre-commit] ⤳ view-render-guard 跳過：base-web worktree 未就位（base-web/src/ 缺席）——跑 bash tools/bootstrap.sh 建置後自動恢復實跑"
+  fi
+fi
 # fork-delta 原行 紀律（憲法 §III L114）：base-web gitlink 變動（pin bump）時機器比對 base-web vs
 # example 上游、修改型缺 `原行:` 即擋——不靠人工 review（fork 源倉須在 example 分支＝lint 首步
 # 斷言）；工具本體 staged 時亦直跑一次（無 test 介面、self-test 內建）。★兩條件取聯集只跑一次
