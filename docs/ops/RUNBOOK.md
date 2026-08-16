@@ -258,6 +258,16 @@ EOF
 
   **情境 B 合計＝26.776s**（7.041＋19.735；越 20s 警戒、未破 45s 硬擋——合計面守門
   仍＝全鏈 45s、不另定上限）。
+- **★2026-08-16 實測資料點（004 U-I 收刀 commit，收刀簿記型：兩個 gitlink 同時 bump ＋
+  `tools/docs-sync.py` staged）＝hook 自報 38s**，對照上方推估（情境 B 26.776s ＋「再加約
+  9s+」≈36s）已偏高約 2s，**距 45s 硬擋餘裕僅 7s**。逐段中位數（同日、WSL2 drvfs、
+  各跑 3 次）：`docs-sync test` **14.99s**（僅工具本體 staged 時）／`wire-schema check`
+  **8.02s**（僅 base-web pin bump 時）／`docs-sync lint` **7.38s**（恆跑）／`fork-delta-lint`
+  **5.98s**／`docs-sync check` **1.00s**（恆跑）／`view-render-guard check` 0.18s／
+  `entity-drift-gate check` 0.17s／`secret-value-guard check` 0.13s。
+  ⇒ **恆跑段僅 8.5s**，38s 全部來自條件觸發段的疊加。★成長面在 `docs-sync test`（隨案數）
+  與 `lint`／`fork-delta-lint`（隨 repo／base-web 規模），非本刀新增的 0.18s。
+  ★本表上方兩張逐支表為 2026-08-08 值、**已過期**，重量測掛在 004 之 T062（全量閘）。
 - **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
   無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
   docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit

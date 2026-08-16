@@ -724,6 +724,16 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 - [ ] T062 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
   ＋`cargo build --release`＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`
   ＋`schema-gate check`＋本刀兩支新機器守。**前置＝T061 已清走查列。DoD：全綠**
+  ★**併入：pre-commit 效能預算重量測**（004 U-I 移交）。RUNBOOK §12.1 的兩張逐支表為
+  **2026-08-08** 值、已過期；而 2026-08-16 的收刀簿記型 commit 實測 **38s**，距 45s 硬擋
+  **餘裕僅 7s**。★該節「維護紀律」逐字要求名冊變動時本表須同步加列（量測＋定上限），
+  本刀已加 `view-render-guard`（0.18s／1s）但**兩張聚合表未重量測**。
+  **本 task MUST**：①依該節既有量測法（`time.perf_counter` 包整命令、連跑 3 次取中位數、
+  上限＝中位數×3 進位整秒／下限 1s）重量情境 A／B 兩表 ②更新 §12.1 各列與兩個合計
+  ③若情境 B 合計或收刀型實測 **≥40s**，MUST 在 report 明列並提出處置選項（★不要自行調門檻
+  ——RUNBOOK 逐字載明門檻調整須走 ADR）。
+  ★**成長面已定位**（不必重新找）：`docs-sync test` 隨案數、`docs-sync lint` 與
+  `fork-delta-lint` 隨 repo／base-web 規模；恆跑段僅 8.5s，其餘全來自條件觸發段疊加。
 - [ ] T063 `python3 tools/docs-sync.py generate`＋`git add docs/generated`
   （★`reference/routes.md` 應反映 **22 條**、`STATE.md` 反映新 pins 與 ADR／BACKLOG 統計、
   ★`reference/screens.md` 應含 `manage_ip-rule` 一列——該表由 `router/elegant/routes.ts` 的
