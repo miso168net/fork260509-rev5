@@ -36,44 +36,36 @@ hook 具名跳過，同 fork-delta／entity-drift 兩處既有 Day-1 模式；�
 self-test 每次執行連帶跑（防恆綠、同 `tools/fork-delta-lint.py` 既有形），故本檔**不進**
 pre-commit 的 `for t in …` 自測名冊迴圈——該迴圈與 `tools/docs-sync.py` 的 TOOLS_PY 真表逐字
 對賬，混入名冊外的工具即紅。
-★**尚未入治理名冊，且本檔接線使既有枚舉型宣稱失準**——下列七處皆在本刀 U-I 的授權檔集外，
-已逐處以 escalation 升級主線（★逐處寫出、不寫「等」：漏列的那一處就是不會被補的那一處）：
+★**治理名冊接線現況**（004 U-I 立本檔時七處全開、逐處 escalation 升級主線；
+004 收刀前 final holistic review 重新逐處機器核對，**五處已關、兩處仍開**——
+★逐處寫出關與未關、不寫「大致補完了」：含糊的那一句就是下一位據以誤判的那一句）：
 
-  ⓪`README.md` 的 `tools/` 目錄樹──該樹**逐支**列出 `tools/` 底下全部檔案（現列 8 支、
-    以 `└── wf-watchdog.py` 收尾），而 CLAUDE.md 明載「repo 目錄樹全景→README.md」
-    ⇒ 該樹是這個集合的**單一權威家**，本檔與 `tools/route-artifact-gate.py` 兩支皆不在其中。
-    ★此處**無任何機器兜底**：`docs-sync.py` 的 lint 對 README 只做命令形檢查
-    （`CMD_FORM_CORPUS`），沒有「README 的 tools/ 樹 vs 實際檔案集」對賬 ⇒ 樹已失準而
-    `docs-sync.py lint` 照樣全綠。此格是本輪審查實暴的漏枚舉（本註即補正）。
-  ①`tools/docs-sync.py` 的 `TOOLS_PY` 真表──未含本檔。
-  ②`tools/bootstrap.sh` 的 `run_tool_test` 行──未含本檔。
+  ⓪**已關**──`README.md` 的 `tools/` 目錄樹已列本檔與 `tools/route-artifact-gate.py`。
+    ★但**該樹仍無機器對賬**（`docs-sync.py` 對 README 只做命令形檢查 `CMD_FORM_CORPUS`）
+    ⇒ 下一支新工具會以完全相同的方式再漏一次；機制面已落 **B-081** 承載。
+  ①**仍開**──`tools/docs-sync.py` 的 `TOOLS_PY` 真表未含本檔。
+  ②**仍開**──`tools/bootstrap.sh` 的 `run_tool_test` 行未含本檔。
     ★①②必須同批動：`docs-sync` 的 `test_hook_roster_is_a_checked_copy_of_the_truth_table`
     與 `test_bootstrap_runs_every_tool_test` 兩支測試對這兩處與 pre-commit 的 `for t in …`
-    名冊三方逐字對賬，只補一處即紅。在補齊之前，本檔的 `test` 子命令不會被
-    `bash tools/bootstrap.sh` 的體檢節自動跑到（現行接法＝self-test 隨 `check` 連帶跑）。
-  ③`docs/ops/RUNBOOK.md` §12 工具表──未列本檔（亦未列 `tools/route-artifact-gate.py`）。
-  ④`docs/ops/RUNBOOK.md` §12「**pre-commit 條件觸發**」條目──逐支列出 fork-delta-lint／
-    wire-schema check --staged-gate／entity-drift-gate check 三支 gitlink 觸發閘，**未含本檔**；
-    本檔正是同一觸發維度的第四支（base-web gitlink staged 或本檔自身 staged）。
-  ⑤`docs/ops/RUNBOOK.md` §12.1 逐字「另三支 **gitlink 觸發段**」──該數字現已為**四支**。
-    連帶：同節「維護紀律」要求新工具入 pre-commit 名冊時本表須同步加列（量測＋定單跑上限），
-    本檔的量測值與上限尚缺。
-  ⑥★`tools/docs-sync.py` 的 `TestGateWiring`──**本檔的 hook 接線本身零機器守**，這是七處
-    裡唯一有實害的一格（⓪~⑤是文件失準，本格是守門可被靜默拆線）。把 `.githooks/pre-commit`
-    的「管理頁『零原始 HTML 插值』機器守」整段刪掉、或把 `[ -d "$HOOK_DIR/../base-web/src" ]`
-    條件反轉，`docs-sync.py test`（494 支）與 `docs-sync.py lint` 仍全綠 ⇒ 本守門靜默停跑而
-    無人出聲，正是該節蓋下來要消滅的失效類。三項證據：①同型工具有顯式釘（`TestGateWiring`
-    的 `test_hook_roster_is_a_checked_copy_of_the_truth_table` 末行釘 `tools/fork-delta-lint.py`、
-    `test_bootstrap_runs_every_tool_test` 釘 fork-delta-lint 與 entity-drift-gate），本檔屬完全
-    同一類（無 `test` 介面入名冊、走 gitlink 聯集觸發）卻無對應行。②`TestGateWiring.setUpClass`
-    以 `_wfile(d, "base-web", …)` 把 base-web 寫成**檔案**而非目錄 ⇒ 本區塊的 `[ -d …/base-web/src ]`
-    在該 harness 的十五次乾跑中**恆為假**，新區塊一次都沒被執行過；對照該類的分支 d／e 逐支
-    斷言「fork-delta-lint／entity-drift-gate 非零即擋 commit」，本檔無對應分支。
-    ③唯一沾到邊的 `test_every_gate_action_line_is_guarded` 只驗每個 `python3 ` 動作行結尾帶
-    `|| exit 1`，且門檻是 `assertGreaterEqual(len(lines), 4)`（現有 8 行）⇒ 刪掉本區塊仍過。
-    ★補法（升級主線時附）：在 `TestGateWiring` 補一支「base-web gitlink staged ⇒ 本檔的 check
-    被呼叫且非零即擋 commit」的乾跑案，並讓 fixture 把 `base-web/src` 建成真目錄（現行寫成
-    檔案的佔位法會讓該案恆綠、又落回同一個坑）。★在補上之前，本檔的接線只有人眼在看。
+    名冊三方逐字對賬，只補一處即紅（納冊會同時弄紅約 9 支既有測）⇒ 那是一顆獨立的治理
+    commit，成本結構與接線取捨已落 **B-080** 承載。★在補齊之前，本檔的 `test` 子命令不會被
+    `bash tools/bootstrap.sh` 的體檢節自動跑到（現行代償＝self-test 隨 `check` 連帶跑，
+    而本檔掛 pre-commit ⇒ 仍有實跑面；同批的 route-artifact-gate 則無）。
+  ③**已關**──`docs/ops/RUNBOOK.md` §12 工具表已列本檔與 route-artifact-gate。
+  ④**已關**──同檔「**pre-commit 條件觸發**」條目已含本檔（base-web pin bump 或本檔自身
+    staged、`base-web/src` 未就位時具名跳過）。
+  ⑤**已關**──§12.1 條件觸發段表已為**四支**並含本檔的量測值與單跑上限（0.224s／1s）。
+  ⑥**已關**──`tools/docs-sync.py` 的 `TestGateWiring` 已補本檔的接線守：
+    `test_dry_run_view_render_guard_trigger_conditions`（兩觸發條件各一次乾跑）與
+    `test_dry_run_view_render_guard_day1_skip_when_worktree_absent`（`base-web/src` 缺席
+    即具名跳過），另於分支 d2 斷言「本檔非零 ⇒ 立即 exit、其後 fork-delta 與 wire-schema
+    全不得跑」。★**兩道變異實測**已跑：把 hook 內本區塊整段刪掉＝紅、把
+    `[ -d "$HOOK_DIR/../base-web/src" ]` 條件反轉＝紅。
+    ★連帶修好一個 harness 陷阱（值得記住）：該類的 `setUpClass` 原以 `_wfile` 把 `base-web`
+    寫成**檔案**佔位 ⇒ `[ -d …/base-web/src ]` 恆假、新區塊一次都沒被乾跑到；現改為
+    `_init_sub(d, "base-web")` 建**巢狀 git repo**——單純建目錄仍不行，`git add -- base-web`
+    會展開成子路徑、staged 清單裡就沒有 `base-web` 這個字面，`grep -qxF 'base-web'` 落空、
+    連 fork-delta 與 wire-schema 兩段也一併停止觸發。
 """
 import os
 import re

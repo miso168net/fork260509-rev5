@@ -16,7 +16,7 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 
 **目前建置狀態**：文件地基（創世）＋schema 基線（001）＋系統設定縱切（002）＋auth 會話
 縱切（003：真登入／rotation／撤銷矩陣／節流三區／圖形驗證碼／i18n 接線）＋IP 信任錨縱切
-（004：真實來源還原八態／IP 存取閘與門鈴熱重載／IP 規則管理頁與五支端點／來源維節流／
+（004：真實來源還原**七態**＋轉發鏈逾上界的拒絕腿一態〔＝`ip_confidence` 欄值域共八態，但第八態由三層矩陣**之前**的短路產生、不是矩陣的出口〕／IP 存取閘與門鈴熱重載／IP 規則管理頁與五支端點／來源維節流／
 管理員解鎖端點）就位；其餘域隨波次建置。
 
 ## §2 約束
@@ -119,7 +119,7 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
 
 ## §6 Runtime
 
-不變式凍結面住 constitution §I.7（五座行為島＋fail-* 方向）；本節只寫 as-built 執行形
+不變式凍結面住 constitution §I.7（六座行為島＋fail-* 方向）；本節只寫 as-built 執行形
 ——模組落點、常數實值、欄與鍵名（§I.7 進場規則明文把這一類留在活書）。凍結條文一律
 以「主題＋落點＋指島」形給指針，不複述 MUST 文字（複述＝同一事實兩個人寫的家，
 Amendment 改憲法而活書靜默過期）。
@@ -246,8 +246,8 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 
 ### fork-delta 接線現況（base-web）
 
-授權面＝constitution §III.2 名冊（授權歸憲法、本節只記 as-built 接線形）。003 起四條
-★ 軌道已實接：
+授權面＝constitution §III.2 名冊（授權歸憲法、本節只記 as-built 接線形；**條數以該名冊
+為準、本節刻意不複述**——複述即第二份會漂的手抄計數）。003 起實接之 ★ 軌道逐條如下：
 
 - **★BASE-WEB-AUTH-WIRING**：(a) `store/modules/route/index.ts` constant routes **併入**
   static 常量集（seed `constant=TRUE` 現 0 列、取代形會清空五條 builtin）；(b) 三張替代

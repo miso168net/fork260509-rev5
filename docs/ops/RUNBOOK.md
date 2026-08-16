@@ -151,7 +151,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 tools/wire-schema.py extract` / `check` / `test` | 容器內抽 typings→wire-schema.json 快照／快照 drift 比對（`--staged-gate`＝pre-commit 收窄形）／自測 | extract **是**、check 未起→警告放行 |
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點：staged 增量對既存明文結構性失明（rev4:L-190）、本旗標補盤點面——導入既有 repo 與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量；增量面＝pre-commit 自動跑裸 check） | 否 |
-| `python3 tools/view-render-guard.py check` / `test` | 管理頁 `base-web/src/views/manage/**` 零原始 HTML 插值斷言（FR-038；六條禁用字面逐行掃原文、**不解析註解與語法**——能藏在註解裡就能藏在字串常值裡再拼接）／自測。★pre-commit **條件觸發**：base-web pin bump 或本檔 staged 時自動跑（`base-web/src` 缺席＝具名跳過）；掃到零檔＝fail-loud rc=2 | 否 |
+| `python3 tools/view-render-guard.py check` / `test` | 管理頁 `base-web/src/views/manage/**` 零原始 HTML 插值斷言（FR-038；禁用字面表逐行掃原文，條數以 `FORBIDDEN` 為準、成功訊息會印、**不解析註解與語法**——能藏在註解裡就能藏在字串常值裡再拼接）／自測。★pre-commit **條件觸發**：base-web pin bump 或本檔 staged 時自動跑（`base-web/src` 缺席＝具名跳過）；掃到零檔＝fail-loud rc=2 | 否 |
 | `python3 tools/route-artifact-gate.py check` / `test` | 路由外掛產物四檔（`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之**產出檔集對賬＋重算冪等＋零手改**三道——★憲法 §III.2 第五列「產物檔紀律」的**唯一**機器守（該四檔受 fork-delta 檢查全域豁免）。★**刻意不掛 pre-commit**：實跑外掛三趟、實測 15.2s，且依賴 dev stack 在跑，而 pre-commit MUST 在 stack 沒起時可用；落點＝**單元邊界／CI 手動跑** | check **是**、test 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
@@ -284,8 +284,9 @@ EOF
   ⇒ **恆跑段（基礎鏈）僅約 9.9s**，其餘全部來自條件觸發段與 `docs-sync test` 的疊加。
   ★成長面在 `docs-sync test`（隨案數：469→**496**）與 `lint`／`fork-delta-lint`
   （隨 repo／base-web 規模），非任何單一新工具。
-  ★**餘裕已進入需要處置的區間**，但**門檻調整須走 ADR**（見本節「兩級門檻語意」與
-  「超上限處置」），故本刀只落量測、不動數字；處置選項與取捨已隨 004 收刀回報主線。
+  ★**該處置已於 2026-08-17 執行完畢**：走 ADR 0044（user 親決），兩門檻改為
+  WARN=45／FAIL=90（推導見「兩級門檻語意」）。連帶配套＝**本值自此列為每刀收尾的例行量測**，
+  資料點續記本節；**連續兩刀 ≥60s** 即強制觸發「優化慢路徑／再立 ADR/縮減名冊」三者之一。
 - **上一批對照**（2026-08-08、同法量測，供成長率比較）：基礎鏈合計 **7.041s**
   （secret-value-guard 0.179／docs-sync check 1.004／docs-sync lint 5.858）；11 支 test 合計
   **19.735s**（自測案數合計 893）；情境 B 合計 **26.776s**。⇒ 八日內基礎鏈 +41%、
@@ -296,15 +297,18 @@ EOF
   1779d17 後／單元③ commit 6a6378e 後，基礎鏈＋docs-sync／schema-gate／backup-db 三支
   test 合計粗判）＝**20.9s**／**17.6s**。可比面趨勢（本節立意所在）：基礎鏈同情境自
   001 收刀約 1s→2026-08-08 約 7s→**2026-08-16 約 9.9s**（主因＝lint 條款成長至全 24 條
-  ＋ repo 規模），距 20s 警戒**餘約 2 倍**（前次為約 3 倍）——下一批續比此值。
-- **一致性核**（★2026-08-16 結論**已反轉**、逐字保留舊句對照）：最大單支上限
-  （`docs-sync test` **49s**）＋基礎鏈實測 **9.907s** ≈**59s**，**已越全鏈 45s 硬擋**
-  ——舊句為「36s＋7.041s ≈43s、仍在全鏈 45s 內，常見情境（單支工具 staged）下觀測上限
-  先於機器硬擋喊人」，該性質**自本次量測起不再成立**：常見情境下若真的劣化到單跑上限，
-  **機器硬擋會先於觀測上限喊人**。★這不是新風險、是同一條 45s 硬擋提前生效；真實值
-  （16.3s）距其上限仍有 3 倍餘裕。逐支上限**加總**（基礎鏈 30s＋11 支 79s＝109s）遠超
-  45s——單跑上限是逐支劣化偵測基準、非「全數同時到頂仍過鏈閘」的保證；理論最壞情境的
-  守門仍＝全鏈 45s。
+  ＋ repo 規模）。★**比較對象自 2026-08-17 起改為新警戒 45s**（ADR 0044）：基礎鏈 9.9s
+  距其**餘約 4.5 倍**；舊制記法「距 20s 警戒餘約 2 倍」已隨門檻改值作廢、勿再據以比較。
+- **一致性核**（★兩次翻面、逐字留痕以免下一位覆核者重推一遍）：最大單支上限
+  （`docs-sync test` **49s**）＋基礎鏈實測 **9.907s** ≈**59s**。
+  - 2026-08-08 舊句：「36s＋7.041s ≈43s、仍在全鏈 45s 內 ⇒ 常見情境（單支工具 staged）下
+    **觀測上限先於機器硬擋喊人**」。
+  - 2026-08-16 一度**反轉**：59s 已越當時的全鏈 45s 硬擋 ⇒ 常見情境下改為「機器硬擋先喊」。
+  - **2026-08-17 起還原成立**（ADR 0044 把硬擋提到 **90s**）：59s < 90s ⇒ 「觀測上限先於
+    機器硬擋喊人」這條性質**恢復**，且餘裕比 2026-08-08 當時更寬（59/90 vs 43/45）。
+  ★真實值（`docs-sync test` 16.3s）距其單跑上限仍有 3 倍餘裕。逐支上限**加總**
+  （基礎鏈 30s＋11 支 79s＝109s）仍超 90s——單跑上限是逐支劣化偵測基準、非「全數同時到頂
+  仍過鏈閘」的保證；理論最壞情境的守門仍＝**全鏈硬擋那一道**。
 - **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
   rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
   劣化理由。
@@ -338,7 +342,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml \
   屬結構性離群，中位數取法自然排除之。★量測面用中位數而非平均，理由即此。
 - **wall clock vs cargo 自報**：上表為 wall clock（含 compose run 建容器開銷約 1.7s）；
   同一次冷編 cargo 自報 `Finished dev profile … in 44.90s`。★兩者不可混用比較。
-- 本節為觀測基準、**無機器閘**（與 §12.1 的全鏈 45s 硬擋不同）。dev profile 的 debuginfo
+- 本節為觀測基準、**無機器閘**（與 §12.1 的全鏈硬擋不同——該值以
+  `.githooks/pre-commit` 的 `PRECOMMIT_FAIL_SEC` 為權威）。dev profile 的 debuginfo
   裁剪與否屬後續評估，數據前提即本表。
 
 ## 13. 故障排除速查（全文→LESSONS；此表只指路）

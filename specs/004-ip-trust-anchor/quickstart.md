@@ -247,9 +247,23 @@ SELECT count(*) FROM sys_ip_rule WHERE wbip_cidr = '203.0.113.0/24';   -- 預期
 ## 4. 來源維節流（US4／SC-013 ①）
 
 ```bash
-# 先清掉 §2 建立的規則，避免 allow 短路干擾計數
-# （規則 id 由列表取；deleted/restore 語意見 contracts/wire-ip-rule.md）
-curl -s "$BASE/systemManage/getIpRuleList?deleted=active" -H "$AUTH" | jq '.data.records[] | {id, wbipCidr, wbipType}'
+# ★**真的清掉** §2 建立的規則，避免 allow 短路干擾計數（憲法島 F 之 F5：命中**顯式** allow
+#   者跳過來源維節流 ⇒ 只要有一條 allow 蓋到 $SIM_A，本節整段會靜默變成空轉、①的斷言零鑑別力）。
+# ★2026-08-17 收刀前 review 更正：本區塊**原本只列表、不刪**，宣稱與實作對不上。
+#   「今天剛好沒蓋到」不算守——§2 的規則字面日後一改（或有人插一條更寬的 allow）就當場失效。
+curl -s "$BASE/systemManage/getIpRuleList?deleted=active" -H "$AUTH" \
+  | jq '.data.records[] | {id, wbipCidr, wbipType}'
+
+# 逐列軟刪（deleteIpRule 收 {id}；deleted/restore 語意見 contracts/wire-ip-rule.md）
+for rid in $(curl -s "$BASE/systemManage/getIpRuleList?deleted=active" -H "$AUTH" \
+               | jq -r '.data.records[].id'); do
+  curl -s -X DELETE "$BASE/systemManage/deleteIpRule" -H "$AUTH" \
+    -H 'content-type: application/json' -d "{\"id\":$rid}" | jq -r .code
+done
+
+# ★收據（不是裝飾）：有效列須歸零，且判定面須真的跟上——刪除成功即重載＋按門鈴（契約 §4），
+#   故此處不必手動 PUBLISH；但**要驗**，否則「門鈴沒響」會以「節流沒觸發」的面貌出現。
+curl -s "$BASE/systemManage/getIpRuleList?deleted=active" -H "$AUTH" | jq '.data.records | length'
 
 # ★門檻取自 seed（data-model §1.4）——先讀出來，下面的發數才對得上；seed 若被調過就照
 #   讀到的值換算（軟門檻＝N ⇒ 第 ① 步發 N−1 次、第 ③ 步的第二發即轉 2222）。
@@ -259,7 +273,8 @@ $PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
   ORDER BY 1"'
 ```
 
-**預期**：`ip_captcha_after=10`／`ip_max_fails=50`／`ip_window_minutes=15`（以下發數按此換算）。
+**預期**：逐列刪除皆回 `"0000"`、有效列數歸 **0**；
+`ip_captcha_after=10`／`ip_max_fails=50`／`ip_window_minutes=15`（以下發數按此換算）。
 
 ```bash
 # ① SIM_A 連續失敗 9 發（＝軟門檻 10 減一，仍在自由區）
@@ -516,7 +531,8 @@ $RD sh -lc 'RC="redis-cli -a $(cat /run/secrets/redis_password) --no-auth-warnin
 
 ```bash
 # ★這是本閘的**排程落點**：單元邊界（與 CI）手動跑，**刻意不掛 pre-commit**——本閘要在容器內
-#   實跑 vite 外掛三趟、實測十餘秒，而 pre-commit 的全鏈預算是秒級（20s 警戒／45s 硬擋）；
+#   實跑 vite 外掛三趟、實測十餘秒，而 pre-commit 的全鏈預算是秒級（兩級門檻的值與推導
+#   以 .githooks/pre-commit 的兩個常數為權威，此處不複述數字）；
 #   且本閘依賴 dev stack 在跑，pre-commit 則 MUST 在 stack 沒起時照樣可用。完整論證見
 #   tools/route-artifact-gate.py 檔頭「落點：為何**不**掛 pre-commit」一節。
 # 何時必跑（三個觸發事實，皆屬單元邊界事件、不是每次 commit 都發生）：
