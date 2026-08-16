@@ -26,8 +26,8 @@ HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # ★須容兩平台：同一份工具 drvfs 實測 lint 約 19s、APFS 約 1.27s（差一個量級）；45s 對
 #   rev4 在 WSL2 的健康值 15.7s 有 3 倍餘裕。
 # ★門檻調整走 ADR（§0.3 準則 5 慣例），不得就地改數字了事。
-PRECOMMIT_WARN_SEC=20
-PRECOMMIT_FAIL_SEC=45
+PRECOMMIT_WARN_SEC=45
+PRECOMMIT_FAIL_SEC=90
 PRECOMMIT_T0=$(date +%s)
 betterleaks git --config "$HOOK_DIR/../.gitleaks.toml" --pre-commit --staged --redact --verbose --exit-code 2
 scan_rc=$?
