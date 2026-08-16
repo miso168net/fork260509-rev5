@@ -28,11 +28,26 @@ SIM_A='203.0.113.11'      # 模擬公網來源 A（TEST-NET-3、非豁免段）
 SIM_B='203.0.113.22'      # 模擬公網來源 B
 
 # 信任模型設定檔已隨 compose 掛載——先確認它真的生效（否則以下全部走不到）
-docker compose logs rust-api 2>&1 | grep -i "trust" | tail -3
+# ★過濾面用「信任模型|connecting_ip_header」聯集、**不**用 grep -i trust：
+#   載入面九類告警裡有四類（TOML 解析失敗／未知鍵／單集合清空／標頭名不可用）整行 JSON
+#   不含 ASCII trust，用 trust 過濾則「沒有告警」這個預期在結構上驗不出來（理由詳
+#   RUNBOOK §16.1；此即 L-044 之形——驗收步驟寫了、使它成立的判別面不存在）。
+# ★兩個 -f 旗標缺一不可（與本檔其餘 docker compose 呼叫同形）：裸形 `docker compose logs`
+#   讀不到 dev overlay，會以 rc=1 死在「service "base-web" has neither an image nor a build
+#   context specified」——**零輸出**，於是「沒有告警」與「指令根本沒跑起來」在畫面上同形。
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&1 \
+  | grep -E '信任模型|connecting_ip_header' | tail -1
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&1 \
+  | grep -E '信任模型|connecting_ip_header' | grep -c '"level":"WARN"'
 ```
 
-**預期**：見到信任模型載入成功的記錄，且**沒有**「設定缺席／解析失敗」類告警。
-★若見告警＝設定沒掛上，後續 §2～§5 會全部得到 `fallback`、驗不出東西。
+**預期**：第一條見「信任模型載入完成（trust model）」的 `"level":"INFO"` 行（載入面的告警一律
+在此總結行**之前**發射）；第二條輸出 **0**＝零降級告警。
+★**判準是第二條**：三層降級皆不 panic、boot 照常繼續，總結行在任何降級下都照印（只是欄位
+變 0），光看第一條判不出有沒有告警。
+★第二條**看印出的數、不要看 rc**：`grep -c` 零命中時印 `0` 而 **rc=1**（grep 既定行為）
+——「通過」那一格的 rc 恰是 1。
+★若計數非 0＝設定沒掛上或被降級，後續 §2～§5 會全部得到 `fallback`、驗不出東西。
 
 ```bash
 TOKEN=$(curl -s "$BASE/auth/login" -H 'content-type: application/json' \
@@ -577,18 +592,33 @@ $PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
 #     `sys_user.session_id` 恆全 NULL）——兩者都掛在 login 第⑨步的 single-session 踢除腿上，
 #     而凍結 seed 是 `session_policy=inherit`＋`single_session_default=off` ⇒ 該腿不觸發。
 #     ★這是**設定相依**的豁免、不是恆真：若走查前置把 `single_session_default` 翻 `on`
-#       （003 quickstart 正是那樣做），本步就要補回這兩句——`sys_user` **不在**收窄集內，
+#       （003 quickstart 正是那樣做），本步就要補回下面這一句——`sys_user` **不在**收窄集內，
 #       殘值會讓 gate2 逐列 diff 直接紅：
 #       `UPDATE sys_user SET session_id = NULL WHERE session_id IS NOT NULL`
+#     ★**走查面與測試面是兩件事、兩套機制**（2026-08-16 T061 as-built）：上面那一句管的是
+#       **本檔走查**留下的殘值；**測試**留下的同一形殘值自 T061 起由 RAII 守衛
+#       `model::test_db::SessionIdCleanup` 承接（掛在走成功登入路徑的真庫測試起手處）。
+#       兩者都需要——守衛只在測試程序內生效，管不到 curl／瀏覽器走查。
+$PG sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "SELECT count(*) AS session_id_residue FROM sys_user WHERE session_id IS NOT NULL"'
 
 # 4) 三閘
 python3 tools/docs-sync.py check && python3 tools/schema-gate.py check
 ```
 
 **預期**：`SIM_A=200`／`SIM_B=200`（第 1c 步）；第 3 步與第 3b 步的 `remaining` **皆為 0**；
-三閘全綠。★若 gate2 對 `sys_ip_rule` 報紅＝第 1 步沒做；若對 `sys_operation_log` 報紅＝
-收窄集那一行常數沒加（spec FR-042）。★**三閘全綠 ≠ 清乾淨了**：第 3 步與第 3b 步的兩表都在
-收窄集內、閘對它們的殘留恆綠，唯一的判別面是那兩個 `remaining`。
+第 3c 步的 `session_id_residue` 為 0；三閘全綠。★若 gate2 對 `sys_ip_rule` 報紅＝第 1 步沒做；
+若對 `sys_operation_log` 報紅＝收窄集那一行常數沒加（spec FR-042）。★**三閘全綠 ≠ 清乾淨了**：
+第 3 步與第 3b 步的兩表都在收窄集內、閘對它們的殘留恆綠，唯一的判別面是那兩個 `remaining`
+（★第 3c 步相反——`sys_user` **不在**收窄集內，殘值會讓 gate2 當場紅，故那一列既是清理也是
+自證）。
+
+★**2026-08-16 T061 實跑紀錄**（本節逐步跑過一輪，非紙上流程）：第 1 步 `remaining=0`、
+第 1b 步 `PUBLISH` 回 **1**（＝門鈴訂閱者在）、第 1c 步 `SIM_A=200`／`SIM_B=200`、
+第 3 步與第 3b 步 `remaining` 皆 **0**、第 3c 步 `session_id_residue=0`、
+`session_event` 0 列；三閘全綠。redis 側另查 `throttle*`／`login*`／`captcha*`／`ipgate*`
+／`unlock*`／`*lock*` 六個樣式**皆零命中**（L-041 的節流鍵殘留面），其餘鍵全為
+`session:*`（TTL 自然收）。
 
 ### ★為什麼第 1b 步不能省（2026-08-16 U-I 走查覆核實暴）
 
@@ -632,8 +662,11 @@ python3 tools/docs-sync.py check && python3 tools/schema-gate.py check
 
 ★**證據自毀（與 L-031、L-036 同形）**：同一次執行裡的
 `t069_chain_rejection_precedes_password_hashing_with_no_success_side_effect` 掛了
-`purge_success_side_effects_of_user(&db, 1)`＝**無條件** `DELETE FROM sys_token WHERE
-created_by = 1`，而走查以 Super（uid=1）登入的列正好落在該範圍、`t069` 又排在 `t019` 之後
+`purge_committed_tokens_of_user(&db, 1)`（★2026-08-16 T061 前名為
+`purge_success_side_effects_of_user`——其 `sys_user.session_id` 半邊已收攏進 RAII 守衛
+`test_db::SessionIdCleanup`，函式射程自此只剩 `sys_token` 一表故同批改名）＝**無條件**
+`DELETE FROM sys_token WHERE created_by = 1`，而走查以 Super（uid=1）登入的列正好落在該範圍、
+`t069` 又排在 `t019` 之後
 ⇒ 紅跑結束時 `sys_token` 已回 0 列（實測），**重跑第二次必全綠**。若把「跑全量」排在走查
 之前更是連紅都看不到——外觀完全就是 flaky test。
 

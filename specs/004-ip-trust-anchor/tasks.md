@@ -686,13 +686,13 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
 
 ## Phase 8: Polish & Cross-Cutting Concerns（DoD 收攏）
 
-- [ ] T056 [P] `docs/ops/RUNBOOK.md` 新節：**部署 checklist**——CDN 邊緣網段清單填法與更新
+- [x] T056 [P] `docs/ops/RUNBOOK.md` 新節：**部署 checklist**——CDN 邊緣網段清單填法與更新
   節奏／信任模型設定檔樣例（★**以 dev 實際掛載的那份為基底**，樣例 MUST 是跑過的形）／
   ★**一致性義務**：CDN 網段在反向代理的 `geo` 區塊與信任模型檔**各存一份、必須同步更新**
   （只改一邊的表徵＝信心大量落 `cdn_mismatch`）／鎖 origin（★**標明已由 F6 硬化入碼、此處為
   縱深防禦建議**）／登入頁快速登入鈕之 prod 前拆除指引（引用既有條目）／其餘 prod 遞延項留
   指針不展開
-- [ ] T057 [P] `docs/arc42/ARCHITECTURE.md` 對應節 as-built（信任錨與 IP 閘的位置、
+- [x] T057 [P] `docs/arc42/ARCHITECTURE.md` 對應節 as-built（信任錨與 IP 閘的位置、
   七態語意、門鈴機制、dev 可達二態）
   ★併入**觀測面序列枚舉的收尾掃描**（U-G 品質審查發現、該輪已補上當時的兩條）：以
   `grep -n 'metrics::counter!\|metrics::gauge!\|metrics::histogram!' rust-api/server/src/`
@@ -707,7 +707,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   來源維計數**刻意不排除** `chain_rejected` 而帳號維**必須排除**（ADR 0043／FR-050，理由＝
   **鍵不對稱**、★勿寫成「封成長」，該理由已於憲法 v1.6.1 勘誤）。這一句是最容易被日後
   「順手統一」抹掉的拍板結論。
-- [ ] T058 [P] `docs/ops/BACKLOG.md` 帳面處置（spec §2.2）：**B-019 關帳**／~~B-073 關帳~~（★**已於 U-K 收尾提前關帳**——其斷言「unlock marker 恆 NULL、無寫入者」自 T052 起為假、屬現在式假述，不宜留到 U-L；本 task 只需複核已刪、勿重複處置）／
+- [x] T058 [P] `docs/ops/BACKLOG.md` 帳面處置（spec §2.2）：**B-019 關帳**／~~B-073 關帳~~（★**已於 U-K 收尾提前關帳**——其斷言「unlock marker 恆 NULL、無寫入者」自 T052 起為假、屬現在式假述，不宜留到 U-L；本 task 只需複核已刪、勿重複處置）／
   **B-071 關帳**（隨 T002 之 PATCH）／B-020 改寫（per-IP 半邊關、通用化半邊續留）／B-008 改寫
   （ip-rule 頁出列、端點卡數 12→7）／B-003 改寫（備註欄四分之一關）／B-072 改寫
   （★防線已備、真實渲染點續掛稽核頁刀——**不宣稱關帳**）
@@ -721,9 +721,9 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★**判準**：條目本文若含「目前／現況／尚未／零」等現在式斷言，一律回去對實碼查一次
   （L-038：關鍵詞取同義集，不是只 grep 條目編號）。
   ★不是每條都要動——**確認仍正確也是有效產出**，在 report 逐條寫結論即可。
-- [ ] T059 [P] `docs/ops/LESSONS.md` append：本刀踩坑（★候選＝rev4 驗收手冊與其 dev 設定
+- [x] T059 [P] `docs/ops/LESSONS.md` append：本刀踩坑（★候選＝rev4 驗收手冊與其 dev 設定
   互相矛盾一事——「驗收程序寫了，但使其成立的設定從未存在」屬**可跨代復發**的形）
-- [ ] T060 [P] ★**wire 裁判面重評落帳**：`additionalProperties` 維持已知態不動（動快照生成器
+- [x] T060 [P] ★**wire 裁判面重評落帳**：`additionalProperties` 維持已知態不動（動快照生成器
   會牽動既有全部路由的裁判行為、屬 wire 地基面），僅更新該面的警示句——★落點＝
   `rust-api/server/tests/wire_schema.rs` 之「★裁判面界線（誠實記載……）」區塊註記：把
   「38 definitions 內出現次數＝0」的計數改為 **T039 快照重抽後的實測值**（新增
@@ -739,7 +739,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   失準的只有數字。**建議整個拿掉數字**改寫成「快照零擴」：該句的載重是「本檔不在抽取面內」
   這個**結構事實**，掛一個會隨每把刀變動的計數只會製造下一次失準。
 
-- [ ] T061 走查 quickstart §7 收尾：★`TRUNCATE sys_ip_rule RESTART IDENTITY`（該表**刻意不在**
+- [x] T061 走查 quickstart §7 收尾：★`TRUNCATE sys_ip_rule RESTART IDENTITY`（該表**刻意不在**
   收窄集內、留列必使 gate2 紅）；操作稽核表已納入收窄集免清理。
   ★**本 task MUST 早於 T062**——走查（§2 三次新增、§6 管理頁新增／軟刪〔軟刪不移列〕）會在
   `sys_ip_rule` 留下實列，而 T062 的全量閘含 `schema-gate check`；次序倒置則該閘必紅、且紅得
@@ -769,7 +769,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ★本 task 另 MUST 涵蓋 §7 現有的 `sys_login_attempt` 步與門鈴步（1b／1c），以及本刀新增的
   `sys_token` 步（3b）——原摘要只點名 `sys_ip_rule`。
 
-- [ ] T062 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
+- [x] T062 全量閘（容器內、serial）：`cargo test --workspace -- --test-threads=1`
   ＋`cargo build --release`＋`pnpm typecheck`＋`fork-delta-lint`＋`docs-sync check`
   ＋`schema-gate check`＋本刀兩支新機器守。**前置＝T061 已清走查列。DoD：全綠**
   ★**併入：pre-commit 效能預算重量測**（004 U-I 移交）。RUNBOOK §12.1 的兩張逐支表為
@@ -782,7 +782,7 @@ DB／真 redis 測；*unit*＝純函式（信任錨判定、鏈正規化、規�
   ——RUNBOOK 逐字載明門檻調整須走 ADR）。
   ★**成長面已定位**（不必重新找）：`docs-sync test` 隨案數、`docs-sync lint` 與
   `fork-delta-lint` 隨 repo／base-web 規模；恆跑段僅 8.5s，其餘全來自條件觸發段疊加。
-- [ ] T063 `python3 tools/docs-sync.py generate`＋`git add docs/generated`
+- [x] T063 `python3 tools/docs-sync.py generate`＋`git add docs/generated`
   （★`reference/routes.md` 應反映 **22 條**、`STATE.md` 反映新 pins 與 ADR／BACKLOG 統計、
   ★`reference/screens.md` 應含 `manage_ip-rule` 一列——該表由 `router/elegant/routes.ts` 的
   `generatedRoutes` 重算，新頁必令其變動，漏跑 generate 即 **Lint02** 當場擋〔訊息指名

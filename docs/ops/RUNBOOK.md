@@ -218,13 +218,9 @@ print(f"runs={[f'{t:.3f}' for t in ts]} median={statistics.median(ts):.3f}s rc={
 EOF
 ```
 
-- **本批終態實測**（2026-08-08、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝python 工具
-  ——betterleaks 樣式掃描為原生二進位、不在本表量測面；另**四**支 **gitlink 觸發段**——
-  fork-delta-lint〔pre-commit 自註 drvfs 約 9s〕／wire-schema check --staged-gate／
-  entity-drift-gate check／**view-render-guard check**〔004 U-I 加掛，WSL2 drvfs 3 次
-  中位數 **0.18s**、單跑上限 **1s**（純檔案掃描、受掃 15 檔，落下限檔位）〕——屬另一
-  觸發維度亦不在本表，收刀簿記型 commit（pin bump＋
-  多工具 staged）之真實最壞須在情境 B 上再加約 9s+）。**單跑上限推導＝該列中位數 ×3
+- **本批終態實測**（★**2026-08-16 重量測**、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
+  python 工具——betterleaks 樣式掃描為原生二進位、不在本表量測面；**條件觸發段**另列於
+  兩表之後）。**單跑上限推導＝該列中位數 ×3
   進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
   ≈3 倍）；下限 1s 吸收 drvfs 抖動的次秒級絕對尖峰；一律以 WSL2（慢端）實測定值——
   APFS 同工具快一個量級（pre-commit 註解既載事實），故上限對兩平台皆有餘裕。
@@ -233,52 +229,72 @@ EOF
 
   | 段 | 中位數 | 單跑上限 |
   |---|---|---|
-  | `python3 tools/secret-value-guard.py check` | 0.179s | 1s |
-  | `python3 tools/docs-sync.py check` | 1.004s | 4s |
-  | `python3 tools/docs-sync.py lint` | 5.858s | 18s |
-  | **基礎鏈合計** | **7.041s** | **22s**（＝合計中位數 ×3；非逐列上限加總 23s、以本值為權威） |
+  | `python3 tools/secret-value-guard.py check` | 0.218s | 1s |
+  | `python3 tools/docs-sync.py check` | 1.300s | 4s |
+  | `python3 tools/docs-sync.py lint` | 8.388s | 26s |
+  | **基礎鏈合計** | **9.907s** | **30s**（＝合計中位數 ×3；非逐列上限加總 31s、以本值為權威） |
 
   情境 B＝理論最壞 staged（pre-commit 名冊 11 支工具本體全 staged、條件自測全中）＝
   基礎鏈＋11 支 test：
 
   | 支 | 自測案數 | 中位數 | 單跑上限 |
   |---|---|---|---|
-  | `python3 tools/docs-sync.py test` | 469 | 11.893s | 36s |
-  | `python3 tools/schema-gate.py test` | 88 | 0.362s | 2s |
-  | `python3 tools/wire-schema.py test` | 27 | 0.191s | 1s |
-  | `python3 tools/secret-value-guard.py test` | 56 | 0.420s | 2s |
-  | `python3 tools/entity-drift-gate.py test` | 45 | 0.153s | 1s |
-  | `python3 deploy/preflight-secrets.py test` | 30 | 0.120s | 1s |
-  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.367s | 8s |
-  | `python3 deploy/generate-secrets.py test` | 35 | 1.769s | 6s |
-  | `python3 deploy/setup-reaper-role.py test` | 32 | 0.604s | 2s |
-  | `python3 deploy/backup-db.py test` | 17 | 1.645s | 5s |
-  | `python3 tools/wf-watchdog.py test` | 23 | 0.211s | 1s |
-  | **11 支 test 合計** | **893** | **19.735s** | — |
+  | `python3 tools/docs-sync.py test` | 496 | 16.272s | 49s |
+  | `python3 tools/schema-gate.py test` | 99 | 0.777s | 3s |
+  | `python3 tools/wire-schema.py test` | 27 | 0.206s | 1s |
+  | `python3 tools/secret-value-guard.py test` | 56 | 0.406s | 2s |
+  | `python3 tools/entity-drift-gate.py test` | 45 | 0.179s | 1s |
+  | `python3 deploy/preflight-secrets.py test` | 30 | 0.087s | 1s |
+  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.385s | 8s |
+  | `python3 deploy/generate-secrets.py test` | 35 | 1.802s | 6s |
+  | `python3 deploy/setup-reaper-role.py test` | 32 | 0.617s | 2s |
+  | `python3 deploy/backup-db.py test` | 17 | 1.654s | 5s |
+  | `python3 tools/wf-watchdog.py test` | 30 | 0.209s | 1s |
+  | **11 支 test 合計** | **938** | **24.593s** | — |
 
-  **情境 B 合計＝26.776s**（7.041＋19.735；越 20s 警戒、未破 45s 硬擋——合計面守門
+  **情境 B 合計＝34.499s**（9.907＋24.593；越 20s 警戒、未破 45s 硬擋——合計面守門
   仍＝全鏈 45s、不另定上限）。
-- **★2026-08-16 實測資料點（004 U-I 收刀 commit，收刀簿記型：兩個 gitlink 同時 bump ＋
-  `tools/docs-sync.py` staged）＝hook 自報 38s**，對照上方推估（情境 B 26.776s ＋「再加約
-  9s+」≈36s）已偏高約 2s，**距 45s 硬擋餘裕僅 7s**。逐段中位數（同日、WSL2 drvfs、
-  各跑 3 次）：`docs-sync test` **14.99s**（僅工具本體 staged 時）／`wire-schema check`
-  **8.02s**（僅 base-web pin bump 時）／`docs-sync lint` **7.38s**（恆跑）／`fork-delta-lint`
-  **5.98s**／`docs-sync check` **1.00s**（恆跑）／`view-render-guard check` 0.18s／
-  `entity-drift-gate check` 0.17s／`secret-value-guard check` 0.13s。
-  ⇒ **恆跑段僅 8.5s**，38s 全部來自條件觸發段的疊加。★成長面在 `docs-sync test`（隨案數）
-  與 `lint`／`fork-delta-lint`（隨 repo／base-web 規模），非本刀新增的 0.18s。
-  ★本表上方兩張逐支表為 2026-08-08 值、**已過期**，重量測掛在 004 之 T062（全量閘）。
+
+  **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；同日同法量測）：
+
+  | 段 | 觸發條件 | 中位數 | 單跑上限 |
+  |---|---|---|---|
+  | `python3 tools/fork-delta-lint.py` | base-web gitlink／該工具／憲法 staged | 6.163s | 19s |
+  | `python3 tools/wire-schema.py check --staged-gate` | base-web gitlink staged | 8.431s | 26s |
+  | `python3 tools/entity-drift-gate.py check` | rust-api gitlink staged | 0.179s | 1s |
+  | `python3 tools/view-render-guard.py check` | base-web gitlink／該工具 staged | 0.224s | 1s |
+
+  ★`tools/route-artifact-gate.py check` **不在 pre-commit**（其 check 需 dev stack 在跑），
+  故不列本表；其本身耗時亦屬量級可觀（同日單跑約 15s，且**連續背靠背跑第三趟時實得
+  rc=2「外掛產出未在 90s 內靜止」**——沙盒內跑 vite 外掛、drvfs 爭用下會逾時，單跑重驗即綠）。
+- **★2026-08-16 收刀簿記型 commit 的合成推估＝41.2s、距 45s 硬擋餘裕僅 3.8s**（同日
+  中位數逐段相加：基礎鏈 9.907＋`docs-sync test` 16.272＋`fork-delta-lint` 6.163＋
+  `wire-schema check` 8.431＋`entity-drift-gate check` 0.179＋`view-render-guard check` 0.224）。
+  對照同日 004 U-I 收刀 commit 的 **hook 自報 38s**（實測值、單次牆鐘），兩者同量級。
+  ⇒ **恆跑段（基礎鏈）僅約 9.9s**，其餘全部來自條件觸發段與 `docs-sync test` 的疊加。
+  ★成長面在 `docs-sync test`（隨案數：469→**496**）與 `lint`／`fork-delta-lint`
+  （隨 repo／base-web 規模），非任何單一新工具。
+  ★**餘裕已進入需要處置的區間**，但**門檻調整須走 ADR**（見本節「兩級門檻語意」與
+  「超上限處置」），故本刀只落量測、不動數字；處置選項與取捨已隨 004 收刀回報主線。
+- **上一批對照**（2026-08-08、同法量測，供成長率比較）：基礎鏈合計 **7.041s**
+  （secret-value-guard 0.179／docs-sync check 1.004／docs-sync lint 5.858）；11 支 test 合計
+  **19.735s**（自測案數合計 893）；情境 B 合計 **26.776s**。⇒ 八日內基礎鏈 +41%、
+  情境 B +29%。
 - **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
   無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
   docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit
   1779d17 後／單元③ commit 6a6378e 後，基礎鏈＋docs-sync／schema-gate／backup-db 三支
   test 合計粗判）＝**20.9s**／**17.6s**。可比面趨勢（本節立意所在）：基礎鏈同情境自
-  001 收刀約 1s 成長至約 7s（主因＝lint 條款成長至全 24 條）、距 20s 警戒餘約 3 倍
-  ——下一批續比此值。
-- **一致性核**：最大單支上限（docs-sync test 36s）＋基礎鏈實測 7.041s ≈43s、仍在全鏈
-  45s 內——常見情境（單支工具 staged）下觀測上限先於機器硬擋喊人。逐支上限**加總**
-  （基礎鏈 22s＋11 支 65s＝87s）遠超 45s——單跑上限是逐支劣化偵測基準、非「全數同時
-  到頂仍過鏈閘」的保證；理論最壞情境的守門仍＝全鏈 45s。
+  001 收刀約 1s→2026-08-08 約 7s→**2026-08-16 約 9.9s**（主因＝lint 條款成長至全 24 條
+  ＋ repo 規模），距 20s 警戒**餘約 2 倍**（前次為約 3 倍）——下一批續比此值。
+- **一致性核**（★2026-08-16 結論**已反轉**、逐字保留舊句對照）：最大單支上限
+  （`docs-sync test` **49s**）＋基礎鏈實測 **9.907s** ≈**59s**，**已越全鏈 45s 硬擋**
+  ——舊句為「36s＋7.041s ≈43s、仍在全鏈 45s 內，常見情境（單支工具 staged）下觀測上限
+  先於機器硬擋喊人」，該性質**自本次量測起不再成立**：常見情境下若真的劣化到單跑上限，
+  **機器硬擋會先於觀測上限喊人**。★這不是新風險、是同一條 45s 硬擋提前生效；真實值
+  （16.3s）距其上限仍有 3 倍餘裕。逐支上限**加總**（基礎鏈 30s＋11 支 79s＝109s）遠超
+  45s——單跑上限是逐支劣化偵測基準、非「全數同時到頂仍過鏈閘」的保證；理論最壞情境的
+  守門仍＝全鏈 45s。
 - **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
   rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
   劣化理由。
@@ -560,3 +576,111 @@ rm -f tmp/plain.yaml && rm -rf "$WORK"
 ```
 ★收尾**必刪兩處明文**（repo 內 `tmp/` 與快取 `$WORK`）——步驟 3 的 `< /dev/null` 是讓 `-e`
 不走 tty 分支、從根上不生 CRLF 與併流的關鍵。
+
+## 16. 部署 checklist（信任錨與 IP 存取閘）
+
+★本章＝004-ip-trust-anchor 交付的**文件**（spec FR-043），不是 prod 設定檔——rev5 的 prod
+資產不入 roadmap（**ADR 0014**；本章的來歷即該檔「後果」節逐字寫的「部署 checklist 改明文
+併入 ingress 刀交付物」）。本章寫的是「prod 部署時要逐項確認什麼」，而每一項的樣例都取自
+dev **已實跑過**的那一份。
+
+### 16.1 信任模型設定檔
+
+- 路徑由環境變數 `APP_TRUST_MODEL_PATH` 指向，**啟動時一次載入、唯讀共享**；缺檔或解析失敗
+  一律**只縮小信任**（三層降級語意＝`specs/004-ip-trust-anchor/contracts/trust-model-config.md`
+  的「載入失敗語意」節）。dev 現況＝compose 把 `deploy/trust-model.dev.toml` 唯讀掛進容器內的
+  `/etc/rev5/trust-model.toml`。
+- ★**樣例一律以 dev 實際掛載的那一份為基底**＝`deploy/trust-model.dev.toml`（**跑過的形**）。
+  刻意不另寫示意稿：rev4 的部署樣例**從未被任何環境實跑過**，而那正是本刀 research R7 抓到的
+  缺陷——rev4 的驗收手冊寫了「構造轉發標頭模擬公網來源」的走查步驟，但其 compose／`.env`／
+  部署腳本從未設過信任模型 ⇒ 全空集合下對端閘恆先觸發、構造標頭一律被忽略，那些步驟跑不出
+  它宣稱的結果。**驗收程序存在、使其成立的設定不存在**，兩邊各自看起來都沒問題。
+- **prod 由 dev 那份擴充**（逐集合語意與 prod 樣例＝上述 contracts 檔的「prod 樣例」節）：
+  最少要填 `internal_default`（我方內網／容器網段——★缺它則對端閘恆先觸發，第二／三層與兩個
+  覆蓋層在**任何環境**都是死碼）；前置 CDN 者另填 `cf_gate_egress`（掛驗證閘的我方 ingress
+  出口——邊緣驗證升等的四個前置之一，缺它則驗證標記不被採信）與 `[[cdn]]`。
+- **驗收指令**（dev 實跑過的形；★過濾面刻意**不**用 `grep -i trust`，理由見本節末）：
+
+```bash
+# ①終態總結行——確認「設定有掛上、掛的是預期那一份、逐集合真的有值」
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&1 \
+  | grep -E '信任模型|connecting_ip_header' | tail -1
+# ②降級告警計數——**「沒有告警」的判準即此數**，期望輸出 0
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&1 \
+  | grep -E '信任模型|connecting_ip_header' | grep -c '"level":"WARN"'
+```
+
+  **預期**：①最後一行＝「信任模型載入完成（trust model）」的 `"level":"INFO"` 行——載入面的
+  告警一律在此總結行**之前**發射，故它是該次 boot 這一段的收尾標記；②輸出 **0**。
+  ★**②才是判準、①判不出這件事**：三層降級皆**不 panic**、boot 照常繼續，總結行在任何降級下
+  都照印（只是欄位變 0），「①看起來正常」與「零告警」是兩件事。
+  ★②橫跨 log 內全部 boot 累計，方向保守（舊 boot 的告警也計入、寧可多叫）；剛部署完當場跑
+  即精準，log 已累積多次重啟時加 `--since <時間>` 收窄。
+  ★②**看印出的數、不要看 rc**：`grep -c` 零命中時印 `0` 而 **rc=1**（grep 的既定行為）
+  ——即「通過」這一格的 rc 恰是 1。包進 `set -e` 腳本時須自行接 `|| true`。
+  ①的總結行另帶 `trust_model_path`（據此可一眼看出「設定有掛上、且掛的是預期那一份」）與逐集合
+  載入筆數。★**計數欄數與集合數刻意不相等**：三個陣列型集合（`[[cdn]]`／`[[my_public]]`／
+  `[[bindings]]`）各報**條目數與網段數兩欄**（理由＝`main.rs` 該發射點的就地註記：條目非零而
+  網段為零的模型一條都不受信，只報條目數等於把它寫成「有值」）⇒ 共 **9 個計數欄**。
+  dev 現況逐字實得（`internal_default` 為 1、**其餘 8 欄皆 0**，對應 `tunnel`／`cf_gate_egress`
+  ／`[[cdn]]`／`[[my_public]]`／`[[bindings]]` 這 **5 個 dev 刻意不宣告的集合**）：
+
+```text
+"internal_default":1,"tunnel":0,"cf_gate_egress":0,"cdn_entries":0,"cdn_networks":0,
+"my_public_entries":0,"my_public_networks":0,"bindings_entries":0,"bindings_internal_networks":0
+```
+
+  ★上段為**同一行**輸出、僅為版面折成兩行；照本節逐項核對時請數 **8 個 0**（把「5 個集合」
+  直接當成「5 個 0」或「6 個 0」都會與實跑對不上——本節的硬要求正是樣例 MUST 是跑過的形）。
+- ★**為何過濾面不用 `grep -i trust`**（本節自身曾踩過的同型復發，見 L-044）：載入面共**九類**
+  告警，逐類以代表性 JSON 行過 `grep -i trust` 實測，**四類漏網**——TOML 整體解析失敗、
+  未知鍵（FR-033，★正是 rev4 實暴形「設定存在卻完全沒生效」）、單一集合清空（FR-010 第三層）、
+  訪客位址標頭名不可用。這四類的整行 JSON（含 `message`／`scope`／`reason`／`target` 各欄）
+  皆無 ASCII `trust`。命中的五類裡另有兩類（讀檔失敗／內容非 UTF-8）只因 dev 路徑字串恰為
+  `trust-model.toml` 才命中，而本節開頭已寫明路徑由 `APP_TRUST_MODEL_PATH` 指向 ⇒ prod 換檔名
+  即一併漏網。**過濾不到 ⇒「且沒有 X 類告警」這種預期在結構上驗不出來**。
+  改用 `信任模型|connecting_ip_header` 聯集則九類全覆蓋：前八類的 `message` 一律含「信任模型」，
+  第九類（標頭名）的 `message` 含 `connecting_ip_header`。
+- ★連帶棄掉的是 `tail -3`：`boot 就緒（config→db→enforcer→cache→trust→ipgate→router）` 這行含
+  ASCII `trust`，本機實跑 `grep -i trust | tail -3` 的 3 行中有 **2** 行是它；多重啟幾次即可把
+  總結行整個擠掉。聯集式不含 `trust` 字面，結構上不會被 boot 行污染，故 `tail -1` 即足。
+
+### 16.2 ★CDN 網段的一致性義務（兩處各存一份、必須同步更新）
+
+| 落點 | 用途 |
+|---|---|
+| `deploy/nginx/nginx.conf` 的 `geo $cf_edge` 區塊 | 判**傳輸層對端**是否為 CDN 邊緣 → 決定 `X-CF-Verified`／`CF-Connecting-IP` 兩標頭注入或移除 |
+| 信任模型檔的 `[[cdn]]` 之 `networks` | 判**轉發鏈中的位置錨**（Tier-1） |
+
+- 兩者用途不同、**內容必須一致**；供應商的網段表是部署參數、會變（Cloudflare 的公開表
+  ＝`https://www.cloudflare.com/ips/`），**更新節奏＝跟著供應商公告走，且兩處一起改**。
+- ★**只改一邊的表徵＝信心大量落 `cdn_mismatch`**：邊緣驗證標記為真（nginx 那半認得這個邊緣）
+  但位置錨推導與之不一致（信任模型那半不認得），判定面即降級留痕。反過來只改信任模型檔而
+  漏改 nginx，則標頭根本不會被注入、升等的四前置永遠湊不齊。
+- ★dev 兩處皆為**空集**，故 `cdn_verified`／`cdn_mismatch` 兩態在 dev 經反向代理**結構性
+  不可達**（research R7 有逐態對照表）——這是誠實分界、不是漏填。
+
+### 16.3 鎖定來源站僅接受 CDN 邊緣連線（★縱深防禦建議、**非**承重前提）
+
+- 前置 CDN 時，建議在來源站的網路層（安全群組／防火牆／CDN 專屬通道）只接受 CDN 邊緣位址
+  的連線。
+- ★**它在 rev5 是縱深防禦、不是承重前提**：spec FR-005 的**錨硬化**（憲法島 F 之 F6）已
+  **入碼**——Tier-1 位置錨成立的必要條件是「錨的右鄰起、直到傳輸層對端，全屬受信基建」，
+  否則**錨棄用、退下一層**。故有人繞過 CDN 直連來源站並在轉發鏈裡填公開可查的 CDN 邊緣
+  位址當錨時，還原結果是**攻擊者的真實位址**，不是他偽造的那個。
+- ★這與前代**相反**、是本刀刻意翻案的點：前代把安全保證整個壓在「部署方 MUST 鎖 origin
+  僅接受 CDN 邊緣連線」這條**文件約束**上，本刀把它入碼後降為建議（翻案的耐久家＝憲法
+  `.specify/memory/constitution.md` §I.7 島 F 之 **F6** 條文本體與其 v1.4.0 amendment 條目；
+  拍板脈絡＝ADR 0040）。**文件約束沒有任何機器面，部署方漏做時零訊號**——那正是降它為
+  縱深防禦、而非續當承重前提的理由。
+
+### 16.4 其餘 prod 遞延項（留指針、不展開）
+
+| 項 | 去處 |
+|---|---|
+| 登入頁三顆快速登入鈕把 dev seed 帳密帶進前端 bundle ★轉 prod 前必須拆除 | ops/BACKLOG **B-064** |
+| 前端 demo 資產去留（alova 第二請求棧等） | ops/BACKLOG **B-018** |
+| 備份自動化第二段（排程化／機密與資料卷配對備份／還原演練自動化） | ops/BACKLOG **B-023**；第一段已收單＝§6 |
+| 快取持久化模式（redis AOF） | 004 重評結論＝**維持現狀不開**（暴險受「狀態即權威」封頂：判定面不依賴快取、解鎖標記遺失可再解鎖自癒） |
+| IP 閘阻擋告警無量的上界（加了 deny 規則後 log 量由被擋方決定） | ops/BACKLOG **B-077** |
+| 機密輪替與 prod 值 | §7、§15 |
