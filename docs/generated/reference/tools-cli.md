@@ -1,7 +1,7 @@
 <!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
 # reference/tools-cli — 治理工具命令真表
 
-來源＝治理工具名冊 13 支掃源（python 12 支＝分派表字串比較字面、去重排序；bash 1 支＝存在與檔頭用法行）。消費者＝lint Lint19 命令形條款（語料＝CLAUDE.md／README.md／docs/ops/RUNBOOK.md 三件活手冊）＋人讀。
+來源＝治理工具名冊 15 支掃源（python 14 支＝分派表字串比較字面、去重排序；bash 1 支＝存在與檔頭用法行）。消費者＝lint Lint19 命令形條款（語料＝CLAUDE.md／README.md／docs/ops/RUNBOOK.md 三件活手冊）＋人讀。
 
 ## tools/docs-sync.py
 - 語言：python
@@ -30,6 +30,14 @@
 ## tools/wf-watchdog.py
 - 語言：python
 - 子命令：`test`
+
+## tools/view-render-guard.py
+- 語言：python
+- 子命令：`check`｜`test`
+
+## tools/route-artifact-gate.py
+- 語言：python
+- 子命令：`check`｜`test`
 
 ## deploy/preflight-secrets.py
 - 語言：python

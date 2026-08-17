@@ -5,7 +5,7 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint26（Lint04/Lint05/Lint06 收刀完整性閘：
+  lint            Lint03～Lint27（Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證；
@@ -14,7 +14,8 @@
                   Lint22 條款範圍字串名冊 vs 掃源上界；
                   Lint24 前後端 msg key 契約閘；
                   Lint25 跨代裸編號閘：前代編號空間的裸引用須帶 revN: 前綴；
-                  Lint26 LESSONS 分檔對賬：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填）
+                  Lint26 LESSONS 分檔對賬：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填；
+                  Lint27 README 目錄樹 vs tools/／deploy/ 腳本檔集對賬：兩向紅、只報不改）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -2151,6 +2152,7 @@ def compute_snapshot_reference(root):
 TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate.py",
             "tools/wire-schema.py", "tools/secret-value-guard.py",
             "tools/entity-drift-gate.py", "tools/wf-watchdog.py",
+            "tools/view-render-guard.py", "tools/route-artifact-gate.py",
             "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
             "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
             "deploy/backup-db.py")
@@ -2166,10 +2168,14 @@ SH_USAGE_HEAD = 10     # bash 用法行只認檔頭前 N 行的註解（再深�
 # 機器生成（含本真表自身與由 events 派生的里程碑摘要）——三者入語料即當場自紅。
 CMD_FORM_CORPUS = ("CLAUDE.md", "README.md", "docs/ops/RUNBOOK.md")
 
-# 掃源＝分派表的字串比較字面。★兩形都要收：schema-gate 的 audit 只出現在 `cmd in (…)` 形，
+# 掃源＝分派表的字串比較字面。★三形都要收：schema-gate 的 audit 只出現在 `cmd in (…)` 形，
 # 只收等號形則真表少一個子命令、與源碼對不上（rev4:SC-006）。變數名限定 cmd、子命令限小寫起首
 # ——把一般字串比較（如 mode 比對、大寫常數）擋在外。
+# ★不等號形（B-080 納冊實暴）：「預設子命令＋用法守衛」的工具（view-render-guard／
+#   route-artifact-gate）其 check 只出現在 `if cmd != "check": 用法; return` 這形——只收
+#   等號形則真表少列 check，Lint19 對 RUNBOOK 現行 `… check` 命令形當場誤紅（實測 5 筆）。
 RE_DISPATCH_EQ = re.compile(r'\bcmd\s*==\s*"([a-z][a-z0-9-]*)"')
+RE_DISPATCH_NEQ = re.compile(r'\bcmd\s*!=\s*"([a-z][a-z0-9-]*)"')
 RE_DISPATCH_IN = re.compile(r"\bcmd\s+in\s+\(([^)]*)\)")
 RE_DISPATCH_ITEM = re.compile(r'"([a-z][a-z0-9-]*)"')
 
@@ -2224,8 +2230,9 @@ class ToolsCliError(Exception):
 
 
 def scan_subcommands(source):
-    """工具源碼 → 子命令集（去重排序）。"""
+    """工具源碼 → 子命令集（去重排序）；收等號／不等號／in 三形（見 RE_DISPATCH_* 註解）。"""
     subs = set(RE_DISPATCH_EQ.findall(source))
+    subs.update(RE_DISPATCH_NEQ.findall(source))
     for group in RE_DISPATCH_IN.findall(source):
         subs.update(RE_DISPATCH_ITEM.findall(group))
     return sorted(subs)
@@ -2260,7 +2267,7 @@ def gen_tools_cli(rows):
     """真表 md（GEN_HEADER＋每工具一節；data-model §7）。"""
     # ★抬頭支數由 rows 現算、不寫死字面：寫死時名冊增減只改得到節數、抬頭原封不動，生成檔
     # 當場自我矛盾且全套件仍綠（rev4:019 U1 實證：名冊進 secret-value-guard 後抬頭仍稱「六支」、
-    # 實列七節）。字面斷言＝test_tools_roster_is_pinned_and_table_renders_seven_sections。
+    # 實列七節）。字面斷言＝test_tools_roster_is_pinned_and_table_renders_fifteen_sections。
     n_py = sum(1 for r in rows if r["lang"] == "python")
     parts = [GEN_HEADER, "# reference/tools-cli — 治理工具命令真表", "",
              f"來源＝治理工具名冊 {len(rows)} 支掃源（python {n_py} 支＝分派表字串比較字面、"
@@ -2342,6 +2349,70 @@ def lint_cmd_forms(root):
         {rel: t for rel, t in texts.items() if t is not None},
         {r["rel"]: set(r["subs"]) for r in rows if r["lang"] == "python"},
         {r["rel"]: r["exists"] for r in rows if r["lang"] == "bash"})
+
+
+# ---------------------------------------------------------------------------
+# Lint27 README 目錄樹 vs 腳本檔集對賬（B-081）
+# ---------------------------------------------------------------------------
+
+# 斷言面目錄：README 文件系統地圖逐支列檔的兩個腳本目錄。★含 deploy/ 是拍板（grilling Q2）：
+# 同一棵樹同一種「新檔漏列／樹腐爛」風險，只掃 tools/ 等於留半個同型缺口。
+README_TREE_DIRS = ("tools", "deploy")
+# 樹條目行形：縮排（│／空白／tab）＋分支符├└＋「── 」＋名欄（首個空白前 token）。
+# ★只取名欄、不取其後說明文字——說明欄含斜線或 *.py 檔名字樣皆不得誤收（解析邊界自測釘住）。
+# 續行說明（有 │ 無分支符）與非樹散文不匹配本形、天然不入斷言面。
+RE_README_TREE_ENTRY = re.compile(r"^([ \t│]*)[├└]──\s+(\S+)")
+
+
+def lint_readme_tools_tree(root):
+    """Lint27：README 目錄樹 vs 腳本檔集對賬（B-081）。
+
+    掃 tools/ 與 deploy/ 兩目錄的 *.py／*.sh 實檔集（僅直屬檔案；目錄與 __pycache__ 天然
+    不入——只收檔案且腳本副檔名限定），vs README 樹區塊解析出的同目錄腳本列名，**相等**
+    斷言、兩向紅：漏列（檔在樹無）＝「新工具漏列」實證形（B-081 立案實證：004 U-I 兩支
+    新工具落地、README 樹漏列而 lint 全綠）；幽靈（樹有檔無）＝樹腐爛形。
+    ★範圍含 deploy/（grilling Q2 拍板）：README 樹兩目錄皆逐檔列、同型風險一次堵完。
+    ★紅只報不改：樹是人寫檔（README）內的一段、不是生成物——條款只能報紅要求人改，
+      自動重寫即越權改人寫面（訊息附去處＝請人改 README 樹）。
+    ★Dockerfile／yml／目錄／純說明行不入斷言面：名欄非 .py/.sh 結尾者一律略過，僅腳本檔
+      受對賬（樹對它們的取捨屬人寫敘事自由）。
+    README 缺席＝零 findings（存在性由 Lint20 命令形語料守衛承載、此處不重複報）。
+    """
+    out = []
+    text = _read(root, "README.md")
+    if text is None:
+        return out
+    top = {d + "/": d for d in README_TREE_DIRS}
+    listed = {d: {} for d in README_TREE_DIRS}   # {目錄: {檔名: 行號}}
+    context = None
+    for n, line in enumerate(text.splitlines(), start=1):
+        m = RE_README_TREE_ENTRY.match(line)
+        if not m:
+            continue
+        prefix, name = m.groups()
+        depth = len(prefix.replace("\t", "    ")) // 4 + 1
+        if depth == 1:
+            context = top.get(name)          # 非斷言面頂層條目＝清空 context
+        elif depth == 2 and context is not None \
+                and (name.endswith(".py") or name.endswith(".sh")):
+            listed[context].setdefault(name, n)
+        # depth≥3（子目錄內容）不入斷言面：實檔側同樣只收目錄直屬檔案，兩側對稱
+    for d in README_TREE_DIRS:
+        dp = os.path.join(root, d)
+        actual = {nm for nm in (os.listdir(dp) if os.path.isdir(dp) else ())
+                  if (nm.endswith(".py") or nm.endswith(".sh"))
+                  and os.path.isfile(os.path.join(dp, nm))}
+        for nm in sorted(actual - set(listed[d])):
+            out.append(finding(ERROR, "Lint27", "README.md",
+                               f"{d}/{nm} 實檔在庫、README 目錄樹未列——新工具漏列形"
+                               f"（B-081）；請在 README 文件系統地圖的 {d}/ 節補一行"
+                               "（樹是人寫段落，本條款只報不改）"))
+        for nm in sorted(set(listed[d]) - actual):
+            out.append(finding(ERROR, "Lint27", f"README.md:行 {listed[d][nm]}",
+                               f"README 目錄樹列出 {d}/{nm} 但實檔不存在——樹腐爛形"
+                               f"（B-081）；請自 README 樹刪該行、或還原 {d}/{nm}"
+                               "（樹是人寫段落，本條款只報不改）"))
+    return out
 
 
 def parse_events_loose(text):
@@ -3409,7 +3480,7 @@ _assert_day1_table()
 
 # 守衛#5 的弱探針：源碼「有沒有分派表」。★刻意與嚴格掃源正則（RE_DISPATCH_EQ／
 # RE_DISPATCH_IN）各自獨立——同一條正則既當判準又當被驗對象＝套套邏輯，改壞它反而全綠。
-RE_DISPATCH_PROBE = re.compile(r"\bcmd\s*==|\bcmd\s+in\s*\(")
+RE_DISPATCH_PROBE = re.compile(r"\bcmd\s*==|\bcmd\s*!=|\bcmd\s+in\s*\(")
 
 
 def owning_submodule(rel):
@@ -3486,8 +3557,8 @@ def lint_tool_dispatch(root):
     實測 tools/fork-delta-lint.py 源碼本來就沒有分派表（零等號形、零 in 形），子命令集
     恆為空集合——而那是**正確的事實**：它是直跑工具，CLAUDE.md／RUNBOOK 都這樣寫、真表
     也如實記為「無——源碼無分派表、直跑」。照字面實作，lint 對現況直接自紅。
-    故收斂為：以獨立的弱探針（源碼是否出現 `cmd ==`／`cmd in (`）判斷這支工具「有沒有
-    分派表」；有分派表卻掃出空集合＝掃源正則壞了→ERROR，本來就沒有分派表＝合法空集合。
+    故收斂為：以獨立的弱探針（源碼是否出現 `cmd ==`／`cmd !=`／`cmd in (`）判斷這支工具
+    「有沒有分派表」；有分派表卻掃出空集合＝掃源正則壞了→ERROR，本來就沒有分派表＝合法空集合。
     守住的仍是 rev4:FR-013 要防的那件事——「查到空集合而恆綠」。
     """
     try:
@@ -4522,10 +4593,11 @@ _assert_lint25_table()
 
 
 def run_lint(root, exemptions=None):
-    """組裝 Lint03～Lint26 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    """組裝 Lint03～Lint27 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
     Lint21 exec bit 守衛、Lint22 範圍字串守衛、
-    Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘、Lint26 LESSONS 分檔對賬閘。
+    Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘、Lint26 LESSONS 分檔對賬閘、
+    Lint27 README 目錄樹 vs 腳本檔集對賬閘。
     回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
     git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -4576,6 +4648,7 @@ def run_lint(root, exemptions=None):
     findings += lint_pin_crosscheck(root, probe)
     findings += lint_events_sha(root, probe)
     findings += lint_cmd_forms(root)
+    findings += lint_readme_tools_tree(root)
     findings += lint_empty_sets(root, tracked, probe, exemptions=exemptions)
     findings += lint_exec_bits(root)
     findings += lint_range_strings(root)
@@ -5070,6 +5143,115 @@ class TestLintLessonsFiles(unittest.TestCase):
             f = run_lint(d)
             self.assertTrue(any(x["code"] == "Lint26" and x["level"] == ERROR for x in f),
                             msg=str([x for x in f if x["code"] == "Lint26"]))
+
+
+class TestLintReadmeToolsTree(unittest.TestCase):
+    """Lint27 README 目錄樹 vs 腳本檔集對賬（B-081）：兩向各配紅案＋邊界綠案（ADR 0024）。
+
+    fixture＝tempdir 自建、真 repo 唯讀；樹形逐字照真 README 文件系統地圖的排版
+    （```text 圍欄、├└ 分支符、多空白對欄說明、│ 續行說明）。
+    """
+
+    TREE = ("# 假 README\n\n```text\nfake-root/\n"
+            "├── README.md                        入口導覽\n"
+            "├── tools/                           治理工具鏈\n"
+            "│   ├── bootstrap.sh                 體檢（說明欄含 zeta.py 與 tools/omega.py"
+            " 字樣：解析只取名欄、不得誤收）\n"
+            "│   ├── alpha.py                     甲工具\n"
+            "│   ├── Dockerfile.alpha             非腳本（不入斷言面）\n"
+            "│   ├── conf.yml                     非腳本（不入斷言面）\n"
+            "│   ├── sub/                         子目錄（不入斷言面）\n"
+            "│   │   └── nested.py                子目錄內容（depth≥3 不入斷言面）\n"
+            "│   └── beta.py                      乙工具\n"
+            "├── deploy/                          營運面\n"
+            "│   ├── gamma.sh                     丙腳本\n"
+            "│   │                                  （續行說明、無分支符：不入斷言面）\n"
+            "│   └── data/                        目錄（不入斷言面）\n"
+            "└── other/                           非斷言面目錄\n"
+            "    └── stray.py                     不在 tools/／deploy/＝不入斷言面\n"
+            "```\n")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        _wfile(self.root, "README.md", self.TREE)
+        for rel in ("tools/bootstrap.sh", "tools/alpha.py", "tools/beta.py",
+                    "deploy/gamma.sh"):
+            _wfile(self.root, rel, "#!/bin/true\n")
+        # 目錄類干擾件（樹有列 sub/、data/；__pycache__ 樹不列）——皆不得入斷言面
+        _wfile(self.root, "tools/__pycache__/alpha.cpython-312.pyc", "bytecode\n")
+        _wfile(self.root, "tools/sub/nested.py", "print()\n")
+        os.makedirs(os.path.join(self.root, "deploy/data"))
+        _wfile(self.root, "other/stray.py", "print()\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _line_of(self, needle):
+        return next(i for i, ln in enumerate(self.TREE.splitlines(), start=1)
+                    if needle in ln)
+
+    def test_clean_green(self):
+        """兩目錄檔集＝樹列名→零 findings。★本案同時是解析邊界的變異殺手：說明欄
+        token（zeta.py／tools/omega.py）誤收、depth≥3（nested.py）誤收、非斷言面目錄
+        （other/stray.py）誤收、或實檔側誤走遞迴掃描——任一形都會把本案翻紅。"""
+        self.assertEqual(lint_readme_tools_tree(self.root), [])
+
+    def test_missing_from_tree_red(self):
+        """紅案（漏列形＝B-081 立案實證）：tools/ 與 deploy/ 各落一支樹外新腳本，
+        兩向皆須紅——deploy/ 入斷言面即 grilling Q2 拍板的機器證明。"""
+        _wfile(self.root, "tools/delta.py", "print()\n")
+        _wfile(self.root, "deploy/epsilon.sh", "#!/bin/true\n")
+        f = lint_readme_tools_tree(self.root)
+        self.assertEqual(len(f), 2, msg=str(f))
+        self.assertTrue(all(x["level"] == ERROR and x["code"] == "Lint27"
+                            and x["where"] == "README.md" for x in f), msg=str(f))
+        self.assertIn("tools/delta.py", f[0]["msg"])
+        self.assertIn("漏列", f[0]["msg"])
+        self.assertIn("deploy/epsilon.sh", f[1]["msg"])
+
+    def test_ghost_in_tree_red(self):
+        """紅案（樹腐爛形）：樹列著 tools/beta.py 而實檔已刪→ERROR 指名 README 該行
+        （紅只報不改：訊息去處＝請人改 README 樹或還原檔案）。"""
+        os.remove(os.path.join(self.root, "tools/beta.py"))
+        f = lint_readme_tools_tree(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["level"], ERROR)
+        self.assertEqual(f[0]["code"], "Lint27")
+        self.assertEqual(f[0]["where"], f"README.md:行 {self._line_of('beta.py')}")
+        self.assertIn("tools/beta.py", f[0]["msg"])
+        self.assertIn("樹腐爛", f[0]["msg"])
+
+    def test_non_script_objects_not_asserted(self):
+        """綠案：非腳本物件兩向皆不入斷言面——樹側已列的 Dockerfile.alpha／conf.yml 在
+        磁碟不存在（fixture 刻意不建）不得報幽靈；磁碟側新落的 txt／yml／Dockerfile
+        不在樹也不得報漏列。"""
+        _wfile(self.root, "tools/notes.txt", "純文字\n")
+        _wfile(self.root, "deploy/loki.yml", "config: x\n")
+        _wfile(self.root, "deploy/Dockerfile.x", "FROM scratch\n")
+        self.assertEqual(lint_readme_tools_tree(self.root), [])
+
+    def test_readme_missing_zero_findings(self):
+        """綠案（誠實邊界）：README 缺席＝零 findings——存在性由 Lint20 的命令形語料
+        守衛承載（缺席即 ERROR），本條款不重複報同一件事。"""
+        os.remove(os.path.join(self.root, "README.md"))
+        self.assertEqual(lint_readme_tools_tree(self.root), [])
+
+    def test_run_lint_wires_readme_tools_tree(self):
+        """★接線層：lint_readme_tools_tree 從 run_lint 掉線＝Lint27 整條靜默下線。
+        Lint27 findings 只可能來自本條款——信號純淨。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, "README.md",
+                   "```text\nr/\n├── tools/  工具\n│   └── ghost.py  幽靈\n```\n")
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "Lint27" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint27"]))
+
+    def test_real_repo_tree_green(self):
+        """★現況驗收：真 README 樹與 tools/／deploy/ 實檔集相等（B-081 預檢已核；
+        條款上線即自紅＝樹實漂或解析錯，前者修樹〔人寫面〕、後者修解析）。"""
+        self.assertEqual(lint_readme_tools_tree(ROOT), [])
 
 
 class TestLessonsHeadUnion(unittest.TestCase):
@@ -8762,6 +8944,8 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/secret-value-guard.py", ("check",)),
                ("tools/entity-drift-gate.py", ("check",)),
                ("tools/wf-watchdog.py", ("test",)),
+               ("tools/view-render-guard.py", ("check", "test")),
+               ("tools/route-artifact-gate.py", ("check", "test")),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
@@ -8782,16 +8966,21 @@ class TestToolsCliTruthTable(unittest.TestCase):
     """G7 tools-cli 掃源真表（rev4:contracts G7／data-model §7／rev4:research R5）。"""
 
     def test_scan_dedups_sorts_and_ignores_non_dispatch(self):
-        """掃源子命令集：elif 鏈＋`cmd in (...)` 形全收、重複去重、非分派字串比較不收。"""
+        """掃源子命令集：elif 鏈＋`cmd in (...)`＋`cmd != "…"` 形全收、重複去重、
+        非分派字串比較不收。★不等號形是紅綠成對的載重半邊（B-080）：view-render-guard／
+        route-artifact-gate 的 check 只長 `if cmd != "check": 用法` 這形，拆掉 NEQ 收集
+        則本案的 check 消失、當場紅——同時 Lint19 會對 RUNBOOK 現行 `… check` 命令形誤紅。"""
         src = ("import sys\n"
                + _FAKE_EQ.format("lint")
                + _FAKE_ELIF.format("generate")
                + _FAKE_ELIF.format("lint")               # 重複→去重
                + _FAKE_IN.format("gate2", "audit")       # schema-gate 的 audit 只長這形
+               + 'if cmd != "check":\n    pass\n'        # 用法守衛形（預設子命令工具實形）
                + 'if mode == "notacmd":\n    pass\n'     # 非 cmd 變數＝一般字串比較、不收
+               + 'if mode != "notacmd2":\n    pass\n'    # 非 cmd 變數（不等號形）＝不收
                + 'if cmd == "BadCase":\n    pass\n')     # 大寫起首＝非子命令形、不收
         self.assertEqual(scan_subcommands(src),
-                         ["audit", "gate2", "generate", "lint"])
+                         ["audit", "check", "gate2", "generate", "lint"])
 
     def test_real_docs_sync_dispatch_is_pinned(self):
         """★對現庫源碼實掃（S6 步 1 逐一對照的機器化）：本檔測試字面污染真表即當場紅。"""
@@ -8807,26 +8996,28 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
-    def test_tools_roster_is_pinned_and_table_renders_twelve_sections(self):
+    def test_tools_roster_is_pinned_and_table_renders_fifteen_sections(self):
         """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（rev4:SC-006 失守）＋該工具的 Lint19 子命令比對與舊名禁令一併靜默下線。
-        ★路徑形（B-035 U2）：名冊含 deploy/ 條目，目錄不再是隱含常識、字面連目錄一起釘。"""
+        ★路徑形（B-035 U2）：名冊含 deploy/ 條目，目錄不再是隱含常識、字面連目錄一起釘。
+        ★B-080 納冊：view-render-guard／route-artifact-gate 進名冊（12→14 支）。"""
         self.assertEqual(TOOLS_PY,
                          ("tools/docs-sync.py", "tools/fork-delta-lint.py",
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
                           "tools/wf-watchdog.py",
+                          "tools/view-render-guard.py", "tools/route-artifact-gate.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
                           "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
                           "deploy/backup-db.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 13, msg=str(heads))
+        self.assertEqual(len(heads), 15, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 13 支掃源（python 12 支", md)
+        self.assertIn("來源＝治理工具名冊 15 支掃源（python 14 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -9611,12 +9802,12 @@ class TestRangeStringGuard(unittest.TestCase):
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
     def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
-        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝26
-        （Lint26 LESSONS 分檔對賬閘為現行最大號）——上界前進時本測試逼著同刀更新
+        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝27
+        （Lint27 README 目錄樹對賬閘為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
         codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
         self.assertIn(self._own(), codes)
-        self.assertEqual(max(codes), 26)
+        self.assertEqual(max(codes), 27)
 
     @unittest.skipUnless(_day1_pending(*RANGE_ROSTER),
                          "Day 1 未達：解除＝RANGE_ROSTER 三檔全在（docs/ops/RUNBOOK.md 隨 B5 骨架落地）")
@@ -10537,6 +10728,13 @@ BOOTSTRAP_REL = "tools/bootstrap.sh"
 # ★字元集含 `/`（B-035 U2 路徑形）：hook 名冊改列相對路徑後，不放行斜線即整行對不上、
 #   對賬案退化成「名冊行不見了」的假故障訊息。
 RE_HOOK_ROSTER = re.compile(r"^for t in ([a-z0-9./ -]+); do$", re.M)
+# ★hook 自測迴圈的具名豁免（B-080 拍板）：成員有 test 介面、卻不入 pre-commit 的
+#   `for t in …` 迴圈——其 self-test 已隨 `check` 每次連帶跑，而 check 由 hook 條件觸發段
+#   接線（fork-delta-lint 同形；它因無 test 介面天然不入迴圈，本表承載「有 test 介面但
+#   同形」的成員）。入迴圈＝staged 時緊接著 check 再重複跑一次 self-test、零新增覆蓋。
+#   豁免不得成為靜默下線通道：checked-copy 測試逐支斷言成員必屬 test 名冊（防幽靈豁免）
+#   ＋hook 內必有其 `check` 接線行；bootstrap 體檢（無條件全跑）不豁免、照 run_tool_test。
+HOOK_TEST_LOOP_EXEMPT = ("tools/view-render-guard.py",)
 RE_BOOTSTRAP_TEST = re.compile(r"^run_tool_test (\S+)$", re.M)
 # 樁工具：把自己被呼叫的 argv 記進 WIRE_LOG；WIRE_FAIL（檔名）＋WIRE_FAIL_SUB（子命令、可空）
 # 同時命中才非零退出（驗 fail-closed）。★需子命令粒度，否則同一支 docs-sync.py 的 check 與 lint
@@ -10590,10 +10788,9 @@ class TestGateWiring(unittest.TestCase):
         os.makedirs(os.path.join(d, "base-web", "src"))
         _wfile(d, "base-web/src/.gitkeep", "掃描射程佔位：本測只驗觸發條件\n")
         _wfile(d, "rust-api", "gitlink 佔位：本測只驗觸發條件、不建真 submodule\n")
-        # ★名冊外工具的樁**顯式寫**：view-render-guard／route-artifact-gate 刻意不入 TOOLS_PY
-        #   （self-test 隨 check 連帶跑、同 fork-delta-lint 既有形），故不會被上方迴圈掃到；
-        #   漏寫則 hook 執行到該行即「檔案不存在」rc≠0，測到的是沙盒不保真、不是 hook 行為。
-        _wfile(d, "tools/view-render-guard.py", STUB_TOOL)
+        # ★B-080 納冊後 view-render-guard／route-artifact-gate 皆在 TOOLS_PY，樁由上方迴圈
+        #   統一寫入（納冊前需在此顯式補樁；漏樁＝hook 執行到該行即「檔案不存在」rc≠0，
+        #   測到的是沙盒不保真、不是 hook 行為）。
         # ★基線源倉目錄佔位（B7 hook 裁製、ADR 0001 決定 4）：hook 的 fork-delta 段以
         #   「源倉目錄存在」為實跑前提（Day-1 缺席＝具名跳過）。本 fixture 建目錄＝契約
         #   測試模擬 B9 後穩態；Day-1 缺席情境由 day1_skip 專屬測試另測（成對紅綠）。
@@ -10628,11 +10825,23 @@ class TestGateWiring(unittest.TestCase):
 
     def test_hook_roster_is_a_checked_copy_of_the_truth_table(self):
         """★hook 的 `for t in …` 是全庫第三份手抄名冊（一＝TOOLS_PY、二＝bootstrap）：
-        與真表對賬後，新增帶 test 介面的守門工具卻漏接線即紅、不再零提醒。"""
+        與真表對賬後，新增帶 test 介面的守門工具卻漏接線即紅、不再零提醒。
+        ★具名豁免（B-080）：HOOK_TEST_LOOP_EXEMPT 成員不入迴圈（理由見該常數註解），
+        豁免三道防呆——①成員必屬 test 名冊（防幽靈豁免）②hook 內必有其 `check` 接線行
+        （防「豁免後整段被拆」零信號；觸發行為另由 dry-run 乾跑案釘住）③迴圈期望＝
+        test 名冊（TOOLS_PY 中帶 test 介面者）減豁免（豁免以外一支都不能少、
+        對賬強度不因豁免而弱化）。"""
         hook = _read(ROOT, HOOK_REL)
         m = RE_HOOK_ROSTER.search(hook or "")
         self.assertIsNotNone(m, msg="pre-commit 條件觸發段的工具名冊行不見了")
-        self.assertEqual(tuple(m.group(1).split()), tools_test_roster())
+        roster = tools_test_roster()
+        for rel in HOOK_TEST_LOOP_EXEMPT:
+            self.assertIn(rel, roster,
+                          msg=f"{rel} 不在 test 名冊＝幽靈豁免，自 HOOK_TEST_LOOP_EXEMPT 摘掉")
+            self.assertIn(f"python3 {rel} check", hook or "",
+                          msg=f"{rel} 豁免出迴圈的前提＝check 條件觸發接線仍在，該行不見了")
+        self.assertEqual(tuple(m.group(1).split()),
+                         tuple(rel for rel in roster if rel not in HOOK_TEST_LOOP_EXEMPT))
         self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
 
     def test_hook_scan_pins_scanner_config_explicitly(self):
@@ -10709,11 +10918,14 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_triggers_only_the_staged_tools_test(self):
-        """情境②名冊全 staged＝全支觸發（順序＝名冊序）；情境③只 staged 一支＝其餘各支
-        不得被拖下水（條件是逐支比對、不是「有工具改動就全跑」）。"""
+        """情境②名冊全 staged＝迴圈成員全支觸發（順序＝名冊序）；豁免成員（B-080）不跑
+        test、改由其條件觸發段跑 check——迴圈與條件段的先後＝hook 檔內次序；情境③只
+        staged 一支＝其餘各支不得被拖下水（條件是逐支比對、不是「有工具改動就全跑」）。"""
         roster = tools_test_roster()
+        loop = [rel for rel in roster if rel not in HOOK_TEST_LOOP_EXEMPT]
         self.assertEqual(self._run(list(roster)),
-                         (0, self.BASE + [f"{rel} test" for rel in roster]))
+                         (0, self.BASE + [f"{rel} test" for rel in loop]
+                          + ["tools/view-render-guard.py check"]))
         self.assertEqual(self._run(["tools/docs-sync.py"]),
                          (0, self.BASE + ["tools/docs-sync.py test"]))
 

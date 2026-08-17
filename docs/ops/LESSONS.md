@@ -1,4 +1,4 @@
-<!-- next: L-048 -->
+<!-- next: L-049 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -60,3 +60,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-045｜清理義務被私有 fixture 就地解掉＝全域性被藏起來](LESSONS/L-045-cleanup-duty-hidden-by-private-fixture.md) — 名冊 MUST 由 grep 產生；複合判準分開枚舉取聯集；義務屬路徑就上移共用設施
 - [L-046｜「已知態」記成單一症狀＝煙測驗一條沒人走的路](LESSONS/L-046-known-state-needs-observation-path.md) — 記已知態必寫觀察路徑；煙測判準路徑＝使用者路徑
 - [L-047｜前端表單擋下＝零請求零 toast、與後端掛了同形](LESSONS/L-047-form-validation-mimics-dead-backend.md) — 排查後端行為前先證明請求發出去了（Network.requestWillBeSent）
+- [L-048｜引用的計數「出生時就錯」比「後來漂了」更難抓（碰巧對＝最毒的形）](LESSONS/L-048-quoted-counts-need-machine-recount.md) — 引量前先機器數且數對物件（表邊界）；歷史時點用 git show 重數；他人寫的計數一律當主張不當事實

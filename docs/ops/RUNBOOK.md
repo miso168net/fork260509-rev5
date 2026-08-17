@@ -142,7 +142,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint26） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint27） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
@@ -173,11 +173,13 @@ schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取
   只跑一次；base-web pin bump 時另跑 `python3 tools/wire-schema.py check --staged-gate`
   （staged 區間零 typings 變動即跳過）；base-web pin bump 或 `tools/view-render-guard.py`
   自身 staged 時另跑 `python3 tools/view-render-guard.py check`（`base-web/src` 未就位時
-  具名跳過，同 fork-delta／entity-drift 的 Day-1 模式）；rust-api pin bump 或 schema 快照
+  具名跳過，同 fork-delta／entity-drift 的 Day-1 模式；★該檔在 TOOLS_PY 名冊內但**不入**
+  `for t in` 自測迴圈＝具名豁免 `HOOK_TEST_LOOP_EXEMPT`——其 self-test 隨本 check 連帶跑、
+  入迴圈即重複跑；bootstrap 體檢不受此豁免、照跑其 test）；rust-api pin bump 或 schema 快照
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
   `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
-- **lint 條款**：全 25 條（範圍 Lint03~Lint26；23 號已拆除、編號不重用）。severity 三分：
+- **lint 條款**：全 26 條（範圍 Lint03~Lint27；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
   逐條機制→工具源碼與 `python3 tools/docs-sync.py test` 自測敘述；創世期具名豁免
@@ -227,7 +229,7 @@ print(f"runs={[f'{t:.3f}' for t in ts]} median={statistics.median(ts):.3f}s rc={
 EOF
 ```
 
-- **本批終態實測**（★**2026-08-16 重量測**、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
+- **本批終態實測**（★**2026-08-18 重量測**（治理批 B-080 納冊後 pre-commit 迴圈名冊 12 支）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
   python 工具——betterleaks 樣式掃描為原生二進位、不在本表量測面；**條件觸發段**另列於
   兩表之後）。**單跑上限推導＝該列中位數 ×3
   進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
@@ -238,34 +240,39 @@ EOF
 
   | 段 | 中位數 | 單跑上限 |
   |---|---|---|
-  | `python3 tools/secret-value-guard.py check` | 0.218s | 1s |
-  | `python3 tools/docs-sync.py check` | 1.300s | 4s |
-  | `python3 tools/docs-sync.py lint` | 8.388s | 26s |
-  | **基礎鏈合計** | **9.907s** | **30s**（＝合計中位數 ×3；非逐列上限加總 31s、以本值為權威） |
+  | `python3 tools/secret-value-guard.py check` | 0.127s | 1s |
+  | `python3 tools/docs-sync.py check` | 1.317s | 4s |
+  | `python3 tools/docs-sync.py lint` | 12.251s | 37s |
+  | **基礎鏈合計** | **13.695s** | **42s**（＝合計中位數 ×3；逐列上限加總同為 42s、以本值為權威） |
 
-  情境 B＝理論最壞 staged（pre-commit 名冊 11 支工具本體全 staged、條件自測全中）＝
-  基礎鏈＋11 支 test：
+  情境 B＝理論最壞 staged（pre-commit 名冊 12 支工具本體全 staged、條件自測全中）＝
+  基礎鏈＋12 支 test（★名冊＝test 名冊（TOOLS_PY 14 支中帶 test 介面的 13 支；
+  fork-delta-lint 無 test 介面、天然不入迴圈而走條件觸發段）減 `HOOK_TEST_LOOP_EXEMPT`
+  具名豁免 1 支（view-render-guard——其 self-test 隨 check 連帶跑））：
 
   | 支 | 自測案數 | 中位數 | 單跑上限 |
   |---|---|---|---|
-  | `python3 tools/docs-sync.py test` | 496 | 16.272s | 49s |
-  | `python3 tools/schema-gate.py test` | 99 | 0.777s | 3s |
-  | `python3 tools/wire-schema.py test` | 27 | 0.206s | 1s |
-  | `python3 tools/secret-value-guard.py test` | 56 | 0.406s | 2s |
-  | `python3 tools/entity-drift-gate.py test` | 45 | 0.179s | 1s |
-  | `python3 deploy/preflight-secrets.py test` | 30 | 0.087s | 1s |
-  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.385s | 8s |
-  | `python3 deploy/generate-secrets.py test` | 35 | 1.802s | 6s |
-  | `python3 deploy/setup-reaper-role.py test` | 32 | 0.617s | 2s |
-  | `python3 deploy/backup-db.py test` | 17 | 1.654s | 5s |
-  | `python3 tools/wf-watchdog.py test` | 30 | 0.209s | 1s |
-  | **11 支 test 合計** | **938** | **24.593s** | — |
+  | `python3 tools/docs-sync.py test` | 524 | 15.415s | 47s |
+  | `python3 tools/schema-gate.py test` | 99 | 0.464s | 2s |
+  | `python3 tools/wire-schema.py test` | 27 | 0.188s | 1s |
+  | `python3 tools/secret-value-guard.py test` | 56 | 0.377s | 2s |
+  | `python3 tools/entity-drift-gate.py test` | 45 | 0.175s | 1s |
+  | `python3 tools/route-artifact-gate.py test` | —* | 0.070s | 1s |
+  | `python3 deploy/preflight-secrets.py test` | 30 | 0.130s | 1s |
+  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.366s | 8s |
+  | `python3 deploy/generate-secrets.py test` | 35 | 1.710s | 6s |
+  | `python3 deploy/setup-reaper-role.py test` | 32 | 0.585s | 2s |
+  | `python3 deploy/backup-db.py test` | 17 | 1.649s | 5s |
+  | `python3 tools/wf-watchdog.py test` | 30 | 0.158s | 1s |
+  | **12 支 test 合計** | **966＋具名段** | **23.287s** | — |
 
-  **情境 B 合計＝34.499s**（9.907＋24.593）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
-  為準：34.499s **未越新警戒 45s**（舊制下越 20s 而恆亮）、遠未破硬擋 90s——合計面守門
-  仍＝全鏈門檻、不另定上限。
+  （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
 
-  **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；同日同法量測）：
+  **情境 B 合計＝36.982s**（13.695＋23.287）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
+  為準：36.982s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
+
+  **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；★四列**沿 2026-08-16
+  量測值（同法）、本批未重測**）：
 
   | 段 | 觸發條件 | 中位數 | 單跑上限 |
   |---|---|---|---|
@@ -281,33 +288,48 @@ EOF
   中位數逐段相加：基礎鏈 9.907＋`docs-sync test` 16.272＋`fork-delta-lint` 6.163＋
   `wire-schema check` 8.431＋`entity-drift-gate check` 0.179＋`view-render-guard check` 0.224）。
   對照同日 004 U-I 收刀 commit 的 **hook 自報 38s**（實測值、單次牆鐘），兩者同量級。
-  ⇒ **恆跑段（基礎鏈）僅約 9.9s**，其餘全部來自條件觸發段與 `docs-sync test` 的疊加。
-  ★成長面在 `docs-sync test`（隨案數：469→**496**）與 `lint`／`fork-delta-lint`
-  （隨 repo／base-web 規模），非任何單一新工具。
+  ⇒ 恆跑段（基礎鏈）**當時**約 9.9s（2026-08-18 已 13.695s、見上表），其餘全部來自
+  條件觸發段與 `docs-sync test` 的疊加。
+  ★**當批（～08-16）**成長面在 `docs-sync test`（隨案數：469→**496**）與 `lint`／
+  `fork-delta-lint`（隨 repo／base-web 規模），非任何單一新工具；★2026-08-18 批歸因**相反**
+  ——主力＝`docs-sync lint` 單項、`docs-sync test` 中位反降（16.272→15.415），詳上一批對照段。
   ★**該處置已於 2026-08-17 執行完畢**：走 ADR 0044（user 親決），兩門檻改為
   WARN=45／FAIL=90（推導見「兩級門檻語意」）。連帶配套＝**本值自此列為每刀收尾的例行量測**，
   資料點續記本節；**連續兩刀 ≥60s** 即強制觸發「優化慢路徑／再立 ADR/縮減名冊」三者之一。
-- **上一批對照**（2026-08-08、同法量測，供成長率比較）：基礎鏈合計 **7.041s**
-  （secret-value-guard 0.179／docs-sync check 1.004／docs-sync lint 5.858）；11 支 test 合計
-  **19.735s**（自測案數合計 893）；情境 B 合計 **26.776s**。⇒ 八日內基礎鏈 +41%、
-  情境 B +29%。
+- **★2026-08-18 治理批收尾合成推估＝44.107s**（資料點軌：41.2〔08-16〕→**44.107**；同法
+  逐段相加＝基礎鏈 13.695＋`docs-sync test` 15.415＋條件觸發四列**沿用 2026-08-16 中位**
+  6.163＋8.431＋0.179＋0.224——★半新半舊推估：本批未動 base-web／schema 面、四列條件段無
+  重測理由，讀值時注意其時點混成）。距警戒 45s 餘 **0.893s**——下一刀動 base-web 面時宜
+  連四列條件段一併重測後再讀本值；引信（連續兩刀 ≥60s）本刀未觸發。
+- **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
+  （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
+  test 合計 **24.593s**（自測案數合計 938）；情境 B 合計 **34.499s**。⇒ 兩日內**基礎鏈
+  +38%**（9.907→13.695；恆跑段、每顆 commit 都付——正是 ADR 0044 引信盯的面）、情境 B
+  +7%（淨增 2.483s）；成長主力＝`docs-sync lint` **單項**（8.388→12.251、+3.863s：B-090
+  分檔制 47 條目檔掃描面＋Lint26/27 兩新條款——單項增量即超過情境 B 淨增）；`docs-sync
+  test` 案數 496→524 但中位數反降（16.272→15.415、−5.3%），與其餘各列同向
+  （唯 `preflight-secrets test` 微升 0.087→0.130；route-artifact-gate 本批新入列、無前值）。
+  再前一批（2026-08-08）＝基礎鏈 7.041／
+  11 支 test 19.735（893 案）／情境 B 26.776。
 - **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
   無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
   docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit
   1779d17 後／單元③ commit 6a6378e 後，基礎鏈＋docs-sync／schema-gate／backup-db 三支
   test 合計粗判）＝**20.9s**／**17.6s**。可比面趨勢（本節立意所在）：基礎鏈同情境自
-  001 收刀約 1s→2026-08-08 約 7s→**2026-08-16 約 9.9s**（主因＝lint 條款成長至全 24 條
-  ＋ repo 規模）。★**比較對象自 2026-08-17 起改為新警戒 45s**（ADR 0044）：基礎鏈 9.9s
-  距其**餘約 4.5 倍**；舊制記法「距 20s 警戒餘約 2 倍」已隨門檻改值作廢、勿再據以比較。
+  001 收刀約 1s→2026-08-08 約 7s→2026-08-16 約 9.9s（主因＝lint 條款成長至全 24 條
+  ＋ repo 規模）→**2026-08-18 約 13.7s**（主因＝lint 8.388→12.251：B-090 分檔制掃描面
+  ＋Lint26/27）。★**比較對象自 2026-08-17 起改為新警戒 45s**（ADR 0044）：基礎鏈 13.695s
+  距其**餘約 3.3 倍**；舊制記法「距 20s 警戒餘約 2 倍」已隨門檻改值作廢、勿再據以比較。
 - **一致性核**（★兩次翻面、逐字留痕以免下一位覆核者重推一遍）：最大單支上限
-  （`docs-sync test` **49s**）＋基礎鏈實測 **9.907s** ≈**59s**。
+  （`docs-sync test` **47s**）＋基礎鏈實測 **13.695s** ≈**60.7s**。
   - 2026-08-08 舊句：「36s＋7.041s ≈43s、仍在全鏈 45s 內 ⇒ 常見情境（單支工具 staged）下
     **觀測上限先於機器硬擋喊人**」。
   - 2026-08-16 一度**反轉**：59s 已越當時的全鏈 45s 硬擋 ⇒ 常見情境下改為「機器硬擋先喊」。
   - **2026-08-17 起還原成立**（ADR 0044 把硬擋提到 **90s**）：59s < 90s ⇒ 「觀測上限先於
     機器硬擋喊人」這條性質**恢復**，且餘裕比 2026-08-08 當時更寬（59/90 vs 43/45）。
-  ★真實值（`docs-sync test` 16.3s）距其單跑上限仍有 3 倍餘裕。逐支上限**加總**
-  （基礎鏈 30s＋11 支 79s＝109s）仍超 90s——單跑上限是逐支劣化偵測基準、非「全數同時到頂
+  - 2026-08-18 本批複核（B-080 納冊後現值）**仍成立**：60.7s < 90s（餘裕 60.7/90）。
+  ★真實值（`docs-sync test` 15.415s）距其單跑上限（47s）仍約 3 倍餘裕。逐支上限**加總**
+  （基礎鏈 42s＋12 支 77s＝119s）仍超 90s——單跑上限是逐支劣化偵測基準、非「全數同時到頂
   仍過鏈閘」的保證；理論最壞情境的守門仍＝**全鏈硬擋那一道**。
 - **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
   rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
