@@ -1,7 +1,7 @@
 # RUNBOOK — dev stack 操作手冊
 
 本檔＝「怎麼操作」唯一的家。分工（防鏡像）：系統長怎樣→活書 §7；十三機密明細表→
-`deploy/secrets/README.md`；埠／帳號全表→`docs/generated/reference/`；坑全文→`docs/ops/LESSONS.md`。
+`deploy/secrets/README.md`；埠／帳號全表→`docs/generated/reference/`；坑索引→`docs/ops/LESSONS.md`（條目全文＝`docs/ops/LESSONS/` 一坑一檔）。
 本檔命令一律完整可複製——整行逐字貼進 shell 即可跑、一律於 repo 根執行。
 創世期章節現況：§1／§12／§14／§15 為最小必備四章；其餘各章隨對應刀補實文、章內不放未經實跑的命令。
 
@@ -142,7 +142,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint25） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint26） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
@@ -177,7 +177,7 @@ schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
   `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
-- **lint 條款**：全 24 條（範圍 Lint03~Lint25；23 號已拆除、編號不重用）。severity 三分：
+- **lint 條款**：全 25 條（範圍 Lint03~Lint26；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
   逐條機制→工具源碼與 `python3 tools/docs-sync.py test` 自測敘述；創世期具名豁免
@@ -346,7 +346,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml \
   `.githooks/pre-commit` 的 `PRECOMMIT_FAIL_SEC` 為權威）。dev profile 的 debuginfo
   裁剪與否屬後續評估，數據前提即本表。
 
-## 13. 故障排除速查（全文→LESSONS；此表只指路）
+## 13. 故障排除速查（索引→LESSONS.md、全文→LESSONS/；此表只指路）
 
 （本章隨教訓累積補實文；創世期 LESSONS 自空白起家、尚無條目可指。）
 
