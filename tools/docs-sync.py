@@ -5,7 +5,7 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint25（Lint04/Lint05/Lint06 收刀完整性閘：
+  lint            Lint03～Lint26（Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
                   Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證；
@@ -13,7 +13,8 @@
                   Lint20 空集合守衛八組；Lint21 名冊腳本 index exec bit＝100755；
                   Lint22 條款範圍字串名冊 vs 掃源上界；
                   Lint24 前後端 msg key 契約閘；
-                  Lint25 跨代裸編號閘：前代編號空間的裸引用須帶 revN: 前綴）
+                  Lint25 跨代裸編號閘：前代編號空間的裸引用須帶 revN: 前綴；
+                  Lint26 LESSONS 分檔對賬：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -272,6 +273,11 @@ BUDGETS = {
 }
 LESSONS_TOKEN_LIMIT = 25000
 LESSONS_TOKEN_WARN = 22500
+# 分檔制（ADR 0045、grilling Q1 施壓形拍板 2026-08-17）：docs/ops/LESSONS/ 條目檔單條上限。
+# 單卷 25000 在分檔制下只罩索引主檔；「條目越寫越長」的實質約束面移到單條 token 上限
+# （遷移當下實測最大 L-045＝1937、零條 >2000——WARN 線刻意貼近、補記即施壓瘦身）。
+LESSON_ENTRY_TOKEN_LIMIT = 3000   # ERROR
+LESSON_ENTRY_TOKEN_WARN = 2000    # WARN
 BACKLOG_VOL_LINE_LIMIT = 200
 # rev5 差分（§3.2 條 11／§0.3 準則 4）：分卷軸一律按大小、不按時間。
 # ★取與 LESSONS 同值——兩者同為 append-only 帳本的鏡像、同一種成長形態，用同一把尺；
@@ -335,6 +341,23 @@ def lint_budgets(root):
                 if lines > BACKLOG_VOL_LINE_LIMIT:
                     out.append(finding(ERROR, "Lint07", rel,
                                        f"行數 {lines} 超出單卷預算 {BACKLOG_VOL_LINE_LIMIT}"))
+    # 分檔制（ADR 0045）：docs/ops/LESSONS/ 條目檔逐檔單條上限（token 計全檔、含 frontmatter）；
+    # 目錄不存在＝略過（遷移前照綠）
+    les_dir = os.path.join(root, "docs/ops/LESSONS")
+    if os.path.isdir(les_dir):
+        for name in sorted(os.listdir(les_dir)):
+            if not (name.startswith("L-") and name.endswith(".md")):
+                continue
+            rel = f"docs/ops/LESSONS/{name}"
+            toks = token_count(_read(root, rel) or "")
+            if toks > LESSON_ENTRY_TOKEN_LIMIT:
+                out.append(finding(ERROR, "Lint07", rel,
+                                   f"約 {toks} tokens 超出單條上限 {LESSON_ENTRY_TOKEN_LIMIT}——"
+                                   "拆條或瘦身（一坑一檔勿併坑；防法細節晉升進操作面後即可自本檔刪減）"))
+            elif toks > LESSON_ENTRY_TOKEN_WARN:
+                out.append(finding(WARN, "Lint07", rel,
+                                   f"約 {toks} tokens 逼近單條上限 {LESSON_ENTRY_TOKEN_LIMIT}，"
+                                   "宜瘦身或拆條（一坑一檔勿併坑）"))
     # 活書單節配額（警告級）
     book = _read(root, BOOK)
     if book is not None:
@@ -531,6 +554,82 @@ def lint_ids(kind, texts, head_texts):
             if n < head_next:
                 out.append(finding(ERROR, "Lint09", label,
                                    f"{kind}-{n:03d} 為舊號回收（新號必 ≥ HEAD next-id {head_next}；號碼永不回收）"))
+    return out
+
+
+# LESSONS 分檔制（ADR 0045）：條目檔名形＋索引連結抽取形（Lint26 專用）。
+# ★索引行取方括號連結形、刻意不匹配 RE_ENTRY（分檔制設計支點 D1——Lint09 計數／lessons_count
+#   零改動）。
+# ★抽取形之數字要求 L-\d{3} 屬**前瞻性約束、現行無行為面**：link_counts 只被條目檔名
+#   （RE_LESSON_FILE、必含 \d{3}）查表，放寬後多收的散文示意鍵（字母 NNN 形）永遠沒人讀
+#   ——寫不出真紅案（mutation 實證：拆掉 \d{3} 全自測照綠）。對應自測只誠實主張
+#   「散文示意不誤報」（ADR 0024 防恆綠紀律之誠實標註形）。
+RE_LESSON_FILE = re.compile(r"^L-(\d{3})-[a-z0-9][a-z0-9-]*\.md$")
+RE_LESSON_INDEX_LINK = re.compile(r"\(LESSONS/(L-\d{3}[^)\s]*\.md)\)")
+# 索引行「標號↔連結檔名號碼」對賬形（U1 收尾補防、U1c 品質輪 advisory #4）：47 行手寫索引
+# 最可能的抄錯形＝標號抄錯——link_counts 只管存在與唯一、Lint12 只管檔案存在，無此斷言即全綠。
+# 兩側皆要求 \d{3} ⇒ 前言散文示意（字母 NNN 形）不命中、不誤報。
+RE_LESSON_INDEX_ROW = re.compile(r"\[L-(\d{3})｜[^\]]*\]\(LESSONS/L-(\d{3})[^)\s]*\.md\)")
+
+
+def lint_lessons_files(root):
+    """Lint26：LESSONS 分檔制對賬三斷言（ADR 0045）；docs/ops/LESSONS/ 不存在＝零 findings。
+
+    (a) 條目檔名匹配 L-NNN-<slug>.md，且正文以 RE_ENTRY["L"] 恰命中一次、號碼與檔名相等；
+    (b) 索引（docs/ops/LESSONS.md）↔ 條目檔雙向對賬——本斷言管反向（檔無索引行）與唯一性
+        （每檔恰一行）；「索引→檔」連結存在性另有 Lint12 兜底、此處不重複；
+    (c) 條目檔 frontmatter 具非空 promoted_to:（晉升必答欄；值域自由文字、只驗非空
+        〔grilling Q5 拍板〕。★per-machine memory 路徑禁令由既有 lint_memory_refs（Lint15）
+        全 md 掃描承載，本條款不重複實作）。
+    """
+    out = []
+    les_dir = os.path.join(root, "docs/ops/LESSONS")
+    if not os.path.isdir(les_dir):
+        return out
+    entry_files = []
+    for name in sorted(os.listdir(les_dir)):
+        m = RE_LESSON_FILE.match(name)
+        if not m:
+            out.append(finding(ERROR, "Lint26", f"docs/ops/LESSONS/{name}",
+                               "檔名不匹配 L-NNN-<slug>.md 形（NNN＝三位數字、slug＝英文小寫"
+                               " kebab）——改名合形、或移出 docs/ops/LESSONS/（目錄僅收條目檔）"))
+            continue
+        entry_files.append((name, int(m.group(1))))
+    for name, fn_num in entry_files:
+        rel = f"docs/ops/LESSONS/{name}"
+        text = _read(root, rel) or ""
+        hits = RE_ENTRY["L"].findall(text)
+        if len(hits) != 1:
+            out.append(finding(ERROR, "Lint26", rel,
+                               f"正文 L-NNN｜起手形命中 {len(hits)} 次、應恰一次"
+                               "（一坑一檔：0＝缺條目首行、多於一＝併坑須拆檔）"))
+        elif int(hits[0]) != fn_num:
+            out.append(finding(ERROR, "Lint26", rel,
+                               f"正文號碼 L-{int(hits[0]):03d} 與檔名號碼 L-{fn_num:03d} 不一致"
+                               "（引用以 ID 為準；改正文或改檔名使相等）"))
+        v = parse_front_matter(text)[0].get("promoted_to")
+        if not v or (isinstance(v, str) and not v.strip()):
+            out.append(finding(ERROR, "Lint26", rel,
+                               "frontmatter 缺非空 promoted_to:（晉升必答欄：防法晉升到哪個"
+                               "操作面；無處可晉升寫「無：<理由>」）"))
+    index_text = _read(root, "docs/ops/LESSONS.md") or ""
+    link_counts = {}
+    for m in RE_LESSON_INDEX_LINK.finditer(index_text):
+        link_counts[m.group(1)] = link_counts.get(m.group(1), 0) + 1
+    for m in RE_LESSON_INDEX_ROW.finditer(index_text):
+        if m.group(1) != m.group(2):
+            out.append(finding(ERROR, "Lint26", "docs/ops/LESSONS.md",
+                               f"索引行標號 L-{m.group(1)} 與連結檔名號碼 L-{m.group(2)} 不一致"
+                               "（手寫索引最易出的抄錯形；以條目檔名號碼為準、改標號或改連結）"))
+    for name, _n in entry_files:
+        cnt = link_counts.get(name, 0)
+        if cnt == 0:
+            out.append(finding(ERROR, "Lint26", "docs/ops/LESSONS.md",
+                               f"缺 {name} 的索引行——每條目檔於索引恰一行"
+                               "（- [L-NNN｜坑名](LESSONS/<檔名>) — 防法 hook）"))
+        elif cnt > 1:
+            out.append(finding(ERROR, "Lint26", "docs/ops/LESSONS.md",
+                               f"{name} 於索引出現 {cnt} 行——每檔恰一行、刪重複行"))
     return out
 
 
@@ -1181,6 +1280,49 @@ def load_head_adrs(root):
     return head
 
 
+def head_files_batch(rels, root):
+    """依輸入序回傳各 rel 之 HEAD 版全文（HEAD 無此檔＝None）——語意同逐檔 head_file。
+
+    ★恰兩發 subprocess（單支 ls-tree 取 oid → 單支 cat-file --batch），比照 load_head_adrs
+    既有範式：LESSONS 條目檔同屬只增不減的集合，逐檔 git show 會吃穿秒級預算——U2 分檔
+    遷移後 head 視野 2→約 48 條，drvfs 實測逐檔形每次 lint 多耗約 5s 且經 pre-commit
+    進到每一顆 commit（B-090 U1b 補審 blocker）。"""
+    if not rels:
+        return []
+    out = git_out(["ls-tree", "-r", "HEAD", "--", *rels], root)
+    texts = {rel: None for rel in rels}
+    if out is None:
+        return [texts[rel] for rel in rels]
+    oid_by_path = {}
+    for line in out.splitlines():
+        if "\t" not in line:
+            continue
+        meta_part, path = line.split("\t", 1)
+        parts = meta_part.split()
+        if len(parts) == 3 and parts[1] == "blob":
+            oid_by_path[path] = parts[2]
+    order = [(oid_by_path[rel], rel) for rel in rels if rel in oid_by_path]
+    if order:
+        try:
+            r = subprocess.run(["git", "cat-file", "--batch"], cwd=root,
+                               input="\n".join(oid for oid, _ in order).encode(),
+                               capture_output=True)
+        except OSError:
+            r = None
+        if r is not None and r.returncode == 0:
+            buf, pos = r.stdout, 0
+            for _, rel in order:
+                nl = buf.index(b"\n", pos)
+                hdr = buf[pos:nl].decode("utf-8", errors="replace").split()
+                if len(hdr) != 3 or hdr[1] != "blob":
+                    pos = nl + 1
+                    continue
+                size = int(hdr[2])
+                texts[rel] = buf[nl + 1: nl + 1 + size].decode("utf-8", errors="replace")
+                pos = nl + 1 + size + 1
+    return [texts[rel] for rel in rels]
+
+
 def _volume_paths(root, main_rel, prefix):
     """主檔＋docs/ops 下同前綴分卷（sorted）；主檔恆在 index 0。"""
     ops = os.path.join(root, "docs/ops")
@@ -1191,7 +1333,45 @@ def _volume_paths(root, main_rel, prefix):
 
 
 def lessons_paths(root):
-    return _volume_paths(root, "docs/ops/LESSONS.md", "LESSONS-")
+    """LESSONS 枚舉唯一權威（分檔制 2026-08-17、ADR 0045）：主檔（索引、恆 index 0、載
+    next-id）＋舊分卷 LESSONS-*.md（過渡期防漏視野；遷移刪卷後自然消失）＋
+    docs/ops/LESSONS/ 下 sorted 之 L-*.md 條目檔（目錄不存在＝略過）。"""
+    paths = _volume_paths(root, "docs/ops/LESSONS.md", "LESSONS-")
+    d = os.path.join(root, "docs/ops/LESSONS")
+    if os.path.isdir(d):
+        paths += [f"docs/ops/LESSONS/{n}" for n in sorted(os.listdir(d))
+                  if n.startswith("L-") and n.endswith(".md")]
+    return paths
+
+
+# HEAD 之 LESSONS 卷集三形：主檔／舊分卷（docs/ops 頂層）／分檔制條目檔（ADR 0045）
+RE_HEAD_LESSONS_PATH = re.compile(
+    r"^docs/ops/(?:LESSONS\.md|LESSONS-[^/]+\.md|LESSONS/L-[^/]+\.md)$")
+
+
+def head_lessons_paths(root):
+    """Lint09 L 側 head 視野聯集用（ADR 0045）：git ls-tree 取 HEAD 之 LESSONS 卷集。
+
+    聯集目的＝堵「整卷（或條目檔）被刪＝其號碼靜默退出反回收視野」——分檔遷移刪舊分卷
+    即此形。HEAD 讀不到＝回空集（head 側缺席由 lint_ids 既有 None 容錯形承接）。
+    """
+    out = git_out(["ls-tree", "-r", "--name-only", "HEAD", "--", "docs/ops/"], root)
+    if out is None:
+        return []
+    return [l for l in out.splitlines() if RE_HEAD_LESSONS_PATH.match(l)]
+
+
+def lessons_head_view(root):
+    """Lint09 L 側 head 視野清單的**單一構造權威**（ADR 0045）：現況 lessons_paths ∪
+    HEAD 卷集，且主檔恆 index 0——run_lint 呼叫端與自測共用本 helper，構造式絕不抄第二份
+    （兩份抄本各自漂移＝生產路徑零覆蓋的恆綠形）。
+
+    ★主檔恆 index 0 是硬不變量：lint_ids 的 head_next 只讀 head_texts[0]，而字典序
+    LESSONS-….md < LESSONS.md（連字號 0x2D < 句點 0x2E）會把主檔擠出首位→head_next=None→
+    反回收閘整段靜默失效，故不可用裸 sorted(聯集)。"""
+    lmain = "docs/ops/LESSONS.md"
+    return [lmain] + sorted((set(lessons_paths(root)) | set(head_lessons_paths(root)))
+                            - {lmain})
 
 
 def backlog_paths(root):
@@ -4342,10 +4522,10 @@ _assert_lint25_table()
 
 
 def run_lint(root, exemptions=None):
-    """組裝 Lint03～Lint25 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    """組裝 Lint03～Lint26 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
     Lint21 exec bit 守衛、Lint22 範圍字串守衛、
-    Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘。
+    Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘、Lint26 LESSONS 分檔對賬閘。
     回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
     git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -4367,8 +4547,12 @@ def run_lint(root, exemptions=None):
     findings += lint_ids("B", [(_read(root, p) or "") for p in bpaths],
                          [head_file(p, root) for p in bpaths])
     lpaths = lessons_paths(root)
+    # ★L 側 head 視野一律走 lessons_head_view（聯集＋主檔恆 index 0 的單一構造權威、
+    #   ADR 0045）——絕不在此 inline 抄構造式（抄本漂移＝反回收閘靜默失效，詳 helper docstring）；
+    #   讀取一律批讀 head_files_batch、絕不退回逐檔 head_file（U2 後 48 條＝每 commit +5s）。
     findings += lint_ids("L", [(_read(root, p) or "") for p in lpaths],
-                         [head_file(p, root) for p in lpaths])
+                         head_files_batch(lessons_head_view(root), root))
+    findings += lint_lessons_files(root)
     book = _read(root, BOOK)
     if book is not None:
         findings += lint_tense(book)
@@ -4723,6 +4907,359 @@ class TestLintIds(unittest.TestCase):
         dup = head + "- **L-902**｜跨形撞號\n"
         f = lint_ids("L", [dup], [head])
         self.assertTrue(any("重複" in x["msg"] for x in f))
+
+
+class TestLintLessonsFiles(unittest.TestCase):
+    """Lint26 LESSONS 分檔對賬（ADR 0045）：三斷言各配紅案防恆綠（ADR 0024 紀律）。
+
+    fixture＝tempdir 自建、真 repo 唯讀；號碼一律取 9xx 假號段（ADR 0012 決定 4）。
+    """
+
+    INDEX = ("<!-- next: L-903 -->\n# LESSONS — 教訓索引\n\n"
+             "- [L-901｜甲坑](LESSONS/L-901-a.md) — 防法甲\n"
+             "- [L-902｜乙坑](LESSONS/L-902-b.md) — 防法乙\n")
+
+    @staticmethod
+    def _entry(n, promoted="CLAUDE.md §2"):
+        return f"---\npromoted_to: {promoted}\n---\n- **L-{n}**｜某坑\n"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_lessons_paths_appends_entry_files_main_first(self):
+        """交付一：枚舉＝既有卷集（主檔恆 index 0）＋LESSONS/ 下 sorted 的 L-*.md。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS-901-901.md", "- **L-901**｜舊卷\n")
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md", self._entry(902))
+        _wfile(self.root, "docs/ops/LESSONS/readme.txt", "非條目檔不納\n")
+        self.assertEqual(lessons_paths(self.root),
+                         ["docs/ops/LESSONS.md", "docs/ops/LESSONS-901-901.md",
+                          "docs/ops/LESSONS/L-902-b.md"])
+
+    def test_no_dir_zero_findings(self):
+        """目錄不存在＝零 findings（U1 落地時分檔尚未遷移、lint 必須照綠）。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        self.assertEqual(lint_lessons_files(self.root), [])
+
+    def test_clean_green(self):
+        """合法索引＋兩條目檔全綠。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", self._entry(901))
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md", self._entry(902))
+        self.assertEqual(lint_lessons_files(self.root), [])
+
+    def test_filename_shape_red(self):
+        """(a) 紅案：檔名不匹配 L-NNN-<slug>.md 形（兩位號碼）。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS/L-90-bad.md", self._entry(901))
+        f = lint_lessons_files(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["level"], ERROR)
+        self.assertEqual(f[0]["code"], "Lint26")
+        self.assertIn("檔名", f[0]["msg"])
+
+    def test_filename_slug_charset_red(self):
+        """(a) 紅案：slug 含大寫＝非英文小寫 kebab（Q2 拍板、finding 訊息與 ADR 0045
+        逐字承諾的斷言）——必得檔名形 ERROR、where＝條目檔本身。
+
+        ★釘 RE_LESSON_FILE 的 slug 半邊（U1b）：test_filename_shape_red 只釘 \\d{3} 半邊，
+        slug 字元集放寬成 .* 時本案自「檔名」ERROR 翻成「缺索引行」（where 變
+        docs/ops/LESSONS.md）＝紅；正文與 promoted_to 全合規、確保紅只紅在檔名形。
+        """
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS/L-901-BadSlug.md", self._entry(901))
+        f = lint_lessons_files(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["where"], "docs/ops/LESSONS/L-901-BadSlug.md")
+        self.assertIn("檔名", f[0]["msg"])
+
+    def test_filename_id_mismatch_red(self):
+        """(a) 紅案：正文號碼與檔名號碼不相等。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", self._entry(902))
+        f = lint_lessons_files(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["level"], ERROR)
+        self.assertIn("不一致", f[0]["msg"])
+
+    def test_entry_count_not_one_red(self):
+        """(a) 紅案：正文 RE_ENTRY 命中 0 次（缺條目首行）與 2 次（併坑）各自紅。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md",
+               "---\npromoted_to: CLAUDE.md §2\n---\n散文無條目首行\n")
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md",
+               self._entry(902) + "- **L-903**｜併坑\n")
+        f = lint_lessons_files(self.root)
+        hits = [x for x in f if "恰一次" in x["msg"]]
+        self.assertEqual([x["where"] for x in hits],
+                         ["docs/ops/LESSONS/L-901-a.md", "docs/ops/LESSONS/L-902-b.md"],
+                         msg=str(f))
+
+    def test_missing_index_line_red(self):
+        """(b) 紅案：檔在、索引無行（反向對賬；「索引→檔」另有 Lint12 兜底）。"""
+        _wfile(self.root, "docs/ops/LESSONS.md",
+               self.INDEX.replace("- [L-902｜乙坑](LESSONS/L-902-b.md) — 防法乙\n", ""))
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", self._entry(901))
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md", self._entry(902))
+        f = lint_lessons_files(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["where"], "docs/ops/LESSONS.md")
+        self.assertIn("L-902-b.md", f[0]["msg"])
+        self.assertIn("索引行", f[0]["msg"])
+
+    def test_duplicate_index_line_red(self):
+        """(b) 紅案：同一條目檔在索引出現兩行（唯一性）。"""
+        _wfile(self.root, "docs/ops/LESSONS.md",
+               self.INDEX + "- [L-901｜甲坑重複](LESSONS/L-901-a.md) — 重複行\n")
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", self._entry(901))
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md", self._entry(902))
+        f = lint_lessons_files(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["where"], "docs/ops/LESSONS.md")
+        self.assertIn("2 行", f[0]["msg"])
+
+    def test_prose_illustration_no_false_report(self):
+        """(b) 綠案：索引頭夾散文示意（字母 NNN 連結形）不誤報。
+
+        ★誠實範圍（ADR 0024）：本案只證「散文示意不產生 findings」，**不**證抽取形
+        要求數字——該 \\d{3} 限制現行無行為面（見 RE_LESSON_INDEX_LINK 註解；
+        mutation 實證放寬後本案仍綠），故不冒稱守它。
+        """
+        _wfile(self.root, "docs/ops/LESSONS.md",
+               "<!-- next: L-903 -->\n# 索引\n每條恰一行 `- [L-NNN｜坑名](LESSONS/L-NNN-<slug>.md)`\n"
+               + "- [L-901｜甲坑](LESSONS/L-901-a.md) — 防法甲\n")
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", self._entry(901))
+        self.assertEqual(lint_lessons_files(self.root), [])
+
+    def test_index_label_number_mismatch_red(self):
+        """(b) 紅案：索引行標號與連結檔名號碼不一致（47 行手寫索引最可能的抄錯形——
+        link_counts 只管存在與唯一、Lint12 只管檔案存在，無此斷言即全綠）。"""
+        _wfile(self.root, "docs/ops/LESSONS.md",
+               self.INDEX.replace("- [L-902｜乙坑](LESSONS/L-902-b.md) — 防法乙\n",
+                                  "- [L-903｜乙坑](LESSONS/L-902-b.md) — 防法乙\n"))
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", self._entry(901))
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md", self._entry(902))
+        f = lint_lessons_files(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(f[0]["where"], "docs/ops/LESSONS.md")
+        self.assertIn("標號", f[0]["msg"])
+        self.assertIn("903", f[0]["msg"])
+
+    def test_missing_promoted_to_red(self):
+        """(c) 紅案：無 frontmatter、與 frontmatter 內 promoted_to 值為空——各自紅。"""
+        _wfile(self.root, "docs/ops/LESSONS.md", self.INDEX)
+        _wfile(self.root, "docs/ops/LESSONS/L-901-a.md", "- **L-901**｜無 frontmatter\n")
+        _wfile(self.root, "docs/ops/LESSONS/L-902-b.md",
+               "---\npromoted_to:\n---\n- **L-902**｜值為空\n")
+        f = lint_lessons_files(self.root)
+        hits = [x for x in f if "promoted_to" in x["msg"]]
+        self.assertEqual([x["where"] for x in hits],
+                         ["docs/ops/LESSONS/L-901-a.md", "docs/ops/LESSONS/L-902-b.md"],
+                         msg=str(f))
+        self.assertTrue(all(x["level"] == ERROR for x in hits))
+
+    def test_run_lint_wires_lessons_files(self):
+        """★接線層：lint_lessons_files 從 run_lint 掉線＝Lint26 整條靜默下線。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, "docs/ops/LESSONS/L-901-a.md", "- **L-902**｜號碼不一致\n")
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "Lint26" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint26"]))
+
+
+class TestLessonsHeadUnion(unittest.TestCase):
+    """Lint09 L 側 head 視野聯集（ADR 0045）：git fixture 重演分檔遷移形。
+
+    ★構造式不抄第二份：與 run_lint 共用 lessons_head_view（單一構造權威）——mutation 實證
+      抄本形讓 helper 被改壞時全部自測照綠（生產路徑零覆蓋）；另有 run_lint 層接線案守
+      「呼叫端繞開 helper」的變形。
+    ★紅案證明聯集沒把反回收閘弄鈍：HEAD 從未存在的舊號條目檔必得「舊號回收」ERROR——
+      同時釘住主檔 index-0 修正（字典序 LESSONS-….md < LESSONS.md 擠出主檔時
+      head_next=None、反回收整段靜默失效，本紅案必失敗）。
+    """
+
+    def _fixture(self, d):
+        """HEAD＝遷移前（主檔＋分卷）；工作樹＝遷移後（索引＋分檔、分卷已刪、未 staged）。"""
+        _wfile(d, "docs/ops/LESSONS.md",
+               "<!-- next: L-903 -->\n# LESSONS\n- **L-902**｜乙\n")
+        _wfile(d, "docs/ops/LESSONS-901-901.md", "# LESSONS 分卷\n- **L-901**｜甲\n")
+        _git(d, "init", "-q", "-b", "main")
+        _git(d, "add", "-A")
+        _git(d, "commit", "-qm", "pre-migration")
+        _wfile(d, "docs/ops/LESSONS.md",
+               "<!-- next: L-903 -->\n# LESSONS — 教訓索引\n\n"
+               "- [L-901｜甲](LESSONS/L-901-a.md) — 防法甲\n"
+               "- [L-902｜乙](LESSONS/L-902-b.md) — 防法乙\n")
+        os.remove(os.path.join(d, "docs/ops/LESSONS-901-901.md"))
+        _wfile(d, "docs/ops/LESSONS/L-901-a.md",
+               "---\npromoted_to: CLAUDE.md §2\n---\n- **L-901**｜甲\n")
+        _wfile(d, "docs/ops/LESSONS/L-902-b.md",
+               "---\npromoted_to: CLAUDE.md §2\n---\n- **L-902**｜乙\n")
+
+    def _lint09(self, d):
+        lpaths = lessons_paths(d)
+        lpaths_head = lessons_head_view(d)  # ★與 run_lint 同一構造權威、絕不 inline 抄
+        # index-0 不變量：連字號 0x2D < 句點 0x2E、裸 sorted 會把主檔擠出首位
+        self.assertEqual(lpaths_head[0], "docs/ops/LESSONS.md")
+        # ★讀取同 run_lint 走批讀（head_files_batch）——遷移 fixture 直接覆蓋批讀路徑：
+        #   批讀壞掉（全 None／亂序）→ head_next=None → 反向紅案 900 不紅、此類自測翻紅
+        return lpaths_head, lint_ids("L", [(_read(d, p) or "") for p in lpaths],
+                                     head_files_batch(lpaths_head, d))
+
+    def test_head_union_covers_deleted_volume(self):
+        """遷移形：分卷已刪仍在 head 視野 → Lint09 零「舊號回收」誤報。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            lpaths_head, f = self._lint09(d)
+            self.assertIn("docs/ops/LESSONS-901-901.md", lpaths_head)
+            self.assertEqual(f, [], msg=str(f))
+
+    def test_never_in_head_old_number_still_red(self):
+        """反向紅案：HEAD 從未存在的舊號條目檔 → 必得「舊號回收」ERROR（閘未鈍化）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            _wfile(d, "docs/ops/LESSONS/L-900-x.md",
+                   "---\npromoted_to: 無：測試樣本\n---\n- **L-900**｜HEAD 從未存在\n")
+            _, f = self._lint09(d)
+            self.assertTrue(any(x["level"] == ERROR and "回收" in x["msg"] and "900" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_head_lessons_paths_no_git_empty(self):
+        """HEAD 讀不到（非 git 目錄）＝回空集。"""
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(head_lessons_paths(d), [])
+
+    def test_head_files_batch_two_spawns_and_per_file_parity(self):
+        """★批次守衛（U1b 補審）：head 視野讀取恰 2 發 subprocess（ls-tree＋cat-file），
+        且與逐檔 head_file 逐位等價（HEAD 無此檔＝None、依輸入序）。
+
+        逐檔 git show 形於 U2 遷移後 2→約 48 條、drvfs 實測每次 lint 多耗約 5s 且進每顆
+        commit 的 pre-commit——本案把「批次而非逐檔」釘成可機器偵測的派發次數。
+        ★不共用 _fixture、自建 HEAD 四 blob 形（U1b 第 2 輪）：_fixture 的 HEAD 僅
+        2 顆 blob 且其 oid 恰已依 rels 序升冪（71f76fc… < c6273aa…；內容固定故為決定性），
+        cat-file 輸入序被改壞成 sorted(oid) 時 sorted＝原序、對位斷言比不出差別——而錯配
+        的失效形＝head_texts[0] 拿到別檔內容→head_next=None→反回收閘靜默下線。
+        故 fixture 不退化守衛看兩維：①len(rels) ≥ 4（派發次數維：逐檔形至少 4 發、
+        單條時逐檔與批次同為可混淆量）②HEAD 內 present ≥ 2 且其 oid 序 ≠ rels 序
+        （對位維：oid 恰已依序＝該類變異隱形）；含 HEAD 缺席之條目檔＝None 形。"""
+        with tempfile.TemporaryDirectory() as d:
+            # HEAD＝四顆 blob（主檔＋舊分卷＋兩支條目檔）；此內容組合實算 oid 序≠rels 序
+            _wfile(d, "docs/ops/LESSONS.md",
+                   "<!-- next: L-904 -->\n# LESSONS — 教訓索引\n\n"
+                   "- [L-901｜甲](LESSONS/L-901-a.md) — 防法甲\n"
+                   "- [L-902｜乙](LESSONS/L-902-b.md) — 防法乙\n")
+            _wfile(d, "docs/ops/LESSONS-901-901.md", "# LESSONS 分卷\n- **L-901**｜甲\n")
+            _wfile(d, "docs/ops/LESSONS/L-901-a.md",
+                   "---\npromoted_to: CLAUDE.md §2\n---\n- **L-901**｜甲\n")
+            _wfile(d, "docs/ops/LESSONS/L-902-b.md",
+                   "---\npromoted_to: CLAUDE.md §2\n---\n- **L-902**｜乙\n")
+            _git(d, "init", "-q", "-b", "main")
+            _git(d, "add", "-A")
+            _git(d, "commit", "-qm", "head-four-blobs")
+            _wfile(d, "docs/ops/LESSONS/L-903-c.md",
+                   "---\npromoted_to: 無：測試樣本\n---\n- **L-903**｜丙\n")
+            rels = lessons_head_view(d)
+            self.assertGreaterEqual(len(rels), 4, msg=str(rels))
+            expected = [head_file(p, d) for p in rels]   # 差分基準：mock 外先取
+            self.assertIn(None, expected)                # 必含 HEAD 缺席形（工作樹新條目檔）
+            present = [p for p, t in zip(rels, expected) if t is not None]
+            oids = [_git(d, "rev-parse", f"HEAD:{p}").strip() for p in present]
+            self.assertGreaterEqual(len(present), 2, msg=str(present))
+            self.assertNotEqual(oids, sorted(oids), msg=str(list(zip(present, oids))))
+            real, spawns = subprocess.run, []
+
+            def fake(args, **kw):
+                spawns.append(list(args))
+                return real(args, **kw)
+
+            with mock.patch.object(subprocess, "run", fake):
+                texts = head_files_batch(rels, d)
+            self.assertEqual(len(spawns), 2, msg=str(spawns))
+            self.assertEqual(texts, expected)
+
+    def test_run_lint_head_view_production_path(self):
+        """★接線層：run_lint 的 L 側 head 視野必行經 lessons_head_view——生產路徑全程覆蓋。
+
+        呼叫端若繞開 helper 自抄構造式，兩種變形皆在此翻紅：
+        ①裸 sorted(聯集)＝主檔被擠出 index 0→head_next=None→反回收閘死→900 不紅；
+        ②退回無聯集舊形（head 視野＝現況 lpaths）＝已刪分卷退出視野→901 誤報舊號回收。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            _wfile(d, "docs/ops/LESSONS/L-900-x.md",
+                   "---\npromoted_to: 無：測試樣本\n---\n- **L-900**｜HEAD 從未存在\n")
+            f = [x for x in run_lint(d) if x["code"] == "Lint09"
+                 and x["where"] == "docs/ops/LESSONS.md"]
+            self.assertTrue(any(x["level"] == ERROR and "回收" in x["msg"] and "900" in x["msg"]
+                                for x in f), msg=str(f))
+            self.assertFalse(any("901" in x["msg"] for x in f), msg=str(f))
+
+    def test_head_entry_file_slug_rename_no_false_recycle(self):
+        """★RE_HEAD_LESSONS_PATH 條目檔分支紅案（U1b）：分檔制下改條目檔 slug 不得假紅。
+
+        HEAD 已是分檔制、索引行刻意不帶｜（Lint26 只驗連結存在與唯一、不管行內形，
+        此形合法）→ head_ids 之 902 唯一來源＝HEAD 條目檔本體。工作樹改 slug
+        （刪舊檔＋同號新 slug 檔＋索引連結同步改；ADR 0045 後果段：改 slug 不構成翻案）。
+        拿掉 LESSONS/L-[^/]+\\.md 分支＝被刪舊檔退出 head 視野→「L-902 為舊號回收」
+        假 ERROR 擋 commit——本案即翻紅。
+        """
+        entry_902 = "---\npromoted_to: CLAUDE.md §2\n---\n- **L-902**｜乙\n"
+        with tempfile.TemporaryDirectory() as d:
+            _wfile(d, "docs/ops/LESSONS.md",
+                   "<!-- next: L-903 -->\n# LESSONS — 教訓索引\n\n"
+                   "- [L-901 — 甲坑](LESSONS/L-901-a.md) — 防法甲\n"
+                   "- [L-902 — 乙坑](LESSONS/L-902-s902.md) — 防法乙\n")
+            _wfile(d, "docs/ops/LESSONS/L-901-a.md",
+                   "---\npromoted_to: CLAUDE.md §2\n---\n- **L-901**｜甲\n")
+            _wfile(d, "docs/ops/LESSONS/L-902-s902.md", entry_902)
+            _git(d, "init", "-q", "-b", "main")
+            _git(d, "add", "-A")
+            _git(d, "commit", "-qm", "post-migration")
+            os.remove(os.path.join(d, "docs/ops/LESSONS/L-902-s902.md"))
+            _wfile(d, "docs/ops/LESSONS/L-902-renamed.md", entry_902)
+            _wfile(d, "docs/ops/LESSONS.md",
+                   "<!-- next: L-903 -->\n# LESSONS — 教訓索引\n\n"
+                   "- [L-901 — 甲坑](LESSONS/L-901-a.md) — 防法甲\n"
+                   "- [L-902 — 乙坑](LESSONS/L-902-renamed.md) — 防法乙\n")
+            # fixture 不退化守衛：索引行必無 L-NNN｜形——一旦有，head_ids 改由索引供號、
+            # 條目檔分支零覆蓋（本案退化成恆綠）
+            self.assertEqual(
+                RE_ENTRY_ANYPOS["L"].findall(_read(d, "docs/ops/LESSONS.md")), [])
+            f = [x for x in run_lint(d) if x["code"] == "Lint09"
+                 and x["where"] == "docs/ops/LESSONS.md"]
+            self.assertEqual(f, [], msg=str(f))
+
+    def test_run_lint_lessons_head_no_per_file_show(self):
+        """★接線層批讀守衛（U1b）：run_lint 的 L 側 head 讀取絕不對 LESSONS 卷集逐檔
+        `git show HEAD:…`——呼叫端退回逐檔 head_file 時本案翻紅。
+
+        與 test_head_files_batch_two_spawns…（守 helper 本體派發數）成對：該案不覆蓋
+        「helper 沒壞、但 run_lint 繞開它」的呼叫端變形——drvfs 實測逐檔形 48 條每次
+        lint 多耗約 4~5s 且經 pre-commit 進每顆 commit。B 側 BACKLOG 仍屬逐檔 show
+        豁免面（前綴過濾只認 HEAD:docs/ops/LESSONS）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            real, spawns = subprocess.run, []
+
+            def fake(args, **kw):
+                spawns.append(list(args))
+                return real(args, **kw)
+
+            with mock.patch.object(subprocess, "run", fake):
+                run_lint(d)
+            # 正向前提：批讀路徑確實跑過（ls-tree 批次取 oid 含主檔）——防 fixture 退化成
+            # 「L 側 head 讀取整段消失」的恆綠形（該變形另由 production_path 案守語意面）
+            self.assertTrue(any("ls-tree" in a and "docs/ops/LESSONS.md" in a
+                                for a in spawns), msg=str(spawns))
+            hits = [a for a in spawns if "show" in a
+                    and any(str(x).startswith("HEAD:docs/ops/LESSONS") for x in a)]
+            self.assertEqual(hits, [], msg=str(hits))
 
 
 class TestGenMilestones(unittest.TestCase):
@@ -6399,6 +6936,21 @@ class TestLintBudgets(unittest.TestCase):
         self._w("docs/ops/BACKLOG-ARCHIVE.md", "x\n" * 201)
         f = lint_budgets(self.root)
         self.assertEqual([x["level"] for x in f], [ERROR])
+
+    def test_lesson_entry_over_token_limit_red(self):
+        # 分檔制（ADR 0045）：LESSONS/ 條目檔逐檔單條上限——3000+ 必 ERROR、2000+ 必 WARN、
+        # 2000 以下與非 L-*.md 檔不報；token 計全檔（含 frontmatter）。「字」＝3 bytes＝1 token。
+        os.makedirs(os.path.join(self.root, "docs/ops/LESSONS"))
+        self._w("docs/ops/LESSONS/L-901-a.md", "字" * 3001)
+        self._w("docs/ops/LESSONS/L-902-b.md", "字" * 2001)
+        self._w("docs/ops/LESSONS/L-903-c.md", "字" * 1999)
+        self._w("docs/ops/LESSONS/notes.md", "字" * 3001)  # 非 L- 前綴：不屬條目、不納
+        f = lint_budgets(self.root)
+        self.assertEqual([(x["level"], x["where"]) for x in f],
+                         [(ERROR, "docs/ops/LESSONS/L-901-a.md"),
+                          (WARN, "docs/ops/LESSONS/L-902-b.md")], msg=str(f))
+        self.assertTrue(all(x["code"] == "Lint07" and "單條上限" in x["msg"] for x in f),
+                        msg=str(f))
 
     def test_architecture_section_quota_warn(self):
         body = "## §1 簡介與目標\n" + "內容\n" * 41 + "## §2 約束\n內容\n"
@@ -9059,12 +9611,12 @@ class TestRangeStringGuard(unittest.TestCase):
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
     def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
-        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝25
-        （Lint25 跨代裸編號閘為現行最大號）——上界前進時本測試逼著同刀更新
+        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝26
+        （Lint26 LESSONS 分檔對賬閘為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
         codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
         self.assertIn(self._own(), codes)
-        self.assertEqual(max(codes), 25)
+        self.assertEqual(max(codes), 26)
 
     @unittest.skipUnless(_day1_pending(*RANGE_ROSTER),
                          "Day 1 未達：解除＝RANGE_ROSTER 三檔全在（docs/ops/RUNBOOK.md 隨 B5 骨架落地）")
