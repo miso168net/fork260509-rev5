@@ -33,24 +33,21 @@
 docker／node，故可掛進 hook 的秒級預算內。★worktree 未就位（fresh clone、bootstrap 前）時
 hook 具名跳過，同 fork-delta／entity-drift 兩處既有 Day-1 模式；跳過條件取 `base-web/src`
 而非掃描射程本身，好讓「views/manage 被搬走」照樣走本檔的 fail-loud 路徑。
-self-test 每次執行連帶跑（防恆綠、同 `tools/fork-delta-lint.py` 既有形），故本檔**不進**
-pre-commit 的 `for t in …` 自測名冊迴圈——該迴圈與 `tools/docs-sync.py` 的 TOOLS_PY 真表逐字
-對賬，混入名冊外的工具即紅。
+self-test 每次執行隨 `check` 連帶跑（防恆綠、同 `tools/fork-delta-lint.py` 既有形），故本檔
+**不進** pre-commit 的 `for t in …` 自測名冊迴圈——具名豁免＝`tools/docs-sync.py` 之
+`HOOK_TEST_LOOP_EXEMPT`（入迴圈＝staged 時緊接 check 再**重複跑一次** test、零新增覆蓋；
+迴圈對賬測試期望＝test 名冊（TOOLS_PY 中帶 test 介面者）減豁免集，豁免三道防呆詳該常數處）。
 ★**治理名冊接線現況**（004 U-I 立本檔時七處全開、逐處 escalation 升級主線；
-004 收刀前 final holistic review 重新逐處機器核對，**五處已關、兩處仍開**——
-★逐處寫出關與未關、不寫「大致補完了」：含糊的那一句就是下一位據以誤判的那一句）：
+2026-08-18 治理批〔B-080／B-081〕收官後**七處全關**——
+★逐處寫出、不寫「大致補完了」：含糊的那一句就是下一位據以誤判的那一句）：
 
-  ⓪**已關**──`README.md` 的 `tools/` 目錄樹已列本檔與 `tools/route-artifact-gate.py`。
-    ★但**該樹仍無機器對賬**（`docs-sync.py` 對 README 只做命令形檢查 `CMD_FORM_CORPUS`）
-    ⇒ 下一支新工具會以完全相同的方式再漏一次；機制面已落 **B-081** 承載。
-  ①**仍開**──`tools/docs-sync.py` 的 `TOOLS_PY` 真表未含本檔。
-  ②**仍開**──`tools/bootstrap.sh` 的 `run_tool_test` 行未含本檔。
-    ★①②必須同批動：`docs-sync` 的 `test_hook_roster_is_a_checked_copy_of_the_truth_table`
-    與 `test_bootstrap_runs_every_tool_test` 兩支測試對這兩處與 pre-commit 的 `for t in …`
-    名冊三方逐字對賬，只補一處即紅（納冊會同時弄紅約 9 支既有測）⇒ 那是一顆獨立的治理
-    commit，成本結構與接線取捨已落 **B-080** 承載。★在補齊之前，本檔的 `test` 子命令不會被
-    `bash tools/bootstrap.sh` 的體檢節自動跑到（現行代償＝self-test 隨 `check` 連帶跑，
-    而本檔掛 pre-commit ⇒ 仍有實跑面；同批的 route-artifact-gate 則無）。
+  ⓪**已關**──`README.md` 的目錄樹已列本檔與 `tools/route-artifact-gate.py`，且該樹自此
+    **有機器對賬**＝`docs-sync.py` 之 Lint27（B-081：tools/＋deploy/ 腳本檔集 vs 樹列名
+    相等、漏列與幽靈兩向紅、紅只報不改）。
+  ①**已關**──`tools/docs-sync.py` 的 `TOOLS_PY` 真表已含本檔（治理批、B-080）。
+  ②**已關**──`tools/bootstrap.sh` 的 `run_tool_test` 已含本檔（同批）⇒ 體檢節自此自動
+    跑到本檔 `test`（不受迴圈豁免影響——豁免只管 pre-commit 迴圈、bootstrap 體檢照跑；
+    route-artifact-gate 同批納冊、其 `test` 同享體檢面）。
   ③**已關**──`docs/ops/RUNBOOK.md` §12 工具表已列本檔與 route-artifact-gate。
   ④**已關**──同檔「**pre-commit 條件觸發**」條目已含本檔（base-web pin bump 或本檔自身
     staged、`base-web/src` 未就位時具名跳過）。

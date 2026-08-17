@@ -1,6 +1,6 @@
 #!/bin/sh
 # rev5 pre-commit：機密掃描（rev4:019 三層防線；rev4:scan-gates §S1／§S2）→ docs-sync check（Lint01 生成
-# 一致）＋lint（Lint03～Lint26）。被擋時：錯誤訊息附去處；同回合修復後重試。
+# 一致）＋lint（Lint03～Lint27）。被擋時：錯誤訊息附去處；同回合修復後重試。
 #
 # ★兩種語意（rev4:019 scan-gates；註解即契約）：
 #   事件型（機密掃描＋值比對）：--no-verify 繞過＝機密「真進 git 歷史」、不可逆——僅剩
@@ -56,7 +56,7 @@ python3 tools/docs-sync.py lint || exit 1
 #   deploy/ 的機密管線腳本轉 python 後同列本名冊；本行與 docs-sync 的 TOOLS_PY、
 #   tools/bootstrap.sh 的 run_tool_test 三處手抄，由 docs-sync 自測對賬（漏接線即紅）。
 staged=$(git diff --cached --name-only)
-for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
+for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py tools/route-artifact-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
   if echo "$staged" | grep -qxF "$t"; then
     python3 "$t" test || exit 1
   fi
@@ -67,8 +67,9 @@ done
 # 渲染一樣，要等到有人存進帶事件處理器的標記才爆、且爆的是別人的瀏覽器；型別檢查（都是 string）
 # 與 code review（一行 diff、像是換個寫法）都抓不穩，只有機器守擋得住。
 # ★純檔案掃描、毫秒級、不碰 docker／node，故可掛進秒級預算（工具檔頭同段論證）。
-# ★不進上方 `for t in …` 自測名冊迴圈：該迴圈與 docs-sync 的 TOOLS_PY 真表逐字對賬（混入名冊外
-#   工具即紅），而本工具的 self-test 每次 check 都連帶跑（同 fork-delta-lint 既有形、防恆綠）。
+# ★不進上方 `for t in …` 自測名冊迴圈＝具名豁免（docs-sync 的 HOOK_TEST_LOOP_EXEMPT、B-080）：
+#   本工具的 self-test 每次 check 都連帶跑（同 fork-delta-lint 既有形、防恆綠），入迴圈＝staged
+#   時緊接著 check 再重複跑一次 test；豁免由 checked-copy 測試對賬（幽靈豁免／接線行被拆皆紅）。
 if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/view-render-guard.py'; then
   # ★worktree 未就位具名跳過（fresh clone、bootstrap 前）：掃描射程整棵缺席時工具回 rc=2，
   #   會擋住創世期 commit——同 fork-delta／entity-drift 兩處既有 Day-1 模式（ADR 0001 決定 4）。

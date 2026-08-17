@@ -164,6 +164,10 @@ run_tool_test tools/wire-schema.py
 run_tool_test tools/secret-value-guard.py
 run_tool_test tools/entity-drift-gate.py
 run_tool_test tools/wf-watchdog.py
+# ★route-artifact-gate 只接 test（其檔頭拍板：check 需 dev stack 在跑，而 bootstrap MUST
+#   離線可用——無條件跑 check 會讓新機／離線體檢必紅）；view-render-guard 的 test 亦離線毫秒級。
+run_tool_test tools/view-render-guard.py
+run_tool_test tools/route-artifact-gate.py
 run_tool_test deploy/preflight-secrets.py
 run_tool_test deploy/decrypt-secrets.py
 run_tool_test deploy/generate-secrets.py
@@ -180,7 +184,7 @@ ok "entity-drift-gate 全綠（self-test＋實比對）"
 # ★期望值取自 derive_lint_codes 掃源現算，**不落字面**——落字面就變成第四份名冊，
 #   條款被靜默拆掉時它照舊報舊數（正是準則 1 要防的「名冊與實作不同源」）。
 # ★注意：條款「數」與條款碼「上界」在 rev5 刻意不同——Q8 拍甲案（拆 Lint23 留洞、
-#   Lint24 保號），故集合為 {01..22, 24, 25, 26}：數＝25、上界＝26。此處斷言的是**數**。
+#   Lint24 保號），故集合為 {01..22, 24, 25, 26, 27}：數＝26、上界＝27。此處斷言的是**數**。
 LINT_CLAUSE_COUNT=$(python3 - "$ROOT/tools/docs-sync.py" <<'PY'
 import re, sys
 src = open(sys.argv[1], encoding="utf-8-sig").read()

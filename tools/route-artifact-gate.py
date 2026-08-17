@@ -74,28 +74,21 @@
 不是每次 commit 都發生的事。★另一個不掛的硬理由：本閘依賴 dev stack 在跑（容器內才有
 node_modules），而 pre-commit MUST 在 stack 沒起時照樣可用。
 
-★**尚未入治理名冊**——下列五處皆在本刀 U-I 的授權檔集外，已逐處以 escalation 升級主線
-（★逐處寫出、不寫「等」：漏列的那一處就是不會被補的那一處）：
-  ①`docs/ops/RUNBOOK.md` §12 工具表──未列本檔（該表是「跑哪支指令」的查詢入口，
-    而本閘的排程落點正好不是 pre-commit ⇒ 不進該表就等於沒有任何地方告訴人它該被跑）。
-  ②`tools/docs-sync.py` 的 `TOOLS_PY` 真表 ③`tools/bootstrap.sh` 的 `run_tool_test` 行
-    ──兩處與 pre-commit 的 `for t in …` 名冊三方逐字對賬，要接就得同批動。★接與不接是
-    拍板級：本閘的 `test` 子命令離線毫秒級（可入體檢），但 `check` 需 dev stack ⇒ 若日後
-    決定接線，只該接 `test`、不可讓 bootstrap 無條件跑 `check`。
-  ④`README.md` 的 `tools/` 目錄樹──該樹逐支列出 `tools/` 底下全部檔案（現列 8 支），
-    本檔與 `tools/view-render-guard.py` 皆不在其中；CLAUDE.md 明載「repo 目錄樹全景→
-    README.md」⇒ 該樹是這個集合的單一權威家，且**無任何機器兜底**（`docs-sync.py lint`
-    對 README 只做命令形檢查，樹失準照樣全綠）。
-  ⑤`docs/arc42/ARCHITECTURE.md` 之「fork-delta 接線現況（base-web）」★軌道名冊──該節逐條
-    寫出軌道的用途／實際接線檔／機器守，但只有**四條**；憲法 §III.2 已有**五條**，缺的正是
-    本閘所守的 ★`BASE-WEB-MANAGE-PAGE-WIRING`。★這不是體例問題而是**漏跟**：該節是現在式
-    活書（同節 I18N-WIRING 那條的 backend 鍵數逐刀跟到最新——★此處刻意**不複述數字**：複述一個逐刀會變的計數，就是替自己排一次必然的失準），而
-    本軌道的接線檔（兩語 locale `route:`／`page:` 兩樹、`app.d.ts` 型節、路由外掛產物四檔）
-    **在本單元之前一支都不存在**——是 U-I 讓它從紙面變成實體，故「活書永遠現在式」自本單元
-    起不成立。★該節同段落的機器守句亦須連帶補上本閘（產物四檔受 fork-delta **全域豁免**，
-    本閘是它們唯一的機器守，漏記＝讀活書的人會以為那四支歸 fork-delta-lint 管）。
-    〔軌道本身由 U-A／ADR 0040 開立，該節是否當時就該補屬 U-A 帳；但本單元的枚舉義務涵蓋
-    它，且它不在任何人的待辦上。〕
+★**治理名冊接線現況**（004 U-I 立檔時五處全開、逐處 escalation 升級主線；2026-08-18
+治理批〔B-080／B-081〕收官後**五處全關**——逐處寫出、不寫「大致補完了」）：
+  ①**已關**──`docs/ops/RUNBOOK.md` §12 工具表已列本檔（004 收刀前補）。
+  ②**已關**──`tools/docs-sync.py` 的 `TOOLS_PY` 真表已含本檔（治理批、B-080）；
+    pre-commit 的 `for t in …` 自測名冊迴圈亦已納入（`test` 離線毫秒級、與迴圈契約
+    「staged 本體才跑 test」同形）。
+  ③**已關**──`tools/bootstrap.sh` 的 `run_tool_test` 已含本檔（同批）。★接線拍板不變：
+    **只接 `test`**；`check` 需 dev stack 在跑，而 bootstrap MUST 離線可用——永不讓
+    bootstrap 無條件跑 `check`（此拍板即上文排程落點的同一理由、勿翻）。
+  ④**已關**──`README.md` 的目錄樹已列本檔（004 收刀前人工補），且該樹自此**有機器
+    兜底**＝`docs-sync.py` 之 Lint27（B-081：tools/＋deploy/ 腳本檔集 vs 樹列名相等、
+    漏列與幽靈兩向紅、紅只報不改）。
+  ⑤**已關**──`docs/arc42/ARCHITECTURE.md` 的 ★軌道名冊已含 `BASE-WEB-MANAGE-PAGE-WIRING`
+    並載本閘為路由外掛產物四檔的唯一機器守（004 收刀；產物四檔受 fork-delta 全域豁免、
+    此句是讀活書者知道「那四支歸誰管」的唯一出處）。
 """
 import json
 import os
