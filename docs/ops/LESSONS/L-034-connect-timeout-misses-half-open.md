@@ -1,0 +1,5 @@
+---
+promoted_to: rust-api/server/src/ipgate/mod.rs 門鈴 keepalive 常數 rustdoc＋建構點（並誠實記載釘建構點不釘呼叫點）
+---
+- **L-034**｜**建連逾時罩不到「連線之後」——長生串流的死亡偵測要另一套機制，而它失效時是零告警零計數的完全靜默**：004 U-G 的門鈴 watcher 依 research R5 逐字實作了「建連 5 秒逾時」（`SUBSCRIBE_TIMEOUT`），看起來連線面已有守；實則該逾時只罩**建連＋訂閱那兩步**，訂閱成功之後的存活期完全沒罩。中間設備靜默丟棄連線（NAT／LB idle 回收、對端主機掉電）⇒ 我方得到**半開連線**：`on_message` 串流永不回 `None`、`.await` 永遠掛著 ⇒ 外層的 backoff 重連迴圈**永不觸發** ⇒ 規則改了但本副本永不生效，且**不會有任何一則告警或計數**（那些訊號全掛在「串流斷線」與「訂閱失敗」上，而這兩件事都沒發生）。★徵狀在營運面極難歸因：「後台改了 IP 規則，A 機生效、B 機沒生效」，而 B 機的 log 乾淨、metrics 正常。★防法：①長生訂閱／串流一律另開 **TCP keepalive**（本例＝`ConnectionInfo::set_tcp_settings(TcpSettings::default().set_keepalive(..))`；★`redis::Client::open(url)` 走的是 `TcpSettings::default()`＝`keepalive: None`，**不顯式覆蓋就沒有第二個地方會補**）②或加應用層心跳／`.await` 上的 idle 逾時。③**審查時把「有逾時」與「有存活期偵測」當兩件事分開問**——前者存在會讓後者的缺席看起來像已覆蓋，這正是本條被拖到第三輪才發現的原因。★**連帶記下未關的口**：補上的守門測 `pubsub_client_enables_tcp_keepalive_on_the_doorbell_connection` 釘住的是**建構點**（`open_pubsub_client` 的產物確實帶 keepalive），**不是呼叫點**——把 watcher 那行換回 `redis::Client::open` 則全樹仍綠、上述失效被靜默還原。要真關掉只有「型別上讓訂閱端只吃該建構函式的產物」或「另立掃原始碼的 lint 測」兩條路，皆已超出本刀範圍、逐字記在該測 doc 內（同形警示：**守門測釘住建構點不等於釘住呼叫點**，寫 doc 時不得含糊成「已守」）。
+

@@ -1,0 +1,5 @@
+---
+promoted_to: CLAUDE.md §2 防呆④（blocked／done_with_escalation 兩值分立條款）
+---
+- **L-035**｜**防呆④（status≠ok 立即 return）與防呆⑥（清單外→回 blocked）相撞，會讓一個交付完整的單元整個審查階段一輪都不跑**：004 U-M 實暴——implementer 把 T067~T070／T072 五條全數落地、容器內 rc=0、三閘全綠、走查跑完且四表零殘留、六項變異測實跑，**唯一**回 `blocked` 的原因是跨檔假述枚舉掃出**兩處清單外**的一行級文件失真（`refresh.rs` 的一句 doc、`msg-keys.md` 的一格表欄），依⑥不擅改而升級主線。而 script 依④「`status !== 'ok'` → 立即 return」當場收工 ⇒ **規格審查與品質審查一輪都沒跑**，主線收到的是一個「未經任何審查但其實做完了」的單元。★**兩條規則各自都對、相撞在語意重載**：`blocked` 同時承載「我做不下去了」與「我做完了但有事要你在清單外做」，而這兩者對 script 的正確反應相反——前者該立即升級、後者該**照常跑完審查**再連同升級項一起回。★**防法**（擇一，本刀採①）：①**分兩個 status 值**——`blocked`（真受阻、立即 return）與 `done_with_escalation`（工作完成、附清單外待辦，**照常進審查**）；②退一步的權宜法＝主線收到 `blocked` 時**先判它是哪一種**（看 `changed_files` 非空且 `report` 自稱完成即屬後者），再另開一支只跑審查的 workflow（★不是 resume——L-027：resume 會全數快取回放）。★**識別徵狀**：workflow 完成通知裡 `agent_count=1`、`outcome` 卻是 implementer 的 status——一支 workflow 只跑了一個 agent 就結束，就是撞上這一形。 ★**修法已實證**（004 U-M 品質輪首次實裝）：同一單元、同樣有清單外待辦，改用兩值後 workflow 跑滿 **7 支 agent**（4 輪 review＋3 輪 fix、共修掉 8 條真 blocker，三輪各自帶 3／2／1 條清單外升級項回主線），對照改法前的**只跑 1 支就收工**。
+

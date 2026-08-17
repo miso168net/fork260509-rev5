@@ -1,7 +1,7 @@
 # RUNBOOK — dev stack 操作手冊
 
 本檔＝「怎麼操作」唯一的家。分工（防鏡像）：系統長怎樣→活書 §7；十三機密明細表→
-`deploy/secrets/README.md`；埠／帳號全表→`docs/generated/reference/`；坑全文→`docs/ops/LESSONS.md`。
+`deploy/secrets/README.md`；埠／帳號全表→`docs/generated/reference/`；坑索引→`docs/ops/LESSONS.md`（條目全文＝`docs/ops/LESSONS/` 一坑一檔）。
 本檔命令一律完整可複製——整行逐字貼進 shell 即可跑、一律於 repo 根執行。
 創世期章節現況：§1／§12／§14／§15 為最小必備四章；其餘各章隨對應刀補實文、章內不放未經實跑的命令。
 
@@ -346,7 +346,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml \
   `.githooks/pre-commit` 的 `PRECOMMIT_FAIL_SEC` 為權威）。dev profile 的 debuginfo
   裁剪與否屬後續評估，數據前提即本表。
 
-## 13. 故障排除速查（全文→LESSONS；此表只指路）
+## 13. 故障排除速查（索引→LESSONS.md、全文→LESSONS/；此表只指路）
 
 （本章隨教訓累積補實文；創世期 LESSONS 自空白起家、尚無條目可指。）
 

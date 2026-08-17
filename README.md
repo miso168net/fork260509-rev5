@@ -17,7 +17,8 @@ fork260509-rev5/
 │   ├── arc42/decisions/             ADR 一決策一檔：為什麼這樣做＋出處（accepted 後不可變）
 │   ├── ops/NOTES.md                 當前意圖（唯一手寫進度敘事、幾行）
 │   ├── ops/BACKLOG.md               待辦 B-NNN（完成即刪列、git 即史）
-│   ├── ops/LESSONS.md               坑與防法 L-NNN（append-only、空白起家、滿卷分卷）
+│   ├── ops/LESSONS.md               坑與防法索引（一行一坑＋防法 hook；動手前掃一遍）
+│   ├── ops/LESSONS/                 L-NNN 一坑一檔（append-only；晉升必答欄 promoted_to）
 │   ├── ops/RUNBOOK.md               dev stack 操作手冊：起停／輪替／備份／維運端點
 │   ├── ops/events.jsonl             事件源：收刀／review／里程碑（機器讀；人讀 MILESTONES）
 │   ├── brainstorms/                 各刀階段 0 產出（NNN- 前綴）與創世期史料（000＝啟動書、b2-～b7-＝創世證據）
@@ -91,7 +92,7 @@ fork260509-rev5/
 |---|---|
 | 系統架構 | [docs/arc42/ARCHITECTURE.md 活書](docs/arc42/ARCHITECTURE.md)（目錄樹全景＝本檔上方地圖） |
 | 什麼不能做（紅線） | [.specify/memory/constitution.md SpecKit-憲法](.specify/memory/constitution.md)＋CLAUDE.md「不要做的事」節 |
-| 之前踩過什麼坑 | [docs/ops/LESSONS.md](docs/ops/LESSONS.md)（L-NNN 教訓 registry；前代候選＝啟動書 §5 K3） |
+| 之前踩過什麼坑 | [docs/ops/LESSONS.md](docs/ops/LESSONS.md)（L-NNN 教訓索引，條目全文＝docs/ops/LESSONS/ 一坑一檔；前代候選＝啟動書 §5 K3） |
 | 怎麼起環境／日常操作／輪替機密／備份 | [docs/ops/RUNBOOK.md](docs/ops/RUNBOOK.md)（dev stack 操作手冊） |
 | 還有什麼沒做／候選 | [docs/ops/BACKLOG.md](docs/ops/BACKLOG.md)（B-NNN 待辦） |
 | 現在進度到哪、submodule pins | [docs/generated/STATE.md](docs/generated/STATE.md)＋[docs/ops/NOTES.md](docs/ops/NOTES.md) |
