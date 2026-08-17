@@ -9,9 +9,9 @@
 - 版本：1.6.2
 
 ## 帳面統計
-- ADR：45（accepted 43、superseded 2）
-- BACKLOG 待辦：38（next：B-093）｜滯後：1
-- LESSONS：47 筆（next：L-048）
+- ADR：47（accepted 45、superseded 2）
+- BACKLOG 待辦：36（next：B-093）｜滯後：1
+- LESSONS：48 筆（next：L-049）
 - events：29 筆（feature_close 4、misc 25）
 
 ## 最近事件（尾 3 筆、新在前）

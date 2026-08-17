@@ -12,7 +12,7 @@
 # 測試掛點：RV5_BASEWEB_SRC_URL／RV5_RUSTAPI_SRC_URL 可覆寫 clone 來源（file:// 亦可）。
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 BASEWEB_SRC="$ROOT/fork260509-soybean-admin-base"
 RUSTAPI_SRC="$ROOT/fork260509-rev2-anew-rust-api"
 BASEWEB_URL="${RV5_BASEWEB_SRC_URL:-https://github.com/miso168net/fork260509-soybean-admin-base.git}"
