@@ -12,12 +12,12 @@
 - ADR：47（accepted 45、superseded 2）
 - BACKLOG 待辦：36（next：B-093）｜滯後：1
 - LESSONS：48 筆（next：L-049）
-- events：29 筆（feature_close 4、misc 25）
+- events：30 筆（feature_close 4、misc 26）
 
 ## 最近事件（尾 3 筆、新在前）
+- 2026-08-18｜misc｜治理工具鏈整併批收單（輕量軌、merge d72553b）：B-080 納冊（TOOLS_PY 12→14、pre-commit 迴圈＋HOOK_TEST_LOOP_EXEMPT 豁免、route-artifact-gate 只接 test）＋B-081 Lint27（README 樹 vs tools/＋deploy/ 腳本檔集對賬、兩向紅）＋B-086 compose anchor 消抄本（ADR 0046）＋B-092 bootstrap ROOT 物理化＋B-087 半關（ADR 0047 引量三形紀律）；L-048、docs-sync 自測 524、lint 條款 26
 - 2026-08-18｜misc｜Lint27 README 目錄樹對賬閘上線（B-081、治理批 U1）：tools/／deploy/ 兩目錄 *.py／*.sh 實檔集 vs README 樹列名相等斷言、漏列與幽靈兩向紅、紅只報不改（樹屬人寫面）；同單元 B-080 納冊——view-render-guard／route-artifact-gate 入 TOOLS_PY（12→14）、bootstrap 體檢與 pre-commit 迴圈同步接線（view-render-guard 走具名豁免不入迴圈）；名冊三檔範圍字串同 commit bump 至 Lint03～Lint27；本筆即新名冊承載事件
 - 2026-08-17｜misc｜B-090 LESSONS 分檔制遷移收單（輕量軌 maint-b090、merge ae5c24d）：分卷制→分檔制——47 條 byte-diff 逐位遷入 docs/ops/LESSONS/、主檔改寫手寫索引（47 行逐條精寫 hook）、晉升必答欄 promoted_to 落值（實值 35／佔位 12→B-091 承載）、刪 LESSONS-001-028.md；工具面（U1 commit 8b0cd9e）＝Lint26 分檔對賬＋Lint07 單條上限＋Lint09 head 視野聯集＋ADR 0045、docs-sync 自測 496→517；衍生 B-092
-- 2026-08-17｜misc｜Lint26 LESSONS 分檔對賬閘上線（ADR 0045、B-090 U1 工具面）：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填三斷言＋Lint07 條目檔單條上限（WARN 2000／ERROR 3000）＋Lint09 L 側 head 視野聯集（主檔恆 index 0；堵「整卷刪除＝號碼靜默退出反回收視野」）；名冊三檔範圍字串同 commit bump 至 Lint03～Lint26；本筆即新名冊承載事件
 
 ## reference 對賬
 - reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）

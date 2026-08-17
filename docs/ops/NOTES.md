@@ -15,7 +15,10 @@
   憲法 1.3.1→1.6.2＝島 F 入憲＋第五條 ★ 軌道，ADR 0040～0044；新守門工具兩支）｜
   **B-090 LESSONS 分檔制遷移批**（輕量軌、merge ae5c24d：分卷制→分檔制——手寫索引＋
   一坑一檔＋晉升必答欄 promoted_to（實值 35／佔位 12→B-091 承載）、47 條 byte-diff 逐位
-  搬運、Lint26＋單條上限＋Lint09 head 視野聯集、ADR 0045、docs-sync 自測 496→517）。
+  搬運、Lint26＋單條上限＋Lint09 head 視野聯集、ADR 0045、docs-sync 自測 496→517）｜
+  **治理工具鏈整併批**（輕量軌、merge d72553b：B-080 納冊（TOOLS_PY 14）＋B-081 Lint27
+  README 樹對賬＋B-086 compose anchor 消抄本＋B-092 bootstrap 物理化＋B-087 半關；
+  ADR 0046／0047、L-048、lint 條款 26、docs-sync 自測 524）。
   啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文；
   ★其內裸 B／L 編號屬 rev4 空間、該目錄在 Lint25 掃描面外＝L-014）。
 - 兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；setup-reaper
@@ -25,9 +28,7 @@
 - **★下一刀尚未拍板**。最強候選＝**後端 role／user 管理寫端**（承 003／004 兩刀的既有指向）：
   它同時解 B-008 的一半與 B-024 的全部前置，且是 B-089（前端密碼規則比後端嚴、今日不可達但
   該刀落地即成真缺陷）的**指定觸發刀**——三個候選修法已逐條列在該條目本文。
-- **其餘在案候選**（無先後、待 user 拍板）：①B-008 餘三張管理頁 view（manage_system-settings／
-  policy-archive／audit，另需 7 支後端端點；★連帶 B-088 的 seed×view 對賬閘宜同批做）
-  ②治理工具鏈整併刀（B-080 兩支新工具入 TOOLS_PY／B-081 README 樹對賬／B-087 憲法日誌計數
-  ——三筆的觸發條件皆寫「下一把動治理工具鏈的刀」）。
+- **其餘在案候選**（無先後、待 user 拍板）：B-008 餘三張管理頁 view（manage_system-settings／
+  policy-archive／audit，另需 7 支後端端點；★連帶 B-088 的 seed×view 對賬閘宜同批做）。
 - ★不論走哪條：開場即階段 0 brainstorm，specify 一律手動起手（否則 feature-branch pre-hook
   不跑、spec 會落在 default branch 上）。
