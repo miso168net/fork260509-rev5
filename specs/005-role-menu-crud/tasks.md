@@ -53,6 +53,8 @@ CDP 走查（quickstart §4）。
   key space 句、H3 含常量父鏈句；MAJOR 界定照 rev4:0052 字面；常數留活書）＋§III.2
   `MANAGE-PAGE-WIRING` 加用途 (ii)（檔級名單＝role 3 檔＋menu 2~3 檔逐支列出、兩顆授權
   modal 明文不入）＋B-087 殘餘②補註（目標句逐字形、不單獨 bump）。
+  ★前置半步：先 diff `rev4:base-web/.../manage/menu/modules/shared.ts` 對 upstream 判定其
+  入單與否——名單以**定數**落、不得帶「視需要」（檔級硬邊界；grilling G3）。
 - [ ] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
   （v1.6.2→v1.7.0、修訂日誌行）＋`tools/docs-sync.py generate`。★本 task 完成前：一切
   base-web 既有檔凍結。
@@ -61,7 +63,8 @@ CDP 走查（quickstart §4）。
   casbin 2.20.0 版本鎖、ABBA 三失效條件）②A1 域行為（deleteRole 入域＋deleteRole 免 reload
   論證＋島 G1/G3/G4/G5 行為先由本 ADR 承載條文隨授權治理刀入憲＋archive 三自由度
   won't-use 與 rev4:0049 翻案觸發條款過境）。
-- [ ] T004 早期查證項（research R8-2）：容器內實測 `sys_role_id_seq`／`sys_menu_id_seq` 推進
+- [ ] T004 早期查證項（research R8-2）：容器內實測 `sys_role_id_seq`／`sys_menu_id_seq`／
+  `sys_casbin_policy_archive_id_seq`（data-model §6 一併覆核）推進
   × `tools/schema-gate.py check` 之 setval 互動——以顯式大 id INSERT＋seq 推進＋還原三種形
   各跑一輪 gate2，把「寫端推進後 gate 判定」結論以補記寫回本檔本 task 與 data-model §6；
   若需 gate 規則調整＝停手升級 user。
@@ -171,8 +174,9 @@ buttons 絕版歸檔＋判定面同步。
   頂層豁免〕→防環〔上溯上限常數〕→routeName 活性唯一雙層→constant 父鏈→形制；
   零 casbin 寫）＋逐守門測（含 constant 父鏈正反例）。
 - [ ] T024 [US2] `sys_menu.rs` 寫端二：`update`（routeName／menuType 不可變顯式拒／改父
-  防環／三態）＋★buttons 絕版判定（聯集域＝未刪含停用、clarify Q1）＋絕版碼歸檔
-  `menu_button_removed`＋非絕版移除零歸檔測。
+  防環＋★constant 父鏈重驗〔改父／改 constant 兩觸發點；FR-018、analyze C1 補〕／三態）＋
+  ★buttons 絕版判定（聯集域＝未刪含停用、clarify Q1）＋絕版碼歸檔 `menu_button_removed`
+  ＋非絕版移除零歸檔測。
 - [ ] T025 [US2] `sys_menu.rs` 寫端三：`delete_one_locked`（守門固定序 protected→未刪子項
   不論啟停→menu 維跨角色＋獨有碼歸檔皆 `menu_soft_delete`→op-log）＋`batch_delete`
   （child-first 拓撲序、整批拒、單 txn）＋逐守門測。

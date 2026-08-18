@@ -128,8 +128,8 @@ rust-api/server/src/
 │   └── facade/
 │       ├── sys_role.rs      # 改：CRUD 寫端＋鎖讀 helper＋SEEDED_ROLE_IDS 常數
 │       ├── sys_menu.rs      # 改：治理域讀端＋樹寫端＋狀態機守門
-│       ├── sys_casbin_policy.rs   # 新：移除面掃描（delete 連動）
-│       ├── sys_casbin_archive.rs  # 新：歸檔寫入面＋reason gate＋域鎖底座
+│       ├── sys_casbin_archive.rs  # 新：歸檔寫入面＋reason gate＋域鎖底座＋移除面掃描
+│       │                          #   （獨立政策 facade 留授權治理刀；analyze I2 修正）
 │       └── mod.rs           # 改：掛新模組
 └── tests/（既有整合測樹）    # 擴：contract case＋守門矩陣＋併發機器證＋同步四測
 

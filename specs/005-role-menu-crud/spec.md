@@ -326,8 +326,9 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
   掃 `v1=routeName AND v2='menu'` 跨全角色歸檔＋獨有 button 碼一併歸檔（兩者 reason 皆＝
   `menu_soft_delete`）＋操作稽核＋觸發判定面同步。
 - **FR-027**: batchDeleteMenu MUST child-first 拓撲序、逐項全套守門、任一違規整批拒、單一交易。
-- **FR-028**: getDeletedMenus MUST 回已刪集合（含可復原性旗標——由 reason gate 單點 fn 導出，
-  非權威）；穩定排序 `deleted_at DESC, id DESC`。
+- **FR-028**: getDeletedMenus MUST 回已刪集合；穩定排序 `deleted_at DESC, id DESC`；
+  ★不帶 `restorable` 旗標——選單復原無 reason gate 概念（該概念屬授權歸檔）、復原守門即
+  唯一權威（契約 wire-menu-admin §7；analyze I1 修正原誤植）。
 - **FR-029**: restoreMenu MUST 域內鎖列重驗（標的已刪存在／同鍵活性衝突〔23505 兜底收斂為
   業務拒因〕／父層未刪）→成對清空 `deleted_at`／`deleted_by`、原 `status` 保留；MUST NOT
   回灌任何授權、零 casbin 寫、零判定面同步；同交易稽核。
@@ -374,7 +375,8 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
 
 - **FR-041**: role 頁與 menu 頁 MUST 接真後端（列表／搜尋／新增編輯抽屜或 modal／刪除批刪／
   回收桶 toggle）；修改型檔集恰＝role 3 檔（index.vue／role-operate-drawer.vue／role-search.vue）
-  ＋menu 2~3 檔（index.vue／menu-operate-modal.vue／shared.ts 視需要），逐行 `原行:` 標記；
+  ＋menu 2~3 檔（index.vue／menu-operate-modal.vue／shared.ts 視需要——定數於 Amendment 起草時判定
+  〔tasks T001 前置半步〕），逐行 `原行:` 標記；
   `menu-auth-modal.vue`／`button-auth-modal.vue` MUST 一行不動（授權治理刀射程；檔級硬邊界）。
 - **FR-042**: 選單回收桶 UI MUST toggle 形（「顯示已刪除」開關換資料源 getDeletedMenus、
   已刪模式操作欄整欄換復原）；復原鈕無按鈕碼 gating（門＝頁級＋列級）。
