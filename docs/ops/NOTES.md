@@ -25,10 +25,15 @@
   正向 ALTER ROLE 一輪待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 
-- **★下一刀尚未拍板**。最強候選＝**後端 role／user 管理寫端**（承 003／004 兩刀的既有指向）：
-  它同時解 B-008 的一半與 B-024 的全部前置，且是 B-089（前端密碼規則比後端嚴、今日不可達但
-  該刀落地即成真缺陷）的**指定觸發刀**——三個候選修法已逐條列在該條目本文。
-- **其餘在案候選**（無先後、待 user 拍板）：B-008 餘三張管理頁 view（manage_system-settings／
-  policy-archive／audit，另需 7 支後端端點；★連帶 B-088 的 seed×view 對賬閘宜同批做）。
-- ★不論走哪條：開場即階段 0 brainstorm，specify 一律手動起手（否則 feature-branch pre-hook
-  不跑、spec 會落在 default branch 上）。
+- **★下一刀已拍板＝005-role-menu-crud**（docs/brainstorms/005-role-menu-crud.md、階段 0 已收官）：
+  role＋menu CRUD 寫端 16 支端點（seed 政策列全預埋＝零 migration）＋島 H 入憲（B-087 殘餘②順捎）
+  ＋advisory 序列化域／casbin 重建-swap 熱重載／授權歸檔寫入面底座（零 grant 面）。**後續再接授權治理刀**（三維
+  授權治理 11 支＋島 G 入憲＋結構性封死〔B-024①歸宿〕＋policy-archive
+  頁〔B-008 出列一張〕；依賴 005 底座含熱重載）——其 brainstorm 已同場定稿、★暫存版控外（tmp/ 備份）、
+  起手時補入版控（檔名配號接續 005）。拆刀縫＝「grant/revoke 寫 casbin_rule」分水嶺；拍板
+  15＋grilling 6 題（另自拍 6 件）全紀錄兩檔 §3 共享。刀 B（user＋password）＝再之後：B-089／B-021／B-020
+  連鎖在彼、scope 已預拍「全納入含 changePassword」（2026-08-18、記兩檔 §3 表 #4）。
+- **其餘在案候選**：B-008 餘兩張 view（manage_system-settings／audit、另需 audit 5 支端點；
+  policy-archive 由授權治理刀承接；★連帶 B-088 對賬閘宜同批做）。
+- ★下一動作＝**手動起 /speckit-specify**（input＝上述 005 brainstorm 檔、feature branch
+  005-role-menu-crud；specify 絕不排自動流程——pre-hook 不跑則 spec 落 default branch）。
