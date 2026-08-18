@@ -50,3 +50,6 @@
 | 0045 | accepted | 2026-08-17 | LESSONS 由分卷制改分檔制——手寫索引＋一坑一檔＋晉升必答欄 promoted_to | — | — | — |
 | 0046 | accepted | 2026-08-18 | dev compose 信任模型路徑改 YAML anchor 同源＋long-form volume——消抄本、分岔物理上不可能 | — | — | — |
 | 0047 | accepted | 2026-08-18 | 憲法修訂日誌引量紀律——凍結量／指節不指數／時點自證三形擇一，人審不設 lint | — | — | — |
+| 0048 | accepted | 2026-08-18 | 憲法 Amendment 1.7.0——§I.7 第七座行為島（島 H 選單域生命週期）＋§III.2 MANAGE-PAGE-WIRING 用途 (ii)（role／menu 管理頁 CRUD 接真）＋B-087 殘餘②補註 | — | — | — |
+| 0049 | accepted | 2026-08-18 | 判定面同步進場——翻案「boot 載入即終態」＋rebuild-swap reload 契約（硬禁令＋casbin 版本鎖＋ABBA 三失效條件） | — | — | — |
+| 0050 | accepted | 2026-08-18 | A1 域行為——deleteRole 家族入序列化域＋免 reload 論證＋島 G 行為 ADR 承載（G1/G3/G4/G5）＋archive 三自由度 won't-use 與翻案觸發條款過境 | — | — | — |
