@@ -267,8 +267,9 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
   ADR 0023）；全 None（無任何有效變更欄）MUST 提前 no-op（不 bump 時戳、不落稽核）。
 - **FR-004**: 一切業務拒因 MUST 為純 i18n key、一因一鍵（無攜參明細）；不得新增錯誤碼
   （13 碼矩陣凍結面不動）。
-- **FR-005**: 寫端操作稽核 MUST 與業務寫入同一交易落地；稽核操作詞彙沿小寫封閉詞彙擴充
-  （add／update／delete／restore 家族＋本刀新實體），不得帶回 rev4 大寫 DB 動詞形。
+- **FR-005**: 寫端操作稽核 MUST 與業務寫入同一交易落地；稽核操作詞彙沿既有小寫封閉詞彙
+  （add／update／delete／restore 直接沿用；標的表由 `entity_table` 區分——T005 定案：
+  零新 variant、詞彙集維持恰五值），不得帶回 rev4 大寫 DB 動詞形。
 - **FR-006**: 授權態照 seed：寫端全 R_SUPER；getRoleList 另授 R_ADMIN、getAllRoles 另授
   R_ADMIN＋R_USER_COMMON；getMenuTree／getMenuList/v2／getDeletedMenus／restoreMenu 等
   照 seed 政策列逐列對齊，不多授不少授。

@@ -124,7 +124,7 @@ rust-api/server/src/
 ├── envelope.rs              # 改：PageRes 落戶
 ├── router.rs                # 改：+16 條 ROUTES、ROUTES_COUNT 22→38
 ├── model/
-│   ├── audit.rs             # 改：AuditOperation 詞彙擴充
+│   ├── audit.rs             # 改：AuditOperation 詞彙定案釘子（T005：零新 variant、entity_table 區分）
 │   └── facade/
 │       ├── sys_role.rs      # 改：CRUD 寫端＋鎖讀 helper＋SEEDED_ROLE_IDS 常數
 │       ├── sys_menu.rs      # 改：治理域讀端＋樹寫端＋狀態機守門

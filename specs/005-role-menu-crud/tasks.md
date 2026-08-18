@@ -37,7 +37,8 @@ CDP 走查（quickstart §4）。
 - **兩段式 commit＋pin bump** 於單元邊界即時做；★單元邊界 commit 恆含 `docs-sync.py generate`
   → `git add docs/generated`（ROUTES 增列 ⇒ 併 reference/routes）。
 - ★**測試環境紀律**（data-model §6／research R8）：寫 `sys_role`／`sys_menu`／`casbin_rule`／
-  歸檔表之測試一律走本刀清理守衛（T012）＋顯式大 id＋sequence 還原斷言；redis 不涉本刀。
+  歸檔表之測試一律走本刀清理守衛（T012）＋顯式大 id＋sequence 還原斷言（T004 定案：顯式
+  大 id 不動 seq、只需清殘列；僅走 nextval 的真寫端才需 setval 還原）；redis 不涉本刀。
 - ★**序列化域紀律**：域鎖必為 txn 首動作、絕不下沉 facade fn；固定鎖序＝
   `advisory → 歸檔表列 → sys_role 列 → sys_menu 列 → casbin_rule`（research R4）。
 
@@ -63,15 +64,55 @@ CDP 走查（quickstart §4）。
   casbin 2.20.0 版本鎖、ABBA 三失效條件）②A1 域行為（deleteRole 入域＋deleteRole 免 reload
   論證＋島 G1/G3/G4/G5 行為先由本 ADR 承載條文隨授權治理刀入憲＋archive 三自由度
   won't-use 與 rev4:0049 翻案觸發條款過境）。
-- [ ] T004 早期查證項（research R8-2）：容器內實測 `sys_role_id_seq`／`sys_menu_id_seq`／
+- [x] T004 早期查證項（research R8-2）：容器內實測 `sys_role_id_seq`／`sys_menu_id_seq`／
   `sys_casbin_policy_archive_id_seq`（data-model §6 一併覆核）推進
   × `tools/schema-gate.py check` 之 setval 互動——以顯式大 id INSERT＋seq 推進＋還原三種形
   各跑一輪 gate2，把「寫端推進後 gate 判定」結論以補記寫回本檔本 task 與 data-model §6；
   若需 gate 規則調整＝停手升級 user。
-- [ ] T005 [P] `rust-api/server/src/model/audit.rs`：`AuditOperation` 小寫封閉詞彙擴充
+  ★T004 查證結論（2026-08-18）：三形實測完畢、**gate 規則毋須調整**。
+  形①顯式大 id INSERT（900001×sys_role／sys_menu／歸檔表）：三 seq 逐一不動
+  （3,t／78,t／1,f）；殘列在場＝gate2 seed 逐列 diff 三表各指名一列（★含歸檔表——其不在
+  runtime-append 收窄集）rc=1；DELETE 殘列後三閘全綠、毋須 setval。
+  形②nextval 推進（零殘列）：rc=1、三條 setval 行逐一指名——sys_role_id_seq 3→4／
+  sys_menu_id_seq 78→79；★sys_casbin_policy_archive_id_seq 雖無非零 setval 期望值、
+  其 setval 行仍在逐字比對面，僅 is_called 翻位（`1, false`→`1, true`）即紅。
+  形③setval 還原（3,true／78,true／★1,false）：三閘全綠。
+  ⇒ 紀律定案：走 nextval 的實驗／測試（addRole・addMenu 形、歸檔表 default id append）
+  結束 MUST setval 還原且 **is_called 位須還原正確**（歸檔 seq＝`(1,false)` 非 `(1,true)`）；
+  顯式大 id 造列不動 seq、清殘列即可。收尾已還原、三閘全綠自證。
+  ★T004 補充查證（2026-08-18、quality-fix 輪補測第四支）：`casbin_rule_id_seq`（seed
+  setval＝163,true；casbin_rule 亦不在 runtime-append 收窄集、其列與 setval 行皆在 gate2
+  逐列比對面）同法三形實測：形①顯式 id 900001 INSERT 不動 seq（163,t）、殘列 gate2 指名
+  rc=1、DELETE 即綠毋須 setval；形②nextval 推進 163→164、setval 行逐字比對紅 rc=1；
+  形③setval 還原 `(163, true)` 三閘全綠。⇒ 四表紀律同形：CasbinCleanup（T012）必含
+  casbin_rule_id_seq=(163,true) 還原——policy fixture 走真 Enforcer／SeaOrmAdapter
+  `add_policy`＝DB default nextval 取 id，「顯式大 id 免 setval」免除路徑在此不成立。
+  收尾已還原、三閘全綠自證。
+- [x] T005 [P] `rust-api/server/src/model/audit.rs`：`AuditOperation` 小寫封閉詞彙擴充
   （role／menu 家族 add/update/delete/restore；含 batch 形的落列語意照 rev4 as-built——
   逐標的一列）＋既有防回歸測擴充；詞彙字面同步 `contracts/` 若有出入以本 task 定案。
-- [ ] T006 [P] `PageRes<T>` 上移：`rust-api/server/src/envelope.rs` 落戶（自
+  ★T005 定案（2026-08-18）：**role／menu 家族零新 variant、詞彙集維持恰五值**
+  （Add／Update／Delete／Restore／Unlock）——本條原文的「詞彙擴充」經 rev4 as-built
+  對照後推翻：operation 軸只載**動作名**（add／update／delete／restore 直接沿用），
+  標的表歸 `AuditEvent::entity_table`（`"sys_role"`／`"sys_menu"`）。理由＝rev5 既有
+  設計本就把動作與標的拆兩欄（004 Unlock 列已立「先看 entity_table 再解讀」慣例），
+  實體前綴變體（`role_add` 形）會讓 operation 欄雙軸載義、與 entity_table 重複；
+  rev4 as-built 同構佐證＝rev4:model/facade/sys_role.rs／sys_menu.rs 以泛用動詞＋
+  帶表名事件工廠落列（rev5 僅字面軸不同——小寫動作名，rev4 大寫 DB 動詞形不得帶回、
+  ADR 0019／research R2-3）。batch 刪＝逐標的一列、每列 operation 皆 `delete`、無
+  batch 專屬字面。機器釘＝audit.rs tests 之 T005 兩案（主測
+  `t005_role_menu_family_adds_no_variant_vocabulary_stays_five`＋合成違規正例）：詞彙以
+  單一宣告源 macro 一次產 enum＋`as_str`＋受檢面 `ALL`，主測遍歷 `ALL` 釘恰五值＋無
+  實體名／batch 字面——quality review 實測初版（tests 手抄陣列受檢面＋窮舉 match）可被
+  最小編譯修復繞過、已依 ADR 0024 三要求補實（合成正例＋受檢面與判準不共變＋真檔三變異
+  破壞性驗證紅→還原復綠）；`contracts/` 對賬＝三檔零 operation 字面、零出入。同步寫回 data-model §1.5（初稿「× role／menu 家族」句已改）。
+  ★上位產物同步待辦（2026-08-18 spec 輪覆核）：spec.md FR-005「＋本刀新實體」、plan.md
+  專案結構註「AuditOperation 詞彙擴充」、research.md R10「AuditOperation 擴詞彙」三處
+  仍為擴充舊形、已被本定案推翻；三檔皆在 U2 允許檔案清單外，其同步（修 FR-005 措辭、
+  必要時立 ADR——「實作推翻拍板＝新 ADR」）已升級主線於單元邊界處置。★後續寫端單元
+  （U7~U11）勿逐字依 FR-005 舊措辭新增實體前綴 variant——以本定案＋data-model §1.5＋
+  audit.rs 機器釘為準。
+- [x] T006 [P] `PageRes<T>` 上移：`rust-api/server/src/envelope.rs` 落戶（自
   `handler/ip_rule.rs:71` 搬移、字面不變）＋ip_rule.rs 改引＋既有 contract 測改引零行為差。
 
 **Checkpoint**: 憲法授權到手、三支 ADR accepted、gate2 互動已知、共用底座就緒。
@@ -104,7 +145,13 @@ CDP 走查（quickstart §4）。
   家族）；`sys_menu.rs` 同形 helper。零寫端（寫端在各 US）。
 - [ ] T012 [P] 清理守衛家族（`test_db`）：RoleCleanup／MenuCleanup／CasbinCleanup（casbin_rule
   ＋歸檔表）三件 RAII Drop 守衛＋★守衛自證測各一（造 committed 列→前提自證非零→Drop→
-  回零＋sequence 還原斷言照 004 `sequence_reset_guard` 形；B-085 紀律——Drop 寫壞＝恆綠之防）。
+  回零＋sequence 還原斷言的**期望值取 T004 定案四值**——sys_role=(3,true)／sys_menu=(78,true)／
+  casbin_rule=(163,true)／歸檔表=(1,false)，★勿照抄 004 兩形（IpRuleCleanup③／
+  SequenceResetGuard）的 (1,false)：那是其表 seed 值本就 1,false，本刀四表僅歸檔表巧合
+  相同、sys_role 照抄＝nextval 取回 1 與 seed 角色 PK 相撞；B-085 紀律——Drop 寫壞＝
+  恆綠之防）。★CasbinCleanup 必含 casbin_rule_id_seq=(163,true) 還原：policy fixture
+  走真 Enforcer／SeaOrmAdapter `add_policy`＝nextval 路徑、seq 必被推進，「顯式大 id
+  免 setval」免除條款在 casbin adapter 上不成立（T004 補充查證）。
 - [ ] T013 `rust-api/server/src/model/facade/sys_menu.rs`：治理域讀端 `list_governed`（未刪
   含停用）＋樹組裝＋★「治理候選誤用顯示域＝停用被 diff 掉」負向測（rev4:010 血淚；
   data-model §3.1）；顯示域 `list_active` 零改動斷言。

@@ -60,9 +60,13 @@
 
 ### 1.5 `sys_operation_log`（append-only；寫端稽核）
 
-- 每寫端同交易恰一列；`AuditOperation` 小寫封閉詞彙擴充（add／update／delete／restore ×
-  role／menu 家族；詞彙表 tasks 期隨 contract case 定字面）；`real_ip` NOT NULL ⇒ 上下文
-  缺席拒寫 5000（rev5 既定）。
+- 每寫端同交易恰一列；`AuditOperation`＝小寫封閉詞彙**恰五值、role／menu 家族零新
+  variant**（★T005 定案 2026-08-18，推翻本節初稿「× role／menu 家族擴充」形：operation
+  軸只載**動作名**——add／update／delete／restore 直接沿用；標的表歸
+  `AuditEvent::entity_table`＝`"sys_role"`／`"sys_menu"`；batch 刪＝逐標的一列、每列
+  operation 皆 `delete`。定案理由與 rev4 as-built 佐證詳 audit.rs 詞彙 doc 與 tasks.md
+  T005 補記；機器釘＝audit.rs tests T005 案）；`real_ip` NOT NULL ⇒ 上下文缺席拒寫
+  5000（rev5 既定）。
 
 ## §2 記憶體實體與常數（非資料庫）
 
@@ -143,5 +147,17 @@
 - `sys_role_id_seq`（gate2 setval 期望 3）／`sys_menu_id_seq`：寫端推進 seq 與 gate2 的互動
   ＝tasks 早期顯式查證項（U 早段跑 `schema-gate check` 實測後定測試紀律）；測試造列一律
   顯式大 id＋清理守衛 sequence 還原斷言（比照 004 `sequence_reset_guard` 形）。
-- `sys_casbin_policy_archive_id_seq`：append 推進、無 setval 期望（歸檔表非 seed 凍結面）
-  ——tasks 查證項一併覆核。
+- `sys_casbin_policy_archive_id_seq`：append 推進、無非零 setval 期望值（歸檔表非 seed
+  凍結面）——tasks 查證項一併覆核。
+- ★T004 實測定案（2026-08-18；容器內三形各一輪 gate、詳 tasks.md T004 補記；第四支
+  `casbin_rule_id_seq` 為 quality-fix 輪同法補測、同結論）：
+  ①顯式大 id INSERT 不動 seq；殘列＝gate2 seed 逐列 diff 紅（sys_role／sys_menu／
+  casbin_rule／歸檔表四表皆在逐列比對面——casbin_rule 亦不在 `RUNTIME_APPEND_TABLES`
+  收窄集），DELETE 殘列即綠、毋須 setval。②nextval 推進
+  （addRole／addMenu 寫端形、casbin adapter `add_policy`、歸檔表 default id append）
+  ＝四條 seq 之 setval 行逐字比對紅——★sys_casbin_policy_archive_id_seq 雖無非零期望值，
+  其 setval 行仍受比對，僅 is_called 翻位（`1, false`→`1, true`）即紅。③setval 還原即綠。
+  ⇒ 本刀測試與清理守衛 MUST setval 還原且 **is_called 位正確**：
+  `sys_role_id_seq=(3,true)`／`sys_menu_id_seq=(78,true)`／`casbin_rule_id_seq=(163,true)`／
+  `sys_casbin_policy_archive_id_seq=(1,false)`；gate 規則零調整。★casbin_rule 之測試造列
+  走真 Enforcer `add_policy`＝nextval 取 id，「顯式大 id 免 setval」免除路徑在此不成立。

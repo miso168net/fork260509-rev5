@@ -129,7 +129,7 @@
 ## R10 執行單元切分（tasks 的 phase 骨架建議；~17 支）
 
 U1 憲法 Amendment（島 H）＋三支 ADR（★主線親做、硬閘：accepted 前不得動 base-web 既有檔）→
-U2 Setup（handler 骨架／AuditOperation 擴詞彙／PageRes 上移）→ U3 域鎖底座＋ABBA 機器證 →
+U2 Setup（handler 骨架／AuditOperation 詞彙定案〔as-built：零新 variant〕／PageRes 上移）→ U3 域鎖底座＋ABBA 機器證 →
 U4 rebuild-swap 判定面同步（四測）→ U5 鎖讀 helper＋清理守衛＋自證測 → U6 治理域讀端
 （list_governed／getMenuList/v2／getDeletedMenus／getMenuTree）→ U7~U8 role CRUD
 （facade TDD→handler+router）→ U9~U11 menu CRUD 寫端＋回收桶＋constant 守門＋reload 接線 →
