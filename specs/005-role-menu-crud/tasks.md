@@ -142,10 +142,10 @@ CDP 走查（quickstart §4）。
   名冊閘〔RELOAD_CALL_FILES 現況空集、T026 擴列轉綠〕）：SC-013 形失敗注入（壞 conn ⇒ 舊面續
   allow R_SUPER＋metrics retry/exhausted）／「改寫為裸呼 load_policy」必轉紅負向自證
   （明文步驟註解）／觸發條件特性鎖定（Rejected／NoOp／NotFound／無 buttons 變更零觸發）。
-- [ ] T011 [P] 鎖讀 helper＋常數：`rust-api/server/src/model/facade/sys_role.rs`
+- [x] T011 [P] 鎖讀 helper＋常數：`rust-api/server/src/model/facade/sys_role.rs`
   （`SEEDED_ROLE_IDS=[1,2,3]`＋`SUPER_ROLE_CODE="R_SUPER"`＋`find_active_by_id_for_update`
   家族）；`sys_menu.rs` 同形 helper。零寫端（寫端在各 US）。
-- [ ] T012 [P] 清理守衛家族（`test_db`）：RoleCleanup／MenuCleanup／CasbinCleanup（casbin_rule
+- [x] T012 [P] 清理守衛家族（`test_db`）：RoleCleanup／MenuCleanup／CasbinCleanup（casbin_rule
   ＋歸檔表）三件 RAII Drop 守衛＋★守衛自證測各一（造 committed 列→前提自證非零→Drop→
   回零＋sequence 還原斷言的**期望值取 T004 定案四值**——sys_role=(3,true)／sys_menu=(78,true)／
   casbin_rule=(163,true)／歸檔表=(1,false)，★勿照抄 004 兩形（IpRuleCleanup③／
