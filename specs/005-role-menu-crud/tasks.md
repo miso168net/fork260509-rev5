@@ -124,12 +124,12 @@ CDP 走查（quickstart §4）。
 **Purpose**: 序列化域、判定面同步、鎖讀 helper、清理守衛、治理域讀端、歸檔寫入面。
 **⚠️ 本 phase 未完成前不得開任何 US。**
 
-- [ ] T007 `rust-api/server/src/model/facade/sys_casbin_archive.rs` 新建（★同批 mod.rs 掛載）：
+- [x] T007 `rust-api/server/src/model/facade/sys_casbin_archive.rs` 新建（★同批 mod.rs 掛載）：
   域鎖底座——`MENU_DOMAIN_LOCK_KEY: i64 = 0x7265_7635_6D65_6E75`（★rev5 字面、勿抄 rev4）＋
   `enter_menu_domain`（DbErr 形／AppError 形兩支薄 fn、raw Statement
   `SELECT pg_advisory_xact_lock($1)`）＋pg_locks 觀測 helper（classid／objid 拆讀）；
   照 rev4 底座 116 行形重打。
-- [ ] T008 序列化域 ABBA／互斥機器證（`rust-api/server/tests/` 新測檔）：兩併發寫端
+- [x] T008 序列化域 ABBA／互斥機器證（`rust-api/server/tests/` 新測檔）：兩併發寫端
   （模擬 deleteRole × deleteMenu 形）後者於 advisory NOT-granted 等待之斷言＋完成後零漏
   歸檔；★坑烤入：pg_blocking_pids 測不到（鎖不相交列）、64-bit key 拆兩 oid 欄 bigint
   直比恆假（research R4）。
