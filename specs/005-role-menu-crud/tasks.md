@@ -133,11 +133,13 @@ CDP 走查（quickstart §4）。
   （模擬 deleteRole × deleteMenu 形）後者於 advisory NOT-granted 等待之斷言＋完成後零漏
   歸檔；★坑烤入：pg_blocking_pids 測不到（鎖不相交列）、64-bit key 拆兩 oid 欄 bigint
   直比恆假（research R4）。
-- [ ] T009 `rust-api/server/src/auth/enforce.rs`：`rebuild_enforcer`（四步鏡像 init、任一步
+- [x] T009 `rust-api/server/src/auth/enforce.rs`：`rebuild_enforcer`（四步鏡像 init、任一步
   失敗整體 Err）＋`reload_enforcer`（write 鎖內一行 move-assign、RELOAD_MAX_ATTEMPTS=3＋
   50ms 線性退避、keep-last-good、告警＋`casbin_reload_total{ok|retry|exhausted}`）＋
   ★硬禁令與版本鎖註解＋檔頭 `:8` 與 `main.rs:56` 註解翻案改寫（T003-① ADR 引）。
-- [ ] T010 判定面同步測三支（第四支端到端在 T033）：SC-013 形失敗注入（壞 conn ⇒ 舊面續
+- [x] T010 判定面同步測三支（第四支端到端在 T033；as-built 加碼一支成功路徑測＝quality
+  輪補實，共四支——SC-013 失敗注入／成功路徑 swap＋ok／裸呼負向自證／觸發面 source-scan
+  名冊閘〔RELOAD_CALL_FILES 現況空集、T026 擴列轉綠〕）：SC-013 形失敗注入（壞 conn ⇒ 舊面續
   allow R_SUPER＋metrics retry/exhausted）／「改寫為裸呼 load_policy」必轉紅負向自證
   （明文步驟註解）／觸發條件特性鎖定（Rejected／NoOp／NotFound／無 buttons 變更零觸發）。
 - [ ] T011 [P] 鎖讀 helper＋常數：`rust-api/server/src/model/facade/sys_role.rs`

@@ -109,13 +109,15 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   data-model §5 降級矩陣）、`ipgate_blocked_total`（**無 label**——阻擋**不屬
   降級類**，且網段做 label 等於把序列基數交給營運面輸入；命中網段等結構化欄位改由
   `ip_gate_mw` 的告警承載，理由見 `obs::IPGATE_BLOCKED_TOTAL` 的 doc）；
-  另有 002 起的 `casbin_enforce_total`（decision 三值）與 axum-prometheus HTTP 請求級
-  三序列。
+  另有 002 起的 `casbin_enforce_total`（decision 三值）、005 之 `casbin_reload_total`
+  （outcome 三值 ok／retry／exhausted——判定面 rebuild-swap 同步結果，發射點
+  `auth/enforce.rs::reload_enforcer`、預註冊 `obs.rs`；ADR 0049）與 axum-prometheus
+  HTTP 請求級三序列。
   ★**本清單的複驗法**（現在式清單不會自己跟上新刀，故把量測法寫在此處而非只寫結論）：
   `grep -rn 'metrics::counter!\|metrics::gauge!\|metrics::histogram!' rust-api/server/src/`
   枚舉**全部發射點**，逐條比對本段——序列名一律經 `obs.rs` 的具名常數或
-  `pre_register_metrics` 的字面，故枚舉面完整。2026-08-16（004 收刀前）實跑結果＝
-  **本段清單與發射點全等、零缺零多**（U-H～U-M 五個單元未再新增序列）。
+  `pre_register_metrics` 的字面，故枚舉面完整。2026-08-18（005-role-menu-crud 之判定面
+  同步單元收尾）實跑結果＝**本段清單與發射點全等、零缺零多**。
 
 ## §6 Runtime
 
