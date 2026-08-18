@@ -48,17 +48,17 @@ CDP 走查（quickstart §4）。
 **Purpose**: 取得 base-web inline 憲法授權、立三支 ADR、清除 gate2 互動未知數、
 搬 PageRes 與稽核詞彙底座。
 
-- [ ] T001 ★主線任務（user 親決）：撰寫憲法 Amendment 之 ADR draft 於
+- [x] T001 ★主線任務（user 親決）：撰寫憲法 Amendment 之 ADR draft 於
   `docs/arc42/decisions/`——島 H 五條全文（data-model §4 骨架；H1 含終態成員與 advisory
   key space 句、H3 含常量父鏈句；MAJOR 界定照 rev4:0052 字面；常數留活書）＋§III.2
   `MANAGE-PAGE-WIRING` 加用途 (ii)（檔級名單＝role 3 檔＋menu 2~3 檔逐支列出、兩顆授權
   modal 明文不入）＋B-087 殘餘②補註（目標句逐字形、不單獨 bump）。
   ★前置半步：先 diff `rev4:base-web/.../manage/menu/modules/shared.ts` 對 upstream 判定其
   入單與否——名單以**定數**落、不得帶「視需要」（檔級硬邊界；grilling G3）。
-- [ ] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
+- [x] T002 ★主線任務（user 親決後）：ADR 轉 accepted＋更新 `.specify/memory/constitution.md`
   （v1.6.2→v1.7.0、修訂日誌行）＋`tools/docs-sync.py generate`。★本 task 完成前：一切
   base-web 既有檔凍結。
-- [ ] T003 ★主線任務（user 親決）：兩支連帶 ADR——①判定面同步翻案（翻 `enforce.rs:8`／
+- [x] T003 ★主線任務（user 親決）：兩支連帶 ADR——①判定面同步翻案（翻 `enforce.rs:8`／
   `main.rs:56`「不再重載＝終態」；含 reload 觸發矩陣、rebuild-swap 失敗契約、裸呼硬禁令＋
   casbin 2.20.0 版本鎖、ABBA 三失效條件）②A1 域行為（deleteRole 入域＋deleteRole 免 reload
   論證＋島 G1/G3/G4/G5 行為先由本 ADR 承載條文隨授權治理刀入憲＋archive 三自由度
