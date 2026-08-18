@@ -69,6 +69,19 @@ authz-governance（brainstorm 已同場定稿、暫存版控外、起手時補�
   不可達？→ A: **接受照建＋本 spec 註記**——資料態判定、測試種指派列即真實觸發（零旗標、非
   vacuous）；拆段建＝同域分段長成。
 
+### Session 2026-08-18（/speckit-clarify）
+
+- Q: 絕版判定（button 碼歸檔前提）的聯集範圍＝未刪含停用、還是僅啟用？ → A: **未刪選單
+  （含停用）＝治理域聯集**——停用選單持有的碼不算絕版；否則停用中選單的按鈕授權被誤判
+  絕版歸檔（不可復原）＝「停用靜默升級為永久撤銷」的 button 維翻版（FR-019 同構）。
+  全文「活選單」自此正名為「未刪選單（含停用）」。
+- Q: addMenu 撞活性同鍵 `routeName` 的守門形？ → A: **雙層**——域鎖內先驗活性同鍵→顯式拒
+  （與 FR-009 role code 同式）；`sys_menu_route_name_active_uniq` 部分唯一索引（基線既有）
+  兜底、競態下 23505 收斂為同一業務拒因（與 restoreMenu 兜底慣例一致）。
+- Q: getAllRoles 本刀 as-shipped 零前端消費者（menu modal 殘留呼叫不帶、user 頁屬刀 B）
+  ——照交付還是出列？ → A: **照交付（16 支不變）、為刀 B 預埋並列已知態**——下拉讀端早到
+  ＝功能面零損失；契約一次成套、刀 B 進場零後端改動；seed 政策列（含 R_USER_COMMON）既有。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管管理角色全生命週期 (Priority: P1)
@@ -126,10 +139,10 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
    呈現（頂層計）、`menu_memo` 欄顯示。
 2. **Given** 新增 modal，**When** 父節點選擇器開啟，**Then** 選項樹來自治理域（含停用、不含
    已刪）；**When** 提交 `parentId=0`，**Then** 頂層豁免父驗證；**When** 提交之父不存在或已刪，
-   **Then** 顯式拒（停用不擋）。
+   **Then** 顯式拒（停用不擋）；**When** 提交與活性列重複之 `routeName`，**Then** 顯式拒。
 3. **Given** 既有選單，**When** 編輯試圖變更 `routeName` 或 `menuType`，**Then** 顯式拒；
    **When** 改父使祖先鏈成環（上溯遇自身），**Then** 顯式拒（上溯上限為常數）。
-4. **Given** 選單 X 之 buttons 欄含碼 `x:op` 且該碼不屬其他活選單，**When** 編輯移除該碼，
+4. **Given** 選單 X 之 buttons 欄含碼 `x:op` 且該碼不屬其他未刪選單（含停用），**When** 編輯移除該碼，
    **Then** 該碼之 button 維政策同交易絕版歸檔（reason=`menu_button_removed`、不可復原）且
    觸發判定面同步。
 5. **Given** 選單 Y 存在未刪子項（不論啟停），**When** 刪除 Y，**Then** 被守門拒；**Given**
@@ -212,6 +225,9 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
   兩鈕仍 demo stub（寫死 button1..button10 假資料、點開 modal 顯示假樹）②policy-archive 選單項
   仍死項（側欄零反應＋原始 i18n key，與 B-008 既有死項同形）③新建／復原選單無法授予側欄可見性
   （含 R_SUPER）——管理列表可見可編、側欄不現。
+- **getAllRoles 零 UI 消費者窗**：本刀 as-shipped 無前端呼叫點（menu modal 之 upstream 殘留
+  呼叫不帶〔FR-045〕、user 頁角色指派屬刀 B）——UI 消費者隨刀 B 進場；契約、授權態與測試
+  照常交付（clarify Q3 拍板）。
 - **守門兩腿生產面窗（grilling G6 註記）**：deleteRole 之 in-use 與 self-role 兩腿在刀 B
   （user 角色指派寫端）落地前無生產面觸發路徑——新建角色無工具可指派（永零掛載）、seed 角色
   被 seeded 腿先擋；測試以直種 `sys_user_role` 指派列構造觸發（資料態、零測試旗標）。
@@ -300,8 +316,10 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
   hook 呼叫形對齊——plan 期釘死）；回應含 `menuMemo` 欄。
 - **FR-023**: getMenuTree MUST 治理域輕量樹（父選擇器消費）；與 getMenuList/v2 同源同語意。
 - **FR-024**: addMenu MUST 支援目錄／選單兩型、可寫 buttons（jsonb 直傳）與 constant 欄；
+  `routeName` MUST 驗活性唯一（域鎖內先驗顯式拒＋基線部分唯一索引 23505 兜底收斂為同一
+  業務拒因）；
   零 casbin 寫（兩步流第一步；可見性授權屬授權治理刀）。
-- **FR-025**: updateMenu 之 buttons 變更：自欄移除且**絕版**（不再屬任何活選單 buttons 聯集）
+- **FR-025**: updateMenu 之 buttons 變更：自欄移除且**絕版**（不再屬任何未刪選單〔含停用〕之 buttons 聯集＝治理域聯集）
   之 button 碼 MUST 同交易絕版歸檔（reason=`menu_button_removed`、不可復原）並觸發判定面
   同步；非絕版移除（他選單仍持有該碼）MUST NOT 歸檔。
 - **FR-026**: deleteMenu MUST 依固定序守門（受保護→存在未刪子項〔不論啟停〕）；通過後同交易
