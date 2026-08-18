@@ -154,12 +154,18 @@ CDP 走查（quickstart §4）。
   恆綠之防）。★CasbinCleanup 必含 casbin_rule_id_seq=(163,true) 還原：policy fixture
   走真 Enforcer／SeaOrmAdapter `add_policy`＝nextval 路徑、seq 必被推進，「顯式大 id
   免 setval」免除條款在 casbin adapter 上不成立（T004 補充查證）。
-- [ ] T013 `rust-api/server/src/model/facade/sys_menu.rs`：治理域讀端 `list_governed`（未刪
+- [x] T013 `rust-api/server/src/model/facade/sys_menu.rs`：治理域讀端 `list_governed`（未刪
   含停用）＋樹組裝＋★「治理候選誤用顯示域＝停用被 diff 掉」負向測（rev4:010 血淚；
   data-model §3.1）；顯示域 `list_active` 零改動斷言。
-- [ ] T014 `sys_casbin_archive.rs`：歸檔寫入面 `insert_archived`（完整快照＋role_id nullable
+- [x] T014 `sys_casbin_archive.rs`：歸檔寫入面 `insert_archived`（完整快照＋role_id nullable
   誠實退化＋archive_reason）＋reason gate 單點 fn `is_non_restorable_reason`（三值集）＋
   集合成員測＋「role_id 查無活角色寫 NULL」測。
+  ★T014 as-built 拍板（2026-08-19）：role_id 反查**內收進 `insert_archived`**（以 v0 反查
+  活性角色、查無寫 NULL；rev4 為 caller 顯式傳參）——單點承載誠實退化、免掃描面三 caller
+  各抄反查。★T018 連帶施工約束（quality 輪查定、勿照 rev4 藍本次序）：rev4:model/facade/
+  sys_role.rs:509-512 之 deleteRole 為「先軟刪後歸檔」（role_id caller 傳入故次序無關）；
+  rev5 反查形照抄即全列 role_id 寫 NULL——deleteRole 的歸檔掃描 MUST 早於軟刪 UPDATE，
+  且 T018 測試 MUST 斷言歸檔列 `role_id == Some(role.id)`（非 NULL）。
 
 **Checkpoint**: 域鎖／同步／守衛／讀端／歸檔五底座就緒＋機器證全綠；可開 US。
 
