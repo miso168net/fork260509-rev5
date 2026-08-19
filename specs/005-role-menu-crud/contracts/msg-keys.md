@@ -17,6 +17,7 @@
 | `cannotDeleteSelfRole` | 刪自己所屬角色 |
 | `cannotDisableSelfRole` | 停用自己所屬角色 |
 | `superCannotDisable` | 停用 R_SUPER |
+| `nameRequired` | updateRole 對 NOT NULL 欄 roleName 送顯式 null（ADR 0023 補充條款 1 拒收；★user 拍板 2026-08-19 開第十鍵——原九鍵集無對應、as-built 曾暫收斂 no-op；施工＝role 側 handler 拒收＋四處 i18n 隨 next-go 後首件） |
 
 ## `backend.biz.menu.*`（CRUD 面）
 
@@ -31,6 +32,7 @@
 | `protectedMenu` | deleteMenu 撞受保護列 |
 | `constantParent` | 常量父鏈守門拒 |
 | `restoreConflict` | 復原撞活性同鍵 |
+| `nameRequired` | updateMenu 對 NOT NULL 欄 menuName 送顯式 null（同 role 側第十鍵拍板、兩域同式；隨 US2 handler 單元施工） |
 
 ## 前端 `page.manage.menu.*` 補鍵
 

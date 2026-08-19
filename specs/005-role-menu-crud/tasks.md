@@ -203,8 +203,9 @@ CDP 走查（quickstart §4）。
   ★T019 as-built 補記（2026-08-19）：status wire 映射二值收斂（讀端 Some(1)→'1' 其餘→'2'；
   寫端嚴格恰二值 parse、值域外沉默＝缺席）；roleCode 顯式 null 亦計「出現」→codeImmutable；
   寫端空 body 經 json_or_default 收斂皆契約內既有回應；★roleName 顯式 null 之 ADR 0023
-  補充條款 1 鍵缺口＝待 user 拍板（開第十鍵或契約補記現行收斂形——收斂形＝反序列化層
-  判死→no-op 0000，`reject_null_role_name` doc 已誠實補記）。
+  補充條款 1 鍵缺口＝★user 已拍板 2026-08-19「開第十鍵」（`biz.role.nameRequired`、
+  msg-keys 已補記；menu 側 `biz.menu.nameRequired` 兩域同式）——role 側施工（handler
+  拒收＋四處 i18n＋測）排 next-go 後首件、menu 側隨 US2 handler 單元。
 - [x] T020 [US1] 前端（★T002 後）：`service/api/rev5-role-admin.ts`＋`typings/rev5-role-admin.d.ts`
   （新增型）＋`views/manage/role/{index.vue,modules/role-operate-drawer.vue,modules/role-search.vue}`
   接真（列表含 roleMemo 欄／drawer memo textarea＋「管理員可見」placeholder／刪除批刪確認流；
