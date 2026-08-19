@@ -185,13 +185,15 @@ CDP 走查（quickstart §4）。
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] `sys_role.rs` 讀端：`page_query`（分頁＋roleName/roleCode 模糊＋status 等值
+- [x] T016 [US1] `sys_role.rs` 讀端：`page_query`（分頁＋roleName/roleCode 模糊＋status 等值
   ＋`id ASC`＋逐欄構造含 role_memo）＋`all_active_enabled`（★無 memo；僅活性啟用）＋
   createdBy/updatedBy 批次 enrich（004 範式）＋測。
-- [ ] T017 [US1] `sys_role.rs` 寫端一：`create`（code 形制 `^[A-Za-z0-9_]{1,64}$`→活性唯一
+- [x] T017 [US1] `sys_role.rs` 寫端一：`create`（code 形制 `^[A-Za-z0-9_]{1,64}$`→活性唯一
   先驗＋23505 兜底同鍵）＋`update`（roleCode 不可變顯式拒／三態 ADR 0023／全 None 提前
   no-op／停用雙護欄：自身所屬拒＋R_SUPER 恆禁「不因操作者身分而異」）＋逐守門測。
-- [ ] T018 [US1] `sys_role.rs` 寫端二：`delete_one_locked`（★域鎖 txn 首動作→三層守門固定序
+- [x] T018 [US1] `sys_role.rs` 寫端二（as-built 補記：批刪空陣列定案＝提前 no-op 成功
+  〔rev4 as-built 親核、契約 §6 已補記〕；停用雙護欄固定序＝self→super；deleteRole 判定面
+  繼承窗＝B-093 立案、刀 B 復核）：`delete_one_locked`（★域鎖 txn 首動作→三層守門固定序
   seeded→in-use〔others=total−operator_is_member、拒因回總掛載語意〕→self-role→全三維
   含 protected 歸檔 `role_soft_delete`→同交易 op-log）＋`batch_delete`（id 升冪逐項全套、
   任一違規整批拒、單 txn；空陣列語意照 rev4 as-built 定案並測）＋★in-use／self-role 以

@@ -59,7 +59,11 @@
 ## 6. `DELETE /systemManage/batchDeleteRole`
 
 - Body：`{ids: number[]}`。id 升冪逐項全套守門、任一違規整批拒（no-partial）、單 txn。
-  空陣列＝照 rev4 as-built（plan 期查定：提前 no-op 或形制拒，tasks 單元對 rev4 碼定案）。
+  空陣列＝**提前 no-op 成功**（U7 對 rev4 as-built 查定 2026-08-19：rev4:handler/role.rs
+  `batch_delete_role` 零空集檢查、rev4:facade `batch_soft_delete` 升冪迴圈零次即 commit
+  ＝成功零變更；rev5 同語意、facade 提前 return——零副作用、零稽核、不取域鎖；機器釘＝
+  facade/sys_role.rs tests 之 batch 空陣列兩案：happy-path no-op 案釘「回 Ok」、
+  持域鎖者在場案釘「不取域鎖（timeout＋零等待者）＋零稽核」）。
 
 ## 7. `GET /systemManage/getRoleHome`
 
