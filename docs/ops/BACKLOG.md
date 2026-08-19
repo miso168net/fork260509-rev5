@@ -1,4 +1,4 @@
-<!-- next: B-094 -->
+<!-- next: B-095 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -39,3 +39,4 @@
 - B-089｜**前端登入表單的密碼格式規則比後端嚴，且不對稱面無人看管**：`base-web/src/constants/reg.ts` 之 `REG_PWD = /^\w{6,18}$/`（＝`[A-Za-z0-9_]` 6~18 字元）綁在 `formRules.pwd`、由 `pwd-login`／`register`／`reset-pwd` 三支共用；**後端零格式約束**（`sys_user.password` 僅 `String`，login 只驗雜湊）。★**今日不可達**（已實測：3 個帳號、密碼只有一個值 `123456`，合規；`register`／`resetPwd` 是 ADR 0038 的誠實 stub、無真設密碼路徑）——故**現在不改碼**。★**觸發後即為真缺陷**：使用者域寫端進場後，管理員設一個帶特殊字元或 >18 字元的密碼 ⇒ 該使用者**完全無法從 UI 登入**，且症狀極具誤導性——前端在送出前就擋下、**零 API 請求**，錯誤訊息「密码格式不正确」指向使用者自己打錯，而真因是本系統前端自己的規則。★**兩個檔皆為未動過的 upstream 基線碼**（rev5 標記數 0）⇒ 動它＝fork-delta 修改型須帶 `原行:`＋走 §III 授權判定，且屬 **user 可見行為變更＝拍板級**（CLAUDE.md §5），不得順手改。★候選修法三選一（動工時拍板）：①放寬 `REG_PWD` 至與後端一致（等於取消前端這道弱防線）②維持規則但把後端設密碼端點**同步收窄**成同一規則（前後端對稱、代價是密碼強度上限被 `\w` 綁死）③維持現狀但在設密碼 UI 明示規則（成本最低、但「登入被擋」的誤導訊息仍在）。｜使用者域（role／user 管理）寫端那一刀
 - B-091｜LESSONS 存量 `promoted_to:` 佔位條逐條盤點回填（分檔遷移已實填 35 條實值、餘 12 條佔位＝L-001／L-006／L-012／L-014／L-021／L-022／L-023／L-032／L-037／L-038／L-042／L-043）；盤點順便是防法品質審查——寫不出晉升面的條目，往往防法本身不可執行｜下一筆新 LESSONS 條目落檔時順手盤數條，或下一次 review 輪
 - B-093｜**deleteRole 免 reload 的判定面繼承窗（刀 B 前結構性不可達）**：刪角色→同 code 重建→指派使用者三步後、下次任一移除面 reload 前，新角色於 in-memory 判定面繼承舊實例全部 p 列授權（DB 面乾淨——deleteRole 歸檔已掃盡；殘留僅判定面、任一移除面寫端觸發 reload 或重啟即清）。現況不可達＝user 角色指派寫端不存在（ADR 0050 §3 之 grilling G6 同源；005-role-menu-crud 品質審查輪查定、宣稱已在 sys_role.rs delete 段碼註收斂到 DB live 面實際射程）。★刀 B MUST 於指派寫端落地時復核 ADR 0050 §2 免 reload 論證並擇一閉合：①指派寫端自帶 reload（零既有拍板變更、最可能解）②deleteRole 改觸發同步（推翻 spec 005 FR-013 後半、需拍板）③addRole 唯一守門擴及非活性 code（推翻 FR-009 活性唯一、需拍板）。｜刀 B（user＋password）之角色指派寫端單元
+- B-094｜**handler 層共用件已達收斂觸發點、逐檔私有拷貝開始擴散**：`audit_operator` 同形私有拷貝已第三份（handler/ip_rule.rs／handler/throttle.rs／handler/role.rs——005-role-menu-crud 之 role 端點單元查定、當時前兩檔在允許清單外故未收攏）；同族候選＝`json_or_default`／tri-state 正規化 helper／`resolve_operator_names`（含其 N+1 債、沿 ip_rule 已知）／`MAX_CURRENT` 各第二份。候選修法＝收攏至 handler 共用模組（落點與命名動工時定）；★menu 端點單元（T026/T030）若再抄第四份＝觸發即辦。｜005 收刀前的維護窗、或 menu handler 單元動工時順收

@@ -179,7 +179,7 @@ CDP 走查（quickstart §4）。
 
 ### Tests for User Story 1 ⚠️（先紅後綠）
 
-- [ ] T015 [US1] `rust-api/server/tests/contract.rs`：role 六端點 contract case（動詞×路徑×
+- [x] T015 [US1] `rust-api/server/tests/contract.rs`：role 六端點 contract case（動詞×路徑×
   授權態矩陣：Super 通／Admin 寫端 5003 讀端通／R_USER_COMMON getAllRoles 通其餘 5003）——
   ★先紅（端點未建）；ROUTES 逐欄對齊 seed 政策列。
 
@@ -198,9 +198,14 @@ CDP 走查（quickstart §4）。
   含 protected 歸檔 `role_soft_delete`→同交易 op-log）＋`batch_delete`（id 升冪逐項全套、
   任一違規整批拒、單 txn；空陣列語意照 rev4 as-built 定案並測）＋★in-use／self-role 以
   測試種 `sys_user_role` 指派列構造（G6：資料態零旗標）＋★deleteRole 零 reload 特性斷言。
-- [ ] T019 [US1] `rust-api/server/src/handler/role.rs` 六支 handler＋`router.rs` +6 條
+- [x] T019 [US1] `rust-api/server/src/handler/role.rs` 六支 handler＋`router.rs` +6 條
   （`ROUTES_COUNT` 22→28 同 commit bump）＋T015 轉綠＋wire-schema 快照更新。
-- [ ] T020 [US1] 前端（★T002 後）：`service/api/rev5-role-admin.ts`＋`typings/rev5-role-admin.d.ts`
+  ★T019 as-built 補記（2026-08-19）：status wire 映射二值收斂（讀端 Some(1)→'1' 其餘→'2'；
+  寫端嚴格恰二值 parse、值域外沉默＝缺席）；roleCode 顯式 null 亦計「出現」→codeImmutable；
+  寫端空 body 經 json_or_default 收斂皆契約內既有回應；★roleName 顯式 null 之 ADR 0023
+  補充條款 1 鍵缺口＝待 user 拍板（開第十鍵或契約補記現行收斂形——收斂形＝反序列化層
+  判死→no-op 0000，`reject_null_role_name` doc 已誠實補記）。
+- [x] T020 [US1] 前端（★T002 後）：`service/api/rev5-role-admin.ts`＋`typings/rev5-role-admin.d.ts`
   （新增型）＋`views/manage/role/{index.vue,modules/role-operate-drawer.vue,modules/role-search.vue}`
   接真（列表含 roleMemo 欄／drawer memo textarea＋「管理員可見」placeholder／刪除批刪確認流；
   修改型逐行 `原行:`）＋i18n：`biz.role.*` 九鍵四處同步（msg-keys 候選字面）＋role 頁欄位鍵

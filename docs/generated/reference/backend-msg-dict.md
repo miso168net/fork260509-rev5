@@ -17,6 +17,15 @@
 | biz.ipRule.invalidRuleType | 規則類型不正確 | Invalid rule type |
 | biz.ipRule.notFound | 找不到指定的規則，或其狀態不允許此操作 | The rule was not found, or its state does not allow this action |
 | biz.ipRule.selfLock | 此規則會使你目前的連線被阻擋，已拒絕寫入 | This rule would block your current connection; the change was rejected |
+| biz.role.cannotDeleteSelfRole | 不能刪除目前登入使用者所屬的角色 | You cannot delete a role assigned to your own account |
+| biz.role.cannotDisableSelfRole | 不能停用目前登入使用者所屬的角色 | You cannot disable a role assigned to your own account |
+| biz.role.codeExists | 角色編碼已存在 | The role code already exists |
+| biz.role.codeImmutable | 角色編碼建立後不可修改 | The role code cannot be changed after creation |
+| biz.role.codeInvalid | 角色編碼格式不正確（僅允許字母、數字、底線，最長 64 位） | Invalid role code (letters, digits and underscore only, up to 64 characters) |
+| biz.role.inUse | 該角色仍掛有使用者，不可刪除 | The role still has users assigned and cannot be deleted |
+| biz.role.notFound | 角色不存在 | The role was not found |
+| biz.role.seededProtected | 系統內建角色，不可刪除 | Built-in system roles cannot be deleted |
+| biz.role.superCannotDisable | 超級管理員角色不可停用 | The super administrator role cannot be disabled |
 | biz.systemSettings.invalidValue | 設定值不合法（型別不符、超出範圍或非允許選項） | Invalid setting value (wrong type, out of range or not an allowed option) |
 | biz.systemSettings.notFound | 找不到指定的設定鍵 | The specified setting key was not found |
 | biz.throttle.invalidUnlockTarget | 解鎖對象不正確 | Invalid unlock target |
