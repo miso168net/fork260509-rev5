@@ -23,6 +23,7 @@
 | biz.role.codeImmutable | 角色編碼建立後不可修改 | The role code cannot be changed after creation |
 | biz.role.codeInvalid | 角色編碼格式不正確（僅允許字母、數字、底線，最長 64 位） | Invalid role code (letters, digits and underscore only, up to 64 characters) |
 | biz.role.inUse | 該角色仍掛有使用者，不可刪除 | The role still has users assigned and cannot be deleted |
+| biz.role.nameRequired | 角色名稱不可為空 | Role name must not be null |
 | biz.role.notFound | 角色不存在 | The role was not found |
 | biz.role.seededProtected | 系統內建角色，不可刪除 | Built-in system roles cannot be deleted |
 | biz.role.superCannotDisable | 超級管理員角色不可停用 | The super administrator role cannot be disabled |
