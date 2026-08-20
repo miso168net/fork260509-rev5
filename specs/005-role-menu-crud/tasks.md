@@ -236,6 +236,9 @@ buttons 絕版歸檔＋判定面同步。
 - [ ] T023 [US2] `sys_menu.rs` 寫端一：`create`（守門序＝parent 三態〔存在未刪／停用不擋／
   頂層豁免〕→防環〔上溯上限常數〕→routeName 活性唯一雙層→constant 父鏈→形制；
   零 casbin 寫）＋逐守門測（含 constant 父鏈正反例）。
+  ★multiTab 拍板（2026-08-19 user 親決、U9 spec 輪查獲兩產物互斥）：**可寫**照 rev4
+  as-built——契約 MenuRecord 表補漏列、data-model §1.2 不動；MenuCreate 補 multi_tab 欄、
+  T024 updateMenu 可寫欄集與 T027 前端表單沿用同一結論。
 - [ ] T024 [US2] `sys_menu.rs` 寫端二：`update`（routeName／menuType 不可變顯式拒／改父
   防環＋★constant 父鏈重驗〔改父／改 constant 兩觸發點；FR-018、analyze C1 補〕／三態）＋
   ★buttons 絕版判定（聯集域＝未刪含停用、clarify Q1）＋絕版碼歸檔 `menu_button_removed`

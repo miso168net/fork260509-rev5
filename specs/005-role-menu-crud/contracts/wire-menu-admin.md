@@ -19,6 +19,7 @@
 | `status` | string | `'1'`/`'2'` |
 | `hideInMenu` | boolean \| null | |
 | `keepAlive` | boolean \| null | |
+| `multiTab` | boolean \| null | ★2026-08-19 補漏列（user 拍板：可寫、照 rev4 as-built——data-model §1.2 本列於「一般可編欄」、本表原缺席屬 SDD 期缺漏、實作期查獲） |
 | `constant` | boolean \| null | 可寫；父鏈常量性守門 |
 | `protected` | boolean | 受保護（刪除守門第一腿；本刀唯讀呈現） |
 | `order` | number \| null | |
