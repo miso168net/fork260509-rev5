@@ -292,17 +292,27 @@ buttons 絕版歸檔＋判定面同步。
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T028 [US3] `tests/contract.rs`：getDeletedMenus／restoreMenu contract case——先紅。
+- [x] T028 [US3] `tests/contract.rs`：getDeletedMenus／restoreMenu contract case——先紅。
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] `sys_menu.rs`：`list_deleted`（`deleted_at DESC, id DESC`、★無 restorable
+- [x] T029 [US3] `sys_menu.rs`：`list_deleted`（`deleted_at DESC, id DESC`、★無 restorable
   旗標——契約定案）＋`restore_locked`（域內鎖列→已刪存在→同鍵活性衝突 23505 兜底→父未刪
   →成對清空＋原 status 保留；零回灌零 reload）＋逐重驗測（含「復原現役列＝業務錯誤」
   R2-1 防回歸）。
-- [ ] T030 [US3] `handler/menu.rs` 兩支＋router +2 條（`ROUTES_COUNT` 34→36）＋T028 轉綠。
-- [ ] T031 [US3] 前端：menu index.vue toggle（「顯示已刪除」NSwitch 換資料源、已刪模式操作欄
+- [x] T030 [US3] `handler/menu.rs` 兩支＋router +2 條（`ROUTES_COUNT` 34→36）＋T028 轉綠。
+- [x] T031 [US3] 前端：menu index.vue toggle（「顯示已刪除」NSwitch 換資料源、已刪模式操作欄
   整欄換復原、confirmRestore 確認）＋i18n showDeleted/confirmRestore/restoreConflict 等。
+  ★U12 as-built 補記（2026-08-22）：restoreConflict＝本單元唯一新後端鍵（backend 樹
+  49→50、四處同步）；前端頁自有鍵落四鍵＝showDeleted/confirmRestore（msg-keys 既列）
+  ＋restore/restoreSuccess（工程補鍵、msg-keys 前端補鍵段已同步補記）；rev4 之 hasAuth
+  按鈕碼 gating 未帶回（FR-042 拍板不 gating）。工程拍板四筆（回收桶復用 ListQuery/
+  ListRes 零新漂移面／已刪列借道 to_menu_record 單一映射點／list_deleted clamp 收進
+  facade／域鎖骨架 helper 加 fixture_deleted_at 參）。零 reload 特性測帶 deleteMenu +1
+  對照組＝非 vacuous；23505 兜底腿直餵 From 形（域鎖下真路徑理論不可達、U9 create 側
+  同形先例）；回收桶分頁初值 {current:1,size:10} 實質死值（首取即被 clamp 上界 100 回填、
+  與契約預設一致非缺陷）。衍生：B-099（ip-rule 頁 renderSlot fallback 同構隱患）＋
+  B-100（toggle 不清 checkedRowKeys）立案。
 
 **Checkpoint**: US3 可獨立驗收（刪→toggle 見→復原→原態回樹）。
 

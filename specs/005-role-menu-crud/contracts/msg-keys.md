@@ -39,3 +39,6 @@
 
 `showDeleted`（顯示已刪除 toggle）／`confirmRestore`（復原確認）——本刀自有鍵；與授權治理刀
 之 policyArchive 鍵收斂屆時議。role／menu 之 memo 欄位標籤鍵隨欄補。
+★as-built 補記（2026-08-22、U12）：實作另落 `restore`（復原鈕標籤）／`restoreSuccess`
+（復原成功 toast）兩鍵——rev4 藍本同位取 policyArchive.restore/restoreSuccess、rev5 無
+policyArchive 樹故收進 page.manage.menu 自有樹；四鍵皆兩語＋app.d.ts 型節齊備。

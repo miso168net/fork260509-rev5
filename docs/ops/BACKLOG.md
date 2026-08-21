@@ -1,4 +1,4 @@
-<!-- next: B-099 -->
+<!-- next: B-101 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -44,3 +44,5 @@
 - B-096｜**spec.md Edge Cases「body 解析失敗回 3333 家族」與 as-built 不符（帳面失真、非行為缺陷）**：既有 wire 慣例（004 `handler/ip_rule.rs::json_or_default` 立、005 role／menu 兩側沿用並各於 tasks T019／T026 補記）＝`JsonRejection` 全變體收斂 `T::default()`、落契約內既有鍵（add→2222 routeNameInvalid 形／update→0000 no-op 形），**零 3333**。spec 該句自 U8 起即與實作失真、005 spec 審查輪（U10）複核仍殘留。處置＝`tools/docs-sync.py errata 3333` 機器枚舉全 repo 同語意命中、逐處以 as-built 補記形處置｜005 收刀簿記時
 - B-097｜**menu 管理頁分頁控制實質無效（頂層列數 >100 才成真缺陷）**：`views/manage/menu/index.vue` 之 `api: () => fetchGetMenuList()` 無參且未接 `onPaginationParamsChange` ⇒ 換頁不換資料；後端無參預設 size=100（clamp 上界）、`onFetched` 回填 pageSize=100（不在 pageSizes [10,15,20,25,30] 內）——使用者改 page size 會被回彈。★與 rev4／upstream 同形、屬「一次取全樹」既定設計；seed 頂層僅 11 列（<100）現況不可見（005 U11 碼品質審查輪查定）。候選處置：①接真分頁（current/size 上鏈）②改單頁全樹形（抽掉分頁列）——屬 user 可見行為、屆時拍｜頂層選單逼近 100 列時，或下一把動 menu 頁分頁面的刀
 - B-098｜**wire-schema 快照對 Api.RoleAdmin／Api.MenuAdmin 僅被動存放、後端序列化未受裁判**：`server/tests/wire_schema.rs` 現行裁判測未涵蓋兩命名空間（U8 RoleAdmin／U11 MenuAdmin 兩次進場皆同形）——快照被重抽比對面只驗「前端 d.ts 與快照一致」，後端 `MenuRecord`／`RoleRecord` 序列化形漂移不會紅在 wire_schema 面（現行另有 handler 層 key-set 釘死測兼防、非零防線）。候選修法＝比照既有命名空間裁判形擴兩支（005 U11 碼品質審查輪 N7）｜下一把動 wire-schema 工具面或 contract 測家族的刀
+- B-099｜**ip-rule 管理頁 default slot 覆寫在 `hasAuth` 為 false 時冒出共用元件自帶寫端鈕**：`views/manage/ip-rule/index.vue:247~254` 的 default slot 覆寫僅一顆 NButton 掛 `v-if="hasAuth('ipRule:add')"`——該權限碼 false 時 slot 內容全空 ⇒ NaiveUI/共用 table-header 元件的 renderSlot fallback 機制冒出元件自帶的「新增＋批量刪除」鈕（`@add`/`@delete` 未綁、點擊為 no-op emit——無資料風險，但 UI 出現不該現的寫端入口）。★現況不可達面：dev 三帳號權限碼齊全、按鈕碼授權面尚未真管；005 U12 碼品質審查輪查定（menu 頁同構處已於 U12 以「整組 default slot 條件覆寫」形修妥、可照抄）｜按鈕碼授權真管刀（授權治理刀）動工時，或下一把動 ip-rule 頁的刀
+- B-100｜**menu 頁 checkedRowKeys 不隨「顯示已刪除」toggle 清空**：已刪模式仍有 selection 欄可勾；勾完關 toggle→批刪鈕解除 disabled→送已軟刪 id→後端整批拒 `2222 notFound`（誠實錯誤、無資料風險，但 UI 狀態誤導）。候選修法＝`watch(showDeleted)` 內順手清空（一行）；005 U12 碼品質審查輪查定、review 判非 blocker 故未在單元內動｜下一把動 menu 頁的刀順修，或 U16 CDP 走查若實測干擾驗收時

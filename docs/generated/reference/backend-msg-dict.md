@@ -25,6 +25,7 @@
 | biz.menu.notFound | 選單不存在 | Menu not found |
 | biz.menu.parentNotFound | 父層選單不存在或已刪除 | Parent menu does not exist or has been deleted |
 | biz.menu.protectedMenu | 受保護選單，不可刪除 | Protected menus cannot be deleted |
+| biz.menu.restoreConflict | 同名路由已有生效選單，無法復原 | An active menu with the same route name already exists; cannot restore |
 | biz.menu.routeNameExists | 路由名稱已存在 | Route name already exists |
 | biz.menu.routeNameImmutable | 路由名稱建立後不可修改 | Route name cannot be changed after creation |
 | biz.menu.routeNameInvalid | 路由名稱格式不正確（僅允許字母、數字、底線、連字號，最長 100 位） | Invalid route name (letters, digits, underscore and hyphen only, up to 100 characters) |
