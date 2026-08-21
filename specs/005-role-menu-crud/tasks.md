@@ -266,10 +266,19 @@ buttons 絕版歸檔＋判定面同步。
   ＝B-096 立案、收刀 errata）；★wire-schema 快照零改屬預期（本單元未動 Api.* typings、
   `Api.MenuAdmin` 隨 T027 進場）；handler 共用件第四份成立＝B-094 觸發條款成立（收刀前
   維護窗一次收攏）。
-- [ ] T027 [US2] 前端（★T002 後）：`rev5-menu-admin.ts`＋d.ts（新增型）＋
+- [x] T027 [US2] 前端（★T002 後）：`rev5-menu-admin.ts`＋d.ts（新增型）＋
   `views/manage/menu/{index.vue,modules/menu-operate-modal.vue}`（＋shared.ts 視需要）接真
   （樹表含 menuMemo／modal 父選擇器＝getMenuTree★移除 fetchGetAllRoles 殘留／buttons 編輯／
   constant 開關；修改型逐行標記）＋i18n：`biz.menu.*` 九鍵四處＋menu 頁欄位鍵＋typecheck 綠。
+  ★T027 as-built 補記（2026-08-22）：shared.ts 一行未動（名單定數兌現）；`biz.menu.*` 拒因
+  鍵已隨 T026 四處接畢、本 task 僅補 page 欄位鍵（menuMemo/form.menuMemo/form.parentRoot
+  三鍵兩語＋app.d.ts；parentRoot＝合成「頂層」選項標籤、前端自有鍵§5 自拍）。★父選擇器
+  三模式（add/addChild/edit）皆現＋合成頂層選項＝spec US2 場景 2 落實；rev4 as-built 僅
+  edit 模式形不沿用——U16 CDP 對照時新增 modal 多一顆父選擇器欄＝拍板差異非走樣。
+  UpdateReq 結構性無 routeName/menuType（出現即拒落到編譯期）；wire-schema 快照 51→57
+  definitions（+6 支 Api.MenuAdmin.*、既有零變動）。components.d.ts 隨 NTreeSelect 首進場
+  重算（主線觸發 vite transform、恰 +1 行宣告）。★U16 對照另注意：rev5 誠實 null（seed
+  六列 iconType NULL 等）畫面與 rev4 缺值退 '1' 形不同＝拍板直接後果非回歸。
 
 **Checkpoint**: US2 可獨立驗收；已知態③（新建選單側欄不現）照 quickstart §4-3 驗現狀形。
 
