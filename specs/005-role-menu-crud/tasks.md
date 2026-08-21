@@ -230,10 +230,10 @@ buttons 絕版歸檔＋判定面同步。
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] `sys_menu.rs` 讀端：`page_query_governed`（樹形、分頁頂層計、size clamp
+- [x] T022 [US2] `sys_menu.rs` 讀端：`page_query_governed`（樹形、分頁頂層計、size clamp
   常數★與 rev5 前端 hook 無參呼叫形對齊——本 task 先 grep `useNaivePaginatedTable` 預設
   定值再定常數）＋`menu_tree`（輕量樹）＋menuMemo 欄＋測。
-- [ ] T023 [US2] `sys_menu.rs` 寫端一：`create`（守門序＝parent 三態〔存在未刪／停用不擋／
+- [x] T023 [US2] `sys_menu.rs` 寫端一：`create`（守門序＝parent 三態〔存在未刪／停用不擋／
   頂層豁免〕→防環〔上溯上限常數〕→routeName 活性唯一雙層→constant 父鏈→形制；
   零 casbin 寫）＋逐守門測（含 constant 父鏈正反例）。
   ★multiTab 拍板（2026-08-19 user 親決、U9 spec 輪查獲兩產物互斥）：**可寫**照 rev4
@@ -246,7 +246,9 @@ buttons 絕版歸檔＋判定面同步。
 - [ ] T025 [US2] `sys_menu.rs` 寫端三：`delete_one_locked`（守門固定序 protected→未刪子項
   不論啟停→menu 維跨角色＋獨有碼歸檔皆 `menu_soft_delete`→op-log）＋`batch_delete`
   （child-first 拓撲序、整批拒、單 txn）＋逐守門測。
-- [ ] T026 [US2] `handler/menu.rs` 六支＋router +6 條（`ROUTES_COUNT` 28→34）＋★reload 接線
+- [ ] T026 [US2]（★帶入項：i18n 接鍵時 `biz.menu.routeNameInvalid`〔msg-keys 已補列〕與
+  `biz.menu.nameRequired`〔第十鍵兩域同式〕隨本 task 四處同步；multiTab 可寫沿 T023 拍板）
+  `handler/menu.rs` 六支＋router +6 條（`ROUTES_COUNT` 28→34）＋★reload 接線
   （deleteMenu／batchDeleteMenu／updateMenu-buttons 成功且有歸檔 ⇒ commit 後 reload；
   觸發矩陣特性測 T010 擴充轉綠）＋T021 轉綠＋wire-schema 快照。
 - [ ] T027 [US2] 前端（★T002 後）：`rev5-menu-admin.ts`＋d.ts（新增型）＋

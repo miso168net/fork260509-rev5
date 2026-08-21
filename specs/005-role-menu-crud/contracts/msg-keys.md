@@ -33,6 +33,7 @@
 | `constantParent` | 常量父鏈守門拒 |
 | `restoreConflict` | 復原撞活性同鍵 |
 | `nameRequired` | updateMenu 對 NOT NULL 欄 menuName 送顯式 null（同 role 側第十鍵拍板、兩域同式；隨 US2 handler 單元施工） |
+| `routeNameInvalid` | routeName 形制不合（rev4 同名鍵；facade `MenuCreateError::RouteNameInvalid` 已立面〔T023〕、原表漏列——2026-08-19 補、隨 US2 handler 單元接鍵並走 Lint24 四處同步） |
 
 ## 前端 `page.manage.menu.*` 補鍵
 
