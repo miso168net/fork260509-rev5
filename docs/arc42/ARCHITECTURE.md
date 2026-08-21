@@ -260,9 +260,10 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   非軟區零行為變更。
 - **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
   `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
-  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**38 鍵**＝
+  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**49 鍵**＝
   003 之 22 鍵＋004 之 `biz.ipRule.*` 五鍵與 `biz.throttle.*` 一鍵＋005-role-menu-crud 之
-  `biz.role.*` 十鍵〔含第十鍵 nameRequired、user 拍板 2026-08-19〕；兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
+  `biz.role.*` 十鍵〔含第十鍵 nameRequired、user 拍板 2026-08-19〕與 `biz.menu.*` 十一鍵
+  〔含 routeNameInvalid 與 nameRequired 兩域同式〕；兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
 - **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
   `fetchLogout`（失敗不阻斷 `resetStore()`）。
 - **★BASE-WEB-MANAGE-PAGE-WIRING**：(i) IP 規則管理頁進場——兩語 locale 之 `route:` 樹加

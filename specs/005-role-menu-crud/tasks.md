@@ -225,7 +225,7 @@ buttons 絕版歸檔＋判定面同步。
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T021 [US2] `tests/contract.rs`：menu 六端點（getMenuList/v2★字面／getMenuTree／add／
+- [x] T021 [US2] `tests/contract.rs`：menu 六端點（getMenuList/v2★字面／getMenuTree／add／
   update／delete／batchDelete）contract case＋授權態——先紅。
 
 ### Implementation for User Story 2
@@ -239,18 +239,33 @@ buttons 絕版歸檔＋判定面同步。
   ★multiTab 拍板（2026-08-19 user 親決、U9 spec 輪查獲兩產物互斥）：**可寫**照 rev4
   as-built——契約 MenuRecord 表補漏列、data-model §1.2 不動；MenuCreate 補 multi_tab 欄、
   T024 updateMenu 可寫欄集與 T027 前端表單沿用同一結論。
-- [ ] T024 [US2] `sys_menu.rs` 寫端二：`update`（routeName／menuType 不可變顯式拒／改父
+- [x] T024 [US2] `sys_menu.rs` 寫端二：`update`（routeName／menuType 不可變顯式拒／改父
   防環＋★constant 父鏈重驗〔改父／改 constant 兩觸發點；FR-018、analyze C1 補〕／三態）＋
   ★buttons 絕版判定（聯集域＝未刪含停用、clarify Q1）＋絕版碼歸檔 `menu_button_removed`
   ＋非絕版移除零歸檔測。
-- [ ] T025 [US2] `sys_menu.rs` 寫端三：`delete_one_locked`（守門固定序 protected→未刪子項
+  ★T024 as-built 補記（2026-08-21）：絕版判定 `obsolete_codes(exclude_id=menu.id)` 排除
+  自身列——不排除則 removed code 恆被自身「仍持有」、絕版判定恆假（實作與測皆釘）；
+  multi_tab 可寫沿 T023 拍板。★FR-018「向下」殘留窗（清 constant 不驗常量子孫）＝
+  spec 機制半句未涵蓋、拍板級——B-095 立案待議、非本 task 違規。
+- [x] T025 [US2] `sys_menu.rs` 寫端三：`delete_one_locked`（守門固定序 protected→未刪子項
   不論啟停→menu 維跨角色＋獨有碼歸檔皆 `menu_soft_delete`→op-log）＋`batch_delete`
   （child-first 拓撲序、整批拒、單 txn）＋逐守門測。
-- [ ] T026 [US2]（★帶入項：i18n 接鍵時 `biz.menu.routeNameInvalid`〔msg-keys 已補列〕與
+  ★T024/T025 跨維度誘餌補釘（2026-08-21 主線）：quality 確認輪查獲 `archive_policy_rows_of`
+  之 v2 維度過濾零測試覆蓋（route_name 與 button code 值域重疊、同字面跨維列真實可存在，
+  過濾失守＝跨維連坐撤除＋reason 誤標不可復原）——update／delete 兩主測各加一列跨維誘餌
+  ＋(live,archived)=(1,0) 斷言；變異驗證（註掉該 filter 行）兩測皆紅、還原復綠。
+- [x] T026 [US2]（★帶入項：i18n 接鍵時 `biz.menu.routeNameInvalid`〔msg-keys 已補列〕與
   `biz.menu.nameRequired`〔第十鍵兩域同式〕隨本 task 四處同步；multiTab 可寫沿 T023 拍板）
   `handler/menu.rs` 六支＋router +6 條（`ROUTES_COUNT` 28→34）＋★reload 接線
   （deleteMenu／batchDeleteMenu／updateMenu-buttons 成功且有歸檔 ⇒ commit 後 reload；
   觸發矩陣特性測 T010 擴充轉綠）＋T021 轉綠＋wire-schema 快照。
+  ★T026 as-built 補記（2026-08-21）：`RELOAD_CALL_FILES=["handler/menu.rs"]` 名冊擴列
+  紅轉綠＝接線機器訊號兌現；handler 實發恰十一鍵（十鍵在三支 `map_*_err`＋`nameRequired`
+  於 update_menu 早拒臂），i18n 四處同步、既有「38 鍵」註解字面併更為 49 鍵（活書同步）；
+  body 解析失敗照 role 側 json_or_default 慣例收斂契約內既有鍵、零 3333（spec 該句失真
+  ＝B-096 立案、收刀 errata）；★wire-schema 快照零改屬預期（本單元未動 Api.* typings、
+  `Api.MenuAdmin` 隨 T027 進場）；handler 共用件第四份成立＝B-094 觸發條款成立（收刀前
+  維護窗一次收攏）。
 - [ ] T027 [US2] 前端（★T002 後）：`rev5-menu-admin.ts`＋d.ts（新增型）＋
   `views/manage/menu/{index.vue,modules/menu-operate-modal.vue}`（＋shared.ts 視需要）接真
   （樹表含 menuMemo／modal 父選擇器＝getMenuTree★移除 fetchGetAllRoles 殘留／buttons 編輯／

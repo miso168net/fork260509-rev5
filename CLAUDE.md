@@ -79,7 +79,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 ★主線看門狗（非終止型故障不會有完成通知）：★Workflow launch 與 Monitor 看門狗
 　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（已實證）。
 　Monitor command＝`python3 tools/wf-watchdog.py <冒煙token> [wf目錄|runId]`（缺目標＝自動發現最新 wf 目錄、毋需 launch 回傳值故可同回合並發；
-　帶目標＝輪詢待其出現後鎖定、resume 沿用原 runId；ARMED 首行夾帶冒煙、stall/runaway 保險絲、happy-path 靜默）；
+　帶目標＝輪詢待其出現後鎖定、resume 沿用原 runId、launch 被擋重發＝TaskStop 舊 Monitor 改帶新 runId 重掛（L-049）；ARMED 首行夾帶冒煙、stall/runaway 保險絲、happy-path 靜默）；
 　完成通知＋Monitor 雙訊號全覆蓋、毋需輪詢；完成通知一到→TaskStop 該 Monitor（防誤觸 stall）。
 　判死迴圈／卡死→TaskStop→修 script→以 resumeFromRunId 續跑（已完成 agent 走快取不重跑）。
 　★resume **只用於故障續跑、不是「讓某支 agent 重跑」的手段**（L-027）：快取判定不逐字比

@@ -17,6 +17,17 @@
 | biz.ipRule.invalidRuleType | 規則類型不正確 | Invalid rule type |
 | biz.ipRule.notFound | 找不到指定的規則，或其狀態不允許此操作 | The rule was not found, or its state does not allow this action |
 | biz.ipRule.selfLock | 此規則會使你目前的連線被阻擋，已拒絕寫入 | This rule would block your current connection; the change was rejected |
+| biz.menu.constantParent | 常量選單僅能掛在常量父選單之下 | A constant menu can only be placed under a constant parent menu |
+| biz.menu.cycleDetected | 不可將選單移至自身或其子孫之下 | A menu cannot be moved under itself or its descendants |
+| biz.menu.hasChildren | 選單下尚有子項，請先處理子項 | This menu still has child items; please handle the child items first |
+| biz.menu.menuTypeImmutable | 選單類型建立後不可修改 | Menu type cannot be changed after creation |
+| biz.menu.nameRequired | 選單名稱不可為空 | Menu name must not be null |
+| biz.menu.notFound | 選單不存在 | Menu not found |
+| biz.menu.parentNotFound | 父層選單不存在或已刪除 | Parent menu does not exist or has been deleted |
+| biz.menu.protectedMenu | 受保護選單，不可刪除 | Protected menus cannot be deleted |
+| biz.menu.routeNameExists | 路由名稱已存在 | Route name already exists |
+| biz.menu.routeNameImmutable | 路由名稱建立後不可修改 | Route name cannot be changed after creation |
+| biz.menu.routeNameInvalid | 路由名稱格式不正確（僅允許字母、數字、底線、連字號，最長 100 位） | Invalid route name (letters, digits, underscore and hyphen only, up to 100 characters) |
 | biz.role.cannotDeleteSelfRole | 不能刪除目前登入使用者所屬的角色 | You cannot delete a role assigned to your own account |
 | biz.role.cannotDisableSelfRole | 不能停用目前登入使用者所屬的角色 | You cannot disable a role assigned to your own account |
 | biz.role.codeExists | 角色編碼已存在 | The role code already exists |
