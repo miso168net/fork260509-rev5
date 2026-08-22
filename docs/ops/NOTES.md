@@ -34,7 +34,7 @@
   §III 正文＋B-104（ADR 0049 括號句訂正）。
   刀 B（user＋password）＝再之後：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
   changePassword」（2026-08-18、記兩檔 §3 表 #4）；★刀 B 必復核 B-093（deleteRole 判定面繼承窗）。
-- **其餘在案候選**：B-008 餘兩張 view（manage_system-settings／audit、另需 audit 5 支端點；
-  policy-archive 由授權治理刀承接；★連帶 B-088 對賬閘宜同批做）。
-- ★下一動作＝授權治理刀起手：①brainstorm 自 tmp/ 補入版控（檔名配號接續 005）②維護批
-  （B-094＋B-101）③手動起 /speckit-specify（絕不排自動流程——pre-hook 不跑則 spec 落 default branch）。
+- **其餘在案候選**：B-008 餘兩張 view（manage_system-settings／audit＋audit 5 支端點；policy-archive 由授權治理刀承接、★連帶 B-088 對賬閘宜同批）。
+- ★下一動作＝授權治理刀起手：①階段 0 **已定稿**＝docs/brainstorms/006-authz-governance.md
+  （2026-08-22 五 lens 偵查後重寫、取代 tmp/ 舊草稿）②**待 user 拍該檔 §10 之 22 題**
+  ③起手維護批（B-094＋B-101）④手動起 /speckit-specify（絕不排自動流程、否則 spec 落 default）。
