@@ -65,11 +65,22 @@ implementer=fable xhigh／review=opus xhigh）。
   rev3 `3bfab71` 三缺陷三詞＋指針／後果＝B-024 改記殘餘）＋`docs/arc42/decisions/0055-restore-policy-five-leg-reverify-and-adr0050-recheck.md`
   （五腿照 ADR 0051 四段範式逐腿＋腿↔寫端守門對照表＋restorable 旗標①②③④同判準＋ADR 0050 §4 復核結論 B＋「rev4 七步／rev5 五腿計數軸不同」註＋
   字面定案於 spec〔`menu_revoke`／`button_revoke`〕）；`provenance` 含 ADR 0050；generate。
-- [ ] T004 早期查證（容器內、結論補記本 task）：①E0391 探針——在 `rust-api/server/src/handler/role.rs` 加最小 handler（本體直讀 `crate::router::ROUTES`）
+- [x] T004 早期查證（容器內、結論補記本 task）：①E0391 探針——在 `rust-api/server/src/handler/role.rs` 加最小 handler（本體直讀 `crate::router::ROUTES`）
   並**暫時註冊進 `router.rs` ROUTES**（`ROUTES_COUNT` 暫 +1）→`cargo build` 確認是否觸環→改為經具名 `policy_endpoints() -> Vec<Endpoint>`（具體回型、非 async）
   再編譯確認斷環→記結論→**全數還原、零殘留**（ROUTES／ROUTES_COUNT／探針碼）；②`RELOAD_CALL_FILES` 擴為三檔後 `scanned_files_excluding_home()` 實得序（暫改常數實跑
   `rust-api/server/tests/authz_entrypoint_lint.rs` 主守恆、記實得序後還原）；③核 `sys_casbin_archive.rs` 之 `is_non_restorable_reason_pins_three_member_set`
   負向臂是否真含三個 revoke 字面；④`grep -rn "AppState {" --include=*.rs rust-api/server/ | grep -v "pub struct\|-> "` 基線 7 命中複核。
+  結論（2026-08-23 容器內實跑、U2 補記）：①E0391——第一形（handler 本體直讀 `crate::router::ROUTES`、暫註冊 ROUTES 39 條）`cargo build -p server` 觸
+  `error[E0391]: cycle detected when computing type of opaque handler::role::probe_routes_len::{opaque#0}`（環＝borrow-checking handler→promoting constants
+  in MIR→const checking `router::ROUTES`→type-checking `router::ROUTES`→回到 opaque 型）；第二形（具名非 async `fn probe_policy_paths() -> Vec<String>` 讀 ROUTES、
+  handler 只呼它）`Finished dev`＝斷環成立 ⇒ T010 採具名 `policy_endpoints() -> Vec<Endpoint>`；探針全數還原（`git -C rust-api diff -- server/src/router.rs` 零輸出＝該檔長期可複核）；
+  `server/src/handler/role.rs` 側之「diff 零輸出」屬**時點限定證據**〔T010 動工前實測，該檔隨後即承載 T010 交付物、diff 恆非零〕，
+  後續單元複核改引長期形：`grep -rnE "probe_routes_len|probe_policy_paths" rust-api/server/` 全樹零命中（rc=1）。②`scanned_files_excluding_home()` 之 handler/ 實得序（暫加測 `--nocapture` 印出）＝…`handler/menu.rs` < `handler/mod.rs` <
+  `handler/role.rs`…（menu<role 實證）；依 PathBuf 字典序 `handler/policy_archive.rs` 落於 mod.rs 與 role.rs 之間 ⇒ 三檔序假說 `["handler/menu.rs",
+  "handler/policy_archive.rs","handler/role.rs"]` 成立；★最終由 U3（role.rs 接線）與 U6（policy_archive.rs 接線）時該主守恆測轉綠證實；探針已還原（該檔 diff 零輸出）。
+  ③`is_non_restorable_reason_pins_three_member_set` 負向臂 `:362` 迴圈確含 `"menu_revoke"`／`"button_revoke"`／`"endpoint_revoke"`／`""` 四值（grep 複核）⇒ T005 改五值形、
+  負向只剩 `endpoint_revoke` 與空串。④`AppState {` 基線命中恰 7（main.rs／router.rs／handler/ip_rule.rs／middleware/mod.rs／model/mod.rs／throttle/mod.rs／
+  tests/common/mod.rs）＝與 test_db::test_state doc 名冊一致、本單元零新增。
 
 ---
 
@@ -78,20 +89,20 @@ implementer=fable xhigh／review=opus xhigh）。
 **Purpose**: reason gate 五值、批次讀端、聯集讀端、Option<i64> 守衛、三維 facade 骨架與讀端、wire DTO 與斷環 fn。
 **⚠️ 本 phase 未完成前不得開任何 US（T005～T008 [P] 檔域不相交；T009～T010 序列）。**
 
-- [ ] T005 [P] `rust-api/server/src/model/facade/sys_casbin_archive.rs`：新立三常數 `REASON_MENU_REVOKE`／`REASON_BUTTON_REVOKE`／`REASON_ENDPOINT_REVOKE`
+- [x] T005 [P] `rust-api/server/src/model/facade/sys_casbin_archive.rs`：新立三常數 `REASON_MENU_REVOKE`／`REASON_BUTTON_REVOKE`／`REASON_ENDPOINT_REVOKE`
   （照既有三常數形）＋`is_non_restorable_reason` 擴五臂＋既有測 `is_non_restorable_reason_pins_three_member_set` 改名為五值形（正向餵獨立字面、負向剩
   `endpoint_revoke` 與空串）＋doc 改寫；★同檔 doc 順修：`:12-17` 域成員句改為「updateRoleMenu／updateRoleButton 入域；updateRoleEndpoints 與 restorePolicy 不入域」、
   `:34-36` 失真句改為如實（掃描面＝`archive_all_role_policies`＋`sys_menu.rs` 私有 `archive_policy_rows_of`）。
-- [ ] T006 [P] `rust-api/server/src/model/facade/sys_role.rs`：`active_ids_by_codes(conn, codes) -> HashMap<String,i64>`（純 SELECT、活性＝`deleted_at IS NULL` 不含 status、
+- [x] T006 [P] `rust-api/server/src/model/facade/sys_role.rs`：`active_ids_by_codes(conn, codes) -> HashMap<String,i64>`（純 SELECT、活性＝`deleted_at IS NULL` 不含 status、
   空集不打 DB、不取鎖）＋`active_code_of(conn, id) -> Option<String>`（窄投影、照 `home_of_role` 範式）＋測（停用角色仍回、已刪不回、空集零查詢）。
-- [ ] T007 [P] `rust-api/server/src/model/facade/sys_menu.rs`：`pub async fn all_button_codes(conn) -> Vec<String>`（`list_governed`→逐列 `button_codes_of`→HashSet 首見序去重；
+- [x] T007 [P] `rust-api/server/src/model/facade/sys_menu.rs`：`pub async fn all_button_codes(conn) -> Vec<String>`（`list_governed`→逐列 `button_codes_of`→HashSet 首見序去重；
   與 `obsolete_codes` 不共用）＋測（含停用選單碼、排除已刪、oracle 獨立重算對賬）。
-- [ ] T008 [P] `rust-api/server/src/envelope.rs`：`pub fn serialize_opt_i64_number_guarded`（None→null、Some→2^53 守衛）＋測（兩臂＋界外 fail-loud）。
-- [ ] T009 `rust-api/server/src/model/facade/sys_casbin_policy.rs` 新檔＋`model/facade/mod.rs` 掛載（ASCII 序 `sys_casbin_archive` < `sys_casbin_policy` < `sys_ip_rule`）：
+- [x] T008 [P] `rust-api/server/src/envelope.rs`：`pub fn serialize_opt_i64_number_guarded`（None→null、Some→2^53 守衛）＋測（兩臂＋界外 fail-loud）。
+- [x] T009 `rust-api/server/src/model/facade/sys_casbin_policy.rs` 新檔＋`model/facade/mod.rs` 掛載（ASCII 序 `sys_casbin_archive` < `sys_casbin_policy` < `sys_ip_rule`）：
   `Dimension{Menu,Button}`（`act()`／`revoke_reason()`）／`PolicyOutcome::{Applied{revoked,granted,effective}, Rejected{blocked}}`（blocked 永不上 wire）／
   `live_rows_of_dim`／`live_endpoint_rows`（方法白名單由 caller 傳入）／`current_targets`／`current_endpoints`（回帶 protected）／`menu_ids_to_route_names`＋
   `route_names_to_menu_ids`（治理域、orphan skip）＋單元測（白名單非反推：種 PATCH 列不得被納；映射 orphan skip 雙向；停用選單 route_name 反查得 id）。
-- [ ] T010 `rust-api/server/src/handler/role.rs` wire 段（不掛端點、編譯即可）：`Endpoint{path,method}`／`RoleMenuItem`／`RoleButtonItem`／`RoleEndpointItem`（帶 protected）／
+- [x] T010 `rust-api/server/src/handler/role.rs` wire 段（不掛端點、編譯即可）：`Endpoint{path,method}`／`RoleMenuItem`／`RoleButtonItem`／`RoleEndpointItem`（帶 protected）／
   `GrantResult<T>`／`UpdateRoleMenuReq{id,menuIds}`／`UpdateRoleButtonReq{id,buttons}`／`UpdateRoleEndpointsReq{id,endpoints}`（皆 `Default`＋`json_or_default` 信封化）／
   `RoleIdQuery{id}`（`FromRequestParts` 收斂）＋`policy_endpoints() -> Vec<Endpoint>` 具名斷環 fn（依 T004 結論）＋`ENDPOINT_METHODS` 自 `HttpMethod::as_str()` 導出。
 

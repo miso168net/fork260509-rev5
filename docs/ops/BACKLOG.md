@@ -1,4 +1,4 @@
-<!-- next: B-112 -->
+<!-- next: B-113 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -50,3 +50,4 @@
 - B-109｜**AppState 測試建構點殘餘兩處可薄殼化**（B-101 收攏批碼品質輪查定、兩檔在該批允許面外未動；`test_db::test_state` doc 名冊已載）：①`handler/ip_rule.rs` tests `real_app_with_rules`——10 個呼叫點全傳 `RuleSet::default()`、只需 `state.ip_rules` 把手，改為 `test_db::real_app_and_state_with` 薄殼即可；其 doc 首句「不共用 test_db::real_app_with：那支把 ip_rules 建在函式內、外面拿不到 Arc」已過時；②`throttle/mod.rs` integration_tests `throttle_app`——自持另一值 `TEST_CAPTCHA_SECRET`、改引 `test_db::TEST_CAPTCHA_SECRET` 即可走 `test_state`。兩支收攏後 src 側自訂形只剩 router.rs／middleware 兩處（trust_model／ip_rules 真非預設）｜下一把動 `handler/ip_rule.rs` 或 `throttle/mod.rs` 測試面的刀
 - B-110｜**endpoint_tests 之 oneshot 打端殼同形兩份**（handler/menu.rs `hit` 與 handler/role.rs `post_json`：Super token＋ConnectInfo 手植的真端點 oneshot 殼；B-094 收攏批 U3 查定、落點應為 model/mod.rs test_db 而該檔在該單元允許面外）——第三個消費者（006 新 handler 之 endpoint_tests）出現時收攏成 test_db helper、兩檔改引；與 test_db 對 `uniq_*` 的「第三消費者再收斂」慣例同線｜下一把在 handler 層新增 endpoint_tests 的刀（006 即是）
 - B-111｜**wire-schema 裁判對 `serialize_i64_number_guarded` 的存在無感**：RoleRecord／MenuRecord／AllRole／MenuTree 之 i64 欄拆掉 `#[serde(serialize_with = …guarded)]` 屬性後 serde 預設仍發 JSON number、快照裁判照過（B-094 收攏批 U3 碼品質輪變異推演；全樹既有形、非新引入——role.rs／menu.rs／contract.rs 之 `is_number()` 斷言同樣蓋不住；守衛 fn 本體另有 envelope.rs 單元測 ±2^53 界）。候選守法＝每個帶守衛的 wire 型各補一支「id=2^53+1 序列化須 Err」欄級測、或 lint 型測掃 `i64` 欄必帶該屬性｜下一把動 wire-schema 裁判家族或 envelope 序列化守衛的刀
+- B-112｜**rust 格式守門缺席**：rust-api 容器 toolchain（rust 1.96.1）未裝 rustfmt component、repo 亦無 rustfmt.toml——新碼只能手動對齊既有風格、無機器 fmt check（006-authz-governance Foundational 單元 implementer 實測查定；rev5 零 CI＝ADR 0014 之既知缺口同族）。候選處置＝容器映像加 rustfmt component＋repo 根立 rustfmt.toml＋pre-commit 於 rust-api pin 變動時跑 `cargo fmt --check`（ADR 0024 三項自證落地）；存量碼首跑 fmt 會產生大 diff、須單獨一顆 commit 且與功能改動隔離｜工具面維護批
