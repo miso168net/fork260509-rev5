@@ -51,16 +51,16 @@ implementer=fable xhigh／review=opus xhigh）。
 
 **Purpose**: 取得 base-web inline 憲法授權（§III.2 (iii)(iv)）、島 G 六條入憲、立三支 ADR、清除實作前未知數。
 
-- [ ] T001 ★主線任務（user 親決）：撰寫島 G 入憲 Amendment ADR draft（編號 0053、四款一檔、形照 ADR 0048 七段）於
+- [x] T001 ★主線任務（user 親決）：撰寫島 G 入憲 Amendment ADR draft（編號 0053、四款一檔、形照 ADR 0048 七段）於
   `docs/arc42/decisions/0053-constitution-amendment-island-g-and-manage-page-use-iii-iv.md`：款一 §I.7 第八座行為島（島 G 六條 blockquote＝data-model §4
   骨架＋research R10 落字差異五處）／款二 §III.2 加 (iii)(iv) 兩列 blockquote（首欄不留空、產物四檔路徑留 (i) 列、role-operate-drawer 同檔雙用途、
   endpoint-auth-modal 新增型不入名冊、三鈕不做 hasAuth gating）／款三 ADR 0052 生成檔條款入 §III 正文散文 bullet／款四 B-104 訂正＋訂正後完整 7 列觸發矩陣；
   front-matter `provenance` 含 ADR 0050（不 supersede）；後果段明列 FR-022 生效語意（API 判定即時／前端顯隱下次載入／不即時推播）。★user 親決兩題：①G5 條文層級（a 只寫「鎖內重驗＋reason gate＋同實例 NULL 誠實退化」、五腿留 0055／b 寫「固定序五腿」字樣）
   ②島 G header 括號寫不寫「六條」（建議照島 F 形列區間不列總數）。
-- [ ] T002 ★主線任務（user 親決後）：0053 轉 accepted＋更新 `.specify/memory/constitution.md`（v1.7.0→v1.8.0；research R10 八處、由下而上改：log 一行／版本行／
+- [x] T002 ★主線任務（user 親決後）：0053 轉 accepted＋更新 `.specify/memory/constitution.md`（v1.7.0→v1.8.0；research R10 八處、由下而上改：log 一行／版本行／
   表外宣告 2／§III.2 兩列／§III 第五 bullet／H1 括號回填〔第三態措辭〕／島 H header 括號回填／島 G 六條塊）＋`python3 tools/docs-sync.py generate`；同 commit
   （`docs(constitution): amend …`）。★本 task 完成前：一切 base-web 既有檔凍結。新列變異自證：暫改 (iii) 列範圍欄一路徑為裸措辭→fork-delta-lint 紅→還原。
-- [ ] T003 ★主線任務（user 親決）：兩支連帶 ADR draft→accepted——`docs/arc42/decisions/0054-structural-grant-lockout-protected-endpoints.md`
+- [x] T003 ★主線任務（user 親決）：兩支連帶 ADR draft→accepted——`docs/arc42/decisions/0054-structural-grant-lockout-protected-endpoints.md`
   （不變式謂詞／掛點恰兩處／射程外 menu 維四列已知態／非 vacuous 自證〔採 ADR 0024 精神、不主張屬其射程〕／翻案觸發條款／B-024③ 維持純 key／
   rev3 `3bfab71` 三缺陷三詞＋指針／後果＝B-024 改記殘餘）＋`docs/arc42/decisions/0055-restore-policy-five-leg-reverify-and-adr0050-recheck.md`
   （五腿照 ADR 0051 四段範式逐腿＋腿↔寫端守門對照表＋restorable 旗標①②③④同判準＋ADR 0050 §4 復核結論 B＋「rev4 七步／rev5 五腿計數軸不同」註＋
