@@ -40,6 +40,8 @@ implementer=fable xhigh／review=opus xhigh）。
   advisory→歸檔表列→sys_role 列→sys_menu 列→casbin_rule；reload 於 commit 後且**不持 `state.enforcer` 讀鎖**呼叫；`RELOAD_CALL_FILES` 與接線同 commit 擴列（實得序以實跑為準）。
 - ★**名冊閘**：`ENFORCER_WRITE_FILES` 維持空冊、`ALLOWED_DECISION_FILES` 維持恰一檔、casbin 版本錨不升版；handler 層零 path-root `entity::`；
   稽核詞彙恰五值（三維寫端 `Update`、restorePolicy `Restore`）。
+- ★**共用件零拷貝**（FR-008）：新 handler 一律引用 `crate::handler::common`（audit_operator／json_or_default／MAX_CURRENT／resolve_operator_names 等）、facade 側引
+  `model::facade::violated_constraint`；不得再生私有拷貝（B-094 收攏批之後的硬紀律）。
 - ★**fork-delta 紀律**：修改型標記僅允許出現於 spec FR-047 檔集（逐行 `原行:`）；新檔檔頭 `[rev5-inline MANAGE-PAGE-WIRING+ 006-authz-governance]`；
   產物四檔只由外掛重算、不手改；`components.d.ts`／`service/api/index.ts` 預期零 diff。
 
@@ -53,7 +55,7 @@ implementer=fable xhigh／review=opus xhigh）。
   `docs/arc42/decisions/0053-constitution-amendment-island-g-and-manage-page-use-iii-iv.md`：款一 §I.7 第八座行為島（島 G 六條 blockquote＝data-model §4
   骨架＋research R10 落字差異五處）／款二 §III.2 加 (iii)(iv) 兩列 blockquote（首欄不留空、產物四檔路徑留 (i) 列、role-operate-drawer 同檔雙用途、
   endpoint-auth-modal 新增型不入名冊、三鈕不做 hasAuth gating）／款三 ADR 0052 生成檔條款入 §III 正文散文 bullet／款四 B-104 訂正＋訂正後完整 7 列觸發矩陣；
-  front-matter `provenance` 含 ADR 0050（不 supersede）。★user 親決兩題：①G5 條文層級（a 只寫「鎖內重驗＋reason gate＋同實例 NULL 誠實退化」、五腿留 0055／b 寫「固定序五腿」字樣）
+  front-matter `provenance` 含 ADR 0050（不 supersede）；後果段明列 FR-022 生效語意（API 判定即時／前端顯隱下次載入／不即時推播）。★user 親決兩題：①G5 條文層級（a 只寫「鎖內重驗＋reason gate＋同實例 NULL 誠實退化」、五腿留 0055／b 寫「固定序五腿」字樣）
   ②島 G header 括號寫不寫「六條」（建議照島 F 形列區間不列總數）。
 - [ ] T002 ★主線任務（user 親決後）：0053 轉 accepted＋更新 `.specify/memory/constitution.md`（v1.7.0→v1.8.0；research R10 八處、由下而上改：log 一行／版本行／
   表外宣告 2／§III.2 兩列／§III 第五 bullet／H1 括號回填〔第三態措辭〕／島 H header 括號回填／島 G 六條塊）＋`python3 tools/docs-sync.py generate`；同 commit
@@ -63,8 +65,9 @@ implementer=fable xhigh／review=opus xhigh）。
   rev3 `3bfab71` 三缺陷三詞＋指針／後果＝B-024 改記殘餘）＋`docs/arc42/decisions/0055-restore-policy-five-leg-reverify-and-adr0050-recheck.md`
   （五腿照 ADR 0051 四段範式逐腿＋腿↔寫端守門對照表＋restorable 旗標①②③④同判準＋ADR 0050 §4 復核結論 B＋「rev4 七步／rev5 五腿計數軸不同」註＋
   字面定案於 spec〔`menu_revoke`／`button_revoke`〕）；`provenance` 含 ADR 0050；generate。
-- [ ] T004 早期查證（容器內、結論補記本 task）：①E0391 探針——在 `rust-api/server/src/handler/role.rs` 加最小 `policy_endpoints()` 讀 `crate::router::ROUTES`
-  並掛一支 handler 編譯，確認是否觸環與具名 fn 是否斷環；②`RELOAD_CALL_FILES` 擴為三檔後 `scanned_files_excluding_home()` 實得序（暫改常數實跑
+- [ ] T004 早期查證（容器內、結論補記本 task）：①E0391 探針——在 `rust-api/server/src/handler/role.rs` 加最小 handler（本體直讀 `crate::router::ROUTES`）
+  並**暫時註冊進 `router.rs` ROUTES**（`ROUTES_COUNT` 暫 +1）→`cargo build` 確認是否觸環→改為經具名 `policy_endpoints() -> Vec<Endpoint>`（具體回型、非 async）
+  再編譯確認斷環→記結論→**全數還原、零殘留**（ROUTES／ROUTES_COUNT／探針碼）；②`RELOAD_CALL_FILES` 擴為三檔後 `scanned_files_excluding_home()` 實得序（暫改常數實跑
   `rust-api/server/tests/authz_entrypoint_lint.rs` 主守恆、記實得序後還原）；③核 `sys_casbin_archive.rs` 之 `is_non_restorable_reason_pins_three_member_set`
   負向臂是否真含三個 revoke 字面；④`grep -rn "AppState {" --include=*.rs rust-api/server/ | grep -v "pub struct\|-> "` 基線 7 命中複核。
 
@@ -149,7 +152,7 @@ implementer=fable xhigh／review=opus xhigh）。
 - [ ] T019 [US2] `sys_casbin_policy.rs`：`protected_endpoint_set(conn) -> HashSet<(String,String)>`（謂詞 `ptype='p' ∧ protected=TRUE ∧ v2∈方法白名單`、單次 SELECT、鎖內現查）＋
   `set_role_endpoints` 接封死腿（角色 `role_code != SUPER_ROLE_CODE` ∧ to_grant ∩ 集≠∅⇒`Rejected`〔blocked 記封死項〕；拒因鍵 `biz.role.protectedGrant`）＋handler 映射＋
   四處 i18n＋doc 承重前提（ADR 0050 §4；un-protect 永不 UI 化）＋★變異自證（拆掉謂詞守門→T018 紅→還原→綠；report 附三次結果）；T018 轉綠。
-- [ ] T020 [US2] B-105 seam harness 自拍（`rust-api/server/src/auth/enforce.rs` tests）：`RELOAD_SERIAL` 交錯時序 seam 形 harness（後 commit 先 swap／先 commit 慢 rebuild 蓋回）
+- [ ] T020 [US2] B-105 seam harness 自拍（跨切項：屬 G1 判定面同步、隨 U5 單元施工；`rust-api/server/src/auth/enforce.rs` tests）：`RELOAD_SERIAL` 交錯時序 seam 形 harness（後 commit 先 swap／先 commit 慢 rebuild 蓋回）
   ——可證即補；成本失控＝BACKLOG B-105 留帳附記「006 已把 reload 呼叫者 3→7、harness 仍未建」（本 task 補記結論）。
 
 **Checkpoint**: US2 可獨立驗收（US1 端點維寫端上的封死；restorePolicy 路徑待 US3）。
@@ -171,8 +174,8 @@ implementer=fable xhigh／review=opus xhigh）。
 - [ ] T022 [US3] `sys_casbin_archive.rs`：`ArchivedRecord`／`dimension_of`／`list(conn, filter, page, size) -> (Vec<ArchivedRecord>, total)`（restorable 批次料源：單點 fn＋
   `active_ids_by_codes`＋`protected_endpoint_set`＋候選集參數）＋`restore(db, archive_id, candidates, operator) -> RestoreOutcome`（鎖歸檔列→①→鎖活角色 by v0→②→③（共用 T019 fn）→④→⑤→7a／7b）；
   T021 facade 案轉綠。
-- [ ] T023 [US3] `rust-api/server/src/handler/policy_archive.rs` 新檔（`ArchivedPolicyQuery` 四欄 Option＋`RestorePolicyReq{id}` Default＋`ArchivedPolicy` 15 欄〔`archivedBy` enrich
-  帳號名、`roleId` 用 T008 守衛〕＋`to_wire`＋兩支 handler：Applied⇒reload／NoOp⇒ok／NotRestorable⇒`biz.policy.notRestorable`）＋`handler/mod.rs` 註冊（menu 與 role 之間、doc 同步）
+- [ ] T023 [US3] `rust-api/server/src/handler/policy_archive.rs` 新檔（`ArchivedPolicyQuery` 四欄 Option＋`RestorePolicyReq{id}` Default＋`ArchivedPolicy` 14 欄〔`archivedBy` enrich
+  帳號名——走 `common::resolve_operator_names`、既有 B-106 範圍、去重後個位數；`roleId` 用 T008 守衛〕＋`to_wire`＋兩支 handler：Applied⇒reload／NoOp⇒ok／NotRestorable⇒`biz.policy.notRestorable`）＋`handler/mod.rs` 註冊（menu 與 role 之間、doc 同步）
   ＋`router.rs` +2（44→46）＋`RELOAD_CALL_FILES` 加 `handler/policy_archive.rs`＋`biz.policy.notRestorable` 四處 i18n（新開 `biz.policy` 子樹）＋T021 contract 轉綠＋generate。
 - [ ] T024 [US3] 前端 policy-archive 頁（★T002 後）：`base-web/src/views/manage/policy-archive/index.vue`（tsx、`useNaivePaginatedTable`＋`defaultTransform`、8 欄、NTag dimension、
   archiveReason 原字面、restorable=false 停用鈕、restore→`fetchRestorePolicy`→`if (error) return;`→toast→`getData()`、scroll-x 自算＝Σ、表頭僅 refresh）＋
@@ -203,8 +206,8 @@ implementer=fable xhigh／review=opus xhigh）。
 ### Implementation for User Story 4
 
 - [ ] T027 [US4] `handler/role.rs` 三支支撐讀 handler（getAllPages 經 `list_active` 排序、getAllButtons 經 T007、getAllEndpoints 經 `policy_endpoints()`）＋`router.rs` +3
-  （46→49、最終值）＋T026 轉綠＋generate routes；menu 管理頁 page 下拉 404 破口自動修復（CDP 於 T033 驗）。
-- [ ] T028 [P] [US4] `base-web/src/service/api/rev5-role-admin.ts`（6→18：+`fetchGetRoleMenu(id)`／`fetchUpdateRoleMenu`／`fetchGetRoleButton`／`fetchUpdateRoleButton`／
+  （46→49、最終值）＋T026 轉綠＋generate routes＋`handler/mod.rs` doc（role 八端點→十七支）與 `handler/common.rs` 檔頭預告句同步；menu 管理頁 page 下拉 404 破口自動修復（CDP 於 T035 驗）。
+- [ ] T028 [US4]（★待 T024 後：同檔追加、不與 US3 前端並行）`base-web/src/service/api/rev5-role-admin.ts`（6→18：+`fetchGetRoleMenu(id)`／`fetchUpdateRoleMenu`／`fetchGetRoleButton`／`fetchUpdateRoleButton`／
   `fetchGetRoleEndpoints`／`fetchUpdateRoleEndpoints`／`fetchGetAllButtons`／`fetchGetAllEndpoints`／`fetchGetRoleHome`／`fetchUpdateRoleHome`；`fetchGetAllPages` 不新建）＋
   `base-web/src/typings/api/rev5-role-admin.d.ts`（`Api.RoleAdmin`：`Endpoint`／`RoleMenuItem`／`RoleButtonItem`／`RoleEndpointItem`／`GrantResult`／三 Req／`RoleHomeRes`／`UpdateRoleHomeReq`）
   ＋`pnpm typecheck`（新增型、不受硬閘）。
@@ -234,7 +237,7 @@ implementer=fable xhigh／review=opus xhigh）。
 - [ ] T035 CDP 三方對照（quickstart §4 全動線：三鈕錨點／選單 modal 真勾選＋鎖定＋首頁下拉／按鈕 modal 無假資料／端點 modal 群組連動／policy-archive 頁濾與復原／
   menu 頁 page 下拉非空／ip-rule 頁不冒鈕／已知態排除清單逐項驗現狀形）；★排 schema-gate 之後；走查後 psql 清殘列＋兩 seq 還原＋三閘複驗；差異逐項判定（rev5 拍板差異 or 缺陷）補記本 task。
 - [ ] T036 ★主線任務：活書 `docs/arc42/ARCHITECTURE.md` §5（facade 11→12、reason gate 三值→五值、新增兩檔一句）＋§8（(iii)(iv) as-built、backend 樹 50 鍵改指節形、授權慣例子節
-  加三維治理／封死／回收桶／觸發面條目——落筆先算餘 13 行）＋§6 errata `docs-sync.py errata 六座`（唯一現在式「六座」→「八座」；一次補兩代）＋`docs/ops/BACKLOG.md` 帳務
+  加三維治理／封死／回收桶／觸發面條目〔含 FR-022 生效語意一句〕——落筆先算餘 13 行）＋§6 errata `docs-sync.py errata 六座`（唯一現在式「六座」→「八座」；一次補兩代）＋`docs/ops/BACKLOG.md` 帳務
   （刪 B-104／B-099；B-024 改記殘餘一句；B-098 註 IpRule 留帳；B-088 閘已建餘豁免兩列；B-083 甲案續掛；B-093／B-025／B-016／B-018／B-091／B-008／B-105／B-106 敘述各一行；
   新登「reload 呼叫點不得持讀鎖之源碼掃描守門候選」與「events summary 無 erratum 出口」兩條）＋LESSONS 新條（若有踩坑）＋`docs/ops/RUNBOOK.md` 指針（回收桶復原／封死拒因查法，
   僅指針）；收刀簿記（events feature_close notes 寫承接關係＋seed 68 歸刀 B、NOTES、generate）由收刀程序承接、不列 push／merge。

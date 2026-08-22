@@ -41,7 +41,7 @@ schema-gate 三閘＋fork-delta-lint＋view-render-guard＋route-artifact-gate�
 
 **Performance Goals**: 治理面 QPS≈0（三維寫端 diff 為集合運算、reload 全量重建秒級以內；rev4 論證
 成立）；無新效能預算節（RUNBOOK §12 既有基線不受擾動）；列表讀端之 restorable 旗標以批次讀端算
-（避免逐列查、B-106 同族債不再添）
+（避免逐列查、不另添 B-106 同族新形；`archivedBy` enrich 沿既有 `resolve_operator_names`）
 
 **Constraints**: 零 migration／零 seed 變更（硬預期；唯一已知威脅 ADR 0050 §4 條款已由 Q6 取 B 化解）；
 menu／button 維寫端域鎖必為交易首動作、endpoint 維與 restorePolicy 不入域；protected 整批拒於任何寫之前；
@@ -49,7 +49,7 @@ menu／button 維寫端域鎖必為交易首動作、endpoint 維與 restorePoli
 先行硬閘（accepted 前不得動 base-web 既有檔、不得落憲法接觸面碼）
 
 **Scale/Scope**: 11 端點／島 G 六條入憲／ADR 三支／前端修改型 inline 3＋新增型新檔 3＋圈界 3＋產物 4
-／backend i18n 鍵 50→53＋page 樹 17 鍵／~13 執行單元（tasks 期定稿）；seed 選單 78 列、政策 163 列不動
+／backend i18n 鍵 50→53＋page 樹 17 鍵／~12 執行單元（tasks 期定稿）；seed 選單 78 列、政策 163 列不動
 
 ## Constitution Check
 
@@ -128,6 +128,7 @@ rust-api/server/src/
 │   ├── policy_archive.rs           # 新：回收桶兩支（獨立檔、ASCII 序插 menu 與 role 之間）
 │   └── mod.rs                      # 改：註冊 policy_archive、doc 同步
 ├── router.rs                       # 改：+11 條 ROUTES、ROUTES_COUNT 38→49
+├── envelope.rs                     # 改：+serialize_opt_i64_number_guarded（roleId number|null）
 ├── model/
 │   ├── facade/
 │   │   ├── sys_casbin_policy.rs    # 新：三維 grant/revoke 寫端＋讀端（全量替換 diff、protected 整批拒、orphan skip、封死守門）
@@ -160,7 +161,9 @@ base-web/src/
 .specify/memory/constitution.md    # Amendment v1.8.0（U1、主線親做）
 docs/arc42/decisions/{0053,0054,0055}-*.md   # 新
 docs/arc42/ARCHITECTURE.md         # §5／§8 as-built＋§6 errata「六座」→「八座」
-tools/seed-view-gate.py            # 新：B-088 對賬閘（seed view.* ⊆ 前端 view 集；具名豁免 seed 9／77 附 B-008 指針；納冊 TOOLS_PY＋pre-commit＋bootstrap；research R8-12）
+tools/seed-view-gate.py            # 新：B-088 對賬閘（seed view.* ⊆ 前端 view 集；具名豁免 seed 9／77 附 B-008 指針；research R8-12）
+.githooks/pre-commit／tools/bootstrap.sh／README.md／tools/docs-sync.py TOOLS_PY   # 改：seed-view-gate 接線與納冊（Lint27 樹對賬）
+docs/ops/RUNBOOK.md                # 改：回收桶復原／封死拒因查法指針（T036）
 ```
 
 **Structure Decision**: 沿 005 既有雙腿佈局；後端依 rev4 藍本落兩個新檔（facade/sys_casbin_policy.rs、

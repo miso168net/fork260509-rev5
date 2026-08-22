@@ -8,7 +8,7 @@
 
 ### `ArchivedPolicyDimension`＝`'menu' | 'button' | 'endpoint'`
 
-### `ArchivedPolicy`（列表列；camelCase；恰 15 欄）
+### `ArchivedPolicy`（列表列；camelCase；恰 14 欄）
 
 | 欄 | 型 | 說明 |
 |---|---|---|

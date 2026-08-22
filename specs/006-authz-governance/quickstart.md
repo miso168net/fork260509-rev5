@@ -18,25 +18,25 @@ TOKEN=$(curl -s -X POST http://127.0.0.1:22080/api/auth/login -H 'content-type: 
 ## 1. 後端契約面（curl；Super token）
 
 ```bash
-H=(-H "authorization: Bearer $TOKEN" -H "content-type: application/json"); H="${H[*]}"
+H=(-H "authorization: Bearer $TOKEN" -H "content-type: application/json")
 # 支撐讀三支（getAllPages 為 menu 頁既有 404 破口、交付即修復）
-curl -s $H http://127.0.0.1:22080/api/systemManage/getAllPages      # data: string[]（顯示域、(order,id) 序）
-curl -s $H http://127.0.0.1:22080/api/systemManage/getAllButtons    # data: string[]（治理域聯集）
-curl -s $H http://127.0.0.1:22080/api/systemManage/getAllEndpoints  # data: Endpoint[]（Policy 全集、35）
+curl -s "${H[@]}" http://127.0.0.1:22080/api/systemManage/getAllPages      # data: string[]（顯示域、(order,id) 序）
+curl -s "${H[@]}" http://127.0.0.1:22080/api/systemManage/getAllButtons    # data: string[]（治理域聯集）
+curl -s "${H[@]}" http://127.0.0.1:22080/api/systemManage/getAllEndpoints  # data: Endpoint[]（Policy 全集、35）
 # 三維讀端（角色鍵 id；每項帶 protected）
-curl -s $H 'http://127.0.0.1:22080/api/systemManage/getRoleMenu?id=2'
-curl -s $H 'http://127.0.0.1:22080/api/systemManage/getRoleButton?id=2'
-curl -s $H 'http://127.0.0.1:22080/api/systemManage/getRoleEndpoints?id=2'
+curl -s "${H[@]}" 'http://127.0.0.1:22080/api/systemManage/getRoleMenu?id=2'
+curl -s "${H[@]}" 'http://127.0.0.1:22080/api/systemManage/getRoleButton?id=2'
+curl -s "${H[@]}" 'http://127.0.0.1:22080/api/systemManage/getRoleEndpoints?id=2'
 # 三維寫端（全量替換；回應 {revoked, granted, effective}）
-curl -s $H -X POST http://127.0.0.1:22080/api/systemManage/updateRoleMenu -d '{"id":2,"menuIds":[1,2,3]}'
+curl -s "${H[@]}" -X POST http://127.0.0.1:22080/api/systemManage/updateRoleMenu -d '{"id":2,"menuIds":[1,2,3]}'
 # 撤銷 R_SUPER（id 1）任一 protected 項 ⇒ 2222 biz.role.protectedRevoke、零變更
-curl -s $H -X POST http://127.0.0.1:22080/api/systemManage/updateRoleEndpoints -d '{"id":1,"endpoints":[]}'
+curl -s "${H[@]}" -X POST http://127.0.0.1:22080/api/systemManage/updateRoleEndpoints -d '{"id":1,"endpoints":[]}'
 # 結構性封死：把受保護端點授給 R_ADMIN ⇒ 2222 biz.role.protectedGrant、零變更
-curl -s $H -X POST http://127.0.0.1:22080/api/systemManage/updateRoleEndpoints \
+curl -s "${H[@]}" -X POST http://127.0.0.1:22080/api/systemManage/updateRoleEndpoints \
   -d '{"id":2,"endpoints":[{"path":"/systemManage/updateRoleEndpoints","method":"POST"}]}'
 # 回收桶
-curl -s $H 'http://127.0.0.1:22080/api/systemManage/getArchivedPolicies?current=1&size=10&dimension=endpoint'
-curl -s $H -X POST http://127.0.0.1:22080/api/systemManage/restorePolicy -d '{"id":<archiveId>}'
+curl -s "${H[@]}" 'http://127.0.0.1:22080/api/systemManage/getArchivedPolicies?current=1&size=10&dimension=endpoint'
+curl -s "${H[@]}" -X POST http://127.0.0.1:22080/api/systemManage/restorePolicy -d '{"id":<archiveId>}'
 # 授權態：以 Admin token 打上述任一支 ⇒ 5003／HTTP 403
 ```
 

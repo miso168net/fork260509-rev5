@@ -305,7 +305,8 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
 - **FR-016**: 按鈕維候選集 MUST ＝未刪選單（含停用）之 buttons 聯集（去重）；界外碼 MUST 靜默略過（orphan
   skip、對稱選單維）；回應帶實際生效集合。
 - **FR-017**: 端點維粒度 MUST 為「路徑×方法」雙鍵；現況辨識 MUST 以 HTTP 方法白名單判別端點維（不得以排除
-  他維反推）；MUST NOT 引入平行的維度標記編碼；候選＝路由註冊表中受政策管制端點全集。
+  他維反推）；MUST NOT 引入平行的維度標記編碼；候選＝路由註冊表中受政策管制端點全集；期望集中候選外之項（含非白名單 method）MUST 靜默
+  略過（orphan skip、與 FR-015／FR-016 同式）、回應帶實際生效集合。
 - **FR-018**: grant 面 outcome MUST 恰兩態 Applied{revoked, granted}／Rejected{blocked}（無 NoOp 態）；回應
   帶實際生效集合。
 
@@ -317,7 +318,8 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
   明文為「grant 面刻意例外」、與移除面「成功且有歸檔才觸發」並陳。
 - **FR-021**: 判定面同步呼叫點名冊閘 MUST 同步擴列（主守恆集合恰等、不擴列接線當場紅）；MUST NOT 自取
   enforcer 寫鎖；casbin 版本錨不升版。
-- **FR-022**: 生效語意 MUST 明文：API 判定即時、前端選單／按鈕顯隱於下次載入更新；本刀 MUST NOT 做即時推播。
+- **FR-022**: 生效語意 MUST 明文（落點＝島 G 入憲 ADR 後果段＋活書 §8 授權慣例條目）：API 判定即時、前端選單／按鈕顯隱於下次載入
+  更新；本刀 MUST NOT 做即時推播。
 
 #### D. 結構性封死（島 G6、B-024①歸宿）
 
@@ -335,7 +337,8 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
 #### E. 授權回收桶（島 G5 復原面）
 
 - **FR-028**: getArchivedPolicies MUST 分頁＋雙濾（來源角色代碼／維度）＋`archived_at` DESC；維度由歸檔列內容
-  推導（選單／按鈕／HTTP 動詞→端點；不新增維度欄）；讀端零 migration（基線索引現成）。
+  推導（選單／按鈕／HTTP 動詞→端點；不新增維度欄）；`archivedBy` 以操作者帳號名 enrich（string｜null、查無→null；沿 rev5 列表慣例）；
+  讀端零 migration（基線索引現成）。
 - **FR-029**: 每列 MUST 帶後端判定之 `restorable` 旗標＝權威五腿之 ①reason 不屬不可復原集 ∧ ②歸檔 role_id
   等於現役同代碼活角色 id（NULL→false）∧ ③封死不擋（標的非「protected 端點政策→非 R_SUPER」）∧ ④端點在冊
   （(v1,v2) 在路由註冊表；選單／按鈕維列因①恆 false、免此半）；第⑤腿（停用不擋）恆不擋故免算。前端 MUST NOT
