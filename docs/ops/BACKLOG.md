@@ -1,4 +1,4 @@
-<!-- next: B-106 -->
+<!-- next: B-109 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -48,3 +48,6 @@
 - B-102｜**role handler 家族的 `blank_to_none` 呼叫零組合面測（mutation-green 點）**：`handler/role.rs` 之 addRole 三欄／updateRole 三態／updateRoleHome（T034）皆經 `blank_to_none` 把空字串收斂 NULL，但無任何測釘「空字串輸入→落庫 NULL」組合面——拆掉該呼叫全樹照綠（005 U14 碼品質審查輪變異推演查定）。後果面已推演為低害：契約型 `string|null` 下 `''` 仍合法、讀端 `.flatten()`＋`!is_empty()` 對兩者等效、僅 wire 回值與稽核快照呈 `""`。屬既有形制非 U14 新引入。候選修法＝contract 側加帶合成角色＋RoleCleanup 的整合腿（會破 contract 節「零副作用紀律」、需一併調整節首碼註）、或 facade 層收斂點補單元測｜下一把動 role handler 或 contract 測家族的刀
 - B-104｜**ADR 0049 §2 觸發矩陣括號句出生即誤（「連動歸檔恆發生」）**：deleteMenu／batchDeleteMenu 兩列寫「成功即觸發」且括號宣稱連動歸檔恆發生——as-built 三支一律 `if archived` 為門（零政策列標的＝零觸發），spec FR-039 與 tasks T026 皆正確、ADR 為三文件唯一離群值（005 final review 查定；L-048 出生即誤形）。enforce.rs doc 表已同批訂正並釘「勿回帶」句。ADR body 不可變＝as-built 事實以 spec FR-039＋enforce.rs doc 為準（B-008 處置先例）；正式訂正窗＝授權治理刀島 G1 條文入憲時（ADR 0049 自陳為其 rev5 凍結位、屆時一併以新 ADR 承載）｜授權治理刀島 G 入憲時
 - B-105｜**reload 跨端點序列化的交錯時序無行為 harness（結構保證、變異不紅）**：005 final review F7 補了 `RELOAD_SERIAL` mutex（rebuild＋swap 全程互斥、含重試迴圈）封「後 commit 先 swap、先 commit 慢 rebuild 蓋回舊快照＝已歸檔 p 列判定面復活」窗；退化守僅 `reload_concurrent_calls_serialize_and_complete`（死鎖即逾時紅），**拿掉 mutex 全測仍綠**——交錯時序需注入式 harness（fail-point 卡住 rebuild 讀庫時點）才可證。候選＝tokio::sync 通道注入 seam 或 loom 形；成本中、收益＝把結構保證變機器證｜授權治理刀動判定面時，或下一把動 enforce.rs 的刀
+- B-106｜**`handler::common::resolve_operator_names` 之 N+1 效能債（自 B-094 收攏批分出、獨立掛帳）**：共用件仍逐 id 呼叫 `sys_user::find_by_id`（去重後典型個位數、最壞一頁 100 列×兩欄＝200 次查）；正解＝`model/facade/sys_user.rs` 開 `IN (...)` 批次讀端（rev4 即此形）、共用件改吃批次結果——該檔不在 B-094 收攏批允許面故未動，共用 doc 已載正解指向。★006 授權治理刀 §4-④ 自拍「自建批次讀端 active_ids_by_codes」時同檔同形、宜順捎｜下一把動 `facade/sys_user.rs` 讀端的刀（006 批次讀端自建時順捎）
+- B-107｜**`handler::common::audit_operator` 缺席腿的 log `target="security.ipgate"`＋`degraded` 欄無機器守（改壞全綠、obs016 告警當場失明）**：既有兩支測只斷言 `5000` 與 `AuditOperator` 五欄；`deploy/grafana-provisioning/alerting/rules.yml` 之 ipgate-degraded 以 `target="security.ipgate" | fields_degraded=~".+"` 過濾，把 target 字面改掉或拆 degraded 欄＝告警結構性進不了 count_over_time 而測試照綠。缺口在收攏前四份拷貝時即存在（pre-existing），收攏後爆炸半徑由「四份各自失效」變「單點失效服務四域」（B-094 收攏批 U1 碼品質輪查定）。候選守法＝tracing_subscriber 捕獲層測斷言該則 target 與 degraded 欄、或「source 字面 ↔ rules.yml 過濾字面」名冊閘（與 obs.rs pre-register 同族）｜下一把動 obs／告警名冊或 tracing 測試基建的刀
+- B-108｜**`db_status_to_wire` 同形私有拷貝兩份（handler/role.rs／handler/menu.rs，menu 側 doc 自陳「同名同形自持一份」）**：非 B-094 收攏標的（該批只收已達三份以上者）；第三個消費者出現時併入 `handler/common.rs`、menu 側自陳句隨之刪｜下一把在 handler 層第三次需要 status 二值 wire 映射的刀（006 新 handler 若需即順捎）

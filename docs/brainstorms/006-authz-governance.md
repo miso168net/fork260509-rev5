@@ -53,9 +53,11 @@
    （:192；三律＝父不在集合升根、order→id 穩定排序、環整環靜默缺席）／`page_query_governed`
    （:261）／`menu_tree`（:309）；顯示域＝`list_active`（:108、啟用∧未刪）。本刀 menu 維授權
    候選集直接消費治理域（FR-019：治理候選 MUST NOT 誤用顯示域）。
-6. **handler 慣例**（handler/role.rs 照抄形）：json_or_default（:236）／tristate（:216）／
-   blank_to_none（:369）／map_*_err 四支／audit_operator（:453、上下文缺席拒寫 5000）／
-   resolve_operator_names（:496）／MAX_CURRENT（:518）；PageRes 已上移 envelope.rs:104；
+6. **handler 慣例**（★2026-08-22 起手維護批 maint-b094-b101 U1 後：六件共用件已收攏至
+   `handler/common.rs`、pub(crate)——json_or_default／tristate／blank_to_none／audit_operator
+   （上下文缺席拒寫 5000、多一參 write_end）／resolve_operator_names／MAX_CURRENT；本刀新
+   handler **引用 `common::*`、零拷貝**；map_*_err 各檔自有；facade 側 violated_constraint
+   已收至 `model/facade/mod.rs`）；PageRes 已上移 envelope.rs:104；
    status wire 二值收斂；誠實 null；★稽核詞彙恰五值不擴（audit.rs t005 機器釘）——本刀三維寫端
    用 `update`、restorePolicy 用 `restore`，不得新增 grant/revoke variant。
 7. **測試基建**：四守衛家族＋seq 定案值（RoleCleanup setval 3,true／MenuCleanup 78,true／
@@ -262,7 +264,7 @@
   ★批次料源缺件：旗標同實例半的料源 rev4:`sys_role::active_ids_by_codes`（rev4:facade/
   sys_role.rs:115）在 rev5 **不存在**（公開面僅單列形 find_active_by_id/code_for_update）——
   主線自拍＝自建批次讀端（理由：批次避免逐列查角色；resolve_operator_names
-  的 N+1 債已在 B-094 名下、不宜再添一筆）。
+  的 N+1 債已獨立掛 B-106〔自 B-094 分出〕、自建批次讀端時宜順捎）。
 - **restorePolicy 七步鎖序**（rev4:facade/sys_casbin_archive.rs:330 restore 藍本）：
   入域（★rev4 原形＝**無條件**取鎖 :338-341；rev5 擬收窄為僅選單／按鈕分支＝§4-③ 待決
   結構點）→鎖 archive 列→鎖角色列→**鎖內重驗**→回灌 casbin_rule→刪 archive 列
@@ -475,9 +477,10 @@ RUNTIME_APPEND_TABLES ⇒ gate2 逐列全等：測試殘列清乾淨＋`casbin_r
   policy_archive.rs ⇒ 本刀授權面不會自然打開 menu.rs；★失準句出處＝BACKLOG B-094 改期段
   「該刀必動 handler/menu.rs 授權面」——以此為準、收刀關帳時順修該半句；NOTES 僅記
   「起手維護批＝B-094＋B-101 收攏」、無此失準句）；
-  緊迫理由＝本刀新檔 policy_archive.rs 會生出 audit_operator **第五份**拷貝（現況機器數：
+  緊迫理由＝本刀新檔 policy_archive.rs 會生出 audit_operator **第五份**拷貝（收攏前機器數：
   audit_operator 4 份、json_or_default 3、resolve_operator_names 3、violated_constraint 3、
-  MAX_CURRENT 3、tristate 3、blank_to_none 2）。B-101——★動工前先分類：AppState 字面建構點
+  MAX_CURRENT 3、tristate 3、blank_to_none 2；★已於 maint-b094-b101 U1 收攏＝
+  handler/common.rs＋facade/mod.rs、各定義恰一處）。B-101——★動工前先分類：AppState 字面建構點
   生產 1＋測試側 **10 處**（BACKLOG「第四份」低估）；可收攏（menu.rs:1827／contract.rs:1608／
   tests/common/mod.rs:78／enforce.rs:495 之一部）vs 須保留自訂形（stub_state_with_rules／
   stub_state(tm)／real_app_with_rules／state_with 四處）；real_app_with 長 (Router, AppState)
