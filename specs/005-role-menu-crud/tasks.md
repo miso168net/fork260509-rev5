@@ -379,9 +379,22 @@ buttons 絕版歸檔＋判定面同步。
   ＝migration 既有）；七閘全 rc=0；gate2 零殘列＋setval 名冊 11 支複驗綠；wire-schema
   57 definitions byte 一致；fork-delta 63 處授權判定皆合＋檔面收窄斷言綠；兩顆授權 modal
   git diff 輸出 0 行。
-- [ ] T036 CDP 三方對照（quickstart §4 全動線）：role 頁／menu 頁 vs rev4 42080 逐項；
+- [x] T036 CDP 三方對照（quickstart §4 全動線）：role 頁／menu 頁 vs rev4 42080 逐項；
   ★已知態三組驗「現狀形」（兩鈕假資料 modal／policy-archive 死項零反應／新建選單側欄不現
   管理列表可見）；發現差異＝逐項判定（rev5 拍板差異 or 缺陷）記錄於本 task 補記。
+  ★T036 走查實錄（2026-08-22、主線 CDP 親跑；22080 入口 up 後對 42080、42089 未起用
+  ——已知態驗證不需 apifox 基線；截圖與逐步 script 存 tmp/u16-cdp/）：
+  §4-1 role：三列 seed 真資料、搜尋恰中、drawer 五欄含 memo textarea＋「仅管理员可见」
+  placeholder、刪/批刪 popconfirm 確認流（取消收尾零破壞）；§4-2 menu：樹表 11 頂層、
+  新增 modal 開啟期間 network **恰一支 GET getMenuTree、零 fetchGetAllRoles**、NTreeSelect
+  父選擇器＋multiTab/constant/buttons/memo 欄齊；探針列（routeName=u16-cdp-probe）
+  新增→刪→toggle 回收桶（恰 1 列、操作欄整欄換恢复、寫端入口隱）→復原→回樹原態；
+  拒因人話「路由名称已存在」。§4-3 已知態三組全數現狀形通過（①drawer 內兩鈕→假資料
+  modal 非 404 ②policy-archive 原始 key＋點擊零反應 ③新建列表可見側欄不現）。§4-4
+  zh-CN/en-US 兩頁 raw key 掃描零命中（三死項豁免）。★差異判定：rev5 多 role/menu 兩
+  memo 欄（B-003 兌現）＋新增 modal 父選擇器（T027 補記在案）＝拍板差異；**零新缺陷**。
+  收尾清理：探針列硬刪＋op-log 3 列清＋sys_menu_id_seq setval(78,true) 還原、歸檔零列、
+  三閘複驗綠。
 - [ ] T037 ★主線任務：`docs/ops/RUNBOOK.md` 增補（若有新操作面：域鎖觀測法／reload 告警
   查法——僅指針不展開）＋`docs/ops/BACKLOG.md` 帳面處置：B-025 敘述更新（deleteRole 窗
   客戶消滅）／B-003 改寫（role_memo＋menu_memo 兌現、剩 sys_user→刀 B）／B-091 rider
