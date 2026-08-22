@@ -21,20 +21,20 @@
   ADR 0046／0047、L-048、lint 條款 26、docs-sync 自測 524）｜
   **005-role-menu-crud**（merge 0125f8c、本代第五刀）：role＋menu CRUD 16 端點、ROUTES 38
   終態、測試 512→650、憲法 1.7.0（島 H＋用途(ii)）、ADR 0048～0052、零 migration；序列化域
-  ＋rebuild-swap 熱重載＋歸檔寫入面三底座就緒（授權治理刀依賴面全兌現）。
+  ＋rebuild-swap 熱重載＋歸檔寫入面三底座就緒（授權治理刀依賴面全兌現）｜
+  **授權治理刀起手維護批**（輕量軌、merge 524d8b9：B-094 收攏＝handler/common.rs 六件＋facade violated_constraint、
+  B-101 test_db::test_state 單一字面＋(Router, AppState) 變體、B-085 自證測、B-102 三測、B-098 十二裁判；四筆關帳、測試 650→682）。
   啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文；
   ★其內裸 B／L 編號屬 rev4 空間、該目錄在 Lint25 掃描面外＝L-014）。
 - 兩筆待補：B-035 雙平台 DoD 之 macOS 側；setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 
-- **★下一刀＝授權治理刀**（brainstorm 已於 005 階段 0 同場定稿、★暫存版控外〔tmp/ 備份〕、
-  起手時補入版控、檔名配號接續 005）：三維授權治理 11 支＋島 G 入憲＋結構性封死〔B-024①歸宿〕＋
-  policy-archive 頁〔B-008 出列一張〕；依賴之 005 底座（序列化域／熱重載／歸檔寫入面）已全兌現。
-  ★起手維護批（改期落此、2026-08-22）＝B-094＋B-101 收攏；島 G 入憲順捎＝ADR 0052 條款入
-  §III 正文＋B-104（ADR 0049 括號句訂正）。
+- **★下一刀＝授權治理刀**（brainstorm 定稿＝docs/brainstorms/006-authz-governance.md、§10 之
+  22 題已拍〔2026-08-22〕、起手維護批已收〔merge 524d8b9〕）：三維授權治理 11 支＋島 G 入憲＋
+  結構性封死〔B-024①歸宿〕＋policy-archive 頁〔B-008 出列一張〕；依賴之 005 底座全兌現；
+  島 G 入憲順捎＝ADR 0052 條款入 §III 正文＋B-104（ADR 0049 括號句訂正）。
   刀 B（user＋password）＝再之後：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
   changePassword」（2026-08-18、記兩檔 §3 表 #4）；★刀 B 必復核 B-093（deleteRole 判定面繼承窗）。
 - **其餘在案候選**：B-008 餘兩張 view（manage_system-settings／audit＋audit 5 支端點；policy-archive 由授權治理刀承接、★連帶 B-088 對賬閘宜同批）。
-- ★下一動作＝授權治理刀起手：①階段 0 **已定稿**＝docs/brainstorms/006-authz-governance.md
-  （2026-08-22 五 lens 偵查後重寫、取代 tmp/ 舊草稿）②**待 user 拍該檔 §10 之 22 題**
-  ③起手維護批（B-094＋B-101）④手動起 /speckit-specify（絕不排自動流程、否則 spec 落 default）。
+- ★下一動作＝**手動起 /speckit-specify**（input＝上述 brainstorm 檔；絕不排自動流程、否則 spec 落
+  default）→ clarify → plan（research 必列 rev4 碼清單＋拍板差異點）→ tasks → analyze、每步 commit。
