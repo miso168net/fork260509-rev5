@@ -371,10 +371,14 @@ buttons 絕版歸檔＋判定面同步。
 
 ## Phase 8: Polish & Cross-Cutting（DoD 收攏）
 
-- [ ] T035 全量閘：容器 serial 全量 `cargo test` rc=0＋`docs-sync.py check` 0 錯誤＋
+- [x] T035 全量閘：容器 serial 全量 `cargo test` rc=0＋`docs-sync.py check` 0 錯誤＋
   `schema-gate.py check` 三閘綠（gate2 對三表零殘列＋seq setval 核——T004 結論複驗）＋
   wire-schema 快照 diff 符預期＋fork-delta-lint 綠（修改型僅 plan 檔集；★兩顆授權 modal
   `git diff` 零輸出斷言）＋view-render-guard 綠＋`pnpm typecheck` 綠。
+  ★T035 收單（2026-08-22、主線親跑）：648 passed/0 failed（基線 512→終態 648、ignored 2
+  ＝migration 既有）；七閘全 rc=0；gate2 零殘列＋setval 名冊 11 支複驗綠；wire-schema
+  57 definitions byte 一致；fork-delta 63 處授權判定皆合＋檔面收窄斷言綠；兩顆授權 modal
+  git diff 輸出 0 行。
 - [ ] T036 CDP 三方對照（quickstart §4 全動線）：role 頁／menu 頁 vs rev4 42080 逐項；
   ★已知態三組驗「現狀形」（兩鈕假資料 modal／policy-archive 死項零反應／新建選單側欄不現
   管理列表可見）；發現差異＝逐項判定（rev5 拍板差異 or 缺陷）記錄於本 task 補記。
