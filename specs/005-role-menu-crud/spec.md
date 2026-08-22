@@ -58,7 +58,7 @@ authz-governance（brainstorm 已同場定稿、暫存版控外、起手時補�
 - Q(G2): 新建／復原選單在授權治理刀授權面板進場前無法授予可見性（含 R_SUPER——MODEL_CONF 無旁路、
   機器驗證）？→ A: **接受、列已知態**——側欄不現、管理列表照常可編；本質＝兩步流第二步工具
   晚一刀、與 rev4「第一步完成第二步未勾」同形。
-- Q(G3): 前端修改型檔清單？→ A: **照實拆列**——本刀＝role 3 檔＋menu 2~3 檔；`menu-auth-modal.vue`
+- Q(G3): 前端修改型檔清單？→ A: **照實拆列**——本刀＝role 3 檔＋menu 2 檔（定數見 FR-041 as-built）；`menu-auth-modal.vue`
   ／`button-auth-modal.vue` 兩檔一行不動留授權治理刀（憲法檔級名單＝硬邊界，多列＝授權未發生的修改）。
 - Q(G4): getMenuTree 歸屬？→ A: **移入 005**（16 支／授權治理刀11 支）——rev4 menu-operate-modal 之
   父節點選擇器逐字消費 `fetchGetMenuTree`、本刀 menu 頁做真即硬相依。
@@ -228,11 +228,17 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
 - **getAllRoles 零 UI 消費者窗**：本刀 as-shipped 無前端呼叫點（menu modal 之 upstream 殘留
   呼叫不帶〔FR-045〕、user 頁角色指派屬刀 B）——UI 消費者隨刀 B 進場；契約、授權態與測試
   照常交付（clarify Q3 拍板）。
+- **roleHome 兩端點零 UI 消費者窗**（as-built 補記 2026-08-22、final review 查定）：
+  getRoleHome／updateRoleHome 同構 as-shipped 零前端呼叫點（連 wrapper 未預埋）——rev4 的
+  roleHome UI 家在 menu-auth-modal.vue、正是本刀名單明文排除的兩顆授權 modal 之一；UI
+  消費者隨授權治理刀（modal 接真時）進場，契約、授權態與測試照常交付。
 - **守門兩腿生產面窗（grilling G6 註記）**：deleteRole 之 in-use 與 self-role 兩腿在刀 B
   （user 角色指派寫端）落地前無生產面觸發路徑——新建角色無工具可指派（永零掛載）、seed 角色
   被 seeded 腿先擋；測試以直種 `sys_user_role` 指派列構造觸發（資料態、零測試旗標）。
 - **empty body**：POST／DELETE 寫端收空 body ⇒ 授權中介層照常判定（middleware 不觸 body），
-  body 解析失敗依既有 wire 慣例回 3333 家族——不得為此把守門前移進 middleware。
+  body 解析失敗依既有 wire 慣例以 `json_or_default` 收斂 `T::default()`、落契約內既有鍵
+  （add→2222 形制拒／update→0000 no-op 形；零 3333、零新 key——as-built 訂正 2026-08-22、
+   B-096 關帳：原句「回 3333 家族」與 004 起既有慣例不符、3333＝token expired）——不得為此把守門前移進 middleware。
 - **請求上下文缺席**：寫端稽核列之來源欄不可得 ⇒ 拒寫 5000（rev5 既定、F3① 同向；不帶回
   rev4 的放行形）。
 - **restore 冪等**：復原一條現役中（未刪）選單＝業務錯誤（rev5 既定；不帶回 rev4 冪等成功形）。
@@ -376,7 +382,7 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
 
 - **FR-041**: role 頁與 menu 頁 MUST 接真後端（列表／搜尋／新增編輯抽屜或 modal／刪除批刪／
   回收桶 toggle）；修改型檔集恰＝role 3 檔（index.vue／role-operate-drawer.vue／role-search.vue）
-  ＋menu 2~3 檔（index.vue／menu-operate-modal.vue／shared.ts 視需要——定數於 Amendment 起草時判定
+  ＋menu 恰 2 檔（index.vue／menu-operate-modal.vue；shared.ts 經 T001 前置半步兩向 diff 逐位零判定不入——定數已於 Amendment 落死
   〔tasks T001 前置半步〕），逐行 `原行:` 標記；
   `menu-auth-modal.vue`／`button-auth-modal.vue` MUST 一行不動（授權治理刀射程；檔級硬邊界）。
 - **FR-042**: 選單回收桶 UI MUST toggle 形（「顯示已刪除」開關換資料源 getDeletedMenus、

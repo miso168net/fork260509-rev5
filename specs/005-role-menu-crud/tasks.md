@@ -146,7 +146,9 @@ CDP 走查（quickstart §4）。
   （`SEEDED_ROLE_IDS=[1,2,3]`＋`SUPER_ROLE_CODE="R_SUPER"`＋`find_active_by_id_for_update`
   家族）；`sys_menu.rs` 同形 helper。零寫端（寫端在各 US）。
 - [x] T012 [P] 清理守衛家族（`test_db`）：RoleCleanup／MenuCleanup／CasbinCleanup（casbin_rule
-  ＋歸檔表）三件 RAII Drop 守衛＋★守衛自證測各一（造 committed 列→前提自證非零→Drop→
+  ＋歸檔表）三件 RAII Drop 守衛（★as-built 第四件：U7/T018 需直種 sys_user_role 指派列、
+  加 `UserCleanup`〔sys_user＋sys_user_role 雙腿＋seed 隔離斷言＋兩支自證測〕——final
+  review 補記 2026-08-22）＋★守衛自證測各一（造 committed 列→前提自證非零→Drop→
   回零＋sequence 還原斷言的**期望值取 T004 定案四值**——sys_role=(3,true)／sys_menu=(78,true)／
   casbin_rule=(163,true)／歸檔表=(1,false)，★勿照抄 004 兩形（IpRuleCleanup③／
   SequenceResetGuard）的 (1,false)：那是其表 seed 值本就 1,false，本刀四表僅歸檔表巧合
@@ -277,7 +279,7 @@ buttons 絕版歸檔＋判定面同步。
   edit 模式形不沿用——U16 CDP 對照時新增 modal 多一顆父選擇器欄＝拍板差異非走樣。
   UpdateReq 結構性無 routeName/menuType（出現即拒落到編譯期）；wire-schema 快照 51→57
   definitions（+6 支 Api.MenuAdmin.*、既有零變動）。components.d.ts 隨 NTreeSelect 首進場
-  重算（主線觸發 vite transform、恰 +1 行宣告）。★U16 對照另注意：rev5 誠實 null（seed
+  重算（主線觸發 vite transform、+2 行宣告——vue 模組與 global 兩區塊各一；初記 +1 為誤數、final review 訂正）。★U16 對照另注意：rev5 誠實 null（seed
   六列 iconType NULL 等）畫面與 rev4 缺值退 '1' 形不同＝拍板直接後果非回歸。
 
 **Checkpoint**: US2 可獨立驗收；已知態③（新建選單側欄不現）照 quickstart §4-3 驗現狀形。

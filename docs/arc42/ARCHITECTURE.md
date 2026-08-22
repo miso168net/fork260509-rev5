@@ -83,12 +83,19 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   `alt_stub.rs` 替代登入誠實 stub 四出口）／`handler/captcha.rs`＋`captcha/`（圖形驗證碼
   簽章題）／`throttle/`（登入失敗節流狀態機——003 起帳號維、004 起雙維）／`cache/`
   （redis session 加速層：denylist／grace／last_activity／throttle L1 與解鎖標記鍵面）；
-  資料面 `model/facade/` **十支**（session_event／sys_ip_rule／sys_login_attempt／
-  sys_menu／sys_operation_log／sys_role／sys_token／sys_user／sys_user_role／
-  system_settings）＋src 側測試共用設施 `model::test_db`（守衛**八件**＝`SequenceResetGuard`
+  資料面 `model/facade/` **11 支**（session_event／sys_casbin_archive／sys_ip_rule／
+  sys_login_attempt／sys_menu／sys_operation_log／sys_role／sys_token／sys_user／
+  sys_user_role／system_settings；`sys_casbin_archive`＝005 授權歸檔寫入面——選單域
+  advisory 鎖底座 key `0x7265_7635_6D65_6E75`＋`insert_archived` role_id 反查內收＋
+  reason gate 三值集；固定鎖序 advisory→歸檔表列→sys_role 列→sys_menu 列→casbin_rule、
+  防環上溯上限 64、routeName 形制上限 100——憲法島 H「常數留活書」落點；判定面
+  rebuild-swap 熱重載機制詳 ADR 0049＋`auth/enforce.rs` doc）＋src 側測試共用設施
+  `model::test_db`（守衛 **12 件**＝`SequenceResetGuard`
   ／`ChainRowsCleanup`／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
-  `OperationLogCleanup`／`SessionIdCleanup`＋列態 fixture `UserStatusFixture`，各支「為何
-  非有不可」逐條寫在其型 doc；其中**六支**各配一支核心自證測——`OperationLogCleanup` 依其
+  `OperationLogCleanup`／`SessionIdCleanup`＋005 四件 `RoleCleanup`／`MenuCleanup`／
+  `CasbinCleanup`／`UserCleanup`（雙名冊＋seed 隔離斷言＋四 seq setval 還原、自證測 7 支）
+  ＋列態 fixture `UserStatusFixture`，各支「為何
+  非有不可」逐條寫在其型 doc；003/004 存量中六支各配一支核心自證測——`OperationLogCleanup` 依其
   型 doc 的收窄集理由刻意不配、`IpRuleCleanup` 尚無（帳在 B-085）。另有真 app 建構
   `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
@@ -270,7 +277,10 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   `manage_ip-rule`、`page:` 樹加 `manage.ipRule.*`；`app.d.ts` 補 `Schema.page` 型節；
   路由外掛產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋
   `typings/elegant-router.d.ts`）**由外掛重算產出**、採**產物檔紀律**（禁手改、不逐行標記
-  ——標記於下次重算即被抹除、物理上不可維持）。
+  ——標記於下次重算即被抹除、物理上不可維持）；(ii)（005、憲法 v1.7.0 開）role／menu
+  既有管理頁 CRUD 接真——檔級定數名單恰 8 檔＝role 3 view＋menu 2 view＋兩語 locale＋
+  `app.d.ts`（兩顆授權 modal 與 `shared.ts` 明文不入、零 diff 機器斷言），`page:` 樹加
+  memo／回收桶欄位鍵；upstream 誤植之 `fetchGetAllRoles` 殘留於 menu modal 移除。
 
 機器守（`tools/fork-delta-lint.py`、`tools/view-render-guard.py`、
 `tools/route-artifact-gate.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈

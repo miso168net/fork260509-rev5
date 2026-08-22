@@ -53,7 +53,8 @@
 
 ## 4. `POST /systemManage/updateMenu`
 
-- Body：`{id, ...三態欄}`；`routeName`／`menuType` 出現變更＝顯式拒。
+- Body：`{id, ...三態欄}`；`routeName`／`menuType` ★**出現即拒**（值不比對、等值亦拒——
+  與 wire-role-admin §4 roleCode 同式；as-built 措辭訂正 2026-08-22）。
 - buttons 移除且絕版（未刪含停用聯集）⇒ 絕版歸檔（`menu_button_removed`）＋判定面同步。
 
 ## 5. `DELETE /systemManage/deleteMenu`
@@ -64,6 +65,8 @@
 ## 6. `DELETE /systemManage/batchDeleteMenu`
 
 - Body：`{ids}`。child-first 拓撲序、逐項全套守門、整批拒、單 txn＋一次收尾同步。
+- ★空陣列＝提前 no-op 成功（零副作用、零稽核、不取域鎖——照 wire-role-admin §6 之
+  rev4 as-built 查定、兩域同式；原表漏載 2026-08-22 補）。
 
 ## 7. `GET /systemManage/getDeletedMenus`
 
