@@ -35,6 +35,9 @@
     成功→原 status 保留、零回灌（歸檔列仍在、casbin 零新列）。
 13. 授權態：Admin token 打任一寫端→5003；打 getRoleList→200。
 14. 上下文缺席形（若可構造）→5000 拒寫。
+15. `getRoleHome`／`updateRoleHome`（US5、僅授 R_SUPER）：讀端回現值 `{home}`（NULL→
+    誠實 null）；寫端設不存在路由名亦成功（不驗一致性、讀端兜底既有）＋op-log 一列；
+    查無 id→2222 notFound。
 
 ## 2. 判定面同步驗證（US4）
 

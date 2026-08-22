@@ -1,4 +1,4 @@
-<!-- next: B-102 -->
+<!-- next: B-103 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -47,3 +47,4 @@
 - B-099｜**ip-rule 管理頁 default slot 覆寫在 `hasAuth` 為 false 時冒出共用元件自帶寫端鈕**：`views/manage/ip-rule/index.vue:247~254` 的 default slot 覆寫僅一顆 NButton 掛 `v-if="hasAuth('ipRule:add')"`——該權限碼 false 時 slot 內容全空 ⇒ NaiveUI/共用 table-header 元件的 renderSlot fallback 機制冒出元件自帶的「新增＋批量刪除」鈕（`@add`/`@delete` 未綁、點擊為 no-op emit——無資料風險，但 UI 出現不該現的寫端入口）。★現況不可達面：dev 三帳號權限碼齊全、按鈕碼授權面尚未真管；005 U12 碼品質審查輪查定（menu 頁同構處已於 U12 以「整組 default slot 條件覆寫」形修妥、可照抄）｜按鈕碼授權真管刀（授權治理刀）動工時，或下一把動 ip-rule 頁的刀
 - B-100｜**menu 頁 checkedRowKeys 不隨「顯示已刪除」toggle 清空**：已刪模式仍有 selection 欄可勾；勾完關 toggle→批刪鈕解除 disabled→送已軟刪 id→後端整批拒 `2222 notFound`（誠實錯誤、無資料風險，但 UI 狀態誤導）。候選修法＝`watch(showDeleted)` 內順手清空（一行）；005 U12 碼品質審查輪查定、review 判非 blocker 故未在單元內動｜下一把動 menu 頁的刀順修，或 U16 CDP 走查若實測干擾驗收時
 - B-101｜**AppState 測試建構點已散至第四份、`real_app_with` 宜長出 `(Router, AppState)` 變體收攏**：U13 之零繼承端到端測需同一顆 AppState（共享 enforcer Arc）做判定面探測，而 `test_db::real_app_with`（model/mod.rs）只回 Router ⇒ 於 handler/menu.rs endpoint_tests 受迫新增 `real_app_and_state()` 逐欄複製七欄 AppState＝第四份建構點（前三份＝test_db::real_app_with／auth/enforce.rs tests 之 state_with／tests/contract.rs 之 real_seed_app）。B-054 已為建構點分散付過學費（擴欄需多處同步）；漂移屬編譯期可捕（加欄兩處皆紅）非靜默、故當時未 blocker。候選修法＝real_app_with 長出回傳 (Router, AppState) 變體、兩處改引（model/mod.rs 當時不在 U13 允許面故未動）｜005 收刀前維護窗（可與 B-094 同批）、或下一把動 test_db 的刀
+- B-102｜**role handler 家族的 `blank_to_none` 呼叫零組合面測（mutation-green 點）**：`handler/role.rs` 之 addRole 三欄／updateRole 三態／updateRoleHome（T034）皆經 `blank_to_none` 把空字串收斂 NULL，但無任何測釘「空字串輸入→落庫 NULL」組合面——拆掉該呼叫全樹照綠（005 U14 碼品質審查輪變異推演查定）。後果面已推演為低害：契約型 `string|null` 下 `''` 仍合法、讀端 `.flatten()`＋`!is_empty()` 對兩者等效、僅 wire 回值與稽核快照呈 `""`。屬既有形制非 U14 新引入。候選修法＝contract 側加帶合成角色＋RoleCleanup 的整合腿（會破 contract 節「零副作用紀律」、需一併調整節首碼註）、或 facade 層收斂點補單元測｜下一把動 role handler 或 contract 測家族的刀

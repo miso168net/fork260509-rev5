@@ -259,7 +259,7 @@ placeholder）→ 新增一個角色 → 編輯其名稱與狀態 → 刪除之 
   seed、零 migration）：role CRUD 6（getRoleList／getAllRoles／addRole／updateRole／deleteRole
   ／batchDeleteRole）＋menu CRUD 7（getMenuList/v2〔字面含 `/v2`〕／addMenu／updateMenu／
   deleteMenu／batchDeleteMenu／getDeletedMenus／restoreMenu）＋roleHome 2（getRoleHome／
-  updateRoleHome）＋getMenuTree；動詞分布 GET 7／POST 5／DELETE 4，路由註冊表條數常數同
+  updateRoleHome）＋getMenuTree；動詞分布 GET 6／POST 6／DELETE 4，路由註冊表條數常數同
   commit 對齊（22→38）。
 - **FR-002**: 分頁列表回應 MUST 採共用分頁信封；該信封 MUST 自現寄居處上移至共用層（本刀
   一次帶來三個分頁端點＝其預告之「第二消費者」時點），既有消費者同步改引、契約測試跟隨。

@@ -44,7 +44,7 @@ getDeletedMenus(GET, 64★protected)、restoreMenu(POST, 65★protected)。
 **治理域支撐讀（1；grilling G4 自 006 移入）**：getMenuTree(GET, 27)——治理域（未刪含停用）；
 rev4 menu-operate-modal 之父節點選擇器逐字消費 `fetchGetMenuTree`、本刀 menu 頁做真即硬相依。
 
-- 動詞：GET 7／POST 5／DELETE 4——router 打錯動詞即該端點全域 5003。
+- 動詞：GET 6／POST 6／DELETE 4——router 打錯動詞即該端點全域 5003。
 - 授權態：寫端 seed 全 R_SUPER；getRoleList 下放 R_ADMIN、getAllRoles 下放至 R_USER_COMMON（讀端）。
 - ★中間期已知態三組（006 收刀前）：①role 頁「菜單權限／按鈕權限」兩鈕仍 demo stub（寫死
   button1..button10 假資料）②policy-archive 選單項仍死項——與 B-008 既有三死項同形

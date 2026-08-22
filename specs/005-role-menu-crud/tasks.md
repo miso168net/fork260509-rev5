@@ -351,8 +351,19 @@ buttons 絕版歸檔＋判定面同步。
 
 **Independent Test**: quickstart §1 對應步。
 
-- [ ] T034 [US5] `sys_role.rs` home 讀寫 facade＋`handler/role.rs` 兩支＋router +2 條
+- [x] T034 [US5] `sys_role.rs` home 讀寫 facade＋`handler/role.rs` 兩支＋router +2 條
   （`ROUTES_COUNT` 36→38 終態）＋contract case（先紅後綠）＋同交易稽核。
+  ★T034 as-built 補記（2026-08-22）：seed 政策列＝34（getRoleHome GET）/35（updateRoleHome
+  POST）皆僅授 R_SUPER（編排 CONTEXT 誤稱 66/67、agent 接地糾正）。wire 沿 rev5 契約與
+  rev4 三處相異不帶回：query 鍵 id（非 roleId）、回應 {home} 誠實 null（非 NULL→空字串
+  摺疊）、facade 收 Option<String>（有清空腿）。home 寫端不入域（ADR 0050＋research R4
+  明文；txn 首動作＝sys_role 列鎖、與域寫端結構性無 ABBA）。audit operation=update 零新
+  variant；零新 i18n 鍵（notFound 既有）。主線收尾校正四筆：facade 讀端測 id 段撞號改
+  9_380_000_00x（與 sys_menu delete 測同號、潛伏 PK 撞）＋contract verify doc 六條→八條
+  兩處＋零副作用紀律枚舉補第五腿＋json_or_default 收斂清單補 update-home；勘誤兩處
+  （spec FR-001＋brainstorm 動詞分布 GET 7/POST 5→GET 6/POST 6、errata 複核 0 命中）；
+  quickstart §1 補第 15 條。★誠實界線：handler blank_to_none 無組合面測（空字串→NULL
+  唯一 mutation-green 點、既有形制 add/update 同族）＝B-102 立案。
 
 **Checkpoint**: 16 支端點全上、`ROUTES_COUNT=38` 終態。
 
