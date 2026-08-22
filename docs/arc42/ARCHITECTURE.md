@@ -83,12 +83,19 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   `alt_stub.rs` 替代登入誠實 stub 四出口）／`handler/captcha.rs`＋`captcha/`（圖形驗證碼
   簽章題）／`throttle/`（登入失敗節流狀態機——003 起帳號維、004 起雙維）／`cache/`
   （redis session 加速層：denylist／grace／last_activity／throttle L1 與解鎖標記鍵面）；
-  資料面 `model/facade/` **十支**（session_event／sys_ip_rule／sys_login_attempt／
-  sys_menu／sys_operation_log／sys_role／sys_token／sys_user／sys_user_role／
-  system_settings）＋src 側測試共用設施 `model::test_db`（守衛**八件**＝`SequenceResetGuard`
+  資料面 `model/facade/` **11 支**（session_event／sys_casbin_archive／sys_ip_rule／
+  sys_login_attempt／sys_menu／sys_operation_log／sys_role／sys_token／sys_user／
+  sys_user_role／system_settings；`sys_casbin_archive`＝005 授權歸檔寫入面——選單域
+  advisory 鎖底座 key `0x7265_7635_6D65_6E75`＋`insert_archived` role_id 反查內收＋
+  reason gate 三值集；固定鎖序 advisory→歸檔表列→sys_role 列→sys_menu 列→casbin_rule、
+  防環上溯上限 64、routeName 形制上限 100——憲法島 H「常數留活書」落點；判定面
+  rebuild-swap 熱重載機制詳 ADR 0049＋`auth/enforce.rs` doc）＋src 側測試共用設施
+  `model::test_db`（守衛 **12 件**＝`SequenceResetGuard`
   ／`ChainRowsCleanup`／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
-  `OperationLogCleanup`／`SessionIdCleanup`＋列態 fixture `UserStatusFixture`，各支「為何
-  非有不可」逐條寫在其型 doc；其中**六支**各配一支核心自證測——`OperationLogCleanup` 依其
+  `OperationLogCleanup`／`SessionIdCleanup`＋005 四件 `RoleCleanup`／`MenuCleanup`／
+  `CasbinCleanup`／`UserCleanup`（雙名冊＋seed 隔離斷言＋四 seq setval 還原、自證測 7 支）
+  ＋列態 fixture `UserStatusFixture`，各支「為何
+  非有不可」逐條寫在其型 doc；003/004 存量中六支各配一支核心自證測——`OperationLogCleanup` 依其
   型 doc 的收窄集理由刻意不配、`IpRuleCleanup` 尚無（帳在 B-085）。另有真 app 建構
   `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
@@ -109,13 +116,15 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   data-model §5 降級矩陣）、`ipgate_blocked_total`（**無 label**——阻擋**不屬
   降級類**，且網段做 label 等於把序列基數交給營運面輸入；命中網段等結構化欄位改由
   `ip_gate_mw` 的告警承載，理由見 `obs::IPGATE_BLOCKED_TOTAL` 的 doc）；
-  另有 002 起的 `casbin_enforce_total`（decision 三值）與 axum-prometheus HTTP 請求級
-  三序列。
+  另有 002 起的 `casbin_enforce_total`（decision 三值）、005 之 `casbin_reload_total`
+  （outcome 三值 ok／retry／exhausted——判定面 rebuild-swap 同步結果，發射點
+  `auth/enforce.rs::reload_enforcer`、預註冊 `obs.rs`；ADR 0049）與 axum-prometheus
+  HTTP 請求級三序列。
   ★**本清單的複驗法**（現在式清單不會自己跟上新刀，故把量測法寫在此處而非只寫結論）：
   `grep -rn 'metrics::counter!\|metrics::gauge!\|metrics::histogram!' rust-api/server/src/`
   枚舉**全部發射點**，逐條比對本段——序列名一律經 `obs.rs` 的具名常數或
-  `pre_register_metrics` 的字面，故枚舉面完整。2026-08-16（004 收刀前）實跑結果＝
-  **本段清單與發射點全等、零缺零多**（U-H～U-M 五個單元未再新增序列）。
+  `pre_register_metrics` 的字面，故枚舉面完整。2026-08-18（005-role-menu-crud 之判定面
+  同步單元收尾）實跑結果＝**本段清單與發射點全等、零缺零多**。
 
 ## §6 Runtime
 
@@ -258,16 +267,20 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   非軟區零行為變更。
 - **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
   `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
-  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**28 鍵**＝
-  003 之 22 鍵＋004 T038 之 `biz.ipRule.*` 五鍵＋004 T054 之 `biz.throttle.*` 一鍵；
-  兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
+  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**50 鍵**＝
+  003 之 22 鍵＋004 之 `biz.ipRule.*` 五鍵與 `biz.throttle.*` 一鍵＋005-role-menu-crud 之
+  `biz.role.*` 十鍵〔含第十鍵 nameRequired、user 拍板 2026-08-19〕與 `biz.menu.*` 十二鍵
+  〔含 routeNameInvalid、nameRequired 兩域同式與 restoreConflict〕；兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
 - **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
   `fetchLogout`（失敗不阻斷 `resetStore()`）。
 - **★BASE-WEB-MANAGE-PAGE-WIRING**：(i) IP 規則管理頁進場——兩語 locale 之 `route:` 樹加
   `manage_ip-rule`、`page:` 樹加 `manage.ipRule.*`；`app.d.ts` 補 `Schema.page` 型節；
   路由外掛產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋
   `typings/elegant-router.d.ts`）**由外掛重算產出**、採**產物檔紀律**（禁手改、不逐行標記
-  ——標記於下次重算即被抹除、物理上不可維持）。
+  ——標記於下次重算即被抹除、物理上不可維持）；(ii)（005、憲法 v1.7.0 開）role／menu
+  既有管理頁 CRUD 接真——檔級定數名單恰 8 檔＝role 3 view＋menu 2 view＋兩語 locale＋
+  `app.d.ts`（兩顆授權 modal 與 `shared.ts` 明文不入、零 diff 機器斷言），`page:` 樹加
+  memo／回收桶欄位鍵；upstream 誤植之 `fetchGetAllRoles` 殘留於 menu modal 移除。
 
 機器守（`tools/fork-delta-lint.py`、`tools/view-render-guard.py`、
 `tools/route-artifact-gate.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
