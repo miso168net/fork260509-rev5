@@ -95,8 +95,8 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   `OperationLogCleanup`／`SessionIdCleanup`＋005 四件 `RoleCleanup`／`MenuCleanup`／
   `CasbinCleanup`／`UserCleanup`（雙名冊＋seed 隔離斷言＋四 seq setval 還原、自證測 7 支）
   ＋列態 fixture `UserStatusFixture`，各支「為何
-  非有不可」逐條寫在其型 doc；003/004 存量中六支各配一支核心自證測——`OperationLogCleanup` 依其
-  型 doc 的收窄集理由刻意不配、`IpRuleCleanup` 尚無（帳在 B-085）。另有真 app 建構
+  非有不可」逐條寫在其型 doc；003/004 存量中七支各配一支核心自證測（`IpRuleCleanup` 一支於
+  B-085 關帳時補齊）——`OperationLogCleanup` 依其型 doc 的收窄集理由刻意不配。另有真 app 建構
   `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
   兩層覆蓋、`apply_chain_overflow` 鏈長短路、`to_canonical` 折疊、`TrustModel::is_trusted`）／
