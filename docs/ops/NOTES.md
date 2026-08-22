@@ -18,22 +18,23 @@
   搬運、Lint26＋單條上限＋Lint09 head 視野聯集、ADR 0045、docs-sync 自測 496→517）｜
   **治理工具鏈整併批**（輕量軌、merge d72553b：B-080 納冊（TOOLS_PY 14）＋B-081 Lint27
   README 樹對賬＋B-086 compose anchor 消抄本＋B-092 bootstrap 物理化＋B-087 半關；
-  ADR 0046／0047、L-048、lint 條款 26、docs-sync 自測 524）。
+  ADR 0046／0047、L-048、lint 條款 26、docs-sync 自測 524）｜
+  **005-role-menu-crud**（merge 0125f8c、本代第五刀）：role＋menu CRUD 16 端點、ROUTES 38
+  終態、測試 512→650、憲法 1.7.0（島 H＋用途(ii)）、ADR 0048～0052、零 migration；序列化域
+  ＋rebuild-swap 熱重載＋歸檔寫入面三底座就緒（授權治理刀依賴面全兌現）。
   啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文；
   ★其內裸 B／L 編號屬 rev4 空間、該目錄在 Lint25 掃描面外＝L-014）。
-- 兩筆待補：B-035 雙平台 DoD 之 macOS 側（同事機 bootstrap＋test 全套）；setup-reaper
-  正向 ALTER ROLE 一輪待建 reaper role 之刀。
+- 兩筆待補：B-035 雙平台 DoD 之 macOS 側；setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 
-- **★下一刀已拍板＝005-role-menu-crud**（docs/brainstorms/005-role-menu-crud.md、階段 0 已收官）：
-  role＋menu CRUD 寫端 16 支端點（seed 政策列全預埋＝零 migration）＋島 H 入憲（B-087 殘餘②順捎）
-  ＋advisory 序列化域／casbin 重建-swap 熱重載／授權歸檔寫入面底座（零 grant 面）。**後續再接授權治理刀**（三維
-  授權治理 11 支＋島 G 入憲＋結構性封死〔B-024①歸宿〕＋policy-archive
-  頁〔B-008 出列一張〕；依賴 005 底座含熱重載）——其 brainstorm 已同場定稿、★暫存版控外（tmp/ 備份）、
-  起手時補入版控（檔名配號接續 005）。拆刀縫＝「grant/revoke 寫 casbin_rule」分水嶺；拍板
-  15＋grilling 6 題（另自拍 6 件）全紀錄兩檔 §3 共享。刀 B（user＋password）＝再之後：B-089／B-021／B-020
-  連鎖在彼、scope 已預拍「全納入含 changePassword」（2026-08-18、記兩檔 §3 表 #4）。
+- **★下一刀＝授權治理刀**（brainstorm 已於 005 階段 0 同場定稿、★暫存版控外〔tmp/ 備份〕、
+  起手時補入版控、檔名配號接續 005）：三維授權治理 11 支＋島 G 入憲＋結構性封死〔B-024①歸宿〕＋
+  policy-archive 頁〔B-008 出列一張〕；依賴之 005 底座（序列化域／熱重載／歸檔寫入面）已全兌現。
+  ★起手維護批（改期落此、2026-08-22）＝B-094＋B-101 收攏；島 G 入憲順捎＝ADR 0052 條款入
+  §III 正文＋B-104（ADR 0049 括號句訂正）。
+  刀 B（user＋password）＝再之後：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
+  changePassword」（2026-08-18、記兩檔 §3 表 #4）；★刀 B 必復核 B-093（deleteRole 判定面繼承窗）。
 - **其餘在案候選**：B-008 餘兩張 view（manage_system-settings／audit、另需 audit 5 支端點；
   policy-archive 由授權治理刀承接；★連帶 B-088 對賬閘宜同批做）。
-- ★下一動作＝**手動起 /speckit-specify**（input＝上述 005 brainstorm 檔、feature branch
-  005-role-menu-crud；specify 絕不排自動流程——pre-hook 不跑則 spec 落 default branch）。
+- ★下一動作＝授權治理刀起手：①brainstorm 自 tmp/ 補入版控（檔名配號接續 005）②維護批
+  （B-094＋B-101）③手動起 /speckit-specify（絕不排自動流程——pre-hook 不跑則 spec 落 default branch）。
