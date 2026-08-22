@@ -302,6 +302,9 @@ buttons 絕版歸檔＋判定面同步。
   旗標——契約定案）＋`restore_locked`（域內鎖列→已刪存在→同鍵活性衝突 23505 兜底→父未刪
   →成對清空＋原 status 保留；零回灌零 reload）＋逐重驗測（含「復原現役列＝業務錯誤」
   R2-1 防回歸）。
+  ★T029 收刀補記（2026-08-22、ADR 0051／B-095 關帳）：復原重驗補第四腿——常量標的驗
+  父鏈常量性、違即 ConstantParent（沿 create 守門④同鍵零新 i18n；閉合 final review 查定
+  之軟刪常量後代繞道窗）；機器證四腿測＋變異驗證紅→綠；契約 §8 同步補列。
 - [x] T030 [US3] `handler/menu.rs` 兩支＋router +2 條（`ROUTES_COUNT` 34→36）＋T028 轉綠。
 - [x] T031 [US3] 前端：menu index.vue toggle（「顯示已刪除」NSwitch 換資料源、已刪模式操作欄
   整欄換復原、confirmRestore 確認）＋i18n showDeleted/confirmRestore/restoreConflict 等。

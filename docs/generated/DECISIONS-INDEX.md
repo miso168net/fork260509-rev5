@@ -53,3 +53,5 @@
 | 0048 | accepted | 2026-08-18 | 憲法 Amendment 1.7.0——§I.7 第七座行為島（島 H 選單域生命週期）＋§III.2 MANAGE-PAGE-WIRING 用途 (ii)（role／menu 管理頁 CRUD 接真）＋B-087 殘餘②補註 | — | — | — |
 | 0049 | accepted | 2026-08-18 | 判定面同步進場——翻案「boot 載入即終態」＋rebuild-swap reload 契約（硬禁令＋casbin 版本鎖＋ABBA 三失效條件） | — | — | — |
 | 0050 | accepted | 2026-08-18 | A1 域行為——deleteRole 家族入序列化域＋免 reload 論證＋島 G 行為 ADR 承載（G1/G3/G4/G5）＋archive 三自由度 won't-use 與翻案觸發條款過境 | — | — | — |
+| 0051 | accepted | 2026-08-22 | restoreMenu 復原重驗補常量父鏈腿——閉合軟刪常量後代繞道窗（B-095 處置拍板） | — | — | — |
+| 0052 | accepted | 2026-08-22 | unplugin 元件宣告生成檔併入產物檔紀律——components.d.ts 同族不入憲法用途名單 | — | — | — |
