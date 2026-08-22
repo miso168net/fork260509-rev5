@@ -395,12 +395,17 @@ buttons 絕版歸檔＋判定面同步。
   memo 欄（B-003 兌現）＋新增 modal 父選擇器（T027 補記在案）＝拍板差異；**零新缺陷**。
   收尾清理：探針列硬刪＋op-log 3 列清＋sys_menu_id_seq setval(78,true) 還原、歸檔零列、
   三閘複驗綠。
-- [ ] T037 ★主線任務：`docs/ops/RUNBOOK.md` 增補（若有新操作面：域鎖觀測法／reload 告警
+- [x] T037 ★主線任務：`docs/ops/RUNBOOK.md` 增補（若有新操作面：域鎖觀測法／reload 告警
   查法——僅指針不展開）＋`docs/ops/BACKLOG.md` 帳面處置：B-025 敘述更新（deleteRole 窗
   客戶消滅）／B-003 改寫（role_memo＋menu_memo 兌現、剩 sys_user→刀 B）／B-091 rider
   順盤數條／★wf-watchdog journal 無心跳盲點落 LESSONS 新條（brainstorm §6 移交）。
   ★活書 as-built 不在本 task（收刀簿記；★注意 B-083：§6 已滿 120/120，as-built 落點
   屆時依該條三候選請 user 拍）。
+  ★T037 收單（2026-08-22、主線親做）：RUNBOOK §11 補域鎖觀測＋reload 告警兩指針、§12
+  節首補 rc 判讀附註（L-021 晉升面兌現）；B-025 敘述收窄（寫入時點窗已滅、殘值＝sys_user
+  ＋事後對賬）；B-003 四分之三關帳（餘 sys_user→刀 B）；B-091 順盤三條（L-006 判無單一
+  操作面、L-014 晉升 NOTES 警語句、L-021 晉升 RUNBOOK §12——佔位 12→9）；L-051 落檔
+  （watchdog journal 無心跳＝結果帳非活動流、stall 閾值語意＝agent 邊界間隔上限）。
 
 ---
 

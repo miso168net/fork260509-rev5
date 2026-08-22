@@ -135,9 +135,16 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 ## 11. 觀測層維運
 
-（本章隨觀測層刀補實文；創世期無內容。）
+- 選單域 advisory 鎖觀測：pg_locks 之 classid/objid 拆讀 64-bit key——helper 與坑
+  （bigint 直比恆假）＝rust-api `facade/sys_casbin_archive.rs` 觀測 helper 的 doc。
+- casbin 判定面熱重載：metrics `casbin_reload_total{ok|retry|exhausted}`；exhausted＝
+  keep-last-good 續舊面（服務不中斷）、查 log 結構化告警；落點測與手動 smoke 動線＝
+  specs/005-role-menu-crud/quickstart.md §2。
 
 ## 12. 工具鏈速查（★python 工具一律直跑或 `python3` 前綴、bash 前綴＝假失敗 rev4:L-129/rev4:L-143）
+
+★rc 判讀先辨層次：`rc=1` 常是工具**拒絕執行**（參數錯、零測試跑）而非受測物真失敗——
+雙證＝rc＋輸出行為（跑了幾支、誰報的錯）；詳 L-021。
 
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
