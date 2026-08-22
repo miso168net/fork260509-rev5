@@ -88,6 +88,14 @@ grant 面全部。射程權威＝brainstorm §2；rev4 對應碼＝實作預設�
   IpRule 7 支留帳（B-098 不關帳）。
 - Q22 B-075 順捎？→ A: **不建靜態守恆、B-075 維持不入**（避免與 runtime 封死守門第二套字面同源）。
 
+### Session 2026-08-23（/speckit-clarify）
+
+- Q: 回收桶列表每列的 `restorable` 旗標要算到復原權威五腿中的哪幾腿？（brainstorm §4-④ 之「兩半」文字早於
+  Q7 五腿拍板；只算兩半則「端點已下線」列會顯示可復原、點了被第④腿拒）→ A: **與權威判定逐腿同判準＝
+  ①reason gate ∧ ②同實例 ∧ ③封死不擋 ∧ ④端點在冊**；第⑤腿（停用不擋）恆不擋故免算。效果＝UI 不出現
+  「顯示可復原、點了被拒」；封死半對歸檔列結構上恆真仍算（縱深）；代價＝列表讀端多一次批次 protected 集查
+  與 ROUTES 成員判定（皆廉價）＋「旗標與權威逐腿同判準」測試。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管三維授權治理（選單／按鈕／端點） (Priority: P1)
@@ -171,8 +179,10 @@ NotRestorable。
 
 1. **Given** 歸檔表有多維多角色列，**When** 開啟 policy-archive 頁，**Then** 分頁信封、`archivedAt` DESC、
    可依來源角色代碼／維度過濾；維度由歸檔列內容推導（無維度欄）。
-2. **Given** 一列 reason=`endpoint_revoke` 且其來源角色 id 等於現役同代碼活角色 id，**Then** restorable=true；
-   **Given** reason 屬五值不可復原集、或 role_id 為 NULL、或現役同代碼角色非同一實例，**Then** restorable=false。
+2. **Given** 一列 reason=`endpoint_revoke`、其來源角色 id 等於現役同代碼活角色 id、標的端點在冊且非「protected
+   端點→非 R_SUPER」，**Then** restorable=true；**Given** reason 屬五值不可復原集、或 role_id 為 NULL、或現役
+   同代碼角色非同一實例、或標的端點已不在路由註冊表、或封死謂詞命中，**Then** restorable=false（旗標與權威
+   五腿之①②③④逐腿同判準；⑤停用不擋免算）。
 3. **Given** restorable=true 之列，**When** 復原，**Then** 鎖內固定序五腿重驗皆過→回灌現役＋刪歸檔列＋稽核
    （`restore`）同交易→判定面同步；**Given** 標的已在現役，**Then** 回成功無作用（NoOp）且歸檔列仍消費移除；
    **Given** 識別不存在或任一腿拒，**Then** `biz.policy.notRestorable`（後端最終防線、不依賴前端隱藏）。
@@ -224,7 +234,12 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
 - **回收桶對選單／按鈕維只剩稽核閱覽**：reason 五值不可復原集含 `menu_revoke`／`button_revoke`；選單維
   授權只能重勾不能復原——UI 以 restorable=false 停用態呈現，不另造提示。
 - **復原到停用角色**：第⑤腿不擋（停用＝暫時下架、與島 H4 同向）；停用即斷權沿基線行為。
-- **端點維下線列**：歸檔列之 (v1,v2) 可能已不在 ROUTES 名冊——rev4 不驗、rev5 第④腿拒（已拍）。
+- **端點維下線列**：歸檔列之 (v1,v2) 可能已不在 ROUTES 名冊——rev4 不驗、rev5 第④腿拒（已拍）、列表旗標同步
+  為 false（clarify 2026-08-23）。現役中的下線端點授權列＝現況的一部分：讀端照回（rev4 藍本形）、下次全量
+  儲存期望集不含即撤銷歸檔（reason=`endpoint_revoke`、旗標因④為 false）——不特別保留幽靈列。
+- **三維寫端之 body 取用失敗／空 body**：沿既有共用件收斂為請求預設形（角色鍵預設值不對應任何活性角色）⇒
+  走 `biz.role.notFound` 早拒、零變更——**不會**演成「空期望集＝全撤」；只有合法角色鍵＋空期望集才是合法的
+  全撤請求（仍受 protected 整批拒約束）。
 - **role_id NULL 之歷史列**：結構上本刀後新列恆有 role_id（標的角色列已鎖且活性）；NULL→restorable=false
   誠實退化（不補寫、不猜）。
 - **grant 面空 diff**：仍 Applied 仍 reload（刻意例外、與移除面「有歸檔才觸發」並陳於條文與 doc）。
@@ -321,9 +336,11 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
 
 - **FR-028**: getArchivedPolicies MUST 分頁＋雙濾（來源角色代碼／維度）＋`archived_at` DESC；維度由歸檔列內容
   推導（選單／按鈕／HTTP 動詞→端點；不新增維度欄）；讀端零 migration（基線索引現成）。
-- **FR-029**: 每列 MUST 帶後端判定之 `restorable` 旗標＝「reason 不屬不可復原集」∧「歸檔 role_id 等於現役同
-  代碼活角色 id」（NULL→false）；前端 MUST NOT 自行推斷；旗標非權威、MUST 與 restorePolicy 權威判定同判準
-  （reason 半共用單點 fn、同實例半同式）；同實例半以批次讀端取活性角色（避免逐列查）。
+- **FR-029**: 每列 MUST 帶後端判定之 `restorable` 旗標＝權威五腿之 ①reason 不屬不可復原集 ∧ ②歸檔 role_id
+  等於現役同代碼活角色 id（NULL→false）∧ ③封死不擋（標的非「protected 端點政策→非 R_SUPER」）∧ ④端點在冊
+  （(v1,v2) 在路由註冊表；選單／按鈕維列因①恆 false、免此半）；第⑤腿（停用不擋）恆不擋故免算。前端 MUST NOT
+  自行推斷；旗標非權威、MUST 與 restorePolicy 權威判定**逐腿同判準**（reason 半共用單點 fn、其餘半與鎖內
+  重驗同式；批次讀端取活性角色與 protected 集、避免逐列查）；配「旗標＝權威」同判準測。
 - **FR-030**: 不可復原 reason 集 MUST 擴為五值 `{role_soft_delete, menu_soft_delete, menu_button_removed,
   menu_revoke, button_revoke}`（單點 fn 承載、集合成員測更新）；唯一可復原 reason＝`endpoint_revoke`。效果：
   回收桶對選單／按鈕維只剩稽核閱覽、選單維授權只能重勾不能復原；島 H2 零破口、零 migration。
@@ -423,7 +440,7 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
 - **FR-058**: 兩支入域寫端（updateRoleMenu／updateRoleButton）MUST 各配一支 advisory NOT-granted 等待機器證
   （pg_locks classid／objid 拆讀；缺測則刪掉入域那行全測仍綠＝禁止形）。
 - **FR-059**: 守門非 vacuous 自證 MUST：結構性封死變異自證；五腿各配負向測；protected 整批拒負向測；reason gate
-  五值集合成員測；restorable 旗標與權威判定同判準測；orphan skip 兩維負向測；grant 面觸發矩陣特性鎖定測
+  五值集合成員測；restorable 旗標與權威判定**逐腿**同判準測（①②③④各一）；orphan skip 兩維負向測；grant 面觸發矩陣特性鎖定測
   （Applied 觸發、Rejected 不觸發、空 diff 觸發）。
 - **FR-060**: 測試環境紀律 MUST：真表測試配清理守衛（CasbinCleanup seq (163,true)＋archive seq (1,false)、
   RoleCleanup、MenuCleanup）＋顯式大 id 或走真寫端後 setval 還原；測後 schema-gate 三閘綠；CDP 走查排
