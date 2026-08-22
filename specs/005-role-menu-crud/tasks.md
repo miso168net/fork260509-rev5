@@ -324,11 +324,22 @@ buttons 絕版歸檔＋判定面同步。
 
 **Independent Test**: quickstart §2＋§3。
 
-- [ ] T032 [US4] 零繼承鏈端到端測（`tests/`）：★防恆綠前提自證——先種 live menu 維授權列
+- [x] T032 [US4] 零繼承鏈端到端測（`tests/`）：★防恆綠前提自證——先種 live menu 維授權列
   ＋斷言非零→deleteMenu→DB 歸檔斷言＋★in-memory 判定面不再命中斷言→同 routeName 重建
   →零繼承雙斷言（DB＋判定面）；updateMenu 絕版路徑同構一組。
-- [ ] T033 [US4] metrics 落點驗證測（`casbin_reload_total` 三 outcome 逐一可觸發）＋
+  ★T032 as-built 補記（2026-08-22）：落點＝`handler/menu.rs::endpoint_tests` 內嵌、非本條
+  括號的 `tests/`——結構性必然：test_db 守衛家族與 `enforce_role_path_method` 皆
+  `pub(crate)`、integration crate 取不到，開新檔＝守衛重造第二份（碼註載明理由）。
+  判定面探測走宣告唯一進入點 `enforce_role_path_method`（初版直呼 .enforce( 被 FR-013
+  判定收斂閘指名紅＝防線正確發動後改正）。紅證＝④斷言反轉容器實跑紅（implementer 一輪
+  ＋主線復核一輪皆 panic 於該斷言）、還原復綠。衍生 B-101（AppState 建構第四份收攏）。
+- [x] T033 [US4] metrics 落點驗證測（`casbin_reload_total` 三 outcome 逐一可觸發）＋
   quickstart §2 手動 smoke 補記（本 task 收尾把實測輸出貼進 quickstart 對應節）。
+  ★T033 as-built 補記（2026-08-22）：淨增零新測＝落點對賬形——三 outcome 實際遞增斷言
+  既有齊備（ok＝T010 成功路徑測＋U10 矩陣測＋T032 e2e 兩處真端點；retry/exhausted＝T010
+  失敗注入測、期望值 3.0 逐字寫死）；quickstart §2 補記＝實測輸出節錄（dev stack 22079
+  實打、副作用清畢三閘綠；kill-redis 半以 rebuild 四步僅收 db 的結構證對賬、不擾動
+  健康 stack）。
 
 **Checkpoint**: US4 可獨立驗收——島 H2 之 in-memory 半邊自此有機器證。
 

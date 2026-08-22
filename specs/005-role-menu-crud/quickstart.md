@@ -42,6 +42,31 @@
   鎖定／移除面端到端 in-memory 雙斷言）。
 - 手動 smoke：deleteMenu 前後查 `casbin_reload_total`；kill redis 不影響（同步不涉 redis）；
   注入面僅測試可構造——生產面驗「成功路徑 metrics ok +1」即可。
+- ★U13 補記（2026-08-22；T033 三 outcome 落點對賬、皆有機器測釘實際遞增）：`ok`＝真端點
+  雙證（`menu_reload_wiring_matrix_via_endpoints`＋T032 端到端
+  `zero_inheritance_e2e_same_key_rebuild_db_and_face_dual_assertions`、皆斷 Δ≥1）＋直呼證
+  （`reload_success_swaps_face_from_truth_and_counts_ok`）；`retry`／`exhausted`＝
+  `sc013_reload_failure_preserves_known_good_face_and_counts_retry_exhausted`（壞 conn 注入、
+  Δ≥3／Δ≥1——retry 期望值 `3.0` 逐字寫死防循環斷言）。皆住 `auth/enforce.rs` tests 與
+  `handler/menu.rs` endpoint_tests、容器 serial 實跑綠。
+- ★U13 手動 smoke 實錄（2026-08-22、dev stack 22079 實打；副作用已全清——殘列 DELETE＋
+  三 seq setval 還原後 `schema-gate.py check` 三閘綠 rc=0）：
+
+  ```text
+  $ curl -s http://127.0.0.1:22079/metrics | grep casbin_reload_total
+  casbin_reload_total{outcome="ok"} 0          ← deleteMenu 前（三 outcome 皆 0）
+  # login Super → addMenu routeName=smoke-u13-zi-*（0000）→ psql 種 menu 維授權列
+  # → DELETE /systemManage/deleteMenu → {"data":null,"code":"0000","msg":"common.success"}
+  $ curl -s http://127.0.0.1:22079/metrics | grep casbin_reload_total
+  casbin_reload_total{outcome="ok"} 1          ← deleteMenu 後（成功路徑 ok +1；retry／exhausted 仍 0）
+  $ psql … -c "SELECT archive_reason, count(*) FROM sys_casbin_policy_archive WHERE v1='smoke-u13-zi-…' GROUP BY 1"
+  menu_soft_delete|1
+  ```
+
+  kill-redis 半不實跑（dev stack 健康態不擾動）：結構證＝`rebuild_enforcer` 四步僅收
+  `db`（enforce.rs；同步路徑零 redis 參與），據此對賬。
+  ★警語（L-050）：真登入 smoke 後緊接全量測試會撞 redis 節流／帳號窗殘態（TTL 界定）
+  致 throttle 家族暫態紅——smoke 一律排在全量測試之後，或先等窗期／清指定 redis 鍵。
 
 ## 3. 序列化域機器證
 

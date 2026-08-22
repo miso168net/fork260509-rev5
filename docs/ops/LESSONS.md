@@ -1,4 +1,4 @@
-<!-- next: L-050 -->
+<!-- next: L-051 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -62,3 +62,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-047｜前端表單擋下＝零請求零 toast、與後端掛了同形](LESSONS/L-047-form-validation-mimics-dead-backend.md) — 排查後端行為前先證明請求發出去了（Network.requestWillBeSent）
 - [L-048｜引用的計數「出生時就錯」比「後來漂了」更難抓（碰巧對＝最毒的形）](LESSONS/L-048-quoted-counts-need-machine-recount.md) — 引量前先機器數且數對物件（表邊界）；歷史時點用 git show 重數；他人寫的計數一律當主張不當事實
 - [L-049｜Workflow launch 被擋後，無目標看門狗鎖上一支舊 wf 目錄](LESSONS/L-049-watchdog-locks-stale-wf-dir.md) — launch 失敗即 TaskStop 已 armed 的看門狗、重發後帶明確 runId 重掛；ARMED 行冒煙命中=0＋run id 不對＝鎖錯標的
+- [L-050｜dev stack 真登入 smoke 後緊接全量測試＝throttle 家族暫態紅](LESSONS/L-050-login-smoke-residue-flakes-full-suite.md) — 手動 smoke 排在全量之後（或先等窗期/清 redis 鍵）；暫態紅當輪立刻截獲失敗名單、rerun 前先存 log
