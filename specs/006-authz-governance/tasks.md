@@ -118,18 +118,18 @@ implementer=fable xhigh／review=opus xhigh）。
 
 ### Tests for User Story 1 ⚠️（先紅後綠）
 
-- [ ] T011 [US1] `rust-api/server/tests/contract.rs`：三維六支 contract case（registry＋共用 verify fn 三段式＋貼界自證一支）＋授權態矩陣
+- [ ] T011 [US1]（★單元移轉：原 U3→U4——contract coverage gate 雙向、case 無 route 即紅，與 T016 同單元紅→綠）`rust-api/server/tests/contract.rs`：三維六支 contract case（registry＋共用 verify fn 三段式＋貼界自證一支）＋授權態矩陣
   （Super 六支通〔空 body 收斂形期望碼逐支寫死〕／Admin、R_USER_COMMON 六支 5003；`hit_as_seed_user` 植 ConnectInfo）——先紅（端點未建）。
-- [ ] T012 [US1] `rust-api/server/src/model/facade/sys_casbin_policy.rs` tests（真 DB、`CasbinCleanup`＋`RoleCleanup`＋`MenuCleanup` 成對）：diff 正確（desired 含重複＋順序顛倒、同維隔離）
+- [ ] T012 [US1]（★選單／按鈕維案已於 U3 落地 11 支；端點維案隨 U4 T015 同單元）`rust-api/server/src/model/facade/sys_casbin_policy.rs` tests（真 DB、`CasbinCleanup`＋`RoleCleanup`＋`MenuCleanup` 成對）：diff 正確（desired 含重複＋順序顛倒、同維隔離）
   ／空 diff `Applied{0,0}` 零歸檔現役不動／protected 整批拒（零變更、零歸檔、`Rejected.blocked` 命中）／orphan skip 三維（menu 失效 id、button 界外碼、endpoint 界外與非白名單 method）
   ／停用選單授權不被撤銷＋負向（誤用顯示域形必撤＝禁止形）／grant 治理欄（protected=false、created_at/by）／archive-move reason 三字面＋role_id 恆 Some／
   INSERT 排序確定性／角色列 FOR UPDATE（grant-during-delete 以 `pg_blocking_pids` 形、零殘留）。
-- [ ] T013 [US1] `rust-api/server/tests/menu_domain_serialization.rs`：updateRoleMenu／updateRoleButton 兩支入域寫端 NOT-granted 等待機器證（照既有骨架：基線零等待→txn1 入域
+- [x] T013 [US1] `rust-api/server/tests/menu_domain_serialization.rs`：updateRoleMenu／updateRoleButton 兩支入域寫端 NOT-granted 等待機器證（照既有骨架：基線零等待→txn1 入域
   →spawn txn2→觀測 `menu_domain_waiter_count`→釋鎖→斷言；結果存變數、清理先於斷言）——先紅。
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] `sys_casbin_policy.rs`：`set_role_dimension(db, role_id, dim, desired, operator) -> Result<PolicyOutcome, RoleDimensionError>`（自管 txn：`enter_menu_domain_db` 首動作→
+- [x] T014 [US1] `sys_casbin_policy.rs`：`set_role_dimension(db, role_id, dim, desired, operator) -> Result<PolicyOutcome, RoleDimensionError>`（自管 txn：`enter_menu_domain_db` 首動作→
   `find_active_by_id_for_update`〔查無→NotFound〕→鎖內治理域映射 orphan skip→live 讀→diff→protected 整批拒（rollback、Rejected）→archive-move（`insert_archived` 逐列＋by-id DELETE）
   →INSERT（排序）→op-log `Update`／`sys_role`／`{dimension,revoked,granted}`→commit→Applied）；T012 menu／button 案轉綠、T013 轉綠。
 - [ ] T015 [US1] `sys_casbin_policy.rs`：`set_role_endpoints(db, role_id, desired, candidates:&HashSet<(String,String)>, operator)`（不入域；候選集 orphan skip；同核心；★預留封死鉤位由 T018 接）；
