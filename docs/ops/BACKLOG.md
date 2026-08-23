@@ -1,4 +1,4 @@
-<!-- next: B-116 -->
+<!-- next: B-117 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -53,3 +53,4 @@
 - B-113｜**刀 B 把 seed 未來端點註冊補齊後，重審 ADR 0056 之 R_SUPER wire 案前提自證**：handler/role.rs endpoint_tests `update_role_endpoints_super_full_candidate_save_applies_0000_and_leaves_out_of_scope_seed_rows` 以三前提自證（R_SUPER 現役含候選外列≥1、候選內列數＝候選集大小、候選內含 protected≥1）釘住射程濾點；刀 B 註冊 updateUserSessionPolicy 等端點後「候選外列≥1」會由綠轉紅——屬測試失去鑑別力的誠實訊號、非缺陷；屆時改以合成候選外探針列（非 seed）重建前提、勿刪測（006-authz-governance U5c 實作期查定）｜刀 B（user＋password）
 - B-114｜docs-sync `TestGateWiring` 缺 seed-view-gate 段的**觸發條件乾跑案**（view-render-guard 段有 trigger_conditions／day1_skip 成對案、本段零乾跑覆蓋）：沙盒 `setUpClass` 把 `rust-api` 建成**檔案**佔位 ⇒ hook 內 `[ -d rust-api/migration ]` 恆假、seed-view-gate 段在乾跑永遠走具名跳過分支；現僅 checked-copy 案斷言 hook 含 `python3 tools/seed-view-gate.py check` 接線行（拔掉即紅）兜底。補案須改 fixture（`rust-api` 改真巢狀 repo＋`migration/` 目錄、同 `_init_sub(d, "rust-api")` 形）並同步 entity-drift 既有期望（006-authz-governance U7b 升級項）｜下一把動 docs-sync hook 測試設施的維護批
 - B-115｜`getAllButtons` 候選序**跨呼叫不保證穩定**：handler 經 facade `sys_menu::all_button_codes`（`list_governed` 自陳無 ORDER BY、首見序去重）——契約 §8 措辭「首見序」與實作一致、但 DB 回列序無保證 ⇒ 按鈕授權 modal 候選清單可能在兩次開啟間抖動（純 UX、零授權語意影響）。候選處置＝`all_button_codes` 內以 `(order, id)` 同組樹鍵排序後再去重（facade 既有 fn、屬 006-authz-governance 允許改動面外、U8 審查觀察）｜下一把動 sys_menu facade 或按鈕 modal 的刀；CDP 走查若實見抖動則提前
+- B-116｜三顆授權 modal 之 `getChecks` **無請求世代**：角色 A 讀在飛行中關閉抽屜改開角色 B、B 讀失敗而 A 遲到成功 ⇒ A 的回應寫入 `checks` 並開閘就緒守（鈕可按、內容為 A 集）。既存亂序風險（U9b 前鈕恆可按、同情境同樣送 A 集——就緒守未加劇、僅未一併解決）；修法＝getChecks 加請求序號（reqId 遞增、回應比對才寫入）或 AbortController（006-authz-governance U9b spec 審查備查）｜下一把動 role modal 的刀
