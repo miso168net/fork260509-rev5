@@ -42,7 +42,7 @@ implementer=fable xhigh／review=opus xhigh）。
   稽核詞彙恰五值（三維寫端 `Update`、restorePolicy `Restore`）。
 - ★**共用件零拷貝**（FR-008）：新 handler 一律引用 `crate::handler::common`（audit_operator／json_or_default／MAX_CURRENT／resolve_operator_names 等）、facade 側引
   `model::facade::violated_constraint`；不得再生私有拷貝（B-094 收攏批之後的硬紀律）。
-- ★**fork-delta 紀律**：修改型標記僅允許出現於 spec FR-047 檔集（逐行 `原行:`）；新檔檔頭 `[rev5-inline MANAGE-PAGE-WIRING+ 006-authz-governance]`；
+- ★**fork-delta 紀律**：修改型標記僅允許出現於 spec FR-047 檔集（逐行 `原行:`）；新檔檔頭 `[rev5-inline BASE-WEB-MANAGE-PAGE-WIRING(iii)+ 006-authz-governance]`（endpoint-auth-modal）／`…(iv)+ 006-authz-governance`（policy-archive 兩檔；as-built 定形、與憲法軌道名一致）；
   產物四檔只由外掛重算、不手改；`components.d.ts`／`service/api/index.ts` 預期零 diff。
 
 ---
@@ -193,7 +193,7 @@ implementer=fable xhigh／review=opus xhigh）。
 - [x] T023 [US3] `rust-api/server/src/handler/policy_archive.rs` 新檔（`ArchivedPolicyQuery` 四欄 Option＋`RestorePolicyReq{id}` Default＋`ArchivedPolicy` 14 欄〔`archivedBy` enrich
   帳號名——走 `common::resolve_operator_names`、既有 B-106 範圍、去重後個位數；`roleId` 用 T008 守衛〕＋`to_wire`＋兩支 handler：Applied⇒reload／NoOp⇒ok／NotRestorable⇒`biz.policy.notRestorable`）＋`handler/mod.rs` 註冊（menu 與 role 之間、doc 同步）
   ＋`router.rs` +2（44→46）＋`RELOAD_CALL_FILES` 加 `handler/policy_archive.rs`＋`biz.policy.notRestorable` 四處 i18n（新開 `biz.policy` 子樹）＋T021 contract 轉綠＋generate。
-- [ ] T024 [US3] 前端 policy-archive 頁（★T002 後）：`base-web/src/views/manage/policy-archive/index.vue`（tsx、`useNaivePaginatedTable`＋`defaultTransform`、8 欄、NTag dimension、
+- [x] T024 [US3] 前端 policy-archive 頁（★T002 後）：`base-web/src/views/manage/policy-archive/index.vue`（tsx、`useNaivePaginatedTable`＋`defaultTransform`、8 欄、NTag dimension、
   archiveReason 原字面、restorable=false 停用鈕、restore→`fetchRestorePolicy`→`if (error) return;`→toast→`getData()`、scroll-x 自算＝Σ、表頭僅 refresh）＋
   `modules/policy-archive-search.vue`（照 ip-rule-search 範式、reset 補 emit）＋`base-web/src/service/api/rev5-role-admin.ts` 追加 `fetchGetArchivedPolicies`／`fetchRestorePolicy`＋
   `base-web/src/typings/api/rev5-role-admin.d.ts` 新 `Api.PolicyArchive` 命名空間（`ArchivedPolicyDimension`／`ArchivedPolicy`／`ArchivedPolicyListQuery`／`ArchivedPolicyListRes`）＋

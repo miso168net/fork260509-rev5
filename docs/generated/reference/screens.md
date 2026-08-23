@@ -28,6 +28,7 @@
 | manage | /manage | layout.base | route.manage |
 | manage_ip-rule | /manage/ip-rule | view.manage_ip-rule | route.manage_ip-rule |
 | manage_menu | /manage/menu | view.manage_menu | route.manage_menu |
+| manage_policy-archive | /manage/policy-archive | view.manage_policy-archive | route.manage_policy-archive |
 | manage_role | /manage/role | view.manage_role | route.manage_role |
 | manage_user | /manage/user | view.manage_user | route.manage_user |
 | manage_user-detail | /manage/user-detail/:id | view.manage_user-detail | route.manage_user-detail |

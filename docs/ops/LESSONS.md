@@ -1,4 +1,4 @@
-<!-- next: L-053 -->
+<!-- next: L-054 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -65,3 +65,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-050｜dev stack 真登入 smoke 後緊接全量測試＝throttle 家族暫態紅](LESSONS/L-050-login-smoke-residue-flakes-full-suite.md) — 手動 smoke 排在全量之後（或先等窗期/清 redis 鍵）；暫態紅當輪立刻截獲失敗名單、rerun 前先存 log
 - [L-051｜wf-watchdog 的 stall 判定源（journal）沒有心跳、只在 agent 邊界寫入](LESSONS/L-051-wf-watchdog-journal-no-heartbeat.md) — 完成通知一到立即 TaskStop（run 後 journal 永不再動＝必誤報）；stall 閾值語意＝agent 邊界間隔上限、非無活動時間
 - [L-052｜編排單元允許檔案清單漏列「連動釘值測」所在檔＝implementer 正確 blocked、多跑一輪審查 run](LESSONS/L-052-allowed-list-misses-pinned-count-tests.md) — 寫 ALLOWED 前先 grep 本單元會改動的計數／常數在全樹的釘值測檔、一併納入（限釘值段）
+- [L-053｜`pnpm gen-route` 不是 elegant-router 產物四檔的重算指令（互動腳手架、零寫檔）](LESSONS/L-053-gen-route-is-not-the-regenerator.md) — 重算＝dev server 外掛自動（核 git status 四檔變動）＋route-artifact-gate check

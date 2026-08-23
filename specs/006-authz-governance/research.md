@@ -134,7 +134,7 @@ naive-ui 2.44.1（base-web/package.json:73、NTree／NDataTable／NPopconfirm �
 5. wire-schema：跨子庫兩段式（前端型先 commit base-web→容器內 `tools/wire-schema.py extract`→快照 commit rust-api→外層 pin）；新命名空間 `Api.PolicyArchive.*`＋`Api.RoleAdmin` 新型各配裁判（正向＋反例；回應型以 rust 實例序列化判過；protected 欄為重點）；definitions 57→淨增。
 6. schema-gate gate2：`casbin_rule`／`sys_casbin_policy_archive` 皆不在 `RUNTIME_APPEND_TABLES`（schema-gate.py:141）⇒逐列全等；`CasbinCleanup`（seq (163,true)／archive (1,false)）與 `RoleCleanup`／`MenuCleanup` 成對掛；**清理／釋放先於斷言**（持鎖 panic 掛死紀律）；CDP 走查排 gate 之後或走查後還原（`casbin_rule_id_seq` setval 163 true＋archive seq 1 false＋清列）。
 7. `view-render-guard`（掃 `views/manage/**`、連註解也不得出現禁字面）與 `route-artifact-gate`（產物四檔三道斷言；施工序＝加 view→外掛重算→四檔同 commit）。
-8. `fork-delta-lint`：修改型僅允許出現於 FR-047 檔集；兩 modal 自基線逐位一致起改（sha256 兩側相同、基線 tip `8be6f9b`）；新檔檔頭 `[rev5-inline MANAGE-PAGE-WIRING+ 006-…]`（先例 ip-rule/index.vue:2）。
+8. `fork-delta-lint`：修改型僅允許出現於 FR-047 檔集；兩 modal 自基線逐位一致起改（sha256 兩側相同、基線 tip `8be6f9b`）；新檔檔頭 `[rev5-inline BASE-WEB-MANAGE-PAGE-WIRING(iii|iv)+ 006-authz-governance]`（as-built 定形、與憲法軌道名一致；先例 ip-rule/index.vue 第 2 行用自訂 MANAGE-IP-RULE-VIEW+ 形、新增型不入名冊故三形皆不致紅）。
 9. i18n：Lint24 後端實發集（字面 `Cow::Borrowed`、常數形會觸 `I18N_CONST_ROSTER` 空表 fail-loud）vs zh-tw.ts backend 樹雙向；前後端鍵同 commit；zh-cn 零 lint⇒顯式 `pnpm typecheck`；`page:` 型節必補。
 10. 守門非 vacuous（FR-059）：封死變異自證（弄壞謂詞／掛點→紅→還原→綠）；五腿各一負向＋逐腿同判準測（旗標 vs 權威）；reason gate 五值成員測（正向餵獨立字面、不引常數）；orphan skip 三維負向；protected 整批拒負向（零變更、零歸檔、零 reload）；grant 面觸發特性測（R7）；兩支入域寫端 NOT-granted 機器證（照 tests/menu_domain_serialization.rs:230 骨架、觀測 helper `menu_domain_waiter_count`）；restore-during-delete 建議測（R6-6）。
     ★候選新守門（登 BACKLOG、非本刀必辦）：「reload 呼叫點所在 fn 內不得出現 `enforcer.read()`」源碼掃描（持讀鎖呼叫 reload 之零機器訊號面）；events summary 無 erratum 出口（L5 發現、另登記）。
