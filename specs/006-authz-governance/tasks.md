@@ -244,7 +244,7 @@ implementer=fable xhigh／review=opus xhigh）。
 
 ## Phase 7: Polish & Cross-Cutting（DoD 收攏）
 
-- [ ] T033 wire-schema 重抽（跨子庫兩段式：base-web 型 commit→容器內 `python3 tools/wire-schema.py extract`→`rust-api/server/tests/fixtures/wire-schema.json` commit→外層 pin）＋
+- [x] T033（as-built：快照 61→75〔U9 收尾兩段式重抽；RoleAdmin 13＋殘件 T_2〕；wire_schema.rs 43→71 測＝16 受審 definition 全覆蓋正向＋反例；GrantResult 泛型本體 $ref T 懸空＋T_2 記已知態、由三具體別名承載；全量 793）wire-schema 重抽（跨子庫兩段式：base-web 型 commit→容器內 `python3 tools/wire-schema.py extract`→`rust-api/server/tests/fixtures/wire-schema.json` commit→外層 pin）＋
   `rust-api/server/tests/wire_schema.rs` 新命名空間裁判（`Api.RoleAdmin` 新型＋`Api.PolicyArchive.*` 各正向＋反例；protected 欄、`roleId` null 形為重點；檔頭 doc 受審面補節、
   IpRule 七支留帳句不動）＋`python3 tools/wire-schema.py check` 綠；definitions 自 57 淨增（補記實數）。
 - [ ] T034 全量閘：容器 serial 全量 `cargo test` rc=0（基線 682、淨增補記實數）＋`docs-sync.py lint` 0 錯誤＋`schema-gate.py check` 三閘綠＋`fork-delta-lint` 綠
