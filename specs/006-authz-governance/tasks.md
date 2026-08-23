@@ -118,7 +118,7 @@ implementer=fable xhigh／review=opus xhigh）。
 
 ### Tests for User Story 1 ⚠️（先紅後綠）
 
-- [ ] T011 [US1]（★單元移轉：原 U3→U4——contract coverage gate 雙向、case 無 route 即紅，與 T016 同單元紅→綠）`rust-api/server/tests/contract.rs`：三維六支 contract case（registry＋共用 verify fn 三段式＋貼界自證一支）＋授權態矩陣
+- [x] T011 [US1]（★單元移轉：原 U3→U4b 落地——contract coverage gate 雙向、case 無 route 即紅，與 T016 同單元紅→綠）`rust-api/server/tests/contract.rs`：三維六支 contract case（registry＋共用 verify fn 三段式＋貼界自證一支）＋授權態矩陣
   （Super 六支通〔空 body 收斂形期望碼逐支寫死〕／Admin、R_USER_COMMON 六支 5003；`hit_as_seed_user` 植 ConnectInfo）——先紅（端點未建）。
 - [x] T012 [US1]（★選單／按鈕維案於 U3 落地 11 支；端點維案於 U4a 落地 10 支）`rust-api/server/src/model/facade/sys_casbin_policy.rs` tests（真 DB、`CasbinCleanup`＋`RoleCleanup`＋`MenuCleanup` 成對）：diff 正確（desired 含重複＋順序顛倒、同維隔離）
   ／空 diff `Applied{0,0}` 零歸檔現役不動／protected 整批拒（零變更、零歸檔、`Rejected.blocked` 命中）／orphan skip 三維（menu 失效 id、button 界外碼、endpoint 界外與非白名單 method）
@@ -134,12 +134,12 @@ implementer=fable xhigh／review=opus xhigh）。
   →INSERT（排序）→op-log `Update`／`sys_role`／`{dimension,revoked,granted}`→commit→Applied）；T012 menu／button 案轉綠、T013 轉綠。
 - [x] T015 [US1]（as-built 多一參 `methods: &[&str]`——白名單由 caller 傳入、research R5-5；封死鉤位預留於 apply_endpoints_locked、U5 T019 接）`sys_casbin_policy.rs`：`set_role_endpoints(db, role_id, desired, candidates:&HashSet<(String,String)>, operator)`（不入域；候選集 orphan skip；同核心；★預留封死鉤位由 T018 接）；
   T012 endpoint 案轉綠。
-- [ ] T016 [US1] `rust-api/server/src/handler/role.rs` 六支 handler（讀端 `active_code_of`→`current_*`；寫端→facade→`Applied`⇒`reload_enforcer(&state)`／`Rejected`⇒
+- [x] T016 [US1] `rust-api/server/src/handler/role.rs` 六支 handler（讀端 `active_code_of`→`current_*`；寫端→facade→`Applied`⇒`reload_enforcer(&state)`／`Rejected`⇒
   `Err(Biz("biz.role.protectedRevoke"))`／NotFound⇒`biz.role.notFound`）＋`rust-api/server/src/router.rs` +6 條（`ROUTES_COUNT` 38→44、doc 沿革一行）＋
   `rust-api/server/tests/authz_entrypoint_lint.rs` `RELOAD_CALL_FILES` 加 `handler/role.rs`（實得序依 T004）＋doc 改寫＋`rust-api/server/src/auth/enforce.rs:138-162` 觸發矩陣 doc
   擴 7 列＋「grant 面刻意例外：Applied 即觸發、不問 diff」句＋`:162` 改寫（釘死句保留）＋`biz.role.protectedRevoke` 四處 i18n（`base-web/src/locales/langs/zh-tw.ts`／
   `zh-cn.ts`／`en-us.ts` backend 樹＋`base-web/src/typings/app.d.ts` backend 型節）＋T011 轉綠＋generate routes。
-- [ ] T017 [US1] 端到端（`rust-api/server/src/handler/role.rs` endpoint_tests、`test_db::real_app_and_state_with` 同一顆 enforcer）：grant 面觸發特性測（Applied 觸發／Rejected 不觸發／
+- [x] T017 [US1] 端到端（`rust-api/server/src/handler/role.rs` endpoint_tests、`test_db::real_app_and_state_with` 同一顆 enforcer）：grant 面觸發特性測（Applied 觸發／Rejected 不觸發／
   空 diff 觸發；`casbin_reload_total{outcome="ok"}` 增量形照 `handler/menu.rs` 既有矩陣測）＋判定即時生效雙斷言（新授→`enforce_role_path_method` allow、撤銷→deny）＋三讀端
   protected 旗標回讀；全量綠＋schema-gate 綠。
 

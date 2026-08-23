@@ -32,8 +32,11 @@
 | /systemManage/getIpRuleList | GET | Policy | get-ip-rule-list | 否 |
 | /systemManage/getMenuList/v2 | GET | Policy | get-menu-list-v2 | 否 |
 | /systemManage/getMenuTree | GET | Policy | get-menu-tree | 否 |
+| /systemManage/getRoleButton | GET | Policy | get-role-button | 否 |
+| /systemManage/getRoleEndpoints | GET | Policy | get-role-endpoints | 否 |
 | /systemManage/getRoleHome | GET | Policy | get-role-home | 否 |
 | /systemManage/getRoleList | GET | Policy | get-role-list | 否 |
+| /systemManage/getRoleMenu | GET | Policy | get-role-menu | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
 | /systemManage/restoreIpRule | POST | Policy | restore-ip-rule | 否 |
 | /systemManage/restoreMenu | POST | Policy | restore-menu | 否 |
@@ -41,5 +44,8 @@
 | /systemManage/updateIpRule | POST | Policy | update-ip-rule | 否 |
 | /systemManage/updateMenu | POST | Policy | update-menu | 否 |
 | /systemManage/updateRole | POST | Policy | update-role | 否 |
+| /systemManage/updateRoleButton | POST | Policy | update-role-button | 否 |
+| /systemManage/updateRoleEndpoints | POST | Policy | update-role-endpoints | 否 |
 | /systemManage/updateRoleHome | POST | Policy | update-role-home | 否 |
+| /systemManage/updateRoleMenu | POST | Policy | update-role-menu | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
