@@ -223,19 +223,19 @@ implementer=fable xhigh／review=opus xhigh）。
 
 - [x] T027 [US4]（as-built：ROUTES 49／Policy 35 終態、POLICY_ENDPOINT_COUNT 32→35；全量 760→765；handler/common.rs 檔頭預告句同步改現在式；getAllButtons 候選序沿 list_governed 無 ORDER BY→B-115）`handler/role.rs` 三支支撐讀 handler（getAllPages 經 `list_active` 排序、getAllButtons 經 T007、getAllEndpoints 經 `policy_endpoints()`）＋`router.rs` +3
   （46→49、最終值）＋T026 轉綠＋generate routes＋`handler/mod.rs` doc（role 八端點→十七支）與 `handler/common.rs` 檔頭預告句同步；menu 管理頁 page 下拉 404 破口自動修復（CDP 於 T035 驗）。
-- [ ] T028 [US4]（★待 T024 後：同檔追加、不與 US3 前端並行）`base-web/src/service/api/rev5-role-admin.ts`（6→18：+`fetchGetRoleMenu(id)`／`fetchUpdateRoleMenu`／`fetchGetRoleButton`／`fetchUpdateRoleButton`／
+- [x] T028 [US4]（as-built：18 支、Api.RoleAdmin 追加 13 型——含主線拍板三具體別名 RoleMenuGrantRes／RoleButtonGrantRes／RoleEndpointGrantRes 作寫端回傳型、供 wire-schema 抽出具體 definition 給 T033 裁判；★待 T024 後：同檔追加、不與 US3 前端並行）`base-web/src/service/api/rev5-role-admin.ts`（6→18：+`fetchGetRoleMenu(id)`／`fetchUpdateRoleMenu`／`fetchGetRoleButton`／`fetchUpdateRoleButton`／
   `fetchGetRoleEndpoints`／`fetchUpdateRoleEndpoints`／`fetchGetAllButtons`／`fetchGetAllEndpoints`／`fetchGetRoleHome`／`fetchUpdateRoleHome`；`fetchGetAllPages` 不新建）＋
   `base-web/src/typings/api/rev5-role-admin.d.ts`（`Api.RoleAdmin`：`Endpoint`／`RoleMenuItem`／`RoleButtonItem`／`RoleEndpointItem`／`GrantResult`／三 Req／`RoleHomeRes`／`UpdateRoleHomeReq`）
   ＋`pnpm typecheck`（新增型、不受硬閘）。
-- [ ] T029 [US4] `base-web/src/views/manage/role/modules/menu-auth-modal.vue`（★T002 後；修改型逐行 `原行:`）：接 `fetchGetRoleMenu`／`fetchUpdateRoleMenu`（checks 不再寫死、
+- [x] T029 [US4]（as-built：原行 12 條、(iii)+ 圈界 3 塊；protected 雙保險＝TreeOption disabled 注入＋受控攔截採「v-model:checked-keys 綁可寫 computed setter 補回」形——顯式 `:checked-keys`＋`@update:checked-keys` 兩屬性於修改型檔無法圈界且與 eslint attributes-order 互斥、語意等價、三 modal 同形）`base-web/src/views/manage/role/modules/menu-auth-modal.vue`（★T002 後；修改型逐行 `原行:`）：接 `fetchGetRoleMenu`／`fetchUpdateRoleMenu`（checks 不再寫死、
   提交期望全集含 protected 項）＋protected 鎖定（TreeOption `disabled`＋受控 `checked-keys` 攔截補回）＋roleHome（`home: shallowRef<string|null>(null)`、NSelect `clearable`、
   `fetchGetRoleHome(id)`／`fetchUpdateRoleHome({id, home})`、候選＝`fetchGetAllPages` 走 barrel 一行不動）＋`fetchGetMenuTree` barrel 不動＋不加 cascade＋錯誤分支 `if (error) return;`。
-- [ ] T030 [US4] `base-web/src/views/manage/role/modules/button-auth-modal.vue`（修改型、21 條原行）：假資料 button1..10 移除、候選＝`fetchGetAllButtons`（`ButtonConfig.id` 復用為 code、
+- [x] T030 [US4]（as-built：原行實數 22〔21＝rev4 數、+1 為 `const tree` 改 computed〕；`ButtonConfig` 基線 `code` 行位改承 `disabled`、`id` 承載按鈕碼）`base-web/src/views/manage/role/modules/button-auth-modal.vue`（修改型、21 條原行）：假資料 button1..10 移除、候選＝`fetchGetAllButtons`（`ButtonConfig.id` 復用為 code、
   模板 `key-field="id"` 不動）＋`fetchGetRoleButton`／`fetchUpdateRoleButton`＋protected 鎖定＋`init()` 改 `watch(visible)`。
-- [ ] T031 [US4] `base-web/src/views/manage/role/modules/endpoint-auth-modal.vue` 新檔（新增型、檔頭標記；`cascade`＋`check-strategy="child"`、葉鍵 `path|method`、群組鍵純 path、
+- [x] T031 [US4]（as-built：新檔 `cascade`＋`check-strategy="child"` 依據 naive-ui 2.44.1／treemate 0.3.11 原始碼行寫進註解；drawer 三處純新增圈界、零新增原行；leafMap 查無即略過＝ADR 0056 射程）`base-web/src/views/manage/role/modules/endpoint-auth-modal.vue` 新檔（新增型、檔頭標記；`cascade`＋`check-strategy="child"`、葉鍵 `path|method`、群組鍵純 path、
   `leafMap` 反查不 split、protected 鎖定、`fetchGetAllEndpoints`／`fetchGetRoleEndpoints`／`fetchUpdateRoleEndpoints`）＋`role-operate-drawer.vue` 第三鈕＋掛載
   （純新增行、新增型圈界；同檔雙用途）＋`page.manage.role.endpointAuth` 三處（zh-cn／en-us／app.d.ts）＋typecheck；role/index.vue 一行不動。
-- [ ] T032 [US4] `base-web/src/views/manage/ip-rule/index.vue` B-099 順修（default slot 外層 `<div v-show="hasAuth('ipRule:add')">` 保底＋內層 `v-if`；照 menu/index.vue 既驗形、條件不照抄）
+- [x] T032 [US4]（as-built：+2 行 div 開閉、其餘縮排位移；BACKLOG B-099 觸發理由已訂正、關帳留 T036）`base-web/src/views/manage/ip-rule/index.vue` B-099 順修（default slot 外層 `<div v-show="hasAuth('ipRule:add')">` 保底＋內層 `v-if`；照 menu/index.vue 既驗形、條件不照抄）
   ＋`docs/ops/BACKLOG.md` B-099 條文失準觸發理由訂正（關帳於 T036）。
 
 **Checkpoint**: US4 可獨立驗收（quickstart §4 全動線）。
