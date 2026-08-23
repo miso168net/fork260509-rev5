@@ -96,6 +96,14 @@ grant 面全部。射程權威＝brainstorm §2；rev4 對應碼＝實作預設�
   「顯示可復原、點了被拒」；封死半對歸檔列結構上恆真仍算（縱深）；代價＝列表讀端多一次批次 protected 集查
   與 ROUTES 成員判定（皆廉價）＋「旗標與權威逐腿同判準」測試。
 
+### Session 2026-08-23（實作期、U5 升級①；ADR 0056）
+
+- Q: 全量替換的撤銷集要不要限縮到候選集內？（rev5 seed 已含全部未來端點政策列、ROUTES 逐刀遞增 ⇒ R_SUPER
+  端點維現役列恆含候選外列；照 live 全集導出撤銷集則 R_SUPER 在端點 modal 按 Save 恆觸 protected 整批拒，
+  且首次 Save 會把未註冊 seed 端點撤入歸檔）→ A: **射程＝候選集、三維同式**——撤銷集自「現況 ∩ 候選集」
+  導出；候選外現役列不撤、不授、不入 effective（UI 看不見的不動）；讀端與 orphan skip 不變（user 親決
+  2026-08-23；ADR 0056；落地 U5c／T037）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管三維授權治理（選單／按鈕／端點） (Priority: P1)
@@ -286,7 +294,9 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
 #### B. 三維授權寫端與讀端（島 G2／G3／G5）
 
 - **FR-009**: 三維寫入 MUST 以「期望全集」為輸入，由系統與現況比對導出撤銷集與新授集（全量替換語意）；
-  MUST NOT 提供增量式寫入介面。
+  MUST NOT 提供增量式寫入介面。★全量替換**射程＝候選集**（user 親決 2026-08-23、ADR 0056）：撤銷集 MUST 自
+  「現況 ∩ 候選集」導出；候選外之現役列（未註冊進路由註冊表之 seed 端點、不在治理域之 route_name／按鈕碼）
+  MUST NOT 被撤銷、亦不納入 effective——三維同式；讀端與 orphan skip 不變。
 - **FR-010**: 撤銷集觸及受保護授權時 MUST 整批拒、零變更（於任何寫入發生之前判定；`biz.role.protectedRevoke`）；
   一般管理介面 MUST NOT 提供設定／解除保護旗標的能力（防鎖死 by-design）。
 - **FR-011**: 新授 MUST 補齊治理欄（protected=false＋建立時間與操作者）；撤銷 MUST 為 archive-move（完整快照
@@ -306,7 +316,7 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
   skip、對稱選單維）；回應帶實際生效集合。
 - **FR-017**: 端點維粒度 MUST 為「路徑×方法」雙鍵；現況辨識 MUST 以 HTTP 方法白名單判別端點維（不得以排除
   他維反推）；MUST NOT 引入平行的維度標記編碼；候選＝路由註冊表中受政策管制端點全集；期望集中候選外之項（含非白名單 method）MUST 靜默
-  略過（orphan skip、與 FR-015／FR-016 同式）、回應帶實際生效集合。
+  略過（orphan skip、與 FR-015／FR-016 同式）、回應帶實際生效集合；候選外現役端點列 MUST NOT 被撤銷（FR-009 射程句）。
 - **FR-018**: grant 面 outcome MUST 恰兩態 Applied{revoked, granted}／Rejected{blocked}（無 NoOp 態）；回應
   帶實際生效集合。
 

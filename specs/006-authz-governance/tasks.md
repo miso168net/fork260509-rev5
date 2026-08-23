@@ -143,6 +143,11 @@ implementer=fable xhigh／review=opus xhigh）。
   空 diff 觸發；`casbin_reload_total{outcome="ok"}` 增量形照 `handler/menu.rs` 既有矩陣測）＋判定即時生效雙斷言（新授→`enforce_role_path_method` allow、撤銷→deny）＋三讀端
   protected 旗標回讀；全量綠＋schema-gate 綠。
 
+- [x] T037 [US1]（★實作期新增、user 親決 2026-08-23、ADR 0056；as-built：濾點＝單一 helper scope_live_to_candidates 三路同用；R_SUPER wire 案以「候選內現役全集 Save→0000／revoked 0／granted 0／reload +1、候選外 seed 列原封」承載——R_SUPER 已持有候選集全部 30 端點、granted 1 在零 seed 變更下結構上不可達，真豁免由 facade savepoint 測承載）全量替換射程＝候選集：`sys_casbin_policy.rs` 三路於鎖內 live 讀後、diff 前以候選集濾 live
+  （選單維＝治理域 route_name 集、按鈕維＝治理域 buttons 聯集、端點維＝候選集 ∩ 白名單）；候選外現役列不撤不授不入 effective；doc 同步；
+  三維各一支「候選外現役列不動」測（端點維含 protected 候選外列；既有期望「候選外列被撤」之測逐案改）＋`handler/role.rs` endpoint_tests
+  「R_SUPER 自授 P 中端點→0000」wire 案（U5 升級①所述結構性打不出者自此可打）；全量綠＋schema-gate 綠。
+
 **Checkpoint**: US1 可獨立驗收（quickstart §1 三維段＋§2＋§3；前端仍 demo 殼）。
 
 ---

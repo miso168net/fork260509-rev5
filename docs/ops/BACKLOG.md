@@ -1,4 +1,4 @@
-<!-- next: B-113 -->
+<!-- next: B-114 -->
 # BACKLOG — 待辦
 
 條目格式 `- B-NNN｜<一句話>｜<觸發條件或期限（選）>`；配號取檔頭 next-id 後 bump、號碼永不回收；完成即刪列、git 即史。
@@ -50,3 +50,4 @@
 - B-110｜**endpoint_tests 之 oneshot 打端殼同形兩份**（handler/menu.rs `hit` 與 handler/role.rs `post_json`：Super token＋ConnectInfo 手植的真端點 oneshot 殼；B-094 收攏批 U3 查定、落點應為 model/mod.rs test_db 而該檔在該單元允許面外）——第三個消費者（006 新 handler 之 endpoint_tests）出現時收攏成 test_db helper、兩檔改引；與 test_db 對 `uniq_*` 的「第三消費者再收斂」慣例同線｜下一把在 handler 層新增 endpoint_tests 的刀（006 即是）
 - B-111｜**wire-schema 裁判對 `serialize_i64_number_guarded` 的存在無感**：RoleRecord／MenuRecord／AllRole／MenuTree 之 i64 欄拆掉 `#[serde(serialize_with = …guarded)]` 屬性後 serde 預設仍發 JSON number、快照裁判照過（B-094 收攏批 U3 碼品質輪變異推演；全樹既有形、非新引入——role.rs／menu.rs／contract.rs 之 `is_number()` 斷言同樣蓋不住；守衛 fn 本體另有 envelope.rs 單元測 ±2^53 界）。候選守法＝每個帶守衛的 wire 型各補一支「id=2^53+1 序列化須 Err」欄級測、或 lint 型測掃 `i64` 欄必帶該屬性｜下一把動 wire-schema 裁判家族或 envelope 序列化守衛的刀
 - B-112｜**rust 格式守門缺席**：rust-api 容器 toolchain（rust 1.96.1）未裝 rustfmt component、repo 亦無 rustfmt.toml——新碼只能手動對齊既有風格、無機器 fmt check（006-authz-governance Foundational 單元 implementer 實測查定；rev5 零 CI＝ADR 0014 之既知缺口同族）。候選處置＝容器映像加 rustfmt component＋repo 根立 rustfmt.toml＋pre-commit 於 rust-api pin 變動時跑 `cargo fmt --check`（ADR 0024 三項自證落地）；存量碼首跑 fmt 會產生大 diff、須單獨一顆 commit 且與功能改動隔離｜工具面維護批
+- B-113｜**刀 B 把 seed 未來端點註冊補齊後，重審 ADR 0056 之 R_SUPER wire 案前提自證**：handler/role.rs endpoint_tests `update_role_endpoints_super_full_candidate_save_applies_0000_and_leaves_out_of_scope_seed_rows` 以三前提自證（R_SUPER 現役含候選外列≥1、候選內列數＝候選集大小、候選內含 protected≥1）釘住射程濾點；刀 B 註冊 updateUserSessionPolicy 等端點後「候選外列≥1」會由綠轉紅——屬測試失去鑑別力的誠實訊號、非缺陷；屆時改以合成候選外探針列（非 seed）重建前提、勿刪測（006-authz-governance U5c 實作期查定）｜刀 B（user＋password）
