@@ -199,7 +199,7 @@ implementer=fable xhigh／review=opus xhigh）。
   `base-web/src/typings/api/rev5-role-admin.d.ts` 新 `Api.PolicyArchive` 命名空間（`ArchivedPolicyDimension`／`ArchivedPolicy`／`ArchivedPolicyListQuery`／`ArchivedPolicyListRes`）＋
   i18n `page.manage.policyArchive` 15 鍵（zh-cn／en-us 插 `role` 後、app.d.ts page 型節）＋`route['manage_policy-archive']`（圈界塊形）＋路由外掛重算產物四檔＋
   `tools/route-artifact-gate.py check`＋`tools/view-render-guard.py check`＋`pnpm typecheck`。
-- [ ] T025 [US3] `tools/seed-view-gate.py` 新建（B-088：seed `sys_menu.component` 之 `view.*` 集 ⊆ `base-web/src/views/**` 導出集；具名豁免常數兩列 `manage_system-settings`／
+- [x] T025 [US3]（as-built：pre-commit 觸發＝base-web／rust-api gitlink 或工具本體 staged——seed 檔住 rust-api worktree、其變動以 rust-api pin bump 顯現；另加結構自證「導出集恰等 `router/elegant/imports.ts` 鍵集」、幽靈豁免亦紅；量測 seed view.* 51／views 導出 50／imports 50、豁免 2；docs-sync 乾跑案缺→B-114）`tools/seed-view-gate.py` 新建（B-088：seed `sys_menu.component` 之 `view.*` 集 ⊆ `base-web/src/views/**` 導出集；具名豁免常數兩列 `manage_system-settings`／
   `manage_audit` 各附 B-008 指針、到期即紅形；self-test 防恆綠；ADR 0024 三項自證〔合成正例／非共變判準／真檔暫改破壞性驗證且關鍵行寫進 commit message〕）＋接線：
   `.githooks/pre-commit` 迴圈（base-web pin 或 seed 檔 staged 時）＋`tools/bootstrap.sh` 體檢＋`tools/docs-sync.py` `TOOLS_PY` 納冊＋README 工具樹（Lint27）＋`generate` 重算 tools-cli。
 

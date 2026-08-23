@@ -36,6 +36,7 @@ fork260509-rev5/
 │   ├── view-render-guard.py         管理頁零原始 HTML 插值守門（FR-038；pre-commit 條件觸發）
 │   ├── route-artifact-gate.py       路由外掛產物四檔重算冪等閘（憲法 §III.2 第五列唯一機器守；
 │   │                                需 dev stack、刻意不掛 pre-commit，單元邊界／CI 手動跑）
+│   ├── seed-view-gate.py            seed sys_menu.component 之 view.* ⊆ 前端 view 集對賬閘（B-088／FR-049；pre-commit 條件觸發）
 │   └── wf-watchdog.py               workflow 編排看門狗（stall／runaway 保險絲、可鎖定目標 run）
 ├── deploy/                          營運面：dev stack 部署資產＋機密管線（管「跑起來的系統」）
 │   ├── secrets_common.py            落點解析共用庫（消費者五支＝下列四支 CLI＋secret-value-guard）

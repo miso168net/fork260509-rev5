@@ -82,6 +82,24 @@ if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/view-render-guard.py'; the
     echo "[pre-commit] ⤳ view-render-guard 跳過：base-web worktree 未就位（base-web/src/ 缺席）——跑 bash tools/bootstrap.sh 建置後自動恢復實跑"
   fi
 fi
+# seed `sys_menu.component` × 前端 view 集對賬閘（B-088／spec 006 FR-049／T025）：base-web 或 rust-api gitlink
+# 變動（pin bump）或本工具本體 staged 時，比對 seed `SEED_SYS_MENU` 塊內 `view.*` 集 ⊆ base-web/src/views/**
+# 依 elegant-router 規則導出集（另斷言導出集恰等 imports.ts 產物鍵集）。seed 加一列指向不存在的 view、或
+# 搬走／改名一支 view 而忘了動 seed，兩向皆零紅——側欄長出點下去零反應的項（B-008 CDP 實測），只有機器
+# 對賬擋得住。具名豁免兩列（B-008 餘兩張 view）住工具常數、到期即紅。
+# ★純檔案掃描、毫秒級、不碰 docker／node；self-test 每次 check 連帶跑 ⇒ 不進上方 `for t in …` 迴圈
+#   ＝具名豁免（docs-sync 的 HOOK_TEST_LOOP_EXEMPT、同 view-render-guard）。
+if echo "$staged" | grep -qxF -e 'base-web' -e 'rust-api' -e 'tools/seed-view-gate.py'; then
+  # ★worktree 未就位具名跳過（fresh clone、bootstrap 前）：兩側任一整棵缺席時工具回 rc=2、會擋創世期
+  #   commit——同 view-render-guard／fork-delta／entity-drift 既有 Day-1 模式（ADR 0001 決定 4）。
+  #   ★條件取 `base-web/src` 與 `rust-api/migration`（worktree 在不在）而非掃描射程本身：worktree 在位
+  #   卻少了 views/ 或 seed 檔＝被搬走／改名，那正是工具要 fail-loud 的情境，不能在這裡被吞掉。
+  if [ -d "$HOOK_DIR/../base-web/src" ] && [ -d "$HOOK_DIR/../rust-api/migration" ]; then
+    python3 tools/seed-view-gate.py check || exit 1
+  else
+    echo "[pre-commit] ⤳ seed-view-gate 跳過：worktree 未就位（base-web/src/ 或 rust-api/migration/ 缺席）——跑 bash tools/bootstrap.sh 建置後自動恢復實跑"
+  fi
+fi
 # fork-delta 原行 紀律（憲法 §III L114）：base-web gitlink 變動（pin bump）時機器比對 base-web vs
 # example 上游、修改型缺 `原行:` 即擋——不靠人工 review（fork 源倉須在 example 分支＝lint 首步
 # 斷言）；工具本體 staged 時亦直跑一次（無 test 介面、self-test 內建）。★兩條件取聯集只跑一次

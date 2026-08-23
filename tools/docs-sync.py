@@ -2153,6 +2153,7 @@ TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate
             "tools/wire-schema.py", "tools/secret-value-guard.py",
             "tools/entity-drift-gate.py", "tools/wf-watchdog.py",
             "tools/view-render-guard.py", "tools/route-artifact-gate.py",
+            "tools/seed-view-gate.py",
             "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
             "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
             "deploy/backup-db.py")
@@ -8946,6 +8947,7 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/wf-watchdog.py", ("test",)),
                ("tools/view-render-guard.py", ("check", "test")),
                ("tools/route-artifact-gate.py", ("check", "test")),
+               ("tools/seed-view-gate.py", ("check", "test")),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
@@ -9001,23 +9003,25 @@ class TestToolsCliTruthTable(unittest.TestCase):
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（rev4:SC-006 失守）＋該工具的 Lint19 子命令比對與舊名禁令一併靜默下線。
         ★路徑形（B-035 U2）：名冊含 deploy/ 條目，目錄不再是隱含常識、字面連目錄一起釘。
-        ★B-080 納冊：view-render-guard／route-artifact-gate 進名冊（12→14 支）。"""
+        ★B-080 納冊：view-render-guard／route-artifact-gate 進名冊（12→14 支）。
+        ★006 T025 納冊：seed-view-gate 進名冊（14→15 支、B-088 對賬閘）。"""
         self.assertEqual(TOOLS_PY,
                          ("tools/docs-sync.py", "tools/fork-delta-lint.py",
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
                           "tools/wf-watchdog.py",
                           "tools/view-render-guard.py", "tools/route-artifact-gate.py",
+                          "tools/seed-view-gate.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
                           "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
                           "deploy/backup-db.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 15, msg=str(heads))
+        self.assertEqual(len(heads), 16, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 15 支掃源（python 14 支", md)
+        self.assertIn("來源＝治理工具名冊 16 支掃源（python 15 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -10734,7 +10738,9 @@ RE_HOOK_ROSTER = re.compile(r"^for t in ([a-z0-9./ -]+); do$", re.M)
 #   同形」的成員）。入迴圈＝staged 時緊接著 check 再重複跑一次 self-test、零新增覆蓋。
 #   豁免不得成為靜默下線通道：checked-copy 測試逐支斷言成員必屬 test 名冊（防幽靈豁免）
 #   ＋hook 內必有其 `check` 接線行；bootstrap 體檢（無條件全跑）不豁免、照 run_tool_test。
-HOOK_TEST_LOOP_EXEMPT = ("tools/view-render-guard.py",)
+#   ★第二位成員＝seed-view-gate（006 T025／B-088）：同形——self-test 隨 check 連帶跑、check 由
+#   hook 條件觸發段（base-web／rust-api gitlink 或本體 staged）接線。
+HOOK_TEST_LOOP_EXEMPT = ("tools/view-render-guard.py", "tools/seed-view-gate.py")
 RE_BOOTSTRAP_TEST = re.compile(r"^run_tool_test (\S+)$", re.M)
 # 樁工具：把自己被呼叫的 argv 記進 WIRE_LOG；WIRE_FAIL（檔名）＋WIRE_FAIL_SUB（子命令、可空）
 # 同時命中才非零退出（驗 fail-closed）。★需子命令粒度，否則同一支 docs-sync.py 的 check 與 lint
