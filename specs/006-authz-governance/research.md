@@ -110,7 +110,7 @@ naive-ui 2.44.1（base-web/package.json:73、NTree／NDataTable／NPopconfirm �
    `ptype`／`v0..v5` 快照過境、`protected=Set(false)` **顯式**、`created_at=now`、`created_by=Some(復原者)`——沿 rev4、復原＝新 grant 事件；
    23505 撞 `unique_key_sea_orm_adapter` 以 `violated_constraint` 收窄⇒NotRestorable；刪歸檔列；op-log `Restore`／`entity_table="sys_role"`／
    `payload_after={archive_id, dimension, target, act}`；commit）。handler：Applied⇒reload；NoOp⇒`0000`；NotRestorable⇒`biz.policy.notRestorable`。
-4. **wire**：`ArchivedPolicy` 15 欄（rev4 14＋rev5 將 `archivedBy` 改 enrich 帳號名 `string|null`、`roleId: number|null` 走 `Option<i64>` 守衛序列化
+4. **wire**：`ArchivedPolicy` 14 欄（與 rev4 同數、as-built 核定；rev5 將 `archivedBy` 改 enrich 帳號名 `string|null`、`roleId: number|null` 走 `Option<i64>` 守衛序列化
    ——新建 `envelope::serialize_opt_i64_number_guarded`（候選 B、單點））；`restorePolicy` body `{id}`（歸檔列 id）、DTO 帶 `Default` 走 `json_or_default`。
 5. **NoOp 與 Applied 對前端不可區分**（同 `0000`＋`data:null`）＝沿 rev4、已知態（UI reload 列表即見）。
 6. **併發機器證候選**：restore-during-delete 以 `pg_blocking_pids` 形（rev4 :1222；rev5 restorePolicy 不入域、共享 sys_role 列鎖⇒測得到）——spec FR-058 未強制、列為建議測。

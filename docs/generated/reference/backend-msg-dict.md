@@ -29,6 +29,7 @@
 | biz.menu.routeNameExists | 路由名稱已存在 | Route name already exists |
 | biz.menu.routeNameImmutable | 路由名稱建立後不可修改 | Route name cannot be changed after creation |
 | biz.menu.routeNameInvalid | 路由名稱格式不正確（僅允許字母、數字、底線、連字號，最長 100 位） | Invalid route name (letters, digits, underscore and hyphen only, up to 100 characters) |
+| biz.policy.notRestorable | 該歸檔授權不可復原 | This archived policy cannot be restored |
 | biz.role.cannotDeleteSelfRole | 不能刪除目前登入使用者所屬的角色 | You cannot delete a role assigned to your own account |
 | biz.role.cannotDisableSelfRole | 不能停用目前登入使用者所屬的角色 | You cannot disable a role assigned to your own account |
 | biz.role.codeExists | 角色編碼已存在 | The role code already exists |

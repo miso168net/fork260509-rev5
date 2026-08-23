@@ -183,14 +183,14 @@ implementer=fable xhigh／review=opus xhigh）。
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T021 [US3] `rust-api/server/tests/contract.rs`：回收桶兩支 contract case＋授權態（Super 通、Admin／User 5003）＋貼界自證（與 US1 POST 對）——先紅；
+- [x] T021 [US3] `rust-api/server/tests/contract.rs`：回收桶兩支 contract case＋授權態（Super 通、Admin／User 5003）＋貼界自證（與 US1 POST 對）——先紅；
   `sys_casbin_archive.rs` tests：list 雙濾／DESC／分頁 total／旗標逐腿（reason 五值、同實例、NULL、封死、端點在冊；menu 維列恆 false；對照組 endpoint_revoke true）
   ＋restore 五腿各負向（歸檔列不消費、零變更）＋NoOp（歸檔列消費、零 op-log、零 reload）＋Applied（回灌欄值：protected=false、created_at 新、created_by 復原者；歸檔列刪；op-log `Restore`）
   ＋23505 競態→NotRestorable＋restore-during-delete（`pg_blocking_pids` 形、零殘留）——先紅。
-- [ ] T022 [US3] `sys_casbin_archive.rs`：`ArchivedRecord`／`dimension_of`／`list(conn, filter, page, size) -> (Vec<ArchivedRecord>, total)`（restorable 批次料源：單點 fn＋
+- [x] T022 [US3] `sys_casbin_archive.rs`：`ArchivedRecord`／`dimension_of`／`list(conn, filter, page, size) -> (Vec<ArchivedRecord>, total)`（restorable 批次料源：單點 fn＋
   `active_ids_by_codes`＋`protected_endpoint_set`＋候選集參數）＋`restore(db, archive_id, candidates, operator) -> RestoreOutcome`（鎖歸檔列→①→鎖活角色 by v0→②→③（共用 T019 fn）→④→⑤→7a／7b）；
   T021 facade 案轉綠。
-- [ ] T023 [US3] `rust-api/server/src/handler/policy_archive.rs` 新檔（`ArchivedPolicyQuery` 四欄 Option＋`RestorePolicyReq{id}` Default＋`ArchivedPolicy` 14 欄〔`archivedBy` enrich
+- [x] T023 [US3] `rust-api/server/src/handler/policy_archive.rs` 新檔（`ArchivedPolicyQuery` 四欄 Option＋`RestorePolicyReq{id}` Default＋`ArchivedPolicy` 14 欄〔`archivedBy` enrich
   帳號名——走 `common::resolve_operator_names`、既有 B-106 範圍、去重後個位數；`roleId` 用 T008 守衛〕＋`to_wire`＋兩支 handler：Applied⇒reload／NoOp⇒ok／NotRestorable⇒`biz.policy.notRestorable`）＋`handler/mod.rs` 註冊（menu 與 role 之間、doc 同步）
   ＋`router.rs` +2（44→46）＋`RELOAD_CALL_FILES` 加 `handler/policy_archive.rs`＋`biz.policy.notRestorable` 四處 i18n（新開 `biz.policy` 子樹）＋T021 contract 轉綠＋generate。
 - [ ] T024 [US3] 前端 policy-archive 頁（★T002 後）：`base-web/src/views/manage/policy-archive/index.vue`（tsx、`useNaivePaginatedTable`＋`defaultTransform`、8 欄、NTag dimension、
