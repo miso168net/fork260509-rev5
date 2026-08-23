@@ -215,13 +215,13 @@ implementer=fable xhigh／review=opus xhigh）。
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T026 [US4] `rust-api/server/tests/contract.rs`：支撐讀三支 contract case＋授權態（Admin／User 5003；getAllPages 為 protected=FALSE 但仍 R_SUPER 政策）；
+- [x] T026 [US4]（as-built：先紅後綠；router t027 對齊測＋contract 矩陣＋endpoint_tests 三支 oracle 獨立重算〔ROUTES 反查／raw SQL jsonb／raw SQL COALESCE 序〕；fixture id 段 9_800_100 全樹首用）`rust-api/server/tests/contract.rs`：支撐讀三支 contract case＋授權態（Admin／User 5003；getAllPages 為 protected=FALSE 但仍 R_SUPER 政策）；
   `handler/role.rs` endpoint_tests：getAllEndpoints 回應集＝ROUTES Policy 全集恰等（不多不漏）／getAllButtons＝治理域聯集（oracle 獨立重算、含停用選單碼）／
   getAllPages＝顯示域（停用選單不現、`(order,id)` 穩定序）——先紅。
 
 ### Implementation for User Story 4
 
-- [ ] T027 [US4] `handler/role.rs` 三支支撐讀 handler（getAllPages 經 `list_active` 排序、getAllButtons 經 T007、getAllEndpoints 經 `policy_endpoints()`）＋`router.rs` +3
+- [x] T027 [US4]（as-built：ROUTES 49／Policy 35 終態、POLICY_ENDPOINT_COUNT 32→35；全量 760→765；handler/common.rs 檔頭預告句同步改現在式；getAllButtons 候選序沿 list_governed 無 ORDER BY→B-115）`handler/role.rs` 三支支撐讀 handler（getAllPages 經 `list_active` 排序、getAllButtons 經 T007、getAllEndpoints 經 `policy_endpoints()`）＋`router.rs` +3
   （46→49、最終值）＋T026 轉綠＋generate routes＋`handler/mod.rs` doc（role 八端點→十七支）與 `handler/common.rs` 檔頭預告句同步；menu 管理頁 page 下拉 404 破口自動修復（CDP 於 T035 驗）。
 - [ ] T028 [US4]（★待 T024 後：同檔追加、不與 US3 前端並行）`base-web/src/service/api/rev5-role-admin.ts`（6→18：+`fetchGetRoleMenu(id)`／`fetchUpdateRoleMenu`／`fetchGetRoleButton`／`fetchUpdateRoleButton`／
   `fetchGetRoleEndpoints`／`fetchUpdateRoleEndpoints`／`fetchGetAllButtons`／`fetchGetAllEndpoints`／`fetchGetRoleHome`／`fetchUpdateRoleHome`；`fetchGetAllPages` 不新建）＋

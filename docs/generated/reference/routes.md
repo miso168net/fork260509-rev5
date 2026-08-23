@@ -27,6 +27,9 @@
 | /systemManage/deleteIpRule | DELETE | Policy | delete-ip-rule | 否 |
 | /systemManage/deleteMenu | DELETE | Policy | delete-menu | 否 |
 | /systemManage/deleteRole | DELETE | Policy | delete-role | 否 |
+| /systemManage/getAllButtons | GET | Policy | get-all-buttons | 否 |
+| /systemManage/getAllEndpoints | GET | Policy | get-all-endpoints | 否 |
+| /systemManage/getAllPages | GET | Policy | get-all-pages | 否 |
 | /systemManage/getAllRoles | GET | Policy | get-all-roles | 否 |
 | /systemManage/getArchivedPolicies | GET | Policy | get-archived-policies | 否 |
 | /systemManage/getDeletedMenus | GET | Policy | get-deleted-menus | 否 |
