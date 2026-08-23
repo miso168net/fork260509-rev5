@@ -155,15 +155,15 @@ implementer=fable xhigh／review=opus xhigh）。
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T018 [US2] `sys_casbin_policy.rs` tests＋`handler/role.rs` endpoint_tests：封死三案（非 R_SUPER 授 protected 端點→Rejected 零變更零歸檔零 reload／R_SUPER 自授通／
+- [x] T018 [US2] `sys_casbin_policy.rs` tests＋`handler/role.rs` endpoint_tests：封死三案（非 R_SUPER 授 protected 端點→Rejected 零變更零歸檔零 reload／R_SUPER 自授通／
   非 protected 端點通）＋固定序（protected 整批拒先於封死）＋歸檔表中 protected=TRUE 原值之列恆零（SC-006 機器斷言）——先紅。
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] `sys_casbin_policy.rs`：`protected_endpoint_set(conn) -> HashSet<(String,String)>`（謂詞 `ptype='p' ∧ protected=TRUE ∧ v2∈方法白名單`、單次 SELECT、鎖內現查）＋
+- [x] T019 [US2] `sys_casbin_policy.rs`：`protected_endpoint_set(conn) -> HashSet<(String,String)>`（謂詞 `ptype='p' ∧ protected=TRUE ∧ v2∈方法白名單`、單次 SELECT、鎖內現查）＋
   `set_role_endpoints` 接封死腿（角色 `role_code != SUPER_ROLE_CODE` ∧ to_grant ∩ 集≠∅⇒`Rejected`〔blocked 記封死項〕；拒因鍵 `biz.role.protectedGrant`）＋handler 映射＋
   四處 i18n＋doc 承重前提（ADR 0050 §4；un-protect 永不 UI 化）＋★變異自證（拆掉謂詞守門→T018 紅→還原→綠；report 附三次結果）；T018 轉綠。
-- [ ] T020 [US2] B-105 seam harness 自拍（跨切項：屬 G1 判定面同步、隨 U5 單元施工；`rust-api/server/src/auth/enforce.rs` tests）：`RELOAD_SERIAL` 交錯時序 seam 形 harness（後 commit 先 swap／先 commit 慢 rebuild 蓋回）
+- [x] T020 [US2]（結論：harness 已建成＝`auth/enforce.rs` tests `reload_serial_holds_second_reload_until_first_swaps_then_last_rebuild_wins`、seam＝`#[cfg(test)] mod reload_seam`＋臨界區內 cfg(test) pause 點、生產零變更；B-105 關帳）B-105 seam harness 自拍（跨切項：屬 G1 判定面同步、隨 U5 單元施工；`rust-api/server/src/auth/enforce.rs` tests）：`RELOAD_SERIAL` 交錯時序 seam 形 harness（後 commit 先 swap／先 commit 慢 rebuild 蓋回）
   ——可證即補；成本失控＝BACKLOG B-105 留帳附記「006 已把 reload 呼叫者 3→7、harness 仍未建」（本 task 補記結論）。
 
 **Checkpoint**: US2 可獨立驗收（US1 端點維寫端上的封死；restorePolicy 路徑待 US3）。

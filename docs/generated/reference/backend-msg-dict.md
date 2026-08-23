@@ -37,6 +37,7 @@
 | biz.role.inUse | 該角色仍掛有使用者，不可刪除 | The role still has users assigned and cannot be deleted |
 | biz.role.nameRequired | 角色名稱不可為空 | Role name must not be null |
 | biz.role.notFound | 角色不存在 | The role was not found |
+| biz.role.protectedGrant | 受保護的端點僅限超級管理員持有 | Protected endpoints are reserved for the super administrator |
 | biz.role.protectedRevoke | 存在受保護的授權，無法撤銷 | Protected policies cannot be revoked |
 | biz.role.seededProtected | 系統內建角色，不可刪除 | Built-in system roles cannot be deleted |
 | biz.role.superCannotDisable | 超級管理員角色不可停用 | The super administrator role cannot be disabled |
