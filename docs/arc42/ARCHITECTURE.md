@@ -83,13 +83,18 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   `alt_stub.rs` 替代登入誠實 stub 四出口）／`handler/captcha.rs`＋`captcha/`（圖形驗證碼
   簽章題）／`throttle/`（登入失敗節流狀態機——003 起帳號維、004 起雙維）／`cache/`
   （redis session 加速層：denylist／grace／last_activity／throttle L1 與解鎖標記鍵面）；
-  資料面 `model/facade/` **11 支**（session_event／sys_casbin_archive／sys_ip_rule／
-  sys_login_attempt／sys_menu／sys_operation_log／sys_role／sys_token／sys_user／
-  sys_user_role／system_settings；`sys_casbin_archive`＝005 授權歸檔寫入面——選單域
+  資料面 `model/facade/` **12 支**（session_event／sys_casbin_archive／sys_casbin_policy／
+  sys_ip_rule／sys_login_attempt／sys_menu／sys_operation_log／sys_role／sys_token／
+  sys_user／sys_user_role／system_settings；`sys_casbin_archive`＝005 授權歸檔寫入面＋
+  006 回收桶讀端 list／restore（復原＝鎖內固定序五腿重驗、詳 ADR 0055）——選單域
   advisory 鎖底座 key `0x7265_7635_6D65_6E75`＋`insert_archived` role_id 反查內收＋
-  reason gate 三值集；固定鎖序 advisory→歸檔表列→sys_role 列→sys_menu 列→casbin_rule、
-  防環上溯上限 64、routeName 形制上限 100——憲法島 H「常數留活書」落點；判定面
-  rebuild-swap 熱重載機制詳 ADR 0049＋`auth/enforce.rs` doc）＋src 側測試共用設施
+  reason gate 五值集（006 擴 menu_revoke／button_revoke）；固定鎖序 advisory→歸檔表列→
+  sys_role 列→sys_menu 列→casbin_rule、防環上溯上限 64、routeName 形制上限 100——憲法
+  島 H「常數留活書」落點；判定面 rebuild-swap 熱重載機制詳 ADR 0049＋`auth/enforce.rs` doc；
+  `sys_casbin_policy`＝006 三維授權寫入面——plan_full_replace／apply_full_replace／
+  settle_txn 全量替換核（射程＝候選集、ADR 0056）＋protected_endpoint_set 封死謂詞鎖內
+  現查（ADR 0054）＋scope_live_to_candidates 三路同用；自管 txn、選單／按鈕維入選單序列
+  化域、端點維與 restore 不入域；handler 消費面＝role.rs 三維六支＋policy_archive.rs 兩支）＋src 側測試共用設施
   `model::test_db`（守衛 **12 件**＝`SequenceResetGuard`
   ／`ChainRowsCleanup`／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
   `OperationLogCleanup`／`SessionIdCleanup`＋005 四件 `RoleCleanup`／`MenuCleanup`／
@@ -128,7 +133,7 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
 
 ## §6 Runtime
 
-不變式凍結面住 constitution §I.7（六座行為島＋fail-* 方向）；本節只寫 as-built 執行形
+不變式凍結面住 constitution §I.7（八座行為島＋fail-* 方向）；本節只寫 as-built 執行形
 ——模組落點、常數實值、欄與鍵名（§I.7 進場規則明文把這一類留在活書）。凍結條文一律
 以「主題＋落點＋指島」形給指針，不複述 MUST 文字（複述＝同一事實兩個人寫的家，
 Amendment 改憲法而活書靜默過期）。
@@ -267,10 +272,10 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   非軟區零行為變更。
 - **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
   `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
-  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（**50 鍵**＝
-  003 之 22 鍵＋004 之 `biz.ipRule.*` 五鍵與 `biz.throttle.*` 一鍵＋005-role-menu-crud 之
-  `biz.role.*` 十鍵〔含第十鍵 nameRequired、user 拍板 2026-08-19〕與 `biz.menu.*` 十二鍵
-  〔含 routeNameInvalid、nameRequired 兩域同式與 restoreConflict〕；兩語鍵集機器守相等）；(iii) `app.d.ts` 補 backend 必填型節。
+  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（★鍵數與鍵清單
+  之機器真源＝`deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json`（generate 自
+  兩語 locale 重算、Lint24 雙向守相等）——本節不手抄計數；各刀增鍵記各自 spec）；
+  (iii) `app.d.ts` 補 backend 必填型節。
 - **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
   `fetchLogout`（失敗不阻斷 `resetStore()`）。
 - **★BASE-WEB-MANAGE-PAGE-WIRING**：(i) IP 規則管理頁進場——兩語 locale 之 `route:` 樹加
@@ -280,7 +285,12 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   ——標記於下次重算即被抹除、物理上不可維持）；(ii)（005、憲法 v1.7.0 開）role／menu
   既有管理頁 CRUD 接真——檔級定數名單恰 8 檔＝role 3 view＋menu 2 view＋兩語 locale＋
   `app.d.ts`（兩顆授權 modal 與 `shared.ts` 明文不入、零 diff 機器斷言），`page:` 樹加
-  memo／回收桶欄位鍵；upstream 誤植之 `fetchGetAllRoles` 殘留於 menu modal 移除。
+  memo／回收桶欄位鍵；upstream 誤植之 `fetchGetAllRoles` 殘留於 menu modal 移除；
+  (iii)（006、憲法 v1.8.0 開）三顆授權 modal 接真——menu／button modal 修改型（原行 13／23＋
+  就緒守：確定鈕於現況讀成功前 disabled、user 拍板 2026-08-24）＋endpoint modal 新增型新檔
+  （cascade＋check-strategy=child）＋drawer 同檔雙用途第三鈕＋roleHome（誠實 null＋clearable）
+  ＋`page:` 樹 endpointAuth 鍵；(iv)（006）policy-archive 頁進場——兩新檔＋`route:`／`page:`
+  樹＋產物四檔重算；role/index.vue 零 diff、三鈕零 hasAuth gating（門在頁級）。
 
 機器守（`tools/fork-delta-lint.py`、`tools/view-render-guard.py`、
 `tools/route-artifact-gate.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
@@ -328,6 +338,13 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   持有角色；授權面內部故障＝5000、不偽裝成 403。
 - **no-escalation seam**（ADR 0022 定形）：空掛點 `no_escalation_check` 單一呼叫點、
   簽章預留 async＋db；現況恆放行、deny 與政策拒絕走同一出口。
+- **三維授權治理**（006）：期望全集全量替換（diff 由系統導出）、射程＝候選集（候選外既得
+  原封、界外靜默略過；ADR 0056）；protected 撤銷整批拒 `protectedRevoke`；結構性封死＝謂詞
+  式（ptype=p ∧ protected ∧ v2∈動詞）鎖內現查、掛 updateRoleEndpoints＋restore 第③腿、拒因
+  `protectedGrant`（ADR 0054）。回收桶：撤銷＝archive-move 完整快照、復原＝鎖內固定序五腿
+  重驗（ADR 0055）、restorable 派生旗標與①～④腿同判準。觸發面：grant 面 Applied 即判定面
+  同步不問 diff（刻意例外、與移除面 if-archived 並陳）、呼叫點名冊三檔機器守；生效語意＝
+  API 判定即時、前端選單／按鈕面下次載入生效（FR-022）。
 
 ## §9 架構決策
 

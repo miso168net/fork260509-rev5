@@ -113,6 +113,14 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 （本章隨對應刀補實文；創世期無內容。）
 
+## 9a. 授權治理面速查（006；僅指針）
+
+- 回收桶復原（getArchivedPolicies／restorePolicy 動線、restorable 五腿判準）→
+  `specs/006-authz-governance/contracts/wire-policy-archive.md`＋ADR 0055；復原 UI＝manage/policy-archive 頁。
+- 授權拒因三鍵查法：`biz.role.protectedRevoke`（撤 protected 整批拒）／`biz.role.protectedGrant`
+  （封死：protected 端點授非 R_SUPER）／`biz.policy.notRestorable`（復原任一腿拒）→ 語意與掛點＝
+  ADR 0054；封死謂詞＝`sys_casbin_policy.rs::protected_endpoint_set`；全量替換射程＝候選集（ADR 0056）。
+
 ## 10. migration 操作
 
 ★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝
@@ -159,6 +167,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點：staged 增量對既存明文結構性失明（rev4:L-190）、本旗標補盤點面——導入既有 repo 與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量；增量面＝pre-commit 自動跑裸 check） | 否 |
 | `python3 tools/view-render-guard.py check` / `test` | 管理頁 `base-web/src/views/manage/**` 零原始 HTML 插值斷言（FR-038；禁用字面表逐行掃原文，條數以 `FORBIDDEN` 為準、成功訊息會印、**不解析註解與語法**——能藏在註解裡就能藏在字串常值裡再拼接）／自測。★pre-commit **條件觸發**：base-web pin bump 或本檔 staged 時自動跑（`base-web/src` 缺席＝具名跳過）；掃到零檔＝fail-loud rc=2 | 否 |
+| `python3 tools/seed-view-gate.py check` / `test` | seed `sys_menu.component` 之 `view.*` 集 ⊆ `base-web/src/views/**` 依 elegant-router 規則導出集對賬（B-088／FR-049；另斷言導出集恰等 `router/elegant/imports.ts` 產物鍵集＝結構自證；具名豁免兩列住工具常數、到期／幽靈皆紅；self-test 每次 check 連帶跑）／自測。pre-commit **條件觸發**：base-web 或 rust-api pin bump 或本檔 staged 時自動跑（`base-web/src` 或 `rust-api/migration` 缺席＝具名跳過）；三面任一空集＝fail-loud rc=2 | 否 |
 | `python3 tools/route-artifact-gate.py check` / `test` | 路由外掛產物四檔（`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之**產出檔集對賬＋重算冪等＋零手改**三道——★憲法 §III.2 第五列「產物檔紀律」的**唯一**機器守（該四檔受 fork-delta 檢查全域豁免）。★**刻意不掛 pre-commit**：實跑外掛三趟、實測 15.2s，且依賴 dev stack 在跑，而 pre-commit MUST 在 stack 沒起時可用；落點＝**單元邊界／CI 手動跑** | check **是**、test 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
@@ -166,7 +175,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔；passphrase **只輸入一次**（腳本對每個 recipient 提示自動代餵；`RV5_DECRYPT_MANUAL=1`＝逐次手打退路） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢；age 走容器＝`deploy/Dockerfile.age`，每次產鑰 `docker build --pull --no-cache` 取真最新）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需 docker＋真 tty；build 需網路，離線退回本機既有映像＋警示） |
 
-退出碼注意：view-render-guard＝命中 1、射程異常（掃到零檔）2、用法錯 64；route-artifact-gate＝判定紅 1、環境前提不成立（stack 未起／基線缺席）2、用法錯 64；
+退出碼注意：view-render-guard＝命中 1、射程異常（掃到零檔）2、用法錯 64；seed-view-gate＝判定紅（缺 view／豁免到期／幽靈豁免／導出集≠imports 鍵集）1、射程異常（seed 檔／views／imports.ts 缺席或空集）2、用法錯 64；route-artifact-gate＝判定紅 1、環境前提不成立（stack 未起／基線缺席）2、用法錯 64；
 schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
 不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
 異常 2、用法錯 64；docs-sync refresh
@@ -182,7 +191,9 @@ schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取
   自身 staged 時另跑 `python3 tools/view-render-guard.py check`（`base-web/src` 未就位時
   具名跳過，同 fork-delta／entity-drift 的 Day-1 模式；★該檔在 TOOLS_PY 名冊內但**不入**
   `for t in` 自測迴圈＝具名豁免 `HOOK_TEST_LOOP_EXEMPT`——其 self-test 隨本 check 連帶跑、
-  入迴圈即重複跑；bootstrap 體檢不受此豁免、照跑其 test）；rust-api pin bump 或 schema 快照
+  入迴圈即重複跑；bootstrap 體檢不受此豁免、照跑其 test）；base-web／rust-api 任一 pin bump 或
+  `tools/seed-view-gate.py` 自身 staged 時另跑 `python3 tools/seed-view-gate.py check`（`base-web/src`
+  或 `rust-api/migration` 未就位時具名跳過；同屬 `HOOK_TEST_LOOP_EXEMPT` 第二位成員、理由同上）；rust-api pin bump 或 schema 快照
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
   `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
@@ -253,9 +264,9 @@ EOF
   | **基礎鏈合計** | **13.695s** | **42s**（＝合計中位數 ×3；逐列上限加總同為 42s、以本值為權威） |
 
   情境 B＝理論最壞 staged（pre-commit 名冊 12 支工具本體全 staged、條件自測全中）＝
-  基礎鏈＋12 支 test（★名冊＝test 名冊（TOOLS_PY 14 支中帶 test 介面的 13 支；
+  基礎鏈＋12 支 test（★名冊＝test 名冊（TOOLS_PY 15 支中帶 test 介面的 14 支；
   fork-delta-lint 無 test 介面、天然不入迴圈而走條件觸發段）減 `HOOK_TEST_LOOP_EXEMPT`
-  具名豁免 1 支（view-render-guard——其 self-test 隨 check 連帶跑））：
+  具名豁免 2 支（view-render-guard／seed-view-gate——其 self-test 隨 check 連帶跑））：
 
   | 支 | 自測案數 | 中位數 | 單跑上限 |
   |---|---|---|---|
@@ -287,6 +298,7 @@ EOF
   | `python3 tools/wire-schema.py check --staged-gate` | base-web gitlink staged | 8.431s | 26s |
   | `python3 tools/entity-drift-gate.py check` | rust-api gitlink staged | 0.179s | 1s |
   | `python3 tools/view-render-guard.py check` | base-web gitlink／該工具 staged | 0.224s | 1s |
+  | `python3 tools/seed-view-gate.py check` | base-web／rust-api gitlink／該工具 staged | 0.49s | 2s |
 
   ★`tools/route-artifact-gate.py check` **不在 pre-commit**（其 check 需 dev stack 在跑），
   故不列本表；其本身耗時亦屬量級可觀（同日單跑約 15s，且**連續背靠背跑第三趟時實得

@@ -55,3 +55,7 @@
 | 0050 | accepted | 2026-08-18 | A1 域行為——deleteRole 家族入序列化域＋免 reload 論證＋島 G 行為 ADR 承載（G1/G3/G4/G5）＋archive 三自由度 won't-use 與翻案觸發條款過境 | — | — | — |
 | 0051 | accepted | 2026-08-22 | restoreMenu 復原重驗補常量父鏈腿——閉合軟刪常量後代繞道窗（B-095 處置拍板） | — | — | — |
 | 0052 | accepted | 2026-08-22 | unplugin 元件宣告生成檔併入產物檔紀律——components.d.ts 同族不入憲法用途名單 | — | — | — |
+| 0053 | accepted | 2026-08-23 | 憲法 Amendment 1.8.0——§I.7 第八座行為島（島 G casbin 授權治理、含 G6 結構性封死）＋§III.2 MANAGE-PAGE-WIRING 用途 (iii)(iv)（三顆授權 modal 接真＋policy-archive 頁）＋§III 正文納 ADR 0052 生成檔條款＋B-104 觸發矩陣訂正 | — | — | — |
+| 0054 | accepted | 2026-08-23 | 結構性封死——治理面受保護端點政策 MUST NOT 授予非 R_SUPER（島 G6 設計全文、掛點恰兩處、非 vacuous 自證、B-024① 歸宿與 no-escalation 翻案觸發條款） | — | — | — |
+| 0055 | accepted | 2026-08-23 | restorePolicy 鎖內固定序五腿重驗＋restorable 旗標逐腿同判準＋ADR 0050 §4 翻案觸發條款復核結論 B（reason gate 三值→五值、手動撤銷之選單／按鈕維歸檔列不可復原） | — | — | — |
+| 0056 | accepted | 2026-08-23 | 三維授權全量替換之射程＝候選集——候選外現役列不撤不授不入 effective（rev5 路由註冊表遞增 vs seed 完整之實況拍板） | — | — | — |

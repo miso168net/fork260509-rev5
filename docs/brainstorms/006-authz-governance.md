@@ -27,8 +27,8 @@
    歸檔表列 → sys_role 列 → sys_menu 列 → casbin_rule。★域鎖 MUST 為 txn 首動作，機器證形＝
    **逐寫端各配一支** pg_locks NOT-granted 等待測（sys_menu.rs:3046 註明理由；現七處同形＝
    sys_menu 五〔create／update／soft_delete／batch／restore〕＋sys_role 二〔delete／batch〕）——
-   本刀 updateRoleMenu／updateRoleButton／restorePolicy 選單按鈕分支三支各需一支，
-   缺測則刪掉那行 enter_menu_domain_db 全測仍綠。
+   本刀 updateRoleMenu／updateRoleButton 兩支各需一支（★§10-7 拍板後 restorePolicy 不入域、
+   原「三支」句已過時；以 spec FR-058 為準），缺測則刪掉那行 enter_menu_domain_db 全測仍綠。
 2. **casbin rebuild-swap 熱重載**（auth/enforce.rs）：`rebuild_enforcer`（:107）／`reload_enforcer`
    （:163、無回傳）；`RELOAD_MAX_ATTEMPTS=3`（:81）＋`RELOAD_RETRY_BACKOFF_MS=50`（:83）；
    keep-last-good＋metrics `casbin_reload_total{ok|retry|exhausted}`（:174/:178/:194）。呼叫端硬紀律

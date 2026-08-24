@@ -1,4 +1,4 @@
-<!-- next: L-052 -->
+<!-- next: L-056 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -64,3 +64,7 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-049｜Workflow launch 被擋後，無目標看門狗鎖上一支舊 wf 目錄](LESSONS/L-049-watchdog-locks-stale-wf-dir.md) — launch 失敗即 TaskStop 已 armed 的看門狗、重發後帶明確 runId 重掛；ARMED 行冒煙命中=0＋run id 不對＝鎖錯標的
 - [L-050｜dev stack 真登入 smoke 後緊接全量測試＝throttle 家族暫態紅](LESSONS/L-050-login-smoke-residue-flakes-full-suite.md) — 手動 smoke 排在全量之後（或先等窗期/清 redis 鍵）；暫態紅當輪立刻截獲失敗名單、rerun 前先存 log
 - [L-051｜wf-watchdog 的 stall 判定源（journal）沒有心跳、只在 agent 邊界寫入](LESSONS/L-051-wf-watchdog-journal-no-heartbeat.md) — 完成通知一到立即 TaskStop（run 後 journal 永不再動＝必誤報）；stall 閾值語意＝agent 邊界間隔上限、非無活動時間
+- [L-052｜編排單元允許檔案清單漏列「連動釘值測」所在檔＝implementer 正確 blocked、多跑一輪審查 run](LESSONS/L-052-allowed-list-misses-pinned-count-tests.md) — 寫 ALLOWED 前先 grep 本單元會改動的計數／常數在全樹的釘值測檔、一併納入（限釘值段）
+- [L-053｜`pnpm gen-route` 不是 elegant-router 產物四檔的重算指令（互動腳手架、零寫檔）](LESSONS/L-053-gen-route-is-not-the-regenerator.md) — 重算＝dev server 外掛自動（核 git status 四檔變動）＋route-artifact-gate check
+- [L-054｜CDP 走查回報的「無可觀察實例」與「契約豁免」兩類理由不附機器反證＝等同未驗](LESSONS/L-054-cdp-unverifiable-claims-need-counterevidence.md) — 驗證審查對此類步驟必令 redo：附 psql／grep 反證或原文行號，否則不得記已知態
+- [L-055｜CDP／手動真登入殘列 × AUTH_SEQUENCES setval(1,false)＝下一輪全量 23505；schema-gate 複驗綠≠環境已還原](LESSONS/L-055-runtime-append-residue-blows-next-full-suite.md) — 走查後 DELETE sys_token／session_event／sys_login_attempt＋三 seq 復位（quickstart §4 已晉升）

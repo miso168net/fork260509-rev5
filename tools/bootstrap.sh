@@ -168,6 +168,7 @@ run_tool_test tools/wf-watchdog.py
 #   離線可用——無條件跑 check 會讓新機／離線體檢必紅）；view-render-guard 的 test 亦離線毫秒級。
 run_tool_test tools/view-render-guard.py
 run_tool_test tools/route-artifact-gate.py
+run_tool_test tools/seed-view-gate.py
 run_tool_test deploy/preflight-secrets.py
 run_tool_test deploy/decrypt-secrets.py
 run_tool_test deploy/generate-secrets.py
