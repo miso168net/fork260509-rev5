@@ -23,18 +23,18 @@
   終態、測試 512→650、憲法 1.7.0（島 H＋用途(ii)）、ADR 0048～0052、零 migration；序列化域
   ＋rebuild-swap 熱重載＋歸檔寫入面三底座就緒（授權治理刀依賴面全兌現）｜
   **授權治理刀起手維護批**（輕量軌、merge 524d8b9：B-094 收攏＝handler/common.rs 六件＋facade violated_constraint、
-  B-101 test_db::test_state 單一字面＋(Router, AppState) 變體、B-085 自證測、B-102 三測、B-098 十二裁判；四筆關帳、測試 650→682）。
+  B-101 test_db::test_state 單一字面＋(Router, AppState) 變體、B-085 自證測、B-102 三測、B-098 十二裁判；四筆關帳、測試 650→682）｜
+  **006-authz-governance**（merge 307ed51、本代第六刀、B-088 關帳）：三維授權治理 11 端點、
+  ROUTES 49 終態、測試 682→793、憲法 1.8.0（島 G＋(iii)(iv)）、ADR 0053～0056、零 migration；
+  封死＋射程＝候選集＋五腿 restore；三 modal 接真＋policy-archive 頁；seed-view-gate；wire 75。
   啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文；
   ★其內裸 B／L 編號屬 rev4 空間、該目錄在 Lint25 掃描面外＝L-014）。
 - 兩筆待補：B-035 雙平台 DoD 之 macOS 側；setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 
-- **★下一刀＝授權治理刀**（brainstorm 定稿＝docs/brainstorms/006-authz-governance.md、§10 之
-  22 題已拍〔2026-08-22〕、起手維護批已收〔merge 524d8b9〕）：三維授權治理 11 支＋島 G 入憲＋
-  結構性封死〔B-024①歸宿〕＋policy-archive 頁〔B-008 出列一張〕；依賴之 005 底座全兌現；
-  島 G 入憲順捎＝ADR 0052 條款入 §III 正文＋B-104（ADR 0049 括號句訂正）。
-  刀 B（user＋password）＝再之後：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
-  changePassword」（2026-08-18、記兩檔 §3 表 #4）；★刀 B 必復核 B-093（deleteRole 判定面繼承窗）。
-- **其餘在案候選**：B-008 餘兩張 view（manage_system-settings／audit＋audit 5 支端點；policy-archive 由授權治理刀承接、★連帶 B-088 對賬閘宜同批）。
-- ★下一動作＝**手動起 /speckit-specify**（input＝上述 brainstorm 檔；絕不排自動流程、否則 spec 落
-  default）→ clarify → plan（research 必列 rev4 碼清單＋拍板差異點）→ tasks → analyze、每步 commit。
+- **★下一刀＝刀 B（user＋password 管理）**：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
+  changePassword」（2026-08-18、記兩檔 §3 表 #4）；★起手必復核 B-093（deleteRole 判定面繼承窗）
+  ＋B-113（R_SUPER wire 案前提、seed 未來端點註冊後重審）；seed 68（manage_user view）在彼兌現。
+- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-121／B-122／B-123。
+- ★下一動作＝刀 B **階段 0 brainstorm**（superpowers:brainstorming、產出 docs/brainstorms/<NNN>-<feature-name>.md）；
+  specify 手動起手（絕不排自動流程、否則 spec 落 default）→ clarify → plan → tasks → analyze、每步 commit。
