@@ -106,7 +106,9 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   B-085 關帳時補齊）——`OperationLogCleanup` 依其型 doc 的收窄集理由刻意不配；sequence 紀律
   兩套、以「在不在 `RUNTIME_APPEND_TABLES` 收窄集」分界（集內四表測後不重設、殘列各由清理
   守衛管；集外表由該表守衛把 seq 還原成 seed 現值），全文住該模組 doc。另有真 app 建構
-  `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
+  `real_app_with`、endpoint 測試 oneshot 打端殼 `oneshot_json_from`／`oneshot_json`
+  （B-110 收攏；四個 handler 的自持殼同歸）、測試簽章、跨檔共用常數
+  `REDIS_TTL_SLACK_SECS`）。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
   兩層覆蓋、`apply_chain_overflow` 鏈長短路、`to_canonical` 折疊、`TrustModel::is_trusted`）／
   `ipgate/`（規則判定純函式 `decide`＋`build_ruleset`＋防自鎖 `would_self_lock`＋讀端
