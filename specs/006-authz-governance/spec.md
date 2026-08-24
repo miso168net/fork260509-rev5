@@ -104,6 +104,14 @@ grant 面全部。射程權威＝brainstorm §2；rev4 對應碼＝實作預設�
   導出；候選外現役列不撤、不授、不入 effective（UI 看不見的不動）；讀端與 orphan skip 不變（user 親決
   2026-08-23；ADR 0056；落地 U5c／T037）。
 
+### Session 2026-08-24（實作期、U9 品質審查升級；就緒守）
+
+- Q: 三顆授權 modal 在現況讀端（getRoleMenu／getRoleButton／getRoleEndpoints）未回或讀失敗時按確定，會把
+  空集當「期望全集」送出（全量替換）⇒ 該角色該維授權整批被撤——要不要加守？（rev4 同樣無守、觸發面＝開
+  modal 瞬間搶按或 transport 失敗後仍按）→ A: **加現況讀就緒守**——確定鈕在現況讀成功前 `disabled`；讀
+  失敗（攔截層已 toast）維持停用、僅能取消重開；每次開啟（含切換角色）復位（user 親決 2026-08-24 選項 A；
+  落地 U9b、base-web 673f206e；遲到回應窗既存不加劇＝B-116）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管三維授權治理（選單／按鈕／端點） (Priority: P1)
@@ -390,7 +398,8 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
   還原不拆字串、子項勾選策略）；掛載點 role-operate-drawer（同檔雙用途）；role/index.vue MUST 一行不動；
   三鈕不做 hasAuth gating（門在頁級）。
 - **FR-041**: 三 modal MUST 依讀端 `protected` 旗標預標鎖定（不可取消勾選）；撤銷含 protected 之整批拒為
-  後端最終防線。
+  後端最終防線；★確定鈕 MUST 於現況讀成功前停用（就緒守；Clarifications Session 2026-08-24、user 親決
+  選項 A——防「讀未成即送空集＝整批撤」）。
 - **FR-042**: 拒因 UI MUST 純 key toast（共用攔截層）；不建 ProtectedRevokeDetail 型、不擴 DETAIL 對照表、
   不帶回 protected-revoke-detail.ts。
 - **FR-043**: roleHome UI MUST 隨本刀接上（menu-auth-modal 同檔：getRoleHome／updateRoleHome 兩 fetcher＋
@@ -433,7 +442,8 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
   島 G 入憲（含 G6＋B-104 觸發矩陣訂正〔ADR 0049 §2 括號句出生即誤；訂正後完整矩陣＝移除面三支成功且有
   歸檔／grant 面三支 Applied 即觸發／restorePolicy Applied／其餘零觸發〕＋ADR 0052 條款順捎）／結構性封死
   （FR-023～FR-027 全文＋rev3 原形三缺陷參照＋B-024③ 重評結論）／restorePolicy 五腿定形＋ADR 0050 §4 翻案
-  觸發條款復核結論 B；第四支（封死落 §II）不需。
+  觸發條款復核結論 B；第四支（封死落 §II）不需。★as-built 補記：實作期 user 拍板追加第四支 ADR 0056
+  （全量替換射程＝候選集、Clarifications Session 2026-08-23）——實交四支 0053～0056 皆 accepted。
 - **FR-053**: 島 G as-built MUST 落活書 §5＋§8（§6 只 errata 零行增減；B-083 續掛帳）；收刀 errata「六座」→
   「八座」（現在式唯一處）；arch_impact MUST 列 §6（雙向相等）；§8 餘行落筆先算。
 - **FR-054**: 帳務 MUST：關帳 B-104／B-099；B-024 改記殘餘；B-098 不關帳（新增命名空間必配裁判）；B-088
@@ -494,7 +504,7 @@ notFound toast 消失、首頁下拉可存可讀（清空三形同義）、按�
   一致；已知態（B-008 餘兩張、本刀新造已知態、menu 維 protected 可授可見性）列排除清單且逐項驗證其現狀。
 - **SC-004**: 零 migration 兌現：migration 目錄維持兩支、schema-gate 三閘照常綠；reason gate 擴列為純碼變更。
 - **SC-005**: 憲法 v1.8.0（島 G 六條＋§III.2 表列 10→12＋ADR 0052 條款入 §III 正文＋島 H 兩處括號回填）；
-  ADR 三支 accepted；lint 全綠（0 錯誤）；fork-delta：修改型標記僅出現於 FR-047 所列檔集。
+  ADR 三支＋實作期增補之 0056 共四支 accepted；lint 全綠（0 錯誤）；fork-delta：修改型標記僅出現於 FR-047 所列檔集。
 - **SC-006**: 結構性封死非 vacuous：超管以 UI 可達路徑試授 protected 端點給 R_ADMIN 必拒；拆掉守門測試必紅；
   歸檔表中 protected=TRUE 原值之列恆零（機器斷言）。
 - **SC-007**: wire-schema 快照重抽後 definitions 自 57 淨增、新增命名空間全數有裁判（正向＋反例）；前端

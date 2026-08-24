@@ -286,7 +286,7 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   既有管理頁 CRUD 接真——檔級定數名單恰 8 檔＝role 3 view＋menu 2 view＋兩語 locale＋
   `app.d.ts`（兩顆授權 modal 與 `shared.ts` 明文不入、零 diff 機器斷言），`page:` 樹加
   memo／回收桶欄位鍵；upstream 誤植之 `fetchGetAllRoles` 殘留於 menu modal 移除；
-  (iii)（006、憲法 v1.8.0 開）三顆授權 modal 接真——menu／button modal 修改型（原行 12／22＋
+  (iii)（006、憲法 v1.8.0 開）三顆授權 modal 接真——menu／button modal 修改型（原行 13／23＋
   就緒守：確定鈕於現況讀成功前 disabled、user 拍板 2026-08-24）＋endpoint modal 新增型新檔
   （cascade＋check-strategy=child）＋drawer 同檔雙用途第三鈕＋roleHome（誠實 null＋clearable）
   ＋`page:` 樹 endpointAuth 鍵；(iv)（006）policy-archive 頁進場——兩新檔＋`route:`／`page:`
