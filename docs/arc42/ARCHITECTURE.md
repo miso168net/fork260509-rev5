@@ -108,7 +108,11 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   守衛管；集外表由該表守衛把 seq 還原成 seed 現值），全文住該模組 doc。另有真 app 建構
   `real_app_with`、endpoint 測試 oneshot 打端殼 `oneshot_json_from`／`oneshot_json`
   （B-110 收攏；四個 handler 的自持殼同歸）、測試簽章、跨檔共用常數
-  `REDIS_TTL_SLACK_SECS`）。
+  `REDIS_TTL_SLACK_SECS`，＋維護批 A 的 PG 層 fault-injection seam 兩件
+  `real_db_single_with_lock_timeout`＋`TableLock`（B-056：單連線池帶 `lock_timeout`
+  ／另一連線持 `ACCESS EXCLUSIVE` 表鎖，合成「連線仍活、但這一句 SELECT 逾時失敗」
+  ——`facade::test_kit::FailingConn` 的整條連線壞造不出的形；表名走白名冊、鎖須於斷言前
+  顯式釋放））。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
   兩層覆蓋、`apply_chain_overflow` 鏈長短路、`to_canonical` 折疊、`TrustModel::is_trusted`）／
   `ipgate/`（規則判定純函式 `decide`＋`build_ruleset`＋防自鎖 `would_self_lock`＋讀端
