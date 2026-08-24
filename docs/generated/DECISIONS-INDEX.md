@@ -59,3 +59,4 @@
 | 0054 | accepted | 2026-08-23 | 結構性封死——治理面受保護端點政策 MUST NOT 授予非 R_SUPER（島 G6 設計全文、掛點恰兩處、非 vacuous 自證、B-024① 歸宿與 no-escalation 翻案觸發條款） | — | — | — |
 | 0055 | accepted | 2026-08-23 | restorePolicy 鎖內固定序五腿重驗＋restorable 旗標逐腿同判準＋ADR 0050 §4 翻案觸發條款復核結論 B（reason gate 三值→五值、手動撤銷之選單／按鈕維歸檔列不可復原） | — | — | — |
 | 0056 | accepted | 2026-08-23 | 三維授權全量替換之射程＝候選集——候選外現役列不撤不授不入 effective（rev5 路由註冊表遞增 vs seed 完整之實況拍板） | — | — | — |
+| 0057 | accepted | 2026-08-24 | rust 格式守門——rustfmt 設定釘 max_width=100＋use_small_heuristics=Max（存量 diff 實測最小）、閘以納冊工具承載並於 pre-commit 條件式呼叫容器（stack 在跑才實跑、不在跑具名跳過） | — | — | — |
