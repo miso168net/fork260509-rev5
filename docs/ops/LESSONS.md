@@ -1,4 +1,4 @@
-<!-- next: L-056 -->
+<!-- next: L-057 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -68,3 +68,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-053｜`pnpm gen-route` 不是 elegant-router 產物四檔的重算指令（互動腳手架、零寫檔）](LESSONS/L-053-gen-route-is-not-the-regenerator.md) — 重算＝dev server 外掛自動（核 git status 四檔變動）＋route-artifact-gate check
 - [L-054｜CDP 走查回報的「無可觀察實例」與「契約豁免」兩類理由不附機器反證＝等同未驗](LESSONS/L-054-cdp-unverifiable-claims-need-counterevidence.md) — 驗證審查對此類步驟必令 redo：附 psql／grep 反證或原文行號，否則不得記已知態
 - [L-055｜CDP／手動真登入殘列 × AUTH_SEQUENCES setval(1,false)＝下一輪全量 23505；schema-gate 複驗綠≠環境已還原](LESSONS/L-055-runtime-append-residue-blows-next-full-suite.md) — 走查後 DELETE sys_token／session_event／sys_login_attempt＋三 seq 復位（quickstart §4 已晉升）
+- [L-056｜清理守衛的 setval 還原把 create 形測試的 nextval id 釘成跨執行定值＝走查造得出同 id 的孤兒稽核列](LESSONS/L-056-seq-restore-pins-nextval-id-to-a-constant.md) — 稽核斷言窗形判準改寫：不是「鍵是不是 seed id」而是「這個 id 走查造不造得出」（nextval id 造得出、顯式大 id 段造不出）

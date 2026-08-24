@@ -95,14 +95,24 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   settle_txn 全量替換核（射程＝候選集、ADR 0056）＋protected_endpoint_set 封死謂詞鎖內
   現查（ADR 0054）＋scope_live_to_candidates 三路同用；自管 txn、選單／按鈕維入選單序列
   化域、端點維與 restore 不入域；handler 消費面＝role.rs 三維六支＋policy_archive.rs 兩支）＋src 側測試共用設施
-  `model::test_db`（守衛 **12 件**＝`SequenceResetGuard`
-  ／`ChainRowsCleanup`／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
+  `model::test_db`（守衛 **12 件**＝`ChainRowsCleanup`
+  ／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
   `OperationLogCleanup`／`SessionIdCleanup`＋005 四件 `RoleCleanup`／`MenuCleanup`／
   `CasbinCleanup`／`UserCleanup`（雙名冊＋seed 隔離斷言＋四 seq setval 還原、自證測 7 支）
+  ＋維護批 A 一件 `SeedOpLogCleanup`（op-log id 高水位為窗、只刮 arm 之後新生的 seed 實體
+  稽核列——補上 `RoleCleanup` 結構性拒收 seed id 所留的缺口；自帶兩向自證測）
   ＋列態 fixture `UserStatusFixture`，各支「為何
-  非有不可」逐條寫在其型 doc；003/004 存量中七支各配一支核心自證測（`IpRuleCleanup` 一支於
-  B-085 關帳時補齊）——`OperationLogCleanup` 依其型 doc 的收窄集理由刻意不配。另有真 app 建構
-  `real_app_with`、測試簽章、跨檔共用常數 `REDIS_TTL_SLACK_SECS`）。
+  非有不可」逐條寫在其型 doc；003/004 存量中六支各配一支核心自證測（`IpRuleCleanup` 一支於
+  B-085 關帳時補齊）——`OperationLogCleanup` 依其型 doc 的收窄集理由刻意不配；sequence 紀律
+  兩套、以「在不在 `RUNTIME_APPEND_TABLES` 收窄集」分界（集內四表測後不重設、殘列各由清理
+  守衛管；集外表由該表守衛把 seq 還原成 seed 現值），全文住該模組 doc。另有真 app 建構
+  `real_app_with`、endpoint 測試 oneshot 打端殼 `oneshot_json_from`／`oneshot_json`
+  （B-110 收攏；四個 handler 的自持殼同歸）、測試簽章、跨檔共用常數
+  `REDIS_TTL_SLACK_SECS`，＋維護批 A 的 PG 層 fault-injection seam 兩件
+  `real_db_single_with_lock_timeout`＋`TableLock`（B-056：單連線池帶 `lock_timeout`
+  ／另一連線持 `ACCESS EXCLUSIVE` 表鎖，合成「連線仍活、但這一句 SELECT 逾時失敗」
+  ——`facade::test_kit::FailingConn` 的整條連線壞造不出的形；表名走白名冊、鎖須於斷言前
+  顯式釋放））。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
   兩層覆蓋、`apply_chain_overflow` 鏈長短路、`to_canonical` 折疊、`TrustModel::is_trusted`）／
   `ipgate/`（規則判定純函式 `decide`＋`build_ruleset`＋防自鎖 `would_self_lock`＋讀端

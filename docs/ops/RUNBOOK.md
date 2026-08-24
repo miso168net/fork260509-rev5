@@ -170,12 +170,15 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 tools/seed-view-gate.py check` / `test` | seed `sys_menu.component` 之 `view.*` 集 ⊆ `base-web/src/views/**` 依 elegant-router 規則導出集對賬（B-088／FR-049；另斷言導出集恰等 `router/elegant/imports.ts` 產物鍵集＝結構自證；具名豁免兩列住工具常數、到期／幽靈皆紅；self-test 每次 check 連帶跑）／自測。pre-commit **條件觸發**：base-web 或 rust-api pin bump 或本檔 staged 時自動跑（`base-web/src` 或 `rust-api/migration` 缺席＝具名跳過）；三面任一空集＝fail-loud rc=2 | 否 |
 | `python3 tools/route-artifact-gate.py check` / `test` | 路由外掛產物四檔（`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之**產出檔集對賬＋重算冪等＋零手改**三道——★憲法 §III.2 第五列「產物檔紀律」的**唯一**機器守（該四檔受 fork-delta 檢查全域豁免）。★**刻意不掛 pre-commit**：實跑外掛三趟、實測 15.2s，且依賴 dev stack 在跑，而 pre-commit MUST 在 stack 沒起時可用；落點＝**單元邊界／CI 手動跑** | check **是**、test 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
+| `python3 tools/rust-fmt-gate.py check` / `test` | rust-api 容器內 `cargo fmt --all --check`（**唯讀**、設定＝`rust-api/rustfmt.toml`；B-112／ADR 0057）四態分流：docker 不可用或 compose 檔缺席＝具名跳過 rc 0／rust-api 容器未在跑＝具名跳過 rc 0／全綠 rc 0（印耗時）／未格式化 rc 1（印 `Diff in` 段數＋前 12 行摘要＋補救命令）／容器在跑但映像未含 rustfmt component＝**rc 2 fail-loud**（附重建映像命令、刻意不設豁免）。★檢查的是 rust-api **工作樹**、非 pin 指向的 commit（worktree 髒時多印一行警示、不影響 rc）。pre-commit **條件觸發**：rust-api pin bump 或本檔 staged 時自動跑（★跳過邏輯住工具內、hook 段零條件判斷）／自測（離線、subprocess 全樁） | check **條件**（容器在跑才實跑，否則具名跳過）、test 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
 | `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔；passphrase **只輸入一次**（腳本對每個 recipient 提示自動代餵；`RV5_DECRYPT_MANUAL=1`＝逐次手打退路） | 否（需 docker＋互動 tty） |
 | `bash deploy/generate-age-key.sh [檔名]` | 產 age 金鑰（覆蓋閘＋先寫 `.new` 再 `mv`＋產物自檢；age 走容器＝`deploy/Dockerfile.age`，每次產鑰 `docker build --pull --no-cache` 取真最新）。省略檔名＝預設 `keys.txt`；同機第二把給非預設長檔名（跨代並存機的正解＝§15.2 步驟 1 註記） | 否（需 docker＋真 tty；build 需網路，離線退回本機既有映像＋警示） |
 
 退出碼注意：view-render-guard＝命中 1、射程異常（掃到零檔）2、用法錯 64；seed-view-gate＝判定紅（缺 view／豁免到期／幽靈豁免／導出集≠imports 鍵集）1、射程異常（seed 檔／views／imports.ts 缺席或空集）2、用法錯 64；route-artifact-gate＝判定紅 1、環境前提不成立（stack 未起／基線缺席）2、用法錯 64；
+rust-fmt-gate＝未格式化 1、環境不可用（容器在跑但 cargo-fmt 缺席）2、用法錯 64（docker 不可用／
+容器未在跑＝**具名跳過 0**，訊息與「全綠 0」不同字樣）；
 schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
 不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
 異常 2、用法錯 64；docs-sync refresh
@@ -195,7 +198,10 @@ schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取
   `tools/seed-view-gate.py` 自身 staged 時另跑 `python3 tools/seed-view-gate.py check`（`base-web/src`
   或 `rust-api/migration` 未就位時具名跳過；同屬 `HOOK_TEST_LOOP_EXEMPT` 第二位成員、理由同上）；rust-api pin bump 或 schema 快照
   （docs/ops/reference-src/schema-snapshot.json）staged 時另跑
-  `python3 tools/entity-drift-gate.py check`；`bash tools/bootstrap.sh` 體檢則無條件
+  `python3 tools/entity-drift-gate.py check`；rust-api pin bump 或 `tools/rust-fmt-gate.py`
+  自身 staged 時另跑 `python3 tools/rust-fmt-gate.py check`（★該段**無** Day-1 條件判斷：
+  跳過邏輯住工具內＝ADR 0057 決定 3，docker 不可用／容器未在跑皆由工具具名跳過 rc 0 承擔；
+  該檔**不在** `HOOK_TEST_LOOP_EXEMPT`、照入 `for t in` 自測迴圈）；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
 - **lint 條款**：全 26 條（範圍 Lint03~Lint27；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
@@ -247,7 +253,8 @@ print(f"runs={[f'{t:.3f}' for t in ts]} median={statistics.median(ts):.3f}s rc={
 EOF
 ```
 
-- **本批終態實測**（★**2026-08-18 重量測**（治理批 B-080 納冊後 pre-commit 迴圈名冊 12 支）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
+- **本批終態實測**（★**2026-08-18 重量測**（治理批 B-080 納冊後 pre-commit 迴圈名冊 12 支；
+  **2026-08-25 起 13 支**——見情境 B 表 † 註）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
   python 工具——betterleaks 樣式掃描為原生二進位、不在本表量測面；**條件觸發段**另列於
   兩表之後）。**單跑上限推導＝該列中位數 ×3
   進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
@@ -263,8 +270,8 @@ EOF
   | `python3 tools/docs-sync.py lint` | 12.251s | 37s |
   | **基礎鏈合計** | **13.695s** | **42s**（＝合計中位數 ×3；逐列上限加總同為 42s、以本值為權威） |
 
-  情境 B＝理論最壞 staged（pre-commit 名冊 12 支工具本體全 staged、條件自測全中）＝
-  基礎鏈＋12 支 test（★名冊＝test 名冊（TOOLS_PY 15 支中帶 test 介面的 14 支；
+  情境 B＝理論最壞 staged（pre-commit 名冊 13 支工具本體全 staged、條件自測全中）＝
+  基礎鏈＋13 支 test（★名冊＝test 名冊（TOOLS_PY 16 支中帶 test 介面的 15 支；
   fork-delta-lint 無 test 介面、天然不入迴圈而走條件觸發段）減 `HOOK_TEST_LOOP_EXEMPT`
   具名豁免 2 支（view-render-guard／seed-view-gate——其 self-test 隨 check 連帶跑））：
 
@@ -282,15 +289,20 @@ EOF
   | `python3 deploy/setup-reaper-role.py test` | 32 | 0.585s | 2s |
   | `python3 deploy/backup-db.py test` | 17 | 1.649s | 5s |
   | `python3 tools/wf-watchdog.py test` | 30 | 0.158s | 1s |
-  | **12 支 test 合計** | **966＋具名段** | **23.287s** | — |
+  | `python3 tools/rust-fmt-gate.py test` † | 11 | 0.125s | 1s |
+  | **13 支 test 合計** | **977＋具名段** | **23.412s** | — |
 
   （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
+  （†rust-fmt-gate＝**2026-08-25** 維護批 A（B-112／ADR 0057）新入名冊、該列為當日單獨量測，
+  其餘各列沿 08-18 值。★同日 `docs-sync test` 案數已 524→**527**（本批 U1~U5 新案）但中位數
+  未重測，故該列與合計之案數仍記 08-18 值——讀本表時注意其時點混成。）
 
-  **情境 B 合計＝36.982s**（13.695＋23.287）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
-  為準：36.982s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
+  **情境 B 合計＝37.107s**（13.695＋23.412）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
+  為準：37.107s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
 
-  **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；★四列**沿 2026-08-16
-  量測值（同法）、本批未重測**）：
+  **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；★**前四列**沿 2026-08-16
+  量測值（同法）、其後各批未重測；seed-view-gate 一列為 006-authz-governance 刀入冊當日量測、rust-fmt-gate
+  一列為 **2026-08-25** 入冊當日量測（維護批 A／B-112）——讀值注意時點混成）：
 
   | 段 | 觸發條件 | 中位數 | 單跑上限 |
   |---|---|---|---|
@@ -299,6 +311,7 @@ EOF
   | `python3 tools/entity-drift-gate.py check` | rust-api gitlink staged | 0.179s | 1s |
   | `python3 tools/view-render-guard.py check` | base-web gitlink／該工具 staged | 0.224s | 1s |
   | `python3 tools/seed-view-gate.py check` | base-web／rust-api gitlink／該工具 staged | 0.49s | 2s |
+  | `python3 tools/rust-fmt-gate.py check` | rust-api gitlink／該工具 staged | 2.783s | 9s |
 
   ★`tools/route-artifact-gate.py check` **不在 pre-commit**（其 check 需 dev stack 在跑），
   故不列本表；其本身耗時亦屬量級可觀（同日單跑約 15s，且**連續背靠背跑第三趟時實得
@@ -320,6 +333,17 @@ EOF
   6.163＋8.431＋0.179＋0.224——★半新半舊推估：本批未動 base-web／schema 面、四列條件段無
   重測理由，讀值時注意其時點混成）。距警戒 45s 餘 **0.893s**——下一刀動 base-web 面時宜
   連四列條件段一併重測後再讀本值；引信（連續兩刀 ≥60s）本刀未觸發。
+- **★2026-08-25 維護批 A（B-112）名冊變動後之增量重估＝47.380s**（資料點軌：41.2〔08-16〕→
+  44.107〔08-18〕→**47.380**〔08-25〕；★本值為**重估、非收刀實測**——本刀非收刀）。算式＝
+  08-18 之 44.107 ＋本批新入的 `rust-fmt-gate check` **2.783s** ＋該軌一直漏記的
+  `seed-view-gate check` **0.49s**（該列於 006-authz-governance 刀入冊、晚於 08-18 資料點，從未併入本序列）。
+  `rust-fmt-gate test` 0.125s 屬情境 B 面、不入本推估（收刀簿記型 commit 不 stage 工具本體）。
+  ⇒ **已越警戒 45s**（越線＝列示放行、不擋；距硬擋 90s 仍遠）——即 ADR 0044 所謂「出現了比
+  已量測過的更慢的形」，成因明確＝新增一道容器內守門，非慢路徑劣化。引信（連續兩刀 ≥60s）
+  **未觸發**：47.380 < 60，且本刀非收刀。★半新半舊推估（僅新列於 08-25 實測、其餘沿舊），
+  **下一刀收尾必須依本節量測法實測全鏈**再讀。★`rust-fmt-gate check` 現值量於**存量尚未格式化**
+  之時（687 段 diff、rc 1）；存量一次格式化 commit（§12.3）落地後段數歸零，但成本**不等比下降**
+  （rustfmt 仍須全樹解析）——屆時重測改值。
 - **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
   （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
   test 合計 **24.593s**（自測案數合計 938）；情境 B 合計 **34.499s**。⇒ 兩日內**基礎鏈
@@ -348,7 +372,7 @@ EOF
     機器硬擋喊人」這條性質**恢復**，且餘裕比 2026-08-08 當時更寬（59/90 vs 43/45）。
   - 2026-08-18 本批複核（B-080 納冊後現值）**仍成立**：60.7s < 90s（餘裕 60.7/90）。
   ★真實值（`docs-sync test` 15.415s）距其單跑上限（47s）仍約 3 倍餘裕。逐支上限**加總**
-  （基礎鏈 42s＋12 支 77s＝119s）仍超 90s——單跑上限是逐支劣化偵測基準、非「全數同時到頂
+  （基礎鏈 42s＋13 支 78s＝120s）仍超 90s——單跑上限是逐支劣化偵測基準、非「全數同時到頂
   仍過鏈閘」的保證；理論最壞情境的守門仍＝**全鏈硬擋那一道**。
 - **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
   rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
@@ -386,6 +410,37 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml \
 - 本節為觀測基準、**無機器閘**（與 §12.1 的全鏈硬擋不同——該值以
   `.githooks/pre-commit` 的 `PRECOMMIT_FAIL_SEC` 為權威）。dev profile 的 debuginfo
   裁剪與否屬後續評估，數據前提即本表。
+
+### 12.3 rust 格式守門（B-112／ADR 0057）
+
+- **設定三值**（`rust-api/rustfmt.toml`、皆 stable 選項）：`max_width = 100`／
+  `use_small_heuristics = "Max"`／`style_edition = "2024"`。取值推導＝2026-08-24 存量 diff
+  實測（本組 675 段最小；全預設 1,649 段、max_width=120＋Max 1,293 段——全表見 ADR 0057
+  背景節）。★**調值走新 ADR**、不得就地改數字；rustfmt.toml 檔頭註解即該來源的指針。
+- **工具鏈版本**：容器映像 `deploy/Dockerfile.rust-api` 以 `rustup component add rustfmt`
+  附掛，版本隨 toolchain（`rust-api/rust-toolchain.toml` channel 1.96.1）＝rustfmt
+  1.9.0-stable，**無獨立釘版面**（rustfmt 與 rustc 同版發行）。
+- **舊映像＝rc 2 擋 commit**（刻意 fail-loud、不設豁免）。重建映像：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml build rust-api \
+  && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d rust-api
+```
+
+- **實作完工前的自律動作**（rust 碼改動的完工自驗必含＝ADR 0057 決定 5；閘紅時的補救亦同此命令）：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T rust-api cargo fmt --all
+```
+
+- **存量一次格式化 commit**（rust-api、零語意變更、與功能改動隔離＝ADR 0057 決定 4）＝
+  `d940d03`（本批 U5 收尾落地、53 檔 +3670/−1753）。該 commit 使 `git blame` 對被動行指向它；兩個繞法旗標各自可單用、亦可
+  併用——`-w` 忽略純空白差異、`--ignore-rev` 整顆跳過指定 commit；本次格式化含單行呼叫
+  的拆／併（非純空白），故單用 `-w` 不足以全繞，下列命令兩者同時帶：
+
+```bash
+git -C rust-api blame -w --ignore-rev d940d03 -- <檔案>
+```
 
 ## 13. 故障排除速查（索引→LESSONS.md、全文→LESSONS/；此表只指路）
 
