@@ -9,8 +9,8 @@
 - 版本：1.8.0
 
 ## 帳面統計
-- ADR：57（accepted 55、superseded 2）
-- BACKLOG 待辦：48（next：B-126）｜滯後：1
+- ADR：58（accepted 56、superseded 2）
+- BACKLOG 待辦：48（next：B-127）｜滯後：1
 - LESSONS：56 筆（next：L-057）
 - events：34 筆（feature_close 6、misc 28）
 

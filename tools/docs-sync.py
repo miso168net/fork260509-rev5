@@ -293,8 +293,11 @@ MILESTONES_VOL_TOKEN_LIMIT = LESSONS_TOKEN_LIMIT
 # ★notes 刻意不設限：創世 misc 事件的 notes 要承載 lint-roster: 固定前綴（全部條款名）。
 SUMMARY_CHAR_LIMIT = 300
 # 活書單節配額（行數、超出＝警告）
-SECTION_QUOTAS = {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 120,
-                  7: 60, 8: 90, 9: 5, 10: 40, 11: 3, 12: 30}
+# ★§6／§8 獨寬（160／130）＝ADR 0058：此二節設計上每刀都長 as-built，故一次性放寬並附停損
+#   ——下次再撞頂（任一節）改走「as-built 下放、活書只留指針」、不再調高；本表整張由釘值測
+#   test_section_quotas_pinned_by_adr 釘住（絆線、非正確性守衛），改值者會被導向該 ADR。
+SECTION_QUOTAS = {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 160,
+                  7: 60, 8: 130, 9: 5, 10: 40, 11: 3, 12: 30}
 RE_BOOK_SECTION = re.compile(r"^## §(\d{1,2})\b")
 
 
@@ -7146,6 +7149,24 @@ class TestLintBudgets(unittest.TestCase):
         self._w("docs/arc42/ARCHITECTURE.md", "## §1 簡介與目標\n" + "x\n" * 700)
         levels = [x["level"] for x in lint_budgets(self.root)]
         self.assertIn(ERROR, levels)
+
+    def test_section_quotas_pinned_by_adr(self):
+        """★停損絆線（ADR 0058）——**這不是正確性守衛**，勿讀作它防止了任何錯誤。
+
+        §6／§8 的配額是**一次性放寬**（120→160、90→130）；下次再撞頂的正解是把該節
+        部分 as-built **下放**到碼註或新建之獨立文件（**不入 `specs/`**——該樹是已收刀
+        史料）、活書只留指針，**不是再調高一次**。本測釘**整張表**：§6／§8 因該次放寬
+        而釘、其餘十節因該 ADR 決定款 2「一個字不動」而釘 ⇒ 動任何一節的人**必須動到
+        它**、從而在改測的當下看見停損條款（★§5 現況最緊，正是最可能先撞頂者）。
+        ★算術上的硬底（2026-08-25 量測）：本表總和 678，加 ARCHITECTURE.md 的結構行
+        （標題與 front-matter，現 5＋12＝17）＝最壞 695，而 Lint07 對該檔的**檔案預算**
+        是 700 行 ERROR（`BUDGETS`）——再放寬一次即撞檔案級硬擋，停損不只是承諾。
+        """
+        self.assertEqual(
+            SECTION_QUOTAS,
+            {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 160,
+             7: 60, 8: 130, 9: 5, 10: 40, 11: 3, 12: 30},
+            msg="活書單節配額經 ADR 0058 釘整張表；再撞頂走「下放 as-built」、勿再調高")
 
 
 class TestTokenCount(unittest.TestCase):
