@@ -67,7 +67,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T rust-api 
 6. menu 管理頁新增 modal：page／activeMenu 下拉非空（getAllPages 修復）。
 7. ip-rule 頁以無寫端按鈕碼帳號開啟：不冒出新增／批刪鈕（B-099）。
 8. 已知態排除：B-008 餘兩張死項；menu 維 protected 四列可授可見性（端點仍 5003）；授予指向不存在 view 的自建選單＝側欄可見點擊零反應。
-★走查排 schema-gate 之後；走查後 psql 清殘列＋`setval('casbin_rule_id_seq',163,true)`＋`setval('sys_casbin_policy_archive_id_seq',1,false)`；真登入 smoke 後全量照 L-050。
+★走查排 schema-gate 之後；走查後 psql 清殘列＋`setval('casbin_rule_id_seq',163,true)`＋`setval('sys_casbin_policy_archive_id_seq',1,false)`；★若走查含自建選單（已知態驗證）另 DELETE 該 sys_menu 列＋`setval('sys_menu_id_seq',78,true)`——sys_menu 不在 schema-gate runtime-append 收窄集、殘留一列即 gate2 紅（U11 實暴）；探針角色刪除後另 `setval('sys_role_id_seq',3,true)`；真登入 smoke 後全量照 L-050。
 
 ## 5. 收刀閘（全量）
 

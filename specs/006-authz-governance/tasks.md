@@ -247,10 +247,10 @@ implementer=fable xhigh／review=opus xhigh）。
 - [x] T033（as-built：快照 61→75〔U9 收尾兩段式重抽；RoleAdmin 13＋殘件 T_2〕；wire_schema.rs 43→71 測＝16 受審 definition 全覆蓋正向＋反例；GrantResult 泛型本體 $ref T 懸空＋T_2 記已知態、由三具體別名承載；全量 793）wire-schema 重抽（跨子庫兩段式：base-web 型 commit→容器內 `python3 tools/wire-schema.py extract`→`rust-api/server/tests/fixtures/wire-schema.json` commit→外層 pin）＋
   `rust-api/server/tests/wire_schema.rs` 新命名空間裁判（`Api.RoleAdmin` 新型＋`Api.PolicyArchive.*` 各正向＋反例；protected 欄、`roleId` null 形為重點；檔頭 doc 受審面補節、
   IpRule 七支留帳句不動）＋`python3 tools/wire-schema.py check` 綠；definitions 自 57 淨增（補記實數）。
-- [ ] T034 全量閘：容器 serial 全量 `cargo test` rc=0（基線 682、淨增補記實數）＋`docs-sync.py lint` 0 錯誤＋`schema-gate.py check` 三閘綠＋`fork-delta-lint` 綠
+- [x] T034（as-built 2026-08-24 U11 實錄：十一道閘全綠——全量 793 passed／0 failed／2 ignored〔本刀淨增 682→793＝+111；U10 後零漂移〕、docs-sync lint 0 錯誤、schema-gate 三閘、fork-delta-lint 99 處、components.d.ts／service/api/index.ts 零 diff、route-artifact-gate 三道、view-render-guard、seed-view-gate、typecheck、三名冊閘〔RELOAD_CALL_FILES 實得序 menu→policy_archive→role〕、wire-schema 75 零漂移）全量閘：容器 serial 全量 `cargo test` rc=0（基線 682、淨增補記實數）＋`docs-sync.py lint` 0 錯誤＋`schema-gate.py check` 三閘綠＋`fork-delta-lint` 綠
   （修改型僅 FR-047 檔集；`components.d.ts`／`service/api/index.ts` `git diff` 零輸出斷言）＋`route-artifact-gate.py check`＋`view-render-guard.py check`＋`seed-view-gate.py check`
   ＋`pnpm typecheck` 綠＋三名冊閘綠（`RELOAD_CALL_FILES` 三檔實得序）。
-- [ ] T035 CDP 三方對照（quickstart §4 全動線：三鈕錨點／選單 modal 真勾選＋鎖定＋首頁下拉／按鈕 modal 無假資料／端點 modal 群組連動／policy-archive 頁濾與復原／
+- [x] T035（as-built 2026-08-24 U11 走查實錄：30 步全過——一致 24／已知態 6／缺陷 0；rev4 對照差異全落 R2 既列項＝rev5 拍板差異、零新缺陷；就緒守（U9b）disabled→enabled 前後態實證；封死 protectedGrant 人話 toast 實證；★8a-③ 實測改寫＝R_SUPER 端點 modal 原樣 Save 回 0000／revoked 0／granted 0／effective 35〔ADR 0056 射程句、非 protectedRevoke〕；B-099 以 R_ADMIN 暫授 manage_ip-rule 驗訖表頭零寫端鈕；走查後清殘列（含自建選單擴清 sys_menu）＋四 seq 還原＋schema-gate 複驗綠；HTTP 4xx toast 顯 axios 原文＝跨代既存→B-117；已知態可觀察性缺口兩條記 escalation）CDP 三方對照（quickstart §4 全動線：三鈕錨點／選單 modal 真勾選＋鎖定＋首頁下拉／按鈕 modal 無假資料／端點 modal 群組連動／policy-archive 頁濾與復原／
   menu 頁 page 下拉非空／ip-rule 頁不冒鈕／已知態排除清單逐項驗現狀形）；★排 schema-gate 之後；走查後 psql 清殘列＋兩 seq 還原＋三閘複驗；差異逐項判定（rev5 拍板差異 or 缺陷）補記本 task。
 - [ ] T036 ★主線任務：活書 `docs/arc42/ARCHITECTURE.md` §5（facade 11→12、reason gate 三值→五值、新增兩檔一句）＋§8（(iii)(iv) as-built、backend 樹 50 鍵改指節形、授權慣例子節
   加三維治理／封死／回收桶／觸發面條目〔含 FR-022 生效語意一句〕——落筆先算餘 13 行）＋§6 errata `docs-sync.py errata 六座`（唯一現在式「六座」→「八座」；一次補兩代）＋`docs/ops/BACKLOG.md` 帳務
