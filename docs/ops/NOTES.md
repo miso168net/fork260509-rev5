@@ -24,17 +24,17 @@
   ＋rebuild-swap 熱重載＋歸檔寫入面三底座就緒（授權治理刀依賴面全兌現）｜
   **授權治理刀起手維護批**（輕量軌、merge 524d8b9：B-094 收攏＝handler/common.rs 六件＋facade violated_constraint、
   B-101 test_db::test_state 單一字面＋(Router, AppState) 變體、B-085 自證測、B-102 三測、B-098 十二裁判；四筆關帳、測試 650→682）｜
-  **006-authz-governance**（merge 307ed51、本代第六刀、B-088 關帳）：三維授權治理 11 端點、
-  ROUTES 49 終態、測試 682→793、憲法 1.8.0（島 G＋(iii)(iv)）、ADR 0053～0056、零 migration；
+  **006-authz-governance**（merge 307ed51、本代第六刀、B-088 關帳）：三維授權治理 11 端點、ROUTES 49 終態、測試 682→793、憲法 1.8.0（島 G＋(iii)(iv)）、ADR 0053～0056、零 migration；
   封死＋射程＝候選集＋五腿 restore；三 modal 接真＋policy-archive 頁；seed-view-gate；wire 75。
-  啟動書 §5 自此為候選清單史料（K1 查用點＝各刀階段 0、K2＝BACKLOG 條目本文；
-  ★其內裸 B／L 編號屬 rev4 空間、該目錄在 Lint25 掃描面外＝L-014）。
+  啟動書 §5 自此為候選清單史料（K1→各刀階段 0、K2→BACKLOG 條目本文；★其內裸 B／L 編號屬 rev4 空間、Lint25 掃描面外＝L-014）｜
+  **刀 B 起手維護批**（批次 A、輕量軌、merge 3d72756）：測試設施＋工具鏈九筆關帳（B-121／B-122 守衛面根因、B-109／B-110／B-051 收攏遷位、B-056 seam、B-114／B-118、B-112 rust 格式守門上線）；ADR 0057、L-056、工具名冊 15→16 支、rust 測試 793、零 migration。
 - 兩筆待補：B-035 雙平台 DoD 之 macOS 側；setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀。
 - 帶 migration 的刀沿用 001 立的紀律：收刀前必跑 refresh＋演進帳登記＋三閘綠（RUNBOOK §10）。
 
 - **★下一刀＝刀 B（user＋password 管理）**：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
   changePassword」（2026-08-18、記兩檔 §3 表 #4）；★起手必復核 B-093（deleteRole 判定面繼承窗）
   ＋B-113（R_SUPER wire 案前提、seed 未來端點註冊後重審）；seed 68（manage_user view）在彼兌現。
-- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-121／B-122／B-123。
+- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-123／B-124／B-125。
 - ★下一動作＝刀 B **階段 0 brainstorm**（superpowers:brainstorming、產出 docs/brainstorms/<NNN>-<feature-name>.md）；
   specify 手動起手（絕不排自動流程、否則 spec 落 default）→ clarify → plan → tasks → analyze、每步 commit。
+  起手維護批已收；brainstorm 輸入見 BACKLOG 各條（建議 demo 資產三條併入一次拍）；★收尾須依 RUNBOOK §12.1 實測全鏈（合成推估已越 45s 警戒線、勿沿用）。
