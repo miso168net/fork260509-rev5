@@ -113,6 +113,14 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 （本章隨對應刀補實文；創世期無內容。）
 
+## 9a. 授權治理面速查（006；僅指針）
+
+- 回收桶復原（getArchivedPolicies／restorePolicy 動線、restorable 五腿判準）→
+  `specs/006-authz-governance/contracts/wire-policy-archive.md`＋ADR 0055；復原 UI＝manage/policy-archive 頁。
+- 授權拒因三鍵查法：`biz.role.protectedRevoke`（撤 protected 整批拒）／`biz.role.protectedGrant`
+  （封死：protected 端點授非 R_SUPER）／`biz.policy.notRestorable`（復原任一腿拒）→ 語意與掛點＝
+  ADR 0054；封死謂詞＝`sys_casbin_policy.rs::protected_endpoint_set`；全量替換射程＝候選集（ADR 0056）。
+
 ## 10. migration 操作
 
 ★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝

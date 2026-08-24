@@ -252,7 +252,7 @@ implementer=fable xhigh／review=opus xhigh）。
   ＋`pnpm typecheck` 綠＋三名冊閘綠（`RELOAD_CALL_FILES` 三檔實得序）。
 - [x] T035（as-built 2026-08-24 U11 走查實錄：30 步全過——一致 24／已知態 6／缺陷 0；rev4 對照差異全落 R2 既列項＝rev5 拍板差異、零新缺陷；就緒守（U9b）disabled→enabled 前後態實證；封死 protectedGrant 人話 toast 實證；★8a-③ 實測改寫＝R_SUPER 端點 modal 原樣 Save 回 0000／revoked 0／granted 0／effective 35〔ADR 0056 射程句、非 protectedRevoke〕；B-099 以 R_ADMIN 暫授 manage_ip-rule 驗訖表頭零寫端鈕；走查後清殘列（含自建選單擴清 sys_menu）＋四 seq 還原＋schema-gate 複驗綠；HTTP 4xx toast 顯 axios 原文＝跨代既存→B-117；已知態可觀察性缺口兩條記 escalation）CDP 三方對照（quickstart §4 全動線：三鈕錨點／選單 modal 真勾選＋鎖定＋首頁下拉／按鈕 modal 無假資料／端點 modal 群組連動／policy-archive 頁濾與復原／
   menu 頁 page 下拉非空／ip-rule 頁不冒鈕／已知態排除清單逐項驗現狀形）；★排 schema-gate 之後；走查後 psql 清殘列＋兩 seq 還原＋三閘複驗；差異逐項判定（rev5 拍板差異 or 缺陷）補記本 task。
-- [ ] T036 ★主線任務：活書 `docs/arc42/ARCHITECTURE.md` §5（facade 11→12、reason gate 三值→五值、新增兩檔一句）＋§8（(iii)(iv) as-built、backend 樹 50 鍵改指節形、授權慣例子節
+- [x] T036（as-built 2026-08-24：§5 facade 12 支＋五值＋sys_casbin_policy 句〔75/90〕；§6 errata 六座→八座〔24 處命中、實改恰 1、零行增減〕；§8 (iii)(iv) as-built＋backend 樹改指節形〔機器真源 backend-msg-dict.json〕＋授權慣例五條含 FR-022〔89/90〕；BACKLOG＝刪 B-104／B-099／B-088〔閘已建、殘餘由 B-008＋豁免表到期紅承載〕＋九條補記＋B-119／B-120 新登；RUNBOOK §9a 指針；L-054 已隨 U11 落）★主線任務：活書 `docs/arc42/ARCHITECTURE.md` §5（facade 11→12、reason gate 三值→五值、新增兩檔一句）＋§8（(iii)(iv) as-built、backend 樹 50 鍵改指節形、授權慣例子節
   加三維治理／封死／回收桶／觸發面條目〔含 FR-022 生效語意一句〕——落筆先算餘 13 行）＋§6 errata `docs-sync.py errata 六座`（唯一現在式「六座」→「八座」；一次補兩代）＋`docs/ops/BACKLOG.md` 帳務
   （刪 B-104／B-099；B-024 改記殘餘一句；B-098 註 IpRule 留帳；B-088 閘已建餘豁免兩列；B-083 甲案續掛；B-093／B-025／B-016／B-018／B-091／B-008／B-105／B-106 敘述各一行；
   新登「reload 呼叫點不得持讀鎖之源碼掃描守門候選」與「events summary 無 erratum 出口」兩條）＋LESSONS 新條（若有踩坑）＋`docs/ops/RUNBOOK.md` 指針（回收桶復原／封死拒因查法，
