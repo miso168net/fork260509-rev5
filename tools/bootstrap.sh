@@ -169,6 +169,10 @@ run_tool_test tools/wf-watchdog.py
 run_tool_test tools/view-render-guard.py
 run_tool_test tools/route-artifact-gate.py
 run_tool_test tools/seed-view-gate.py
+# ★rust-fmt-gate 亦只接 test（同 route-artifact-gate 之理）：其 check 要 dev stack 在跑
+#   ——雖然工具本身在 stack 未起時具名跳過 rc 0（不會誤紅），但體檢節跑一支恆跳過的 check
+#   零資訊量；fmt 實跑面由 pre-commit 條件觸發段承擔（B-112／ADR 0057）。
+run_tool_test tools/rust-fmt-gate.py
 run_tool_test deploy/preflight-secrets.py
 run_tool_test deploy/decrypt-secrets.py
 run_tool_test deploy/generate-secrets.py

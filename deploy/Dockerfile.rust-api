@@ -8,6 +8,13 @@
 # --poll 1s：WSL2 bind-mount 上 inotify 不可靠、改輪詢；間隔 1s（watchexec 預設 30s 太鈍）。
 FROM rust:1.96.1-slim AS dev
 RUN cargo install watchexec-cli --version 2.5.1 --locked
+# rustfmt component（B-112／ADR 0057）：rust:1.96.1-slim 只帶 minimal profile、不含 rustfmt，
+# 而 host 無 rust toolchain ⇒ `cargo fmt` 只跑得動在容器內（pre-commit 的 rust 格式守門
+# ＝tools/rust-fmt-gate.py 即呼叫本容器）。
+# ★版本隨 toolchain 附帶（rust-api/rust-toolchain.toml channel 1.96.1 ⇒ rustfmt 1.9.0-stable）、
+#   **無獨立釘版面**——rustfmt 與 rustc 同版發行，釘 channel 即釘住 rustfmt。
+# ★刻意置於 watchexec 安裝行**之後**：該行是最重的一層，放其後既有 docker layer cache 不失效。
+RUN rustup component add rustfmt
 WORKDIR /app
 EXPOSE 8080
 ENTRYPOINT ["watchexec", "-r", "-e", "rs,toml", "--poll", "1s", "--", "cargo", "run", "--bin", "server"]

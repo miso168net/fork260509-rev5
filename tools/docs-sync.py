@@ -2153,7 +2153,7 @@ TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate
             "tools/wire-schema.py", "tools/secret-value-guard.py",
             "tools/entity-drift-gate.py", "tools/wf-watchdog.py",
             "tools/view-render-guard.py", "tools/route-artifact-gate.py",
-            "tools/seed-view-gate.py",
+            "tools/seed-view-gate.py", "tools/rust-fmt-gate.py",
             "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
             "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
             "deploy/backup-db.py")
@@ -2268,7 +2268,7 @@ def gen_tools_cli(rows):
     """真表 md（GEN_HEADER＋每工具一節；data-model §7）。"""
     # ★抬頭支數由 rows 現算、不寫死字面：寫死時名冊增減只改得到節數、抬頭原封不動，生成檔
     # 當場自我矛盾且全套件仍綠（rev4:019 U1 實證：名冊進 secret-value-guard 後抬頭仍稱「六支」、
-    # 實列七節）。字面斷言＝test_tools_roster_is_pinned_and_table_renders_fifteen_sections。
+    # 實列七節）。字面斷言＝test_tools_roster_is_pinned_and_table_renders_every_section。
     n_py = sum(1 for r in rows if r["lang"] == "python")
     parts = [GEN_HEADER, "# reference/tools-cli — 治理工具命令真表", "",
              f"來源＝治理工具名冊 {len(rows)} 支掃源（python {n_py} 支＝分派表字串比較字面、"
@@ -8948,6 +8948,7 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/view-render-guard.py", ("check", "test")),
                ("tools/route-artifact-gate.py", ("check", "test")),
                ("tools/seed-view-gate.py", ("check", "test")),
+               ("tools/rust-fmt-gate.py", ("check", "test")),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
@@ -8998,30 +8999,33 @@ class TestToolsCliTruthTable(unittest.TestCase):
         self.assertIsNone(sh_usage_line("#!/bin/sh\n# 用途：只有用途註解\n"))
         self.assertIsNone(sh_usage_line("#\n" * SH_USAGE_HEAD + "# 用法：太深\n"))
 
-    def test_tools_roster_is_pinned_and_table_renders_fifteen_sections(self):
+    def test_tools_roster_is_pinned_and_table_renders_every_section(self):
         """★名冊字面釘死：只迭代 TOOLS_PY／TOOLS_SH 的斷言是套套邏輯（常數縮水＝斷言跟著
         縮水、全綠存活），連帶 RE_CMD_PY／RE_CMD_OLD 也由同一常數 join 而成——名冊少一支＝
         真表少一節（rev4:SC-006 失守）＋該工具的 Lint19 子命令比對與舊名禁令一併靜默下線。
         ★路徑形（B-035 U2）：名冊含 deploy/ 條目，目錄不再是隱含常識、字面連目錄一起釘。
         ★B-080 納冊：view-render-guard／route-artifact-gate 進名冊（12→14 支）。
-        ★006 T025 納冊：seed-view-gate 進名冊（14→15 支、B-088 對賬閘）。"""
+        ★006 T025 納冊：seed-view-gate 進名冊（14→15 支、B-088 對賬閘）。
+        ★B-112／ADR 0057 納冊：rust-fmt-gate 進名冊（15→16 支、rust 格式守門）。
+        ★案名刻意不含支數（B-112 改名）：名冊每長一支就得連帶改名，否則測名與斷言各說各話
+        ——而失真的測名沒有任何斷言會紅（同本類 docstring「不記硬數字」之理）。"""
         self.assertEqual(TOOLS_PY,
                          ("tools/docs-sync.py", "tools/fork-delta-lint.py",
                           "tools/schema-gate.py", "tools/wire-schema.py",
                           "tools/secret-value-guard.py", "tools/entity-drift-gate.py",
                           "tools/wf-watchdog.py",
                           "tools/view-render-guard.py", "tools/route-artifact-gate.py",
-                          "tools/seed-view-gate.py",
+                          "tools/seed-view-gate.py", "tools/rust-fmt-gate.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
                           "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
                           "deploy/backup-db.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 16, msg=str(heads))
+        self.assertEqual(len(heads), 17, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 16 支掃源（python 15 支", md)
+        self.assertIn("來源＝治理工具名冊 17 支掃源（python 16 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""
@@ -10937,13 +10941,16 @@ class TestGateWiring(unittest.TestCase):
         staged 一支＝其餘各支不得被拖下水（條件是逐支比對、不是「有工具改動就全跑」）。
         ★兩名豁免成員的 check 皆在此現身（B-114 起 fixture rust-api 為真 gitlink ⇒ 本序列
         含 seed-view-gate）：seed-view-gate 的實跑前提之一是 `rust-api/migration` 在位，
-        fixture 改真之前該段恆走跳過分支。"""
+        fixture 改真之前該段恆走跳過分支。
+        ★rust-fmt-gate（B-112／ADR 0057）**兩者都跑**：它不在豁免表內（迴圈 test）、其本體
+        staged 又是條件觸發鍵（check）——兩形不重疊，正是「豁免與否」兩條路各自的實證。"""
         roster = tools_test_roster()
         loop = [rel for rel in roster if rel not in HOOK_TEST_LOOP_EXEMPT]
         self.assertEqual(self._run(list(roster)),
                          (0, self.BASE + [f"{rel} test" for rel in loop]
                           + ["tools/view-render-guard.py check",
-                             "tools/seed-view-gate.py check"]))
+                             "tools/seed-view-gate.py check",
+                             "tools/rust-fmt-gate.py check"]))
         self.assertEqual(self._run(["tools/docs-sync.py"]),
                          (0, self.BASE + ["tools/docs-sync.py test"]))
 
@@ -10990,12 +10997,13 @@ class TestGateWiring(unittest.TestCase):
         （該鍵非其觸發源）——本案的判別力因此不減反增。"""
         gate = ["tools/entity-drift-gate.py check"]
         svg = ["tools/seed-view-gate.py check"]
-        self.assertEqual(self._run(["rust-api"]), (0, self.BASE + svg + gate))
+        rfg = ["tools/rust-fmt-gate.py check"]     # B-112 起 `rust-api` 亦是其觸發鍵、落序在後
+        self.assertEqual(self._run(["rust-api"]), (0, self.BASE + svg + gate + rfg))
         self.assertEqual(self._run(["docs/ops/reference-src/schema-snapshot.json"]),
                          (0, self.BASE + gate))
         self.assertEqual(
             self._run(["rust-api", "docs/ops/reference-src/schema-snapshot.json"]),
-            (0, self.BASE + svg + gate))
+            (0, self.BASE + svg + gate + rfg))
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_entity_drift_day1_skip_when_snapshot_absent(self):
@@ -11009,7 +11017,8 @@ class TestGateWiring(unittest.TestCase):
         os.rename(snap, snap + ".away")
         try:
             self.assertEqual(self._run(["rust-api"]),
-                             (0, self.BASE + ["tools/seed-view-gate.py check"]))
+                             (0, self.BASE + ["tools/seed-view-gate.py check",
+                                              "tools/rust-fmt-gate.py check"]))
         finally:
             os.rename(snap + ".away", snap)
 
@@ -11064,14 +11073,15 @@ class TestGateWiring(unittest.TestCase):
         fdl_wire = ["tools/fork-delta-lint.py",
                     "tools/wire-schema.py check --staged-gate"]
         entity = ["tools/entity-drift-gate.py check"]
+        rfg = ["tools/rust-fmt-gate.py check"]     # B-112 起 `rust-api` 亦是其觸發鍵
         # ★序列以真 hook 執行序為準（乾跑實測）：view-render-guard → seed-view-gate →
-        #   fork-delta → wire-schema → entity-drift。
-        self.assertEqual(self._run(["rust-api"]), (0, self.BASE + gate + entity))
+        #   fork-delta → wire-schema → entity-drift → rust-fmt-gate。
+        self.assertEqual(self._run(["rust-api"]), (0, self.BASE + gate + entity + rfg))
         self.assertEqual(self._run(["base-web"]),
                          (0, self.BASE + vrg + gate + fdl_wire))
         self.assertEqual(self._run(["tools/seed-view-gate.py"]), (0, self.BASE + gate))
         self.assertEqual(self._run(["base-web", "rust-api"]),
-                         (0, self.BASE + vrg + gate + fdl_wire + entity))
+                         (0, self.BASE + vrg + gate + fdl_wire + entity + rfg))
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_seed_view_gate_day1_skip_when_worktree_absent(self):
@@ -11089,9 +11099,31 @@ class TestGateWiring(unittest.TestCase):
         os.rename(mig, mig + ".away")
         try:
             self.assertEqual(self._run(["rust-api"]),
-                             (0, self.BASE + ["tools/entity-drift-gate.py check"]))
+                             (0, self.BASE + ["tools/entity-drift-gate.py check",
+                                              "tools/rust-fmt-gate.py check"]))
         finally:
             os.rename(mig + ".away", mig)
+
+    def test_dry_run_rust_fmt_gate_trigger_conditions(self):
+        """★rust 格式守門（B-112／ADR 0057）的**接線**守衛——全庫唯一釘住它觸發行為的案。
+        staged 含 `rust-api` gitlink（pin bump）或工具本體，各觸發 `check` 恰一次；平時
+        （NOTES）不觸發。工具本體 staged 時另有 `for t in …` 迴圈的 `test`（本檔**不入**
+        HOOK_TEST_LOOP_EXEMPT——其 self-test 不隨 check 連帶跑，check 要走 docker、多跑一輪
+        離線自測零收益），故該情境序列＝先 test 後 check。
+        ★**為何非有不可**：hook 的守門動作住 shell 面，整段被刪掉時工具本體與其 self-test
+        全都還在、照樣全綠（同 view-render-guard／seed-view-gate 兩案之論證：把斷言寫進工具
+        自身的 self-test 對本失效模式零效果——self-test 的觸發點正是被拆掉的那一段）。
+        ★本閘**無** day1_skip 成對案，且那不是缺口：hook 段內刻意零條件判斷（跳過邏輯住
+        工具內＝ADR 0057 決定 3），docker 不可用／容器未跑兩態由工具的 rc 0 具名跳過承擔、
+        並由其 self-test 兩案各自釘死。"""
+        gate = ["tools/rust-fmt-gate.py check"]
+        svg = ["tools/seed-view-gate.py check"]
+        entity = ["tools/entity-drift-gate.py check"]
+        # ★序列以真 hook 執行序為準（乾跑實測）：seed-view-gate → entity-drift → rust-fmt-gate。
+        self.assertEqual(self._run(["rust-api"]), (0, self.BASE + svg + entity + gate))
+        self.assertEqual(self._run(["tools/rust-fmt-gate.py"]),
+                         (0, self.BASE + ["tools/rust-fmt-gate.py test"] + gate))
+        self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_non_zero_action_fails_the_hook(self):
         """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
