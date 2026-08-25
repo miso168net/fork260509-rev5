@@ -34,7 +34,7 @@
 - **★下一刀＝刀 B（user＋password 管理）**：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
   changePassword」（2026-08-18、記兩檔 §3 表 #4）；★起手必復核 B-093（deleteRole 判定面繼承窗）
   ＋B-113（R_SUPER wire 案前提、seed 未來端點註冊後重審）；seed 68（manage_user view）在彼兌現。
-- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-124／B-125／B-127～B-130。
+- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-124／B-125／B-127～B-130。★另六條已滯後（查全帳須併看 BACKLOG-DEFERRED.md）；★B-057（logout×rotated 矩陣缺格）待 user 裁——兩選項已備、(a) data-model §1 補一列即結案，不需施工刀。
 - ★下一動作＝刀 B **階段 0 brainstorm**（superpowers:brainstorming、產出 docs/brainstorms/<NNN>-<feature-name>.md）；
   specify 手動起手（絕不排自動流程、否則 spec 落 default）→ clarify → plan → tasks → analyze、每步 commit。
-  兩批前置維護皆已收（B-111 已立 i64 守衛 lint＝刀 B 新 wire 型漏標即紅）；brainstorm 輸入見 BACKLOG 各條（建議 demo 資產三條併入一次拍）；★效能留帳：pre-commit 全鏈實測合成 59.8s（貼 ADR 0044 引信 60s 未達、docs-sync 佔 62%），實際 commit 牆鐘皆 <45s（RUNBOOK §12.1＋B-130），刀 B 收尾續量。
+  兩批前置維護皆已收（B-111 已立 i64 守衛 lint＝刀 B 新 wire 型漏標即紅）；brainstorm 輸入見 BACKLOG 各條（建議 demo 資產三條併入一次拍）；★**硬前置＝B-126 活書配額**（2026-08-25 實測 §11 3/3 已滿、§9 4/5、§5 85/90 而歷史 +10／刀 ⇒ 刀 B 增補 as-built 必撞 lint，且 ADR 0058 算術硬底已堵死再放寬 ⇒ 唯一出路＝as-built 下放、屬拍板級；撞點落在收尾＝最壞時序，故須在 brainstorm 拍板面先決）；★效能留帳：pre-commit 全鏈實測合成 59.8s（貼 ADR 0044 引信 60s 未達、docs-sync 佔 62%），實際 commit 牆鐘皆 <45s（RUNBOOK §12.1＋B-130），刀 B 收尾續量。
