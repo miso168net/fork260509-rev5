@@ -355,9 +355,18 @@ EOF
   跑 `test`，而 pin bump 型 commit 通常零工具 staged ⇒ `docs-sync test`（19.8s）根本不進鏈。
   合成公式把它算進去，故**合成值系統性高於真實值**——兩者都留、但引信判讀應以 hook 自報的
   實測牆鐘為準（本節「整鏈計時只用於數量級粗判」之同一取態）。
+  ★**同日補：兩顆 commit 的 hook 自報牆鐘實測**（`time.perf_counter` 直接包 `git commit`
+  整命令、單次；★這才是 ADR 0044 引信所指的「收刀簿記型 commit 的實測值」）：
+  **收刀簿記型（events＋NOTES＋docs/generated，零 gitlink、零工具 staged）＝16.68s**；
+  **文件型（RUNBOOK＋BACKLOG＋generated）＝26.10s**。兩者皆遠低於警戒 45s，也遠低於同日
+  合成值 59.8s ⇒ **合成公式對真實情形高估約 3.6 倍**（差額幾乎全來自 `docs-sync test` 19.8s
+  與 `fork-delta-lint` 10.2s——前者只在該工具 staged 時進鏈、後者只在 base-web gitlink／憲法
+  staged 時進鏈，收刀簿記型兩者皆不觸發）。★**引信判讀結論**：以實測為準則本刀 16.68s、
+  距 60s 引信線甚遠；合成值僅作「若最壞情形全中」的上界參考，**不得**單獨用來判引信。
   ★**下一刀必做**：①`wire-schema check --staged-gate` 於 base-web gitlink 真 staged 時重測
-  （現值已是 08-16 的、且它是合成值裡第二大項）②若 `docs-sync lint` 續增，處置面＝該工具的
-  慢路徑（見 BACKLOG）。
+  （現值已是 08-16 的、且它是合成值裡第二大項）②pin bump 型 commit（gitlink staged、條件段
+  全中但無自測迴圈）亦補一次牆鐘實測——本批三顆皆未越警戒但未逐顆計時 ③若 `docs-sync lint`
+  續增，處置面＝該工具的慢路徑（見 BACKLOG）。
 - **★2026-08-18 治理批收尾合成推估＝44.107s**（資料點軌：41.2〔08-16〕→**44.107**；同法
   逐段相加＝基礎鏈 13.695＋`docs-sync test` 15.415＋條件觸發四列**沿用 2026-08-16 中位**
   6.163＋8.431＋0.179＋0.224——★半新半舊推估：本批未動 base-web／schema 面、四列條件段無
