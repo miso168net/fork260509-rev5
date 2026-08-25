@@ -45,9 +45,10 @@ RUNBOOK §12.1 實測 pre-commit 一筆
 PG 權威；`kicked`／`admin_kick`／`revoked` 三 reason 不互換；前端不預判包含規則（G8）
 
 **Scale/Scope**: 12 端點／島 I 六條入憲＋三用途／ADR 五支／後端新檔 5（handler/user.rs、handler/user_center.rs、
-throttle/change_pwd.rs、auth/no_escalation.rs、facade/sys_pwd_custody.rs）＋擴 12 檔／前端修改型 inline 4（index.vue、
-user-operate-drawer.vue、user-center/index.vue、pwd-login.vue）＋新檔 7（unlock modal、pwd-gen、password-card、typings×2、
-service×2）＋順路 3 頁／i18n backend +21 鍵、page 樹 +~35 鍵／~10 執行單元（tasks 期定稿）
+throttle/change_pwd.rs、auth/no_escalation.rs、facade/sys_pwd_custody.rs）＋擴 12 檔／前端修改型 inline **8** 支既有檔——三用途 4（index.vue、
+user-operate-drawer.vue、user-center/index.vue、pwd-login.vue）＋順路補完 4（menu/index.vue 之 (ii)、三顆 auth-modal 之 (iii)）
+＋新檔 8（unlock modal、pwd-gen、password-card、pwd-policy hook、typings×2、service×2）／i18n backend +21 鍵
+（`biz.user.*` 20＋`auth.session.kickedByAdmin` 1）、page 樹 +~35 鍵／~10 執行單元（tasks 期定稿）
 
 ## Constitution Check
 

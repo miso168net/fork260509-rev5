@@ -18,9 +18,8 @@
 | `seededProtected` | 三帳號不可刪／id 1 解超管指派 | 内置账号受保护 | Built-in account is protected |
 | `superCannotDisable` | id 1 停用 | 超级管理员不可停用 | Super administrator cannot be disabled |
 | `cannotDeleteSelf` | self 刪 | 不能删除自己 | Cannot delete yourself |
-| `cannotDisableSelf` | self 停用 | 不能停用自己 | Cannot disable yourself |
 | `cannotKickSelf` | self 踢 | 不能踢除自己 | Cannot kick yourself |
-| `cannotEditSelfRoleOrStatus` | self 帶 status／roleIds | 不能修改自己的角色或状态 | Cannot change your own roles or status |
+| `cannotEditSelfRoleOrStatus` | self 帶 status／roleIds（★self「不得停用自己」由本鍵承載——`status` 出現即拒故無獨立停用鍵） | 不能修改自己的角色或状态 | Cannot change your own roles or status |
 | `cannotResetSelfPassword` | self 用管理頁重設 | 请到个人中心修改自己的密码 | Change your own password in the user center |
 | `roleNotFound` | roleIds 含不存在／已刪角色 | 角色不存在 | Role not found |
 | `sessionPolicyInvalid` | 三值外 | 会话策略无效 | Invalid session policy |

@@ -334,7 +334,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 
 - **FR-016**: 寫端授權 MUST 可由超管在運行期以既有授權治理 UI 授予其他角色（端點維＋按鈕碼各自獨立）；seed 政策列
   MUST NOT 改動（預設仍 super-only）。
-- **FR-017**: 每支使用者寫端（FR-010 所列八支）與 unlockLogin 帳號維 MUST 於 per-user 鎖內、任何寫入前判包含規則：
+- **FR-017**: 八支使用者寫端（addUser／updateUser／deleteUser／batchDeleteUser／restoreUser／kickUser／
+  resetUserPassword／updateUserSessionPolicy）與 unlockLogin 帳號維 MUST 於 per-user 鎖內、任何寫入前判包含規則：
   `A`＝操作者現役角色集（濾軟刪與停用角色、DB-fresh；**★持 R_SUPER 者之 A 視為全集**）、`T`＝標的全部指派列（不濾角色
   狀態）、`N`＝寫後標的角色集；
   MUST `T ⊆ A ∧ N ⊆ A`，違者 5003 純 key、零變更零稽核、MUST 記一筆 warn 日誌（操作者 id、標的 id、端點；不含角色
@@ -348,7 +349,7 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
   自身角色集仍 5003（測內以資料列 grant、測後清理）；另配一案正向：Super（僅持 R_SUPER）對持其未持角色之標的成功
   （A＝全集非 vacuous）。
 
-#### D. 斷權（島 I2）
+#### D. 斷權＝踢除與撤銷兩形之合稱（島 I2）
 
 - **FR-022**: 停用（status→2）／刪除／重設密碼 MUST 同交易撤銷標的全部 active 票（rotated 列不動）＋寫事件
   `revoked`（reason `user_disabled`／`user_deleted`／`password_reset`）；commit 後 best-effort 寫 denylist
@@ -390,7 +391,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 
 #### G. B-093 閉合與鎖序（島 I1）
 
-- **FR-033**: 角色指派寫端（updateUser 改角色集）commit 後 MUST 觸發判定面同步（Applied 即觸發、不問 diff）；
+- **FR-033**: 角色指派寫端 commit 後 MUST 觸發判定面同步（Applied 即觸發、不問 diff）——觸發源恰二：updateUser
+  之角色集**實際變更**、deleteUser／batchDeleteUser 之硬刪指派（清判定面殘留）；其餘寫端零觸發（restore 零回灌）；
   reload 呼叫者名冊 MUST 擴一檔且漏擴即紅；ADR 0053 觸發矩陣補一列。
 - **FR-034**: 使用者域寫端 MUST 進 per-user advisory 鎖（自 login 上提為共用、addUser 豁免）；固定鎖序＝
   advisory(uid)→sys_user 列→sys_role 列升序→sys_user_role；lock-then-redecide；advisory key space 沿用 login 之
@@ -438,7 +440,9 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **FR-047**: 測試設施 MUST：UserCleanup 補業務鍵腿＋op-log 腿＋seq 還原；custody 首寫配 RAII 清理腿（入不入
   runtime-append 收窄集實作期判）；seed 三帳號測試掛既有 seed op-log 守衛；endpoint 測試帶真 connect-info；
   fault-injection 用既有 seam。
-- **FR-048**: fork-delta：修改型標記僅出現於 FR-042 三用途所列檔集（user-search.vue 兩向 diff 零改動則不入）；
+- **FR-048**: fork-delta：修改型標記僅出現於「FR-042 三用途 (v)(vi)(vii) 檔集 ∪ 順路補完檔集」——後者＝FR-041 之
+  B-129 三顆授權 modal（既有用途 (iii)）與 B-132 之 `menu/index.vue`（既有用途 (ii)），合計既有檔 8 支
+  （`user-search.vue` 兩向 diff 零改動則不入）；
   新檔照 `[rev5-inline <軌道>+ 007]` 檔頭；模板側原行註解多行形；路由外掛產物零重算（不新增 view 目錄）。
 - **FR-049**: CDP 三方對照（22080 vs 42080）MUST 逐項：列表／抽屜／回收桶／踢除（對方 7777 新文案）／重設密碼／
   解鎖 modal／gating（Super／Admin／User 三角色反覆切換）／個人中心改密卡／登入頁特殊字元密碼可登入；已知態列
@@ -463,7 +467,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 
 ### Measurable Outcomes
 
-- **SC-001**: 路由註冊表恰 61 條、受政策管制端點恰 45、與 seed 政策列 path×method 逐字對齊（機器對賬零漂移）；
+- **SC-001**: 路由註冊表恰 61 條（具名常數 `ROUTES_COUNT`）、受政策管制端點恰 45（★無具名常數——驗收錨＝以 Super
+  呼叫既有 `getAllEndpoints` 之回應長度實測）、與 seed 政策列 path×method 逐字對齊（機器對賬零漂移）；
   12 支新端點以 dev 帳號實測：Super 全通、Admin 對十支 Policy 端點除 getUserList 外皆 5003（seed 預設態）。
 - **SC-002**: rust 測試總數自 829 淨增且全綠（容器內 serial、rc=0）；含：每支寫端兩案 no-escalation 負向、seed
   保護與 self 五不各一負向、批刪整批 rollback、斷權三腿（撤銷／denylist／refresh 重驗）、政策八鍵各一違規案＋
@@ -479,7 +484,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **SC-007**: 密碼面端到端：設定頁調政策後即時生效於三入口；違規明細逐條顯示；seed 帳號 123456 登入不受影響；
   含特殊字元與 >18 字元的密碼可自登入頁登入（B-089 結案）。
 - **SC-008**: wire-schema 快照重抽後新命名空間全數有裁判；前端 typecheck 綠；.ts 驗證改指 oxlint 後無假綠。
-- **SC-009**: 甲類八條與丙類五條 BACKLOG 於收刀事件 backlog_done 關帳；B-134 新立；三條 demo 條文已更新。
+- **SC-009**: FR-044 所列 BACKLOG 條目於收刀事件 `backlog_done` 關帳（B-020 視通用 seam 是否做而條件性關帳、
+  B-025 只結①、B-098 續留不關帳）；B-113 條文更正已落；B-134 新立；三條 demo 條文已更新。
 - **SC-010**: pre-commit 全鏈實測一筆（RUNBOOK §12.1）低於 ADR 0044 之 45s 警戒。
 
 ## Assumptions

@@ -20,6 +20,7 @@ H() { echo -H "authorization: Bearer $1" -H "content-type: application/json"; }
 
 ```bash
 B=http://127.0.0.1:22080/api/systemManage
+curl -s $(H $SUPER) "$B/getAllEndpoints" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["data"]))'   # 受政策管制端點＝45（SC-001 驗收錨）
 curl -s $(H $SUPER) "$B/getUserList?current=1&size=10"                                  # data.records[].roles 為 code 集
 curl -s $(H $SUPER) -X POST $B/addUser -d '{"userName":"alice","password":"Alice#2026x","nickName":"Alice","roleIds":[3]}'   # {id}
 curl -s $(H $SUPER) -X POST $B/addUser -d '{"userName":"alice","password":"Alice#2026x"}'   # 2222 biz.user.userNameExists
