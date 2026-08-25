@@ -63,3 +63,4 @@
 | 0058 | accepted | 2026-08-25 | 活書 §6／§8 單節配額一次性放寬（120→160、90→130）＋停損條款——再撞頂改走 as-built 下放、停損之機器承載＝釘值測絆線 | — | — | — |
 | 0059 | accepted | 2026-08-25 | logout 呈遞 rotated 票維持 0000 靜默 no-op——sys_token 狀態機矩陣缺格之裁決（撤銷射程恆為單列、不擴 revoke_family） | — | — | — |
 | 0060 | accepted | 2026-08-25 | menu 治理清單的分頁列改「凍結」而非抽除或接真——UI 位置不動、頁碼 1／每頁 0／整列上鎖，itemCount 必須讓位給 pageCount | — | — | — |
+| 0061 | accepted | 2026-08-25 | pre-commit 全鏈提速——閘並行派發（fail-fast 改 run-all）＋工具內 I/O 稅削減（作用域快取／EAFP／subprocess 並行）；根因是 drvfs 單次 I/O 延遲而非條款邏輯 | — | — | — |

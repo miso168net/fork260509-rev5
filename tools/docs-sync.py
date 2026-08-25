@@ -301,12 +301,43 @@ SECTION_QUOTAS = {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 160,
 RE_BOOK_SECTION = re.compile(r"^## §(\d{1,2})\b")
 
 
+# ── _read 作用域快取（B-130／ADR 0061）──────────────────────────────────────────────────
+# 全鏈主成本＝drvfs（9p）**單次 I/O 延遲 × 存取次數**，非條款邏輯（2026-08-25 實測：同一批
+# 269 檔 stat+read 於 drvfs 2845ms、原生 ext4 4.8ms＝**587×**，每檔約 10.56ms）。而 run_lint
+# 一輪內 _read 被呼叫 971 次卻只碰 380 個唯一檔案（重複率 2.56×）⇒ 同輪內的重複讀是純粹的稅。
+# ★快取**限作用域、預設停用**（非行程級常駐）：generate 寫檔後會再讀、自測 528 案各自建臨時
+#   repo 並就地改檔，常駐快取會讓兩者讀到過期內容——那是把效能修成正確性缺陷。只有「唯讀且
+#   單輪內檔案不變」的路徑（run_lint／cmd_check）才以 _read_cache_scope() 顯式開啟。
+# ★巢狀安全：作用域以 prev 還原而非清空，故 run_lint 被自測逐案呼叫時每案各持一份、互不汙染。
+_READ_CACHE = None
+
+
+@contextlib.contextmanager
+def _read_cache_scope():
+    """唯讀路徑專用：作用域內 _read 命中即回，離開即棄（不跨輪、不跨案）。"""
+    global _READ_CACHE
+    prev = _READ_CACHE
+    _READ_CACHE = {}
+    try:
+        yield
+    finally:
+        _READ_CACHE = prev
+
+
 def _read(root, rel):
-    p = os.path.join(root, rel)
-    if not os.path.isfile(p):
-        return None
-    with open(p, encoding="utf-8-sig") as fh:  # -sig：吞 BOM（Windows 編輯器常見）
-        return fh.read()
+    key = (root, rel)
+    if _READ_CACHE is not None and key in _READ_CACHE:
+        return _READ_CACHE[key]
+    # ★EAFP 取代 os.path.isfile()：drvfs 上該 stat 佔一次 _read 的 **40%**（2026-08-25 實測
+    #   250 檔：isfile 732ms vs open+read 1092ms），而它換得的資訊 open 自己就會給。
+    try:
+        with open(os.path.join(root, rel), encoding="utf-8-sig") as fh:  # -sig：吞 BOM
+            text = fh.read()
+    except (FileNotFoundError, NotADirectoryError, IsADirectoryError, PermissionError):
+        text = None
+    if _READ_CACHE is not None:
+        _READ_CACHE[key] = text
+    return text
 
 
 def _line_count(text):
@@ -4597,6 +4628,12 @@ _assert_lint25_table()
 
 
 def run_lint(root, exemptions=None):
+    # B-130：唯讀路徑，全輪共用一份 _read 快取（重複率 2.56×）
+    with _read_cache_scope():
+        return _run_lint_uncached(root, exemptions)
+
+
+def _run_lint_uncached(root, exemptions=None):
     """組裝 Lint03～Lint27 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
     Lint21 exec bit 守衛、Lint22 範圍字串守衛、
@@ -4765,6 +4802,12 @@ def cmd_generate():
 
 
 def cmd_check():
+    # B-130：check 全程唯讀（compute_generated 只算不寫），同享快取作用域
+    with _read_cache_scope():
+        return _cmd_check_uncached()
+
+
+def _cmd_check_uncached():
     if not git_available(ROOT):
         print("[ERROR] git 不可用——check 無法建立比對基線，fail-closed", file=sys.stderr)
         return 1
@@ -10777,6 +10820,29 @@ STUB_TOOL = ("#!/usr/bin/env python3\n"
              "sub = os.environ.get('WIRE_FAIL_SUB')\n"
              "hit = bool(fail) and sys.argv[0].endswith(fail)\n"
              "sys.exit(1 if hit and (not sub or sys.argv[1:2] == [sub]) else 0)\n")
+# ★樁以 O_APPEND 單次小寫入記錄 argv（上方 `open(...,'a').write(...)`）：Linux 上 O_APPEND
+#   的 write 相對其他 O_APPEND write 為原子，且每行遠小於 PIPE_BUF ⇒ 並行派發下不會交錯。
+#   該性質自 B-130 並行化起成為 **load-bearing**（此前樁是序列跑、原子與否無所謂）。
+
+
+class _UnorderedLines(list):
+    """樁工具呼叫記錄：**比較時忽略順序、保留重複次數**（B-130）。
+
+    hook 自 B-130 起並行派發各閘（drvfs 的 I/O 延遲可重疊、9p 支援並發 in-flight 請求），
+    故樁的**完成序**本質不確定；而各閘彼此獨立、順序從來不是契約。以本型別回傳可讓既有
+    斷言一字不改地續用，且鑑別力只失去「順序」一維——「哪些閘被觸發」「各觸發幾次」
+    （重複次數）皆完整保留。
+    ★真正屬契約的那段順序（機密面兩道必須序列於並行派發之前）另由
+    test_hook_runs_secret_gates_serially_before_parallel_dispatch 釘住、不因本型別而失守。
+    """
+
+    def __eq__(self, other):
+        return sorted(self) == sorted(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    __hash__ = None
 
 
 def tools_test_roster():
@@ -10860,7 +10926,7 @@ class TestGateWiring(unittest.TestCase):
                            env=dict(os.environ, WIRE_LOG=log, WIRE_FAIL=fail,
                                     WIRE_FAIL_SUB=fail_sub))
         with open(log, encoding="utf-8") as fh:
-            return r.returncode, fh.read().splitlines()
+            return r.returncode, _UnorderedLines(fh.read().splitlines())
 
     def test_hook_roster_is_a_checked_copy_of_the_truth_table(self):
         """★hook 的 `for t in …` 是全庫第三份手抄名冊（一＝TOOLS_PY、二＝bootstrap）：
@@ -10882,6 +10948,29 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(tuple(m.group(1).split()),
                          tuple(rel for rel in roster if rel not in HOOK_TEST_LOOP_EXEMPT))
         self.assertIn("tools/fork-delta-lint.py", hook)   # 無 test 介面、走聯集觸發
+
+    def test_hook_runs_secret_gates_serially_before_parallel_dispatch(self):
+        """★B-130 並行化後**唯一仍屬契約的順序**：機密面兩道必須序列跑在任何並行派發之前。
+
+        理由不是效能而是語意——機密掃描（betterleaks 樣式面）與值比對（secret-value-guard）
+        是 hook 檔頭逐字載明的**事件型**檢查：機密一旦進 git 歷史即不可逆，只剩 pre-push
+        第二層補攔。並行段的收斂形是「全部跑完才回放輸出」⇒ 把這兩道併進去會有兩個後果：
+        ①機密命中的擋阻被**延後到最慢閘結束**（現況最慢閘是十幾秒級）②其輸出淹沒在回放序中。
+        故兩者留在序列前導段、各自 `|| exit 1` 即時擋下。
+        ★沒有本案時，把 betterleaks 改成 pc_run 派發會全綠存活（乾跑只看觸發集與退出碼，
+        對「第幾個跑」無感）——正是 ADR 0024 要消滅的「判準結構性無感即恆綠」。
+        """
+        hook = _read(ROOT, HOOK_REL) or ""
+        i_scan = hook.find("betterleaks git --config")
+        i_svg = hook.find("python3 tools/secret-value-guard.py check || exit 1")
+        i_dispatch = hook.find('pc_run "')
+        self.assertNotEqual(i_scan, -1, msg="betterleaks 掃描行不見了")
+        self.assertNotEqual(i_svg, -1, msg="secret-value-guard 的即時擋阻行不見了（|| exit 1 形）")
+        self.assertNotEqual(i_dispatch, -1, msg="並行派發點不見了——本案的前提已不成立，請重審")
+        self.assertLess(i_scan, i_dispatch,
+                        msg="betterleaks 落到並行派發之後＝機密命中的擋阻被延後到最慢閘結束")
+        self.assertLess(i_svg, i_dispatch,
+                        msg="secret-value-guard 落到並行派發之後＝同上，值比對層失去即時性")
 
     def test_hook_scan_pins_scanner_config_explicitly(self):
         """★掃描器設定檔**顯式指定、不靠自動探索**（rev4:019 final review 實證）：探索模式下
@@ -11147,37 +11236,44 @@ class TestGateWiring(unittest.TestCase):
         self.assertEqual(self._run(["docs/ops/NOTES.md"]), (0, self.BASE))
 
     def test_dry_run_non_zero_action_fails_the_hook(self):
-        """G8 fail-closed：任一動作非零→hook exit 1（不得吞掉退出碼繼續往下跑）。
-        ★四分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，行尾 `|| exit 1` 被拿掉＝該
-        動作非零時被完全忽略、續跑並以 0 收場（＝全庫閘可被一行編輯靜默關掉）。只驗其中
-        一支＝覆蓋率 1/4，另三支的保護被拆時全套件仍綠。"""
-        # 分支 a：check 非零→立即 exit，lint 與後續全不得跑（log＝值比對＋check 兩行——
-        # rev4:019 起值比對層在 docs-sync 之前、屬事件型防線，見 hook 註解）。
+        """G8 fail-closed：任一動作非零→hook exit 1（**退出碼不得被吞掉**）。
+        ★五分支逐一驗：hook 首行是 #!/bin/sh 且全檔無 set -e，保護被拿掉＝該動作非零時被
+        完全忽略、續跑並以 0 收場（＝全庫閘可被一行編輯靜默關掉）。只驗其中一支＝覆蓋率
+        1/5，另四支的保護被拆時全套件仍綠。
+
+        ★**B-130 語意變更（刻意、非退化）：fail-fast → run-all**。並行派發後各閘同時起跑，
+        故某閘失敗時其餘閘**照樣跑完**，退出碼於 pc_join 統一收斂。因此本案的 log 期望自
+        「失敗點為止的前綴」改為「該 staged 情境的**完整觸發集**」——`(1, …)` 的 rc 斷言
+        才是本案的鑑別力核心（保護被拆＝rc 變 0，照樣紅），log 集合則與 trigger_conditions
+        各案同源。
+        ★取捨理由：本 repo 紀律是「被擋的是 Claude、同回合修復」，一次看齊所有失敗比逐輪
+        擠牙膏省一個數量級的往返；且各閘皆唯讀，多跑無副作用。
+        ★「失敗後不再往下跑」這個性質**在並行設計下本就不存在**，不是本案失去的鑑別力；
+        真正該守的「每個動作都有退出碼歸宿」由 test_every_gate_action_line_is_guarded
+        以檔文面承接（含 pc_join 收斂點存在性）。"""
+        svg = ["tools/seed-view-gate.py check"]
+        vrg = ["tools/view-render-guard.py check"]
+        web = vrg + svg + ["tools/fork-delta-lint.py", "tools/wire-schema.py check --staged-gate"]
+        rust = svg + ["tools/entity-drift-gate.py check", "tools/rust-fmt-gate.py check"]
+        # 分支 a：check 與 lint 同支、未指定子命令＝兩者皆非零 → hook exit 1。
         self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py"),
-                         (1, self.BASE[:2]))
-        # 分支 b：只讓 lint 非零（同一支工具、以子命令區分）→ check 跑完、hook 仍 exit 1。
+                         (1, self.BASE))
+        # 分支 b：只讓 lint 非零（同一支工具、以子命令區分）→ hook 仍 exit 1。
         self.assertEqual(self._run(["docs/ops/NOTES.md"], fail="docs-sync.py", fail_sub="lint"),
                          (1, self.BASE))
         # 分支 c：工具自測非零。
         self.assertEqual(self._run(["tools/schema-gate.py"], fail="schema-gate.py"),
                          (1, self.BASE + ["tools/schema-gate.py test"]))
-        # 分支 d：fork-delta-lint 非零（★其前另跑 view-render-guard 與 seed-view-gate、
-        # 兩支皆回 0 故續行；後者＝B-114 起 fixture rust-api 為真 gitlink ⇒ 本序列含
-        # seed-view-gate）。
+        # 分支 d：fork-delta-lint 非零（其餘 base-web 觸發閘照跑＝run-all）。
         self.assertEqual(self._run(["base-web"], fail="fork-delta-lint.py"),
-                         (1, self.BASE + ["tools/view-render-guard.py check",
-                                          "tools/seed-view-gate.py check",
-                                          "tools/fork-delta-lint.py"]))
-        # 分支 d2：view-render-guard 非零→立即 exit，其後的 fork-delta 與 wire-schema 全不得跑。
-        # ★此案與 trigger_conditions 成對，是「守門被拆＝commit 照過」這條失效的唯一機器守。
+                         (1, self.BASE + web))
+        # 分支 d2：view-render-guard 非零。★此案與 trigger_conditions 成對，是「守門被拆＝
+        # commit 照過」這條失效的機器守之一（另一半＝檔文面的 action_line_is_guarded）。
         self.assertEqual(self._run(["base-web"], fail="view-render-guard.py"),
-                         (1, self.BASE + ["tools/view-render-guard.py check"]))
-        # 分支 e：entity-drift-gate 非零（rev4:B-110 閘；漂移／異常皆須擋 commit；★其前
-        # 另跑 seed-view-gate、該支回 0 故續行＝B-114 起 fixture rust-api 為真 gitlink ⇒
-        # 本序列含 seed-view-gate）。
+                         (1, self.BASE + web))
+        # 分支 e：entity-drift-gate 非零（rev4:B-110 閘；漂移／異常皆須擋 commit）。
         self.assertEqual(self._run(["rust-api"], fail="entity-drift-gate.py"),
-                         (1, self.BASE + ["tools/seed-view-gate.py check",
-                                          "tools/entity-drift-gate.py check"]))
+                         (1, self.BASE + rust))
 
     def test_every_gate_action_line_is_guarded(self):
         """★分支 d 的檔文兜底：hook 末個動作（立案當時＝fork-delta-lint、rev4:B-110 後＝
@@ -11185,11 +11281,21 @@ class TestGateWiring(unittest.TestCase):
         （實測 sh 語意），行為與現行完全等價——黑箱乾跑殺不死，只有檔文守衛擋得住。
         故通則化：每個 python3 動作行都必須帶退出碼保護，將來在其後追加動作、末位優勢
         消失時，漏保護才不會靜默變成 fail-open。"""
-        lines = [ln for ln in (_read(ROOT, HOOK_REL) or "").splitlines()
-                 if ln.strip().startswith("python3 ")]
+        hook = _read(ROOT, HOOK_REL) or ""
+        lines = [ln.strip() for ln in hook.splitlines()
+                 if (ln.strip().startswith("python3 ") or ln.strip().startswith("pc_run "))]
         self.assertGreaterEqual(len(lines), 4, msg=str(lines))   # check／lint／自測／fdl／entity 閘
         for ln in lines:
-            self.assertTrue(ln.rstrip().endswith("|| exit 1"), msg=f"守門動作漏退出碼保護：{ln}")
+            # ★B-130 等價轉換：動作行改由 `pc_run "<label>" python3 …` 派發、退出碼由 pc_join
+            #   統一收斂（遍歷 PC_ORDER、任一非零即回 1）⇒ 保護形式二擇一，關切未變＝**每個
+            #   動作都必須有退出碼歸宿**。裸 python3 行（既不 pc_run 也不 || exit 1）＝fail-open。
+            guarded = ln.endswith("|| exit 1") or ln.startswith("pc_run ")
+            self.assertTrue(guarded,
+                            msg=f"守門動作漏退出碼歸宿（需 `|| exit 1` 或 pc_run 派發）：{ln}")
+        # ★pc_run 派發者的收斂點：少了它，所有並行閘的退出碼無人檢查＝整段靜默 fail-open
+        #   （比舊形的「末位優勢」更危險——不是一個閘漏保護，是全部）。
+        self.assertIn("pc_join || exit 1", hook,
+                      msg="pc_join 收斂點不見了＝所有並行閘退出碼無歸宿、全段 fail-open")
 
 
 # --- pre-push 防線測試矩陣共用 fixture（B-039 U1；rev4:019 rev4:scan-gates §S3）---

@@ -37,6 +37,41 @@ HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PRECOMMIT_WARN_SEC=45
 PRECOMMIT_FAIL_SEC=90
 PRECOMMIT_T0=$(date +%s)
+# ── 並行 harness（B-130／ADR 0061）───────────────────────────────────────────
+# 全鏈主成本是 **drvfs（9p）單次 I/O 延遲 × 存取次數**，非條款邏輯：2026-08-25 cProfile 顯示
+# docs-sync lint 的 19.3s 中檔案系統原語佔 64%（open 1407 次／stat 1428 次），唯一顯著的邏輯
+# 成本 scan_id_namespace 僅 7%。而 9p 雖掛載成單一 transport，**支援並發 in-flight 請求**：
+# 同一批 269 檔 stat+read，序列 2572ms／並行 4 為 526ms（4.89×）／並行 8 為 406ms（6.33×）。
+# ⇒ 各閘彼此獨立（皆唯讀、無共享可變狀態），並行派發即可讓延遲重疊。
+# ★betterleaks 與 secret-value-guard **刻意留在序列最前**：兩者屬事件型（機密真進 git 歷史＝
+#   不可逆），失敗要最先、最顯眼地擋下；且兩者合計亦僅約 0.6s，並行無收益。
+# ★語意保持不變：任一閘非零即 exit 1。差別只在**不再 fail-fast**——全部跑完後依**原順序**
+#   回放輸出，一次看齊所有問題（本 repo 紀律是「被擋的是 Claude、同回合修復」，一次看到全部
+#   比逐輪擠牙膏省一個數量級的往返）。
+# ★輸出隔離：各閘 stdout/stderr 收進暫存檔後依序 cat，故並行不致交錯、錯誤歸因不受影響。
+PC_TMP=$(mktemp -d) || { echo "[pre-commit] ✗ 無法建立暫存目錄" >&2; exit 1; }
+trap 'rm -rf "$PC_TMP"' EXIT
+PC_ORDER=""
+# pc_run <標籤> <命令…>：背景執行、輸出與 rc 各存一檔；標籤同時作為回放順序鍵。
+pc_run() {
+  _pc_label=$1; shift
+  PC_ORDER="$PC_ORDER $_pc_label"
+  ( "$@" >"$PC_TMP/$_pc_label.out" 2>&1; echo $? >"$PC_TMP/$_pc_label.rc" ) &
+}
+# pc_join：等齊所有背景閘 → 依派發順序回放輸出 → 任一非零即回 1。
+pc_join() {
+  wait
+  _pc_fail=0
+  for _pc_l in $PC_ORDER; do
+    [ -s "$PC_TMP/$_pc_l.out" ] && cat "$PC_TMP/$_pc_l.out"
+    _pc_rc=$(cat "$PC_TMP/$_pc_l.rc" 2>/dev/null || echo 1)
+    if [ "$_pc_rc" -ne 0 ]; then
+      echo "[pre-commit] ✗ 閘「$_pc_l」失敗（exit $_pc_rc）——處置見其上方輸出" >&2
+      _pc_fail=1
+    fi
+  done
+  return $_pc_fail
+}
 betterleaks git --config "$HOOK_DIR/../.gitleaks.toml" --pre-commit --staged --redact --verbose --exit-code 2
 scan_rc=$?
 if [ "$scan_rc" -eq 2 ]; then
@@ -49,8 +84,8 @@ fi
 # 值比對層（S2、事件型、僅外層）：機密現值 × staged 新增行；現值缺席＝skip（fail-open）；
 # 紅綠 self-test 每次連帶跑（防恆綠）。
 python3 tools/secret-value-guard.py check || exit 1
-python3 tools/docs-sync.py check || exit 1
-python3 tools/docs-sync.py lint || exit 1
+pc_run "docs-sync-check" python3 tools/docs-sync.py check
+pc_run "docs-sync-lint" python3 tools/docs-sync.py lint
 # 守門工具自測條件觸發（rev4:FR-015／data-model §8）：staged 含某工具本體才跑該支、平時零開銷。
 # ★名冊改列**相對路徑**（B-035 U2／ADR 0010）：受治理的 python 工具不再只住 tools/，
 #   deploy/ 的機密管線腳本轉 python 後同列本名冊；本行與 docs-sync 的 TOOLS_PY、
@@ -58,7 +93,7 @@ python3 tools/docs-sync.py lint || exit 1
 staged=$(git diff --cached --name-only)
 for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py tools/route-artifact-gate.py tools/rust-fmt-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
   if echo "$staged" | grep -qxF "$t"; then
-    python3 "$t" test || exit 1
+    pc_run "selftest-$(basename "$t" .py)" python3 "$t" test
   fi
 done
 # 管理頁「零原始 HTML 插值」機器守（spec 004 FR-038／T042①）：base-web gitlink 變動（pin bump）或
@@ -77,7 +112,7 @@ if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/view-render-guard.py'; the
   #   在位卻少了 views/manage＝目錄被搬走／改名，那正是工具要 fail-loud 的情境，不能在這裡
   #   被跳過分支吞掉（吞掉＝守門實質下線而 hook 全綠）。
   if [ -d "$HOOK_DIR/../base-web/src" ]; then
-    python3 tools/view-render-guard.py check || exit 1
+    pc_run "view-render-guard" python3 tools/view-render-guard.py check
   else
     echo "[pre-commit] ⤳ view-render-guard 跳過：base-web worktree 未就位（base-web/src/ 缺席）——跑 bash tools/bootstrap.sh 建置後自動恢復實跑"
   fi
@@ -95,7 +130,7 @@ if echo "$staged" | grep -qxF -e 'base-web' -e 'rust-api' -e 'tools/seed-view-ga
   #   ★條件取 `base-web/src` 與 `rust-api/migration`（worktree 在不在）而非掃描射程本身：worktree 在位
   #   卻少了 views/ 或 seed 檔＝被搬走／改名，那正是工具要 fail-loud 的情境，不能在這裡被吞掉。
   if [ -d "$HOOK_DIR/../base-web/src" ] && [ -d "$HOOK_DIR/../rust-api/migration" ]; then
-    python3 tools/seed-view-gate.py check || exit 1
+    pc_run "seed-view-gate" python3 tools/seed-view-gate.py check
   else
     echo "[pre-commit] ⤳ seed-view-gate 跳過：worktree 未就位（base-web/src/ 或 rust-api/migration/ 缺席）——跑 bash tools/bootstrap.sh 建置後自動恢復實跑"
   fi
@@ -113,7 +148,7 @@ if echo "$staged" | grep -qxF -e 'base-web' -e 'tools/fork-delta-lint.py' -e '.s
   #   一鍋 commit。解除＝B9 bootstrap 建源倉後本分支自動恢復實跑；新機 clone 後的空窗由
   #   CLAUDE.md §6「掃描防線就位前不落 commit」＋bootstrap 承接（ADR 0001 決定 4 在案）。
   if [ -d "$HOOK_DIR/../fork260509-soybean-admin-base" ]; then
-    python3 tools/fork-delta-lint.py || exit 1
+    pc_run "fork-delta-lint" python3 tools/fork-delta-lint.py
   else
     echo "[pre-commit] ⤳ fork-delta-lint 跳過：基線源倉 fork260509-soybean-admin-base/ 缺席（B9 前）——源倉就位後自動恢復實跑"
   fi
@@ -123,7 +158,7 @@ fi
 # （--staged-gate 收窄、省 npx 秒數）；stack 未起＝警告放行（fail-open）；容器可用但重抽
 # 失敗／不一致＝擋（fail-loud；補救命令見工具輸出）。
 if echo "$staged" | grep -qxF 'base-web'; then
-  python3 tools/wire-schema.py check --staged-gate || exit 1
+  pc_run "wire-schema" python3 tools/wire-schema.py check --staged-gate
 fi
 # entity 漂移閘（rev4:B-110 階段 0）：rust-api gitlink 變動（pin bump）或 schema 快照本身 staged 時，
 # 比對 entity（rust-api/entity/src）vs 已 commit 快照（docs/ops/reference-src/schema-snapshot.json）
@@ -135,7 +170,7 @@ if echo "$staged" | grep -qxF -e 'rust-api' -e 'docs/ops/reference-src/schema-sn
   #   pin 首記 commit。解除＝schema 刀 refresh 產快照後本分支自動恢復實跑；同 fork-delta
   #   Day-1 跳過模式（ADR 0001 決定 4）。快照存在而 drift＝照擋（真故障面不受影響）。
   if [ -f "$HOOK_DIR/../docs/ops/reference-src/schema-snapshot.json" ]; then
-    python3 tools/entity-drift-gate.py check || exit 1
+    pc_run "entity-drift-gate" python3 tools/entity-drift-gate.py check
   else
     echo "[pre-commit] ⤳ entity-drift-gate 跳過：schema 快照缺席（schema 基線刀前）——快照就位後自動恢復實跑"
   fi
@@ -157,8 +192,11 @@ fi
 #   容器內守門而非慢路徑劣化。
 # ★存量一次格式化 commit 落地後 diff 段數歸零，但本段成本**不等比下降**（仍需全樹解析）——屆時重測。
 if echo "$staged" | grep -qxF -e 'rust-api' -e 'tools/rust-fmt-gate.py'; then
-  python3 tools/rust-fmt-gate.py check || exit 1
+  pc_run "rust-fmt-gate" python3 tools/rust-fmt-gate.py check
 fi
+
+# ── 等齊所有並行閘、依原順序回放輸出（B-130）───────────────────────────────
+pc_join || exit 1
 
 # ── 全鏈耗時評估（僅在全部閘通過後執行；任一閘失敗時上方已 exit）──────────────
 PRECOMMIT_ELAPSED=$(( $(date +%s) - PRECOMMIT_T0 ))
