@@ -383,6 +383,12 @@ EOF
   **下一刀收尾必須依本節量測法實測全鏈**再讀。★`rust-fmt-gate check` 現值量於**存量尚未格式化**
   之時（687 段 diff、rc 1）；存量一次格式化 commit（§12.3）落地後段數歸零，但成本**不等比下降**
   （rustfmt 仍須全樹解析）——屆時重測改值。
+- **★2026-08-25 B-097 維護批：hook 自報 55s ＝ 首筆「真實越線」實測**（前此越線皆為合成推估）。
+  該顆＝pin bump 型外層 commit（staged `base-web` gitlink ＋ ADR ＋ BACKLOG ＋ `docs/generated`）
+  ⇒ `fork-delta-lint`（10.2s）與 `view-render-guard`／`seed-view-gate` 皆進鏈，而 `docs-sync test`
+  （19.8s、僅工具本體 staged 時跑）未進鏈——此即與同日簿記型 **16.68s** 的主要差額來源。
+  ⇒ **B-130 觸發器「hook 開始自報 >45s 警告時」自此達成**；ADR 0044 引信（連續兩刀 ≥60s）
+  **仍未觸發**（55 < 60）。★本值取自 hook 自報行、非依本節逐支中位數法量測，兩者不可混用作成長率。
 - **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
   （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
   test 合計 **24.593s**（自測案數合計 938）；情境 B 合計 **34.499s**。⇒ 兩日內**基礎鏈
