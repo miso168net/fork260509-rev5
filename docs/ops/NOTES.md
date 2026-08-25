@@ -34,7 +34,7 @@
 - **★下一刀＝刀 B（user＋password 管理）**：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
   changePassword」（2026-08-18、記兩檔 §3 表 #4）；★起手必復核 B-093（deleteRole 判定面繼承窗）
   ＋B-113（R_SUPER wire 案前提、seed 未來端點註冊後重審）；seed 68（manage_user view）在彼兌現。
-- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-124／B-125／B-127～B-130。★另六條已滯後（查全帳須併看 BACKLOG-DEFERRED.md）；B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
+- **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-124／B-125／B-127～B-129／B-131～B-133。★另六條已滯後（查全帳須併看 BACKLOG-DEFERRED.md）；B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
 - ★下一動作＝刀 B **階段 0 brainstorm**（superpowers:brainstorming、產出 docs/brainstorms/<NNN>-<feature-name>.md）；
   specify 手動起手（絕不排自動流程、否則 spec 落 default）→ clarify → plan → tasks → analyze、每步 commit。
-  兩批前置維護皆已收（B-111 已立 i64 守衛 lint＝刀 B 新 wire 型漏標即紅）；brainstorm 輸入見 BACKLOG 各條（建議 demo 資產三條併入一次拍）；★**硬前置＝B-126 活書配額**（2026-08-25 實測 §11 3/3 已滿、§9 4/5、§5 85/90 而歷史 +10／刀 ⇒ 刀 B 增補 as-built 必撞 lint，且 ADR 0058 算術硬底已堵死再放寬 ⇒ 唯一出路＝as-built 下放、屬拍板級；撞點落在收尾＝最壞時序，故須在 brainstorm 拍板面先決）；★效能：B-130 已關帳（ADR 0061）——全鏈 43.46s→**13.09s**（3.3×）、真 hook 最重情境 24.1s，遠低於 ADR 0044 之 45s 警戒；根因＝drvfs I/O 稅非條款邏輯（L-062、微基準 587×），根治面（遷原生 WSL fs）留 B-133 備案。刀 B 收尾仍依 RUNBOOK §12.1 量測法實測一筆。
+  兩批前置維護皆已收（B-111 已立 i64 守衛 lint＝刀 B 新 wire 型漏標即紅）；brainstorm 輸入見 BACKLOG 各條（建議 demo 資產三條併入一次拍）；★硬前置 B-126 已關帳（ADR 0062、merge 5cd4319）：§5 70/90、§8 53/130、配額表整張不動；§9／§11 是指針節非逼近；日後任一節撞頂＝輕量軌下放（下一候選 §5 觀測面清冊→obs.rs）、不再逐次 ADR；附屬文件 FORK-DELTA-WIRING.md 同受活書三閘；★效能：B-130 已關帳（ADR 0061）——全鏈 43.46s→**13.09s**（3.3×）、真 hook 最重情境 24.1s，遠低於 ADR 0044 之 45s 警戒；根因＝drvfs I/O 稅非條款邏輯（L-062、微基準 587×），根治面（遷原生 WSL fs）留 B-133 備案。刀 B 收尾仍依 RUNBOOK §12.1 量測法實測一筆。
