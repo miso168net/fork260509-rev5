@@ -203,13 +203,14 @@
 ## R11 本輪查證對既有敘述的校正（回報備查）
 
 1. wire-schema definitions 現 **75**（006 SC 寫「自 57 淨增」為當時基線；本刀基線以 75 計）。
-2. `page.manage.user` zh-cn 現 **約 21** 葉鍵（brainstorm 記 19；以實作期 grep 為準）。
+2. `page.manage.user` zh-cn 現 **19** 葉鍵（2026-08-26 括號配對計數複核；brainstorm 記 19 正確）。
 3. 稽核詞彙釘值測 `t005_…_vocabulary_stays_five`（`audit.rs`:259）——006 R2 曾記「不得改」，係指 006 射程；本刀依
    spec FR-005 擴三值、測改名。
 4. 受政策管制端點計數「35」無具名常數（僅 `ROUTES_COUNT`）；spec 之「35→45」以 `getAllEndpoints` 候選集實測為驗收錨。
 5. rev4 **無**獨立 custody facade（寫入形內嵌 `sys_user.rs`）；rev5 新立 `sys_pwd_custody.rs` 為刻意分層（只時戳）。
 6. rev4 改密舊密節流零實作（B-021 承 rev4:B-102 未做）——spec「rev4 對應」欄無此項；零藍本自建。
 7. `no_escalation_check` 為 `pub(crate) async fn`（`enforce.rs`:287）、非同步簽章；本刀不動。
+9. `error.rs` 有 **四處** `match self`／`match e`（:75 `code()`／:91 `msg()`／:107／:216 remap）——新增 `BizData` 變體須逐處補臂（窮舉 match、漏補即編譯紅＝良性）。
 8. `unlockLogin` 稽核 `entity_table='login_throttle'` 既有已知態沿用。
 
 ## R12 執行單元切分（tasks 期定稿；~10 支）
