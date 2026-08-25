@@ -3,15 +3,15 @@
 
 ## git
 - default branch：rev5-admin-root
-- pins：base-web=673f206｜rust-api=1193bb9
+- pins：base-web=ae1ac0c｜rust-api=1193bb9
 
 ## constitution
 - 版本：1.8.0
 
 ## 帳面統計
 - ADR：58（accepted 56、superseded 2）
-- BACKLOG 待辦：42（next：B-128）｜滯後：1
-- LESSONS：60 筆（next：L-061）
+- BACKLOG 待辦：41（next：B-130）｜滯後：1
+- LESSONS：61 筆（next：L-062）
 - events：34 筆（feature_close 6、misc 28）
 
 ## 最近事件（尾 3 筆、新在前）
