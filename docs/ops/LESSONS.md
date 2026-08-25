@@ -1,4 +1,4 @@
-<!-- next: L-057 -->
+<!-- next: L-059 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -69,3 +69,5 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-054｜CDP 走查回報的「無可觀察實例」與「契約豁免」兩類理由不附機器反證＝等同未驗](LESSONS/L-054-cdp-unverifiable-claims-need-counterevidence.md) — 驗證審查對此類步驟必令 redo：附 psql／grep 反證或原文行號，否則不得記已知態
 - [L-055｜CDP／手動真登入殘列 × AUTH_SEQUENCES setval(1,false)＝下一輪全量 23505；schema-gate 複驗綠≠環境已還原](LESSONS/L-055-runtime-append-residue-blows-next-full-suite.md) — 走查後 DELETE sys_token／session_event／sys_login_attempt＋三 seq 復位（quickstart §4 已晉升）
 - [L-056｜清理守衛的 setval 還原把 create 形測試的 nextval id 釘成跨執行定值＝走查造得出同 id 的孤兒稽核列](LESSONS/L-056-seq-restore-pins-nextval-id-to-a-constant.md) — 稽核斷言窗形判準改寫：不是「鍵是不是 seed id」而是「這個 id 走查造不造得出」（nextval id 造得出、顯式大 id 段造不出）
+- [L-057｜派生「只跑某階段」的續跑 script 時，冒煙 token 隨 IMPL_PROMPT 一起蒸發（ARMED 照出、命中=0）](LESSONS/L-057-derived-stage-script-drops-the-smoke-token.md) — 冒煙 token 提到所有 prompt 共用段、渲染斷言比照 zh-TW 一併檢查
+- [L-058｜以手擬 grep 代替 errata 驗「零殘留」，樣式比實際措辭窄就漏改，留下同檔自相矛盾兩句](LESSONS/L-058-hand-grep-is-not-errata.md) — 勘誤一律跑 tools/docs-sync.py errata <關鍵詞>；要自擬也只能取最短公共子串
