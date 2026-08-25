@@ -1,4 +1,4 @@
-<!-- next: L-059 -->
+<!-- next: L-061 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -71,3 +71,5 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-056｜清理守衛的 setval 還原把 create 形測試的 nextval id 釘成跨執行定值＝走查造得出同 id 的孤兒稽核列](LESSONS/L-056-seq-restore-pins-nextval-id-to-a-constant.md) — 稽核斷言窗形判準改寫：不是「鍵是不是 seed id」而是「這個 id 走查造不造得出」（nextval id 造得出、顯式大 id 段造不出）
 - [L-057｜派生「只跑某階段」的續跑 script 時，冒煙 token 隨 IMPL_PROMPT 一起蒸發（ARMED 照出、命中=0）](LESSONS/L-057-derived-stage-script-drops-the-smoke-token.md) — 冒煙 token 提到所有 prompt 共用段、渲染斷言比照 zh-TW 一併檢查
 - [L-058｜以手擬 grep 代替 errata 驗「零殘留」，樣式比實際措辭窄就漏改，留下同檔自相矛盾兩句](LESSONS/L-058-hand-grep-is-not-errata.md) — 勘誤一律跑 tools/docs-sync.py errata <關鍵詞>；要自擬也只能取最短公共子串
+- [L-059｜兩視圖守門 lint 須逐 byte 對齊；「rustfmt 保證一欄一行」因本 repo 的 use_small_heuristics=Max 而不成立](LESSONS/L-059-two-view-lint-must-share-byte-coordinates.md) — 常值逐 byte 換白的結構視圖＋按精確 (起,迄) 圈界取屬性字面，另配視圖對齊的前提自證測
+- [L-060｜暫改真檔驗紅後，用 git checkout 還原＝連同該檔其它未 commit 改動一起丟](LESSONS/L-060-restore-temp-mutation-without-git-checkout.md) — 存原文→寫回，還原後以 git diff --name-only 證零殘留；禁令要連替代作法一起寫

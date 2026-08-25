@@ -339,6 +339,9 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   JSON null＝顯式清空（NOT NULL 欄拒收 2222）、有值＝設值；解析層以 `Option<Option<T>>`
   三態型別區分「未出現」與「null」，★並以自訂 `deserialize_with` 承載——單靠型別，serde
   的預設 Deserialize 會把 JSON null 也落外層 `None`、與缺席不可辨（三態塌兩態；L-009）。
+- **序列化與傳輸層守門**：`Serialize` 型 i64 欄逐欄過 envelope 2^53 守衛（typings 宣告 string
+  者走 `serialize_i64_as_string`）＝`server/tests/wire_i64_guard_lint.rs`；serve 的 `ConnectInfo`
+  備線＝`server/tests/serve_connect_info_lint.rs`；信任模型 IPv4-mapped 網段字面＝告警＋清空該集合。
 
 ### 授權慣例
 
