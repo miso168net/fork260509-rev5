@@ -64,3 +64,4 @@
 | 0059 | accepted | 2026-08-25 | logout 呈遞 rotated 票維持 0000 靜默 no-op——sys_token 狀態機矩陣缺格之裁決（撤銷射程恆為單列、不擴 revoke_family） | — | — | — |
 | 0060 | accepted | 2026-08-25 | menu 治理清單的分頁列改「凍結」而非抽除或接真——UI 位置不動、頁碼 1／每頁 0／整列上鎖，itemCount 必須讓位給 pageCount | — | — | — |
 | 0061 | accepted | 2026-08-25 | pre-commit 全鏈提速——閘並行派發（fail-fast 改 run-all）＋工具內 I/O 稅削減（作用域快取／EAFP／subprocess 並行）；根因是 drvfs 單次 I/O 延遲而非條款邏輯 | — | — | — |
+| 0062 | accepted | 2026-08-25 | 活書 as-built 下放首例——§8 fork-delta 接線段→附屬文件 FORK-DELTA-WIRING.md、§5 測試設施清冊→test_db 模組 doc；配額表整張不動、§9／§11 維持指針節配額；取態改「活書＝as-built 索引層」＋下放作業定型為輕量軌 | — | — | — |
