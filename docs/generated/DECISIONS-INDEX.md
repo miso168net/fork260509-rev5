@@ -61,3 +61,4 @@
 | 0056 | accepted | 2026-08-23 | 三維授權全量替換之射程＝候選集——候選外現役列不撤不授不入 effective（rev5 路由註冊表遞增 vs seed 完整之實況拍板） | — | — | — |
 | 0057 | accepted | 2026-08-24 | rust 格式守門——rustfmt 設定釘 max_width=100＋use_small_heuristics=Max（存量 diff 實測最小）、閘以納冊工具承載並於 pre-commit 條件式呼叫容器（stack 在跑才實跑、不在跑具名跳過） | — | — | — |
 | 0058 | accepted | 2026-08-25 | 活書 §6／§8 單節配額一次性放寬（120→160、90→130）＋停損條款——再撞頂改走 as-built 下放、停損之機器承載＝釘值測絆線 | — | — | — |
+| 0059 | accepted | 2026-08-25 | logout 呈遞 rotated 票維持 0000 靜默 no-op——sys_token 狀態機矩陣缺格之裁決（撤銷射程恆為單列、不擴 revoke_family） | — | — | — |
