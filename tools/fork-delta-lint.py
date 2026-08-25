@@ -21,6 +21,7 @@
 import contextlib
 import difflib
 import io
+import concurrent.futures
 import os
 import re
 import shutil
@@ -958,8 +959,18 @@ def changed_files(repo=BASEWEB, baseline=BASELINE):
 def scan(s1, s2):
     errs, unmarked, rogue = [], [], []
     checked_total = 0
-    for rel in changed_files():
-        base = sh(["git", "show", f"{BASELINE}:{rel}"], BASEWEB)
+    rels = list(changed_files())
+    # ── 基線原文並行預取（B-130／ADR 0061）───────────────────────────────────────────────
+    # 本函式的成本 **99% 在 subprocess 等待**、不在判定邏輯（2026-08-25 cProfile：
+    # select.poll 14.338s／14.260s 總時，檔案 I/O 僅 0.167s）——每個 changed file 各起一次
+    # `git show` 取基線原文，逐次序列等待。drvfs（9p）下單次約 0.29s，數十檔即十數秒。
+    # ★預取只把「等待」重疊，判定邏輯與逐檔順序一字不動（下方迴圈照原序消費），
+    #   故結果逐位元組相同——git show 為唯讀、對同一 BASELINE 冪等，並行無序副作用。
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        bases = dict(zip(rels, ex.map(
+            lambda r: sh(["git", "show", f"{BASELINE}:{r}"], BASEWEB), rels)))
+    for rel in rels:
+        base = bases[rel]
         if base.returncode != 0:
             continue  # 我方新檔（example 沒有）→ 豁免
         ours_path = os.path.join(BASEWEB, rel)
