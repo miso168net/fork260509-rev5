@@ -1,7 +1,7 @@
 # CLAUDE.md — rev5 workspace 薄操作手冊
 
 預算 ≤250 行（lint Lint07 強制）。本檔只放規則與程序；快查去處：
-查現況→`docs/generated/STATE.md`｜當前意圖→`docs/ops/NOTES.md`｜待辦→`docs/ops/BACKLOG.md`｜
+查現況→`docs/generated/STATE.md`｜當前意圖→`docs/ops/NOTES.md`｜待辦→`docs/ops/BACKLOG.md`（滯後項另卷→`docs/ops/BACKLOG-DEFERRED.md`）｜
 架構→`docs/arc42/ARCHITECTURE.md`｜**文件地圖→README.md**｜坑與防法→`docs/ops/LESSONS.md`｜
 決策→`docs/arc42/decisions/`｜操作手冊→`docs/ops/RUNBOOK.md`。
 明確不含：reference data（→`docs/generated/reference/`）、進度 marker（→NOTES＋STATE）、
