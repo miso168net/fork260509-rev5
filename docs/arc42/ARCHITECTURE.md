@@ -95,24 +95,9 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   settle_txn 全量替換核（射程＝候選集、ADR 0056）＋protected_endpoint_set 封死謂詞鎖內
   現查（ADR 0054）＋scope_live_to_candidates 三路同用；自管 txn、選單／按鈕維入選單序列
   化域、端點維與 restore 不入域；handler 消費面＝role.rs 三維六支＋policy_archive.rs 兩支）＋src 側測試共用設施
-  `model::test_db`（守衛 **12 件**＝`ChainRowsCleanup`
-  ／`LoginAttemptCleanup`／`SessionEventCleanup`／`IpRuleCleanup`／
-  `OperationLogCleanup`／`SessionIdCleanup`＋005 四件 `RoleCleanup`／`MenuCleanup`／
-  `CasbinCleanup`／`UserCleanup`（雙名冊＋seed 隔離斷言＋四 seq setval 還原、自證測 7 支）
-  ＋維護批 A 一件 `SeedOpLogCleanup`（op-log id 高水位為窗、只刮 arm 之後新生的 seed 實體
-  稽核列——補上 `RoleCleanup` 結構性拒收 seed id 所留的缺口；自帶兩向自證測）
-  ＋列態 fixture `UserStatusFixture`，各支「為何
-  非有不可」逐條寫在其型 doc；003/004 存量中六支各配一支核心自證測（`IpRuleCleanup` 一支於
-  B-085 關帳時補齊）——`OperationLogCleanup` 依其型 doc 的收窄集理由刻意不配；sequence 紀律
-  兩套、以「在不在 `RUNTIME_APPEND_TABLES` 收窄集」分界（集內四表測後不重設、殘列各由清理
-  守衛管；集外表由該表守衛把 seq 還原成 seed 現值），全文住該模組 doc。另有真 app 建構
-  `real_app_with`、endpoint 測試 oneshot 打端殼 `oneshot_json_from`／`oneshot_json`
-  （B-110 收攏；四個 handler 的自持殼同歸）、測試簽章、跨檔共用常數
-  `REDIS_TTL_SLACK_SECS`，＋維護批 A 的 PG 層 fault-injection seam 兩件
-  `real_db_single_with_lock_timeout`＋`TableLock`（B-056：單連線池帶 `lock_timeout`
-  ／另一連線持 `ACCESS EXCLUSIVE` 表鎖，合成「連線仍活、但這一句 SELECT 逾時失敗」
-  ——`facade::test_kit::FailingConn` 的整條連線壞造不出的形；表名走白名冊、鎖須於斷言前
-  顯式釋放））。
+  `model::test_db`（清理守衛／列態 fixture／真 app 與端殼 helper／PG 層 fault-injection seam
+  ／跨檔共用常數之名冊，連同各支「為何非有不可」與 sequence 兩套紀律，全文住該模組 doc 與
+  各型 doc——ADR 0062 下放、本書不複述名冊）。
 - **IP 域模組拓樸**（004 落地）：`trust/`（信任錨純函式核：`resolve_client_ip` 三層判定＋
   兩層覆蓋、`apply_chain_overflow` 鏈長短路、`to_canonical` 折疊、`TrustModel::is_trusted`）／
   `ipgate/`（規則判定純函式 `decide`＋`build_ruleset`＋防自鎖 `would_self_lock`＋讀端
@@ -270,48 +255,9 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 
 ### fork-delta 接線現況（base-web）
 
-授權面＝constitution §III.2 名冊（授權歸憲法、本節只記 as-built 接線形；**條數以該名冊
-為準、本節刻意不複述**——複述即第二份會漂的手抄計數）。003 起實接之 ★ 軌道逐條如下：
-
-- **★BASE-WEB-AUTH-WIRING**：(a) `store/modules/route/index.ts` constant routes **併入**
-  static 常量集（seed `constant=TRUE` 現 0 列、取代形會清空五條 builtin）；(b) 三張替代
-  登入表單改打 `rev5-auth.ts` 誠實 stub（恆 2222 notSupported）並消滅假成功 toast；
-  (c) `hooks/business/captcha.ts` 改打 `/auth/sendCaptcha` stub、假延遲與假成功 toast 移除。
-- **★BASE-WEB-LOGIN-CAPTCHA-WIRING**：(i) login 簽名加 captcha 參＋失敗 msg 回傳鏈
-  （`store/modules/auth/index.ts`）；`pwd-login.vue` 軟區條件渲染 220×120 驗證碼欄，
-  非軟區零行為變更。
-- **★BASE-WEB-I18N-WIRING**：(i) `service/request/index.ts` 之 `translateBackendMsg`／
-  `translateDetailValue`——後端 msg（穩定 i18n key）經 ``$t(`backend.${msg}`, msg)`` 顯人話、
-  未命中以原文 graceful fallback；(ii) `en-us.ts`／`zh-cn.ts` 各插 backend 樹（★鍵數與鍵清單
-  之機器真源＝`deploy/grafana-provisioning/dashboards/json/backend-msg-dict.json`（generate 自
-  兩語 locale 重算、Lint24 雙向守相等）——本節不手抄計數；各刀增鍵記各自 spec）；
-  (iii) `app.d.ts` 補 backend 必填型節。
-- **★BASE-WEB-LOGOUT-UX-WIRING**：(i) `user-avatar.vue` 登出前 best-effort
-  `fetchLogout`（失敗不阻斷 `resetStore()`）。
-- **★BASE-WEB-MANAGE-PAGE-WIRING**：(i) IP 規則管理頁進場——兩語 locale 之 `route:` 樹加
-  `manage_ip-rule`、`page:` 樹加 `manage.ipRule.*`；`app.d.ts` 補 `Schema.page` 型節；
-  路由外掛產物**四檔**（`router/elegant/{imports,routes,transform}.ts`＋
-  `typings/elegant-router.d.ts`）**由外掛重算產出**、採**產物檔紀律**（禁手改、不逐行標記
-  ——標記於下次重算即被抹除、物理上不可維持）；(ii)（005、憲法 v1.7.0 開）role／menu
-  既有管理頁 CRUD 接真——檔級定數名單恰 8 檔＝role 3 view＋menu 2 view＋兩語 locale＋
-  `app.d.ts`（兩顆授權 modal 與 `shared.ts` 明文不入、零 diff 機器斷言），`page:` 樹加
-  memo／回收桶欄位鍵；upstream 誤植之 `fetchGetAllRoles` 殘留於 menu modal 移除；
-  (iii)（006、憲法 v1.8.0 開）三顆授權 modal 接真——menu／button modal 修改型（原行 13／23＋
-  就緒守：確定鈕於現況讀成功前 disabled、user 拍板 2026-08-24）＋endpoint modal 新增型新檔
-  （cascade＋check-strategy=child）＋drawer 同檔雙用途第三鈕＋roleHome（誠實 null＋clearable）
-  ＋`page:` 樹 endpointAuth 鍵；(iv)（006）policy-archive 頁進場——兩新檔＋`route:`／`page:`
-  樹＋產物四檔重算；role/index.vue 零 diff、三鈕零 hasAuth gating（門在頁級）。
-
-機器守（`tools/fork-delta-lint.py`、`tools/view-render-guard.py`、
-`tools/route-artifact-gate.py`、pre-commit）：修改型標記逐處帶 `原行:`＋軌道名 ∈
-授權名冊斷言（名冊掃自 constitution §III.1/§III.2 表格、掃空即 die）；新增型圈界；
-「假成功 toast 不得回歸」四檔靜態斷言與「`$t` fallback 不得退化」斷言（B-061／B-062 收單）；
-管理頁 `views/manage/**` 零原始 HTML 插值（FR-038）。
-★**射程界線**：`fork-delta-lint` 的 `scan()` 對「基線沒有的檔」結構性豁免 ⇒ **rev5 新檔的
-檔頭標記不受機器守**（004 U-I 變異實測：拿掉新檔標記，lint 仍全綠），該面屬紀律；受機器
-守的是**基線既有檔**的修改型與圈界。★路由外掛產物四檔受 fork-delta **全域豁免**，其唯一
-機器守＝`route-artifact-gate` 的產出檔集對賬／重算冪等／零手改三道（★第三道以**上游基線**
-為種：以版控為種重算時，外掛的 magicast 增量合併會讓手改過的行原封不動活下來、第二道全綠）。
+★ 軌道逐條 as-built 接線形、機器守清單與射程界線 ☞ `docs/arc42/FORK-DELTA-WIRING.md`
+（本書附屬文件、同受 Lint07／Lint10／Lint11；自本節下放＝ADR 0062）。授權面仍＝constitution
+§III.2 名冊；本節不承載內容。
 
 ### 資料慣例
 

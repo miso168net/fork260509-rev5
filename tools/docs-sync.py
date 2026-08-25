@@ -44,6 +44,9 @@ from unittest import mock
 # repo 相對路徑常數
 EVENTS = "docs/ops/events.jsonl"
 BOOK = "docs/arc42/ARCHITECTURE.md"
+# 活書附屬文件名冊（ADR 0062）——現在式 as-built、同受 Lint07／Lint10／Lint11；
+# 新增附屬文件＝三處登記（本名冊／BUDGETS／README 地圖）。
+BOOK_ANNEXES = ("docs/arc42/FORK-DELTA-WIRING.md",)
 NOTES = "docs/ops/NOTES.md"
 BACKLOG = "docs/ops/BACKLOG.md"
 STATE = "docs/generated/STATE.md"
@@ -271,6 +274,7 @@ BUDGETS = {
     "docs/arc42/ARCHITECTURE.md": (700, 25000),
     ".specify/memory/constitution.md": (350, None),   # rev5 新增納管（起始值、收緊另議）
     "docs/ops/RUNBOOK.md": (900, None),               # rev5 新增納管（起始值、收緊另議）
+    "docs/arc42/FORK-DELTA-WIRING.md": (200, None),   # 活書 §8 下放之附屬文件（ADR 0062；起始值）
 }
 LESSONS_TOKEN_LIMIT = 25000
 LESSONS_TOKEN_WARN = 22500
@@ -294,7 +298,7 @@ MILESTONES_VOL_TOKEN_LIMIT = LESSONS_TOKEN_LIMIT
 SUMMARY_CHAR_LIMIT = 300
 # 活書單節配額（行數、超出＝警告）
 # ★§6／§8 獨寬（160／130）＝ADR 0058：此二節設計上每刀都長 as-built，故一次性放寬並附停損
-#   ——下次再撞頂（任一節）改走「as-built 下放、活書只留指針」、不再調高；本表整張由釘值測
+#   ——下次再撞頂（任一節）改走「as-built 下放、活書只留指針」、不再調高（首例＝ADR 0062）；本表整張由釘值測
 #   test_section_quotas_pinned_by_adr 釘住（絆線、非正確性守衛），改值者會被導向該 ADR。
 SECTION_QUOTAS = {1: 40, 2: 30, 3: 50, 4: 40, 5: 90, 6: 160,
                   7: 60, 8: 130, 9: 5, 10: 40, 11: 3, 12: 30}
@@ -677,13 +681,30 @@ TENSE_WORDS = {
 }
 
 
-def lint_tense(book_text):
-    """Lint10：活書時態禁詞（待決/TBD/⏳/已完成/下一步），附去處提示。"""
+def book_family_texts(root, extra=()):
+    """活書家族語料（ADR 0062）：活書＋附屬文件 BOOK_ANNEXES（＋extra），缺檔略過。
+
+    回 {rel: 全文}；Lint10 逐本消費、Lint11 以 extra=("CLAUDE.md",) 併掃——附屬文件
+    進不進時態／詞典掃描面只由本 helper 決定（run_lint 不另抄名冊）。
+    """
+    out = {}
+    for rel in (BOOK,) + tuple(BOOK_ANNEXES) + tuple(extra):
+        text = _read(root, rel)
+        if text is not None:
+            out[rel] = text
+    return out
+
+
+def lint_tense(book_text, rel=BOOK):
+    """Lint10：活書時態禁詞（待決/TBD/⏳/已完成/下一步），附去處提示。
+
+    rel＝finding 的 where 所指檔：預設活書；附屬文件（BOOK_ANNEXES）逐本傳入（ADR 0062）。
+    """
     out = []
     for n, line in enumerate(book_text.splitlines(), start=1):
         for word, dest in TENSE_WORDS.items():
             if word in line:
-                out.append(finding(ERROR, "Lint10", f"{BOOK}:行 {n}",
+                out.append(finding(ERROR, "Lint10", f"{rel}:行 {n}",
                                    f"活書時態禁詞「{word}」；去處：{dest}"))
     return out
 
@@ -709,7 +730,7 @@ DICT_PATTERNS = (
 
 
 def lint_dictionary(texts):
-    """Lint11：禁入詞典（警告級）。texts＝{rel: 全文}，掃活書＋CLAUDE.md。
+    """Lint11：禁入詞典（警告級）。texts＝{rel: 全文}，掃活書＋附屬文件（BOOK_ANNEXES）＋CLAUDE.md。
 
     「｜出處：」起始的行（rev3 史料標註）整行豁免——僅行首、行中不豁免。
     """
@@ -4666,12 +4687,10 @@ def _run_lint_uncached(root, exemptions=None):
     findings += lint_ids("L", [(_read(root, p) or "") for p in lpaths],
                          head_files_batch(lessons_head_view(root), root))
     findings += lint_lessons_files(root)
-    book = _read(root, BOOK)
-    if book is not None:
-        findings += lint_tense(book)
-    findings += lint_dictionary(
-        {rel: _read(root, rel) for rel in (BOOK, "CLAUDE.md")
-         if _read(root, rel) is not None})
+    # 活書家族（活書＋附屬文件 BOOK_ANNEXES、ADR 0062）：Lint10 逐本、Lint11 併 CLAUDE.md 同掃
+    for rel, text in book_family_texts(root).items():
+        findings += lint_tense(text, rel=rel)
+    findings += lint_dictionary(book_family_texts(root, extra=("CLAUDE.md",)))
     # G4 引用健康：Lint12~Lint15 同一語料＝全 tracked md 扣史料豁免（specs/、reviews/ 都在內）
     tracked = tracked_files(root)
     md_texts = {rel: _read(root, rel) or ""
@@ -6407,6 +6426,14 @@ class TestLintTense(unittest.TestCase):
             self.assertEqual(f[0]["level"], ERROR)
             self.assertIn("去處", f[0]["msg"], msg=word)
 
+    def test_where_follows_rel(self):
+        """附屬文件逐本掃（ADR 0062）：帶 rel 時 where 指該檔；不帶仍指活書（既有呼叫零改動）。"""
+        annex = "docs/arc42/X-ANNEX.md"
+        f = lint_tense("首行\n此處 TBD\n", rel=annex)
+        self.assertEqual([x["where"] for x in f], [f"{annex}:行 2"], msg=str(f))
+        f = lint_tense("此處 TBD\n")
+        self.assertEqual([x["where"] for x in f], [f"{BOOK}:行 1"], msg=str(f))
+
 
 class TestLintDictionary(unittest.TestCase):
     def test_rev4_codes_smuggled(self):
@@ -6436,6 +6463,40 @@ class TestLintDictionary(unittest.TestCase):
 
     def test_clean(self):
         self.assertEqual(lint_dictionary({"CLAUDE.md": "正常內容 §5 與 B-012。\n"}), [])
+
+
+class TestBookFamilyTexts(unittest.TestCase):
+    """附屬文件進 Lint10／Lint11 掃描面的機器證明（ADR 0062）。"""
+
+    def test_collects_book_and_annexes_and_skips_missing(self):
+        annex = BOOK_ANNEXES[0]
+        with tempfile.TemporaryDirectory() as d:
+            _wfile(d, BOOK, "活書\n")
+            _wfile(d, "CLAUDE.md", "規則\n")
+            # 附屬文件缺檔＝略過（同既有形），不得 KeyError／None 值
+            self.assertEqual(book_family_texts(d), {BOOK: "活書\n"})
+            _wfile(d, annex, "附屬\n")
+            self.assertEqual(set(book_family_texts(d)), {BOOK} | set(BOOK_ANNEXES))
+            self.assertEqual(book_family_texts(d)[annex], "附屬\n")
+            # extra 只進詞典面：不帶時 CLAUDE.md 不在集內（Lint10 不掃 CLAUDE.md）
+            self.assertNotIn("CLAUDE.md", book_family_texts(d))
+            self.assertIn("CLAUDE.md", book_family_texts(d, extra=("CLAUDE.md",)))
+
+    def test_run_lint_scans_annex_for_tense_and_dictionary(self):
+        """★端到端：附屬文件內的時態禁詞必落 Lint10 ERROR、詞典命中必落 Lint11 WARN，
+        where 皆指附屬文件本身——helper 接進 run_lint 這條線才算數，單測 helper 不夠。"""
+        annex = BOOK_ANNEXES[0]
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, annex, "首行\n本段 TBD\n服務聽 port=1234\n")
+            f = run_lint(d)
+            self.assertEqual(
+                [x["level"] for x in f if x["code"] == "Lint10" and x["where"] == f"{annex}:行 2"],
+                [ERROR], msg=str([x for x in f if x["code"] == "Lint10"]))
+            self.assertEqual(
+                [x["level"] for x in f if x["code"] == "Lint11" and x["where"] == f"{annex}:行 3"],
+                [WARN], msg=str([x for x in f if x["code"] == "Lint11"]))
+
 
 class TestLintEvents(unittest.TestCase):
     # -- rev5 差分：summary 單筆上限（Q6 拍板；併入 Lint03）------------------------
@@ -7192,6 +7253,13 @@ class TestLintBudgets(unittest.TestCase):
         self._w("docs/arc42/ARCHITECTURE.md", "## §1 簡介與目標\n" + "x\n" * 700)
         levels = [x["level"] for x in lint_budgets(self.root)]
         self.assertIn(ERROR, levels)
+
+    def test_book_annexes_each_have_budget_row(self):
+        """附屬文件三處登記之一（ADR 0062）：BOOK_ANNEXES 每一本必有 BUDGETS 列，漏登記即紅。"""
+        self.assertTrue(BOOK_ANNEXES)  # 名冊非空——空名冊下本案 vacuous
+        for rel in BOOK_ANNEXES:
+            self.assertIn(rel, BUDGETS, msg=f"{rel} 未登記 Lint07 預算（附屬文件須三處登記）")
+            self.assertIsNotNone(BUDGETS[rel][0], msg=f"{rel} 行數預算不得為 None")
 
     def test_section_quotas_pinned_by_adr(self):
         """★停損絆線（ADR 0058）——**這不是正確性守衛**，勿讀作它防止了任何錯誤。
@@ -9635,10 +9703,11 @@ class TestEmptySetGuards(unittest.TestCase):
                         # 守衛#8（rev5 新增）：BUDGETS 名冊存在性。逐字列出而非
                         # 由 BUDGETS 推導——取自被測常數即套套邏輯，名冊縮水時期望
                         # 同步縮水、永遠對得上（§4.5.4）。三件活手冊已由
-                        # CMD_FORM_CORPUS 涵蓋，此處補其餘五筆。
+                        # CMD_FORM_CORPUS 涵蓋，此處補其餘六筆（含活書附屬文件、ADR 0062）。
                         | {"docs/ops/NOTES.md", "docs/ops/BACKLOG.md",
                            "docs/generated/STATE.md", "docs/arc42/ARCHITECTURE.md",
-                           ".specify/memory/constitution.md"})
+                           ".specify/memory/constitution.md",
+                           "docs/arc42/FORK-DELTA-WIRING.md"})
             self.assertEqual(wheres, expected)
 
 

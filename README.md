@@ -14,6 +14,7 @@ fork260509-rev5/
 ├── specs/<NNN>-<feature-name>/      spec-kit per-feature 文件（收刀即凍結；首刀時出現）
 ├── docs/
 │   ├── arc42/ARCHITECTURE.md        活書：系統現在長怎樣、只寫現在式（arc42 12 節）
+│   ├── arc42/FORK-DELTA-WIRING.md   活書附屬文件：base-web ★ 軌道接線 as-built（§8 下放、ADR 0062；同受活書三閘）
 │   ├── arc42/decisions/             ADR 一決策一檔：為什麼這樣做＋出處（accepted 後不可變）
 │   ├── ops/NOTES.md                 當前意圖（唯一手寫進度敘事、幾行）
 │   ├── ops/BACKLOG.md               待辦 B-NNN（完成即刪列、git 即史）
