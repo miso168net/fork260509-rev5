@@ -66,6 +66,18 @@ frontier 已空〕；本 spec 之唯一輸入。射程權威＝brainstorm §2；
 - G16／G17 欄位？→ A: 信箱／手機皆選填、信箱簡式格式＋活性唯一預檢、手機只驗長度；預設啟用、允許零角色。
 - G23 詞彙六條入活書 §12；G24 被下放者可復原前超管（零回灌下無升權）。
 
+### Session 2026-08-26（/speckit-clarify）
+
+- Q: 持有 R_SUPER 的操作者，包含規則 T ⊆ A ∧ N ⊆ A 要怎麼對他成立？（seed 之 Super 只持 {R_SUPER}，字面規則下連編輯
+  Admin 都 5003；brainstorm「超管因角色集最大自然不受限」前提不成立）→ A: **持 R_SUPER 者之 A 定義為全集**——規則本體
+  不變、零特例分支；超管對任何標的、任何指派恆過；seed 保護與 self 五不仍先判。
+- Q: 改密舊密節流因 redis 不可用而 fail-open、以及包含規則拒絕（5003），要不要進既有觀測面？→ A: **節流降級進既有
+  `throttle_degraded_total` 新增一個 source（改密節流專用）、值集 12→13 同批改預註冊清單與活書複驗清單；5003 拒絕只記
+  warn 日誌（操作者與標的 id、不含角色差集）、不另立序列**。
+- Q: 編輯使用者時送出的角色集（roleIds）是「期望全集、全量替換」還是「增量 add／remove」？→ A: **期望全集、全量替換**——缺席＝不動
+  （三態）、帶陣列＝寫後角色集 N 恰等於該陣列（去重；含不存在或已軟刪之角色 id → 拒、非靜默跳過）、空陣列＝全撤；差集導出
+  硬刪＋新增同交易、稽核一列 `update`；與現值相同＝no-op。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管使用者管理全套（列表／新增／編輯／刪除／回收桶） (Priority: P1)
@@ -163,7 +175,7 @@ Super 停用 alice→alice 兩邊皆 8888、重登得 1000、refresh 票亦失�
 
 超級管理員用 006 的端點授權與按鈕授權 modal，把使用者管理的部分寫端（例如編輯、重設密碼）與對應按鈕碼授給
 R_ADMIN。被授權的 R_ADMIN 進使用者管理頁只看到被授的按鈕；對任何「持有自己沒有的角色」的帳號（例如超管）
-操作，或試圖指派自己沒有的角色，一律被拒——規則對所有角色一體適用，超管因角色集最大自然不受限。預設 seed
+操作，或試圖指派自己沒有的角色，一律被拒——規則對所有角色一體適用，持 R_SUPER 者之角色集視為全集故恆過。預設 seed
 不動（寫端仍 super-only），多層管理員是可開關的能力、不是預設態。
 
 **Why this priority**: user 親決的 scope 擴張（B-024① 自此落地）；沒有它，manage_user 這張唯一非超管可達的
@@ -178,7 +190,9 @@ R_USER→前述指派成功。
 
 1. **Given** 操作者現役角色集 A、標的全部指派列 T、寫後角色集 N，**When** 任一使用者寫端（新增／編輯／刪除／
    批刪／復原／踢除／重設密碼／會話政策）與 unlockLogin 帳號維執行，**Then** 鎖內、寫入前判 `T ⊆ A ∧ N ⊆ A`，
-   違者 5003（純 key、不洩漏差集）、零變更零稽核。
+   違者 5003（純 key、不洩漏差集）、零變更零稽核；持 R_SUPER 之操作者 A＝全集、恆過。
+1b. **Given** Super（僅持 R_SUPER）與持 {R_ADMIN} 的帳號 Y，**When** Super 編輯 Y 並指派 R_USER，**Then** 成功（A＝全集；
+   若照字面 A＝{R_SUPER} 則會誤拒——本案為包含規則的正向守門）。
 2. **Given** 標的 X 持有的 R_SUPER 角色被暫時停用，**When** 持 {R_ADMIN} 者編輯 X，**Then** 仍 5003（T 不濾
    角色狀態）；**Given** 操作者持有的某角色被停用，**Then** 該角色不計入 A。
 3. **Given** 持 {R_ADMIN} 的甲與乙，**When** 甲停用／刪除／踢除乙，**Then** 允許（同級互管）、稽核記甲。
@@ -241,6 +255,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
   拒因純 key（`seededProtected` 家族）。
 - **self 五不**：self 不得刪／停用／踢／改自身指派／用管理頁重設自己密碼；self 可改自己的非角色欄與會話政策；
   前端自己那列 `status`／`roleIds` 控制項 disabled、操作下拉不列重設密碼。
+- **超管的 A＝全集**：持 R_SUPER 者對任何標的／指派恆過包含規則（seed Super 只持 R_SUPER、字面集合不成立故明訂）；
+  其餘角色照字面。
 - **停用中的角色**：計入標的 T、不計入操作者 A；停用角色的指派列不硬刪（只有軟刪使用者才硬刪指派）。
 - **零角色帳號**：可建立、可登入；只得常量路由＋個人中心（自助白名單）；N＝∅ 恆滿足包含規則。
 - **前超管復原**：回收桶中 T＝∅ ⇒ 任何被授 restore 者可復原；復原後零角色；要回超管須持 R_SUPER 者指派。
@@ -250,6 +266,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **信箱唯一性**：不分大小寫、僅現役列；已刪列同信箱與現役並存合法；復原時鎖內重驗兩腿（帳號名／信箱）撞則
   專屬拒因。
 - **空字串欄**：新增時空字串→NULL；編輯走三態（缺席＝不動、null＝清空、值＝設值）。
+- **roleIds 含界外 id**：不存在或已軟刪之角色 id → 整筆拒（純 key、非 orphan skip——與 006 授權 modal 對選單維的 orphan
+  skip 不同形：角色是指派的主體、不是候選集過濾）。
 - **值域**：status 二值收斂（1 啟用、其餘停用；不加 CHECK）；session_policy 三值（inherit／single／multi、
   值域外 2222）；user_name 形制 `^[A-Za-z0-9_-]{1,64}$`；密碼 ≤512 bytes。
 - **冷卻邊界**：interval=0 停用；剩餘秒數下取整；不同操作者互不影響；custody 只做 upsert、不做「自改→全刪」。
@@ -295,7 +313,9 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
   手機（選填、≤32）、信箱（選填、簡式格式、現役唯一不分大小寫）、狀態（預設啟用）、角色集（可空）、記事；
   空字串→NULL；密碼雜湊於鎖前計算。
 - **FR-009**: updateUser MUST 採部分更新三態（缺席＝不動、null＝清空、值＝設值）；`userName` 出現即拒；no-op
-  判準＝先全缺席早退、再值 diff（零變更＝零寫入零稽核）；角色集變更 commit 後 MUST 觸發判定面同步。
+  判準＝先全缺席早退、再值 diff（零變更＝零寫入零稽核）；`roleIds` 為**期望全集、全量替換**語意（缺席＝不動；陣列＝
+  寫後角色集恰等於之、去重、含不存在或已軟刪角色 id 則拒非跳過；空陣列＝全撤；差集導出硬刪＋新增同交易）；角色集
+  實際變更 commit 後 MUST 觸發判定面同步。
 - **FR-010**: deleteUser／batchDeleteUser MUST 於鎖內依序判 seed 保護→self→no-escalation，通過後同交易：軟刪
   （成對 deleted_at／deleted_by）→硬刪該使用者全部角色指派列→撤銷全部 active 票→事件 `revoked／user_deleted`；
   批刪任一違規整批 rollback、拒因純 key 不指筆、空陣列提前 no-op。
@@ -315,16 +335,18 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **FR-016**: 寫端授權 MUST 可由超管在運行期以既有授權治理 UI 授予其他角色（端點維＋按鈕碼各自獨立）；seed 政策列
   MUST NOT 改動（預設仍 super-only）。
 - **FR-017**: 每支使用者寫端（FR-010 所列八支）與 unlockLogin 帳號維 MUST 於 per-user 鎖內、任何寫入前判包含規則：
-  `A`＝操作者現役角色集（濾軟刪與停用角色、DB-fresh）、`T`＝標的全部指派列（不濾角色狀態）、`N`＝寫後標的角色集；
-  MUST `T ⊆ A ∧ N ⊆ A`，違者 5003 純 key、零變更零稽核；seed 保護與 self 五不先於本規則判定；同級互管允許；
-  unlockLogin IP 維不套。
+  `A`＝操作者現役角色集（濾軟刪與停用角色、DB-fresh；**★持 R_SUPER 者之 A 視為全集**）、`T`＝標的全部指派列（不濾角色
+  狀態）、`N`＝寫後標的角色集；
+  MUST `T ⊆ A ∧ N ⊆ A`，違者 5003 純 key、零變更零稽核、MUST 記一筆 warn 日誌（操作者 id、標的 id、端點；不含角色
+  差集）、不新增觀測序列；seed 保護與 self 五不先於本規則判定；同級互管允許；unlockLogin IP 維不套。
 - **FR-018**: 判定 MUST 以具名純函式單點實作、八支寫端＋unlock 共用；middleware 既有四參掛點續留恆放行（一般
   上限位）；ADR MUST 寫明兩實作位射程分工（不翻 ADR 0022 決定 3）。
 - **FR-019**: 受保護端點（updateUserSessionPolicy）MUST 維持 006 結構性封死（不可授非超管）；前端非超管編輯抽屜之
   會話政策欄 MUST 顯示現值但 disabled＋提示，MUST NOT 發出必敗呼叫。
 - **FR-020**: 前端 MUST NOT 預判包含規則（角色下拉全列、列級鈕只依按鈕碼顯隱）；後端為唯一裁判。
 - **FR-021**: 每支受規則約束的寫端 MUST 至少配兩案負向測：被授權之 R_ADMIN 對持 R_SUPER 標的仍 5003、指派超出
-  自身角色集仍 5003（測內以資料列 grant、測後清理）。
+  自身角色集仍 5003（測內以資料列 grant、測後清理）；另配一案正向：Super（僅持 R_SUPER）對持其未持角色之標的成功
+  （A＝全集非 vacuous）。
 
 #### D. 斷權（島 I2）
 
@@ -354,8 +376,9 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **FR-029**: changePassword MUST 依序判：帳號存在→兩次一致→舊密正確→新≠舊→政策；任一步拒即零寫入；成功後
   FR-025。
 - **FR-030**: 改密舊密節流 MUST 於舊密驗證（雜湊比對）之前判 per-user 滑動窗 5 次／15 分鐘、第 6 次起
-  `biz.user.changePasswordThrottled`（純 key）；成功改密即清；redis 不可用 fail-open；門檻為碼內常數；桶鍵與登入
-  節流分離；無解鎖端點。
+  `biz.user.changePasswordThrottled`（純 key）；成功改密即清；redis 不可用 fail-open **且 MUST 計入既有節流降級序列
+  之新 source（改密節流專用；值集 12→13、boot 預註冊、活書觀測面清單與複驗法同批更新）**；門檻為碼內常數；桶鍵與
+  登入節流分離；無解鎖端點。
 - **FR-031**: getPasswordPolicy MUST 回七鍵投影（不含 interval）、Authed；前端改密卡據以產生即時規則、取不到靜默
   降必填；抽屜設密欄只掛提示文字。
 
@@ -444,7 +467,8 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
   12 支新端點以 dev 帳號實測：Super 全通、Admin 對十支 Policy 端點除 getUserList 外皆 5003（seed 預設態）。
 - **SC-002**: rust 測試總數自 829 淨增且全綠（容器內 serial、rc=0）；含：每支寫端兩案 no-escalation 負向、seed
   保護與 self 五不各一負向、批刪整批 rollback、斷權三腿（撤銷／denylist／refresh 重驗）、政策八鍵各一違規案＋
-  三重不洩、冷卻邊界、節流第 6 次拒與 fail-open、自助白名單兩向、reload 名冊恰等——負向自證逐項可示範。
+  三重不洩、冷卻邊界、節流第 6 次拒與 fail-open（含降級 source 計數）、自助白名單兩向、reload 名冊恰等、降級 source
+  值集 13 成員測——負向自證逐項可示範。
 - **SC-003**: CDP 三方對照逐項一致（FR-049 清單）；已知態逐項驗證其現狀；踢除情境對方 7777 新文案、停用情境
   對方 8888。
 - **SC-004**: 零 migration 兌現：migration 目錄維持兩支；schema-gate 三閘綠；seed 零變更。

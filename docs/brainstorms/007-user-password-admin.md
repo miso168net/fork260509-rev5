@@ -199,7 +199,8 @@ getProfile／updateProfile／email 驗證四支（撞 ADR 0041）；改密卡信
   （`roles_of_user(claims.uid)`、DB-fresh、濾角色軟刪與停用）、`T`＝標的**全部指派列**（`role_ids_of_user`、
   ★不濾角色 status——停用中的角色仍算標的潛在持有的權力）、`N`＝本次寫入後的標的角色集；寫端 MUST 同時
   滿足 `T ⊆ A` 且 `N ⊆ A`；違者 5003（純 key、★不洩漏差集）。同級互管允許（{R_ADMIN} 可管 {R_ADMIN}、
-  {R_SUPER} 可管 {R_SUPER}）；超管因 `A` 最大自然不受限；seed 帳號結構保護與 self 五不（§4.3）先於本規則判定。★純包含規則的已知後果（user 已知悉）：seed 中
+  {R_SUPER} 可管 {R_SUPER}）；★持 R_SUPER 者之 `A` 視為全集（specify clarify 2026-08-26 訂正：seed Super 只持
+  R_SUPER、原句「超管因 A 最大自然不受限」的字面集合前提不成立）；seed 帳號結構保護與 self 五不（§4.3）先於本規則判定。★純包含規則的已知後果（user 已知悉）：seed 中
   R_ADMIN 只持一枚角色 ⇒ 預設只能管「只持 R_ADMIN 的帳號」，實用面須由超管多授 R_ADMIN 一枚 R_USER。
 - **掛點形**：新增具名純函式（例 `assert_no_escalation(actor, target, next)`、`auth/` 或 `model/` 域內），
   於 addUser／updateUser／deleteUser／batchDeleteUser／restoreUser／kickUser／resetUserPassword／
