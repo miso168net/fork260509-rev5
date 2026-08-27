@@ -9,13 +9,15 @@
 
 - `UserStatus`＝`'1' | '2'`（啟用／停用；DB `Some(1)`／其餘）。
 - `SessionPolicy`＝`'inherit' | 'single' | 'multi'`。
-- `UserRecord`＝`{ id: number, userName: string, nickName: string, userGender: string | null, userPhone: string | null,
+- `UserRecord`＝`{ id: number, userName: string, nickName: string | null, userGender: string | null, userPhone: string | null,
   userEmail: string | null, status: UserStatus, sessionPolicy: SessionPolicy, userMemo: string | null, roles: string[],
   createdAt: string, createdBy: string | null, updatedAt: string | null, updatedBy: string | null }`（`roles`＝現役角色 code；
   `createdBy／updatedBy`＝帳號名經 `resolve_operator_names`；id 欄走 `serialize_i64_number_guarded`）。
 - `UserSearchParams`＝`{ current: number, size: number, userName?: string, nickName?: string, status?: UserStatus,
   userGender?: string }`（模糊欄空字串＝未設）。
 - `UserList`＝`PageRes<UserRecord>`（共用分頁信封；現役 `id ASC`）。
+
+> ★**2026-08-28 勘誤（U1 邊界、主線工程自決）**：`nickName` 原寫作非可空 `string`，係落字之誤——本檔 §3 addUser 之 `nickName?`（選填、空字串→NULL）、DB `sys_user.nick_name`（nullable=YES）、rev5 既有同族欄慣例（`Api.RoleAdmin` 之 `roleMemo: string | null`）與 rev4 自身 typing（`nickName?: string | null`）四者一致指向可空，且照原字面落地就得在 handler 端捏一個空字串當值（＝rev4 的空字串摺疊形，research R2 明列不帶回）。故訂正為 `string | null`；碼面 `handler/user.rs` 之 `Option<String>` 為正、無須改。
 
 ## 1. `GET /systemManage/getUserList`
 

@@ -1,4 +1,4 @@
-<!-- next: L-064 -->
+<!-- next: L-065 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -76,3 +76,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-061｜base-web 的 pnpm install 會覆寫外層 .githooks-submodule，機密掃描整段消失且失效是靜默的](LESSONS/L-061-pnpm-install-overwrites-outer-githooks.md) — 跑過 pnpm install／typecheck 的單元，收尾第一件事是 bootstrap 體檢或六步 hooks 複驗
 - [L-062｜drvfs 上治理工具的耗時是 I/O 稅不是邏輯（587×、9p 並發有效 6.33×）——憑直覺列的優化清單會全數落空](LESSONS/L-062-drvfs-io-tax-dominates-hook-time.md)
 - [L-063｜開新 ★軌道用途時當場做的「新列變異自證」結構性 vacuous（尚無標記可比、回綠像有效）](LESSONS/L-063-new-track-purpose-mutation-test-is-vacuous-before-markers.md) — Amendment 只宣稱「機制已驗（拿已有標記的既有列反證）」，新列真自證排進第一個落標記的實作單元；通則＝變異前先確認被守面已有實例
+- [L-064｜AppError::Biz/BizData 的 match 臂寫成 `(..)` 會被 Lint24 判成無法靜態解析的構造點，而 cargo 全綠時看不見](LESSONS/L-064-lint24-bizdata-match-arm-must-be-two-underscores.md) — 臂一律寫 `(_, _)`；rust 單元收尾的自驗必須含 `docs-sync.py lint`，cargo 綠與 lint 綠是兩件事

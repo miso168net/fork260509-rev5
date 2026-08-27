@@ -165,60 +165,99 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   ★**結論（零刪除、35 條不變）**：B-134 標「射程關係確認不變＋憲法 I6 位已為其保留」；B-020 標「刀 B 期間狀態」——第二消費者
   自本刀起存在但採**專用桶**、**刻意不通用化** `throttle::precheck`（判定維度／軟區語意／觀測 source 皆不同），是否通用化之
   定案排 T073；B-098 標「本刀補 `Api.UserAdmin.*`／`Api.UserCenter.*` 裁判、`Api.IpRule.*` 七支續留帳不關帳」。
-- [ ] T006 [P] `rust-api/server/src/model/password.rs`：新增 `hash`（argon2id、PHC；與既有 `verify` 同參數集）／`PASSWORD_POLICY_KEYS: [&str; 7]`／
+- [X] T006 [P] `rust-api/server/src/model/password.rs`：新增 `hash`（argon2id、PHC；與既有 `verify` 同參數集）／`PASSWORD_POLICY_KEYS: [&str; 7]`／
   `VIOLATION_*` 八常數（字面＝Lint24 白名單 `biz.user.passwordViolation.*` 尾段）／`PasswordPolicy` 型／`load_policy`（單快照讀 `system_settings`、
   缺鍵 fail-default）／`validate_against_policy(pw, user_name, &policy) -> Vec<&'static str>`（收集全部違規、chars 計長、bytes ≤
   `throttle::LOGIN_PASSWORD_MAX_BYTES`、`forbid_username` 大小寫不敏感相等）＋表驅動單元測（八違規各一案、多違規全收集、
   chars vs bytes 分界、缺鍵 fail-default、密碼不入 Debug 輸出）；★檔頭「三支不搬」句改寫為 as-built。
-- [ ] T007 [P] `rust-api/server/src/error.rs`＋`rust-api/server/src/envelope.rs`：`AppError::BizData(Cow<'static, str>, serde_json::Value)`
+- [X] T007 [P] `rust-api/server/src/error.rs`＋`rust-api/server/src/envelope.rs`：`AppError::BizData(Cow<'static, str>, serde_json::Value)`
   （四處 match 補臂：`code()`→`2222`／`msg()`→key／:107／:216 remap；13 碼矩陣列不變）＋`Res::from_err_with_data`（`data=Some(v)`）＋
   `compile_fail` doctest 依 T002② 結論改寫（`from_err` 仍 data null；帶資料只經新出口）＋測（兩出口對照、矩陣測不變）；
   ★`error.rs`:37 之「B12 不建 BizData 攜參形」註解改寫為「射程嚴限密碼二鍵（本刀新 ADR、編號 0064）」。
-- [ ] T008 [P] `rust-api/server/src/model/facade/sys_token.rs`：`revoke_all_of_user(conn, uid) -> Result<Vec<String>, DbErr>`
+- [X] T008 [P] `rust-api/server/src/model/facade/sys_token.rs`：`revoke_all_of_user(conn, uid) -> Result<Vec<String>, DbErr>`
   （`status='active'`→`revoked`、回 distinct sid；rotated 列不動）＋測（只撤 active、rotated 不變、無 active 回空集、sid 去重）；
   ★檔頭「`revoke_all_of_user` 前提本刀未成立、不搬」句改寫為 as-built。
-- [ ] T009 [P] `rust-api/server/src/model/facade/session_event.rs`：`EVENT_REVOKED` 與五 reason 常數
+- [X] T009 [P] `rust-api/server/src/model/facade/session_event.rs`：`EVENT_REVOKED` 與五 reason 常數
   （`REASON_USER_DISABLED`／`USER_DELETED`／`PASSWORD_RESET`／`PASSWORD_CHANGED`／`ADMIN_KICK`）；★收成 macro 單一宣告源
   （事件型與 reason 各一組）＋值集測（成員恰等、字面逐字）。
-- [ ] T010 [P] `rust-api/server/src/model/facade/sys_pwd_custody.rs` 新檔＋`model/facade/mod.rs` 掛載（ASCII 序 `sys_operation_log` < `sys_pwd_custody` < `sys_role`）：
+- [X] T010 [P] `rust-api/server/src/model/facade/sys_pwd_custody.rs` 新檔＋`model/facade/mod.rs` 掛載（ASCII 序 `sys_operation_log` < `sys_pwd_custody` < `sys_role`）：
   `touch(txn, user_id, created_by)`（upsert `created_at=now()`、`ON CONFLICT (user_id, created_by) DO UPDATE`）／
   `last_set_at(conn, user_id, created_by) -> Option<DateTimeWithTimeZone>`＋測（首寫／覆寫更新時戳／不同 operator 各自一列／查無回 None）；
   ★模組 doc 明寫「本刀只用時戳、不做 EXISTS 經手判定（首登強制改密＝B-134）」。
-- [ ] T011 [P] `rust-api/server/src/auth/no_escalation.rs` 新檔＋`auth/mod.rs` 掛載：`ActorScope::{All, Codes(HashSet<String>)}`／
+- [X] T011 [P] `rust-api/server/src/auth/no_escalation.rs` 新檔＋`auth/mod.rs` 掛載：`ActorScope::{All, Codes(HashSet<String>)}`／
   `assert_no_escalation(actor: &ActorScope, target: &[String], next: &[String]) -> Result<(), ()>`（`T ⊆ A ∧ N ⊆ A`；`All` 恆過）／
   `actor_scope_of(conn, uid) -> ActorScope`（`roles_of_user` 現役集；含 `R_SUPER` ⇒ `All`）＋表驅動測（超管全集、子集過、超集拒、
   同級過、`T=∅` 過、`N` 含未持角色拒、停用角色不入 A 之語意由 `roles_of_user` 保證）；★doc 明寫與 `enforce.rs::no_escalation_check`
   的射程分工（後者恆放行、屬路徑級上限位）。
-- [ ] T012 [P] `rust-api/server/src/obs.rs`：`THROTTLE_DEGRADED_SOURCES` 12→13（新增 `redis_change_pwd`）＋`pre_register_metrics` 同步＋
+- [X] T012 [P] `rust-api/server/src/obs.rs`：`THROTTLE_DEGRADED_SOURCES` 12→13（新增 `redis_change_pwd`）＋`pre_register_metrics` 同步＋
   值集測改（十二→十三成員恰等）。
-- [ ] T013 [P] `rust-api/server/src/model/audit.rs`：`audit_operation_vocabulary!` 加 `kick`／`reset_password`／`change_password`（小寫）＋
+- [X] T013 [P] `rust-api/server/src/model/audit.rs`：`audit_operation_vocabulary!` 加 `kick`／`reset_password`／`change_password`（小寫）＋
   釘值測 `t005_role_menu_family_adds_no_variant_vocabulary_stays_five` 改名為八值形（正向逐值、負向大寫與未知值）＋doc 補「本刀擴三值（007）」。
-- [ ] T014 [P] `rust-api/server/src/cache/mod.rs`：`REASON_ADMIN_KICK: &str = "admin_kick"`（照既有兩常數形、doc 說明 7777 分鍵）＋
+- [X] T014 [P] `rust-api/server/src/cache/mod.rs`：`REASON_ADMIN_KICK: &str = "admin_kick"`（照既有兩常數形、doc 說明 7777 分鍵）＋
   改密節流桶鍵前綴常數（`cpwd:`，與登入節流鍵面分離）＋鍵形測。
-- [ ] T015 `rust-api/server/src/model/facade/sys_user.rs`＋`rust-api/server/src/handler/auth/login.rs`：`advisory_lock_user` 依 T002③ 上提為
+- [X] T015 `rust-api/server/src/model/facade/sys_user.rs`＋`rust-api/server/src/handler/auth/login.rs`：`advisory_lock_user` 依 T002③ 上提為
   facade `pub(crate) async fn advisory_lock_user(conn, uid) -> Result<(), DbErr>`；login.rs:519 改為薄殼呼叫（`AppError` 映射保持不變、
   既有 11 步鏈行為零變更）＋`find_active_by_id_for_update`／`find_deleted_by_id_for_update`（窄投影、`FOR UPDATE`）＋測
   （鎖形以既有 `TableLock`／`real_db_single_with_lock_timeout` seam 驗等待；login 回歸測全綠）。
-- [ ] T016 `rust-api/server/src/model/facade/sys_user_role.rs`：`role_codes_all_of_user(conn, uid) -> Vec<String>`（join `sys_role`、
+- [X] T016 `rust-api/server/src/model/facade/sys_user_role.rs`：`role_codes_all_of_user(conn, uid) -> Vec<String>`（join `sys_role`、
   ★不濾角色 status、濾已軟刪角色）／`codes_of_role_ids(conn, ids) -> Result<Vec<String>, RoleIdsError>`（界外／已軟刪 id → Err、
   空集不打 DB）／`replace_roles_of_user(txn, uid, role_ids) -> Result<bool, DbErr>`（期望全集：差集硬刪＋新增、回是否有變更）／
   `delete_all_of_user(txn, uid)`＋測（不濾 status 之證、界外 id Err、空集全撤、無變更回 false、去重）。
-- [ ] T017 `rust-api/server/src/handler/common.rs`＋`handler/role.rs`＋`handler/menu.rs`：`wire_two_value_to_db` 收攏（B-127；
+- [X] T017 `rust-api/server/src/handler/common.rs`＋`handler/role.rs`＋`handler/menu.rs`：`wire_two_value_to_db` 收攏（B-127；
   與 `db_status_to_wire` 成對、doc 記三消費者）＋role.rs `wire_status_to_db`／menu.rs `wire_two_value_to_db` 刪除改 import＋
   測（三消費者同源、`'1'`→1／其餘→2 值表）；★role／menu 既有測全綠不改語意。
-- [ ] T018 `rust-api/server/src/handler/user.rs` 新檔 wire DTO 段（不掛端點、編譯即可）：`UserRecord`／`UserSearchParams`／
+- [X] T018 `rust-api/server/src/handler/user.rs` 新檔 wire DTO 段（不掛端點、編譯即可）：`UserRecord`／`UserSearchParams`／
   `AddUserReq`／`UpdateUserReq`（三態欄用 `tristate`）／`DeleteUserReq`／`BatchDeleteUserReq`／`RestoreUserReq`／`KickUserReq`／
   `ResetUserPasswordReq`／`UpdateUserSessionPolicyReq`（皆 `Default`＋`json_or_default` 信封化）＋i64 欄 `serialize_i64_number_guarded`
   ＋contracts/wire-user-admin.md 逐欄對齊測（型層級：serde round-trip、`userName` 出現即拒之欄存在性）。
-- [ ] T019 `rust-api/server/src/handler/user_center.rs` 新檔 wire DTO 段：`ChangePasswordReq{oldPassword,newPassword,confirmPassword}`
+- [X] T019 `rust-api/server/src/handler/user_center.rs` 新檔 wire DTO 段：`ChangePasswordReq{oldPassword,newPassword,confirmPassword}`
   （`Default`＋`json_or_default`）／`PasswordPolicyView`（七欄）＋serde 測。
-- [ ] T020 `rust-api/server/src/throttle/change_pwd.rs` 新檔＋`throttle/mod.rs` 掛載：`CHANGE_PWD_MAX_FAILS=5`／`CHANGE_PWD_WINDOW_SECS=900`
+- [X] T020 `rust-api/server/src/throttle/change_pwd.rs` 新檔＋`throttle/mod.rs` 掛載：`CHANGE_PWD_MAX_FAILS=5`／`CHANGE_PWD_WINDOW_SECS=900`
   常數＋`precheck(cache, uid) -> Result<(), Throttled>`（GET ≥5 即拒）／`record_failure`（INCR＋EXPIRE 續窗）／`clear`（DEL）；
   redis Err ⇒ fail-open＋`throttle_degraded_total{source="redis_change_pwd"}`＋測（第 6 次拒、成功清、fail-open 不拒且計數、
   桶鍵與登入節流不互擾）。
-- [ ] T021 `rust-api/server/src/model/mod.rs`（`test_db`）：`UserCleanup` 補業務鍵腿（`user_name` 測試前綴）＋op-log 腿＋
+- [X] T021 `rust-api/server/src/model/mod.rs`（`test_db`）：`UserCleanup` 補業務鍵腿（`user_name` 測試前綴）＋op-log 腿＋
   `setval('sys_user_id_seq', 3, true)`／新 `PwdCustodyCleanup`（依 user_id 集刪）／`SessionRevokeCleanup`（依 T002⑦ 之定案結論建或不建；不建則於 `test_db` 模組 doc「名冊」節寫明既有兩守衛
   如何涵蓋一次撤多 sid 的殘列面）＋各自自證測（Drop SQL 寫壞即紅）；★模組 doc「名冊」節同步。
+
+★**U1 執行結果（workflow `wf_5796527c-7c6`、12 agents、2026-08-28 收尾）**
+
+- **量**：rust 測試 829→**878**（淨增 49；U1 workflow 交付至 876，主線於邊界補 2 支守門測）。容器內 serial rc=0；
+  `cargo fmt --all` 已跑；八閘全綠（schema-gate 三閘／entity-drift／rust-fmt／fork-delta／route-artifact／
+  view-render／seed-view）＋`docs-sync lint` 0 錯誤。零 migration、零 seed 變更、base-web 零改動。
+- **審查**：規格符合性輪**第 1 輪即收斂**（0 blocker）；碼品質輪跑滿 3 輪 fix＋確認輪，確認輪餘 3 筆
+  （審查員自陳「無阻斷級、皆守門非 vacuous 與 as-built 敘述同步層級」）。★主線逐項自 grep 復核，**三筆全數成立**、已於邊界修完。
+- **主線於單元邊界補的兩支守門＋變異紅證**（紀律：補守門必做變異測試）：
+  ①`auth/no_escalation.rs::actor_scope_of_takes_the_active_role_face_not_the_membership_face`——釘 A 側取
+  `roles_of_user`（現役口徑）這條**接線**。變異：改呼 `role_codes_all_of_user`＋補錯誤映射（＝真實的「順手對齊」形；
+  裸改因回型 `DbErr` vs `AppError` 不同而先撞 E0277，故做忠實變異）→ 該測 FAILED，
+  `no_escalation.rs:319 assertion left == right failed: ★A 須恰等於**啟用**角色碼那一顆…
+  left: Codes({"test-t011a-…", "test-t011b-…"}) right: Codes({"test-t011a-…"})`。還原後 md5 逐位對照。
+  ②`model/password.rs::forbid_username_normalizes_both_sides_and_requires_equality_not_containment`——釘 `pw` 側
+  `to_lowercase()`（原本三支涉此條的測試樣本密碼清一色全小寫 ⇒ 該側是 no-op、vacuous）＋「相等非包含」。
+  變異：拿掉 `pw.to_lowercase()` → FAILED，`password.rs:618 assertion left == right failed:
+  ★pw 側大寫、帳號名小寫須拒——pw 側的 to_lowercase 是 load-bearing`。還原後 md5 逐位對照。
+- **主線於邊界修的三處純文字勘誤**（零行為面）：`handler/common.rs` 的 `json_or_default` 射程名冊
+  「四域／13 支」→**「七域／25 支」**（實測 ip_rule 3／throttle 1／role 8／menu 4／policy_archive 1／user 8／
+  user_center 1；四域→16 支那半是本單元進場前的既有漂移、一併訂正）；`handler/auth/refresh.rs` 3 處＋
+  `handler/auth/logout.rs` 1 處的舊測名 `key_builders_render_nine_literals`→`..._ten_literals`；
+  `tests/menu_domain_serialization.rs:525` 的 `advisory_lock_user` 仍指舊家 → 改指 `model::facade::sys_user::`。
+- **契約勘誤（主線工程自決、回報備查）**：`contracts/wire-user-admin.md` 之 `UserRecord.nickName` 由 `string`
+  訂正為 **`string | null`**。四項證據一致指向可空：同檔 §3 addUser 之 `nickName?`（空字串→NULL）／DB
+  `sys_user.nick_name` nullable=YES／rev5 既有同族欄慣例 `Api.RoleAdmin.roleMemo: string | null`／rev4 自身 typing
+  `nickName?: string | null`；照原字面落地就得在 handler 端捏空字串當值＝rev4 空字串摺疊形（R2 明列不帶回）。
+  ⇒ 判為**落字之誤而非二選一拍板**；碼面 `Option<String>` 為正、不改。★後續 T029／T067 之 typings 與裁判照訂正後口徑寫。
+- **工程自決追認（agent 提報、主線復核後採納）**：T010 之 `touch` 的 `created_at` 取應用層 `facade::now_ts()`
+  而非 SQL `now()`——PG 的 `now()`＝`transaction_timestamp()`、同 txn 內恆定，會讓 T010 明列的「覆寫更新時戳」
+  測當場失去鑑別力（rev4 為此改用 `clock_timestamp()`）；且 `ON CONFLICT DO UPDATE` 走 UPDATE 路徑、欄 DEFAULT
+  只在 INSERT 省略該欄時生效 ⇒ 該欄本就非顯式給值不可。已於 `touch` doc 逐字記載。
+- **允許檔清單外的既成改動（主線復核後放行）**：`facade/sys_casbin_archive.rs`（2 處）與 `facade/sys_login_attempt.rs`
+  （2 處）——皆為 `advisory_lock_user` 搬家後的 intra-doc link 更新、**純註解零行為面**，屬 CLAUDE.md 防呆⑥
+  「tasks 涉檔 ∪ review findings 指涉檔」之合法擴面。
+- **升級主線的待辦**：`test_db::UserCleanup` 兩建構子並存＝過渡形（統一需動 `facade/sys_role.rs` 3 處＋
+  `handler/policy_archive.rs` 1 處、皆在本單元允許清單外）→ 已立 **B-135**。
+- **踩坑**：`AppError::BizData` 的窮舉 match 臂寫成 `(..)` 會被 Lint24 判成「構造點無法靜態解析」而 fail-loud，
+  且 `cargo` 全綠時完全看不見 → 已立 **L-064**（臂一律寫 `(_, _)`；單元自驗不得只跑 cargo）。
 
 **Checkpoint**: Foundation ready——政策／撤銷／守門／節流／DTO／守衛就位，各 US 可開。
 
