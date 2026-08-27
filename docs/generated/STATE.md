@@ -6,10 +6,10 @@
 - pins：base-web=854a72e｜rust-api=5d2d536
 
 ## constitution
-- 版本：1.8.0
+- 版本：1.9.0
 
 ## 帳面統計
-- ADR：62（accepted 60、superseded 2）
+- ADR：63（accepted 61、superseded 2）
 - BACKLOG 待辦：35（next：B-135）｜滯後：8
 - LESSONS：62 筆（next：L-063）
 - events：40 筆（feature_close 6、misc 34）

@@ -65,3 +65,4 @@
 | 0060 | accepted | 2026-08-25 | menu 治理清單的分頁列改「凍結」而非抽除或接真——UI 位置不動、頁碼 1／每頁 0／整列上鎖，itemCount 必須讓位給 pageCount | — | — | — |
 | 0061 | accepted | 2026-08-25 | pre-commit 全鏈提速——閘並行派發（fail-fast 改 run-all）＋工具內 I/O 稅削減（作用域快取／EAFP／subprocess 並行）；根因是 drvfs 單次 I/O 延遲而非條款邏輯 | — | — | — |
 | 0062 | accepted | 2026-08-25 | 活書 as-built 下放首例——§8 fork-delta 接線段→附屬文件 FORK-DELTA-WIRING.md、§5 測試設施清冊→test_db 模組 doc；配額表整張不動、§9／§11 維持指針節配額；取態改「活書＝as-built 索引層」＋下放作業定型為輕量軌 | — | — | — |
+| 0063 | accepted | 2026-08-27 | 憲法 Amendment 1.9.0——§I.7 第九座行為島（島 I 使用者域治理、含 I7 no-escalation 包含規則）＋§III.2 MANAGE-PAGE-WIRING 用途 (v)(vi)（user 管理頁接真＋個人中心改密頁）＋LOGIN-CAPTCHA-WIRING 凍結位 (ii) 開立（登入表單規則放寬）＋no-escalation 掛點射程分工與按鈕 gating 例外釋義 | — | — | — |
