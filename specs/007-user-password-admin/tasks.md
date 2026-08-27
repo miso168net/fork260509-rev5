@@ -63,7 +63,7 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 **Purpose**: 取得 base-web inline 憲法授權（§III.2 (v)(vi)(vii)）、島 I 六條入憲、立首支 ADR、清除實作前未知數。
 
-- [ ] T001 ★主線任務（user 親決）：撰寫島 I 入憲 Amendment ADR draft（編號 0063、三款一檔、形照 ADR 0053 七段）於
+- [X] T001 ★主線任務（user 親決）：撰寫島 I 入憲 Amendment ADR draft（編號 0063、三款一檔、形照 ADR 0053 七段）於
   `docs/arc42/decisions/0063-constitution-amendment-island-i-and-manage-page-use-v-vi-vii.md`：款一 §I.7 第九座行為島（島 I 六條 blockquote＝
   data-model §4 骨架；★I7 為 rev5 專屬新條、`A` 之「持 R_SUPER 者視為全集」入條文方向面）／款二 §III.2 加 (v)(vi)(vii) 三列 blockquote
   （檔級名單當場定數；(vii) 為 `LOGIN-CAPTCHA-WIRING` 明文凍結位 (ii) 之開立、須同時刪該列紀律欄「用途 (ii) 不在授權內」句）／
@@ -71,7 +71,15 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   ＋按鈕 gating 例外釋義（ADR 0019 差異點：判準＝該頁 menu 維政策是否僅 R_SUPER；role／menu 頁不 gating 拍板不變）；
   front-matter `provenance` 含 brainstorm §3／§3b／spec Clarifications 三 session。★user 親決兩題：①I7 條文是否寫「持 R_SUPER 者 A＝全集」
   字樣（建議寫、否則實作與條文不同源）②島 I header 括號寫法（建議照島 G／H 形列進場刀與條區間）。
-- [ ] T002 早期查證（容器內實跑、結論補記本 task；★全數還原零殘留）：①`AppError::BizData` 對 `error.rs` 四處窮舉 match（:75 `code()`／
+  ★**結論（2026-08-27 落檔）**：`docs/arc42/decisions/0063-constitution-amendment-island-i-and-manage-page-use-v-vi-vii.md`
+  （accepted、三款七段）。★user 親決兩題皆取建議案：①I7 條文**逐字具名 `R_SUPER`**（先例＝同節 G6 條文已寫「非 R_SUPER 角色」）
+  ②島 I header 取**完整形、含 I6 位刻意空缺說明**（rev4 之首登強制換密留 B-134）。★**落字工程自決**（附機器實證、回報備查）：
+  憲法表內用途索引是 **per-軌道**的 ⇒ 本刀 spec 稱之 (v)(vi)(vii) 者，落字為 `MANAGE-PAGE-WIRING(v)`／`(vi)`＋
+  `LOGIN-CAPTCHA-WIRING(ii)`；`fork-delta-lint` 驗（軌道×用途×檔案）三元組（tools/fork-delta-lint.py:209-210）、
+  用途後綴寫錯即紅，且 `pwd-login.vue` 既有標記本就是 `BASE-WEB-LOGIN-CAPTCHA-WIRING(i)`。★前置查證入 ADR 背景段：
+  `manage_user` menu 維政策＝{R_SUPER, R_ADMIN}／`manage_role`／`manage_menu`／`user-center` 皆僅 R_SUPER（款三 gating 判準底座）；
+  七枚 `user:*` 按鈕碼 seed 全在（`user:edit` 已勾 R_ADMIN）；`getAllEndpoints` 實測 35。
+- [X] T002 早期查證（容器內實跑、結論補記本 task；★全數還原零殘留）：①`AppError::BizData` 對 `error.rs` 四處窮舉 match（:75 `code()`／
   :91 `msg()`／:107／:216 remap）之補臂面——加空殼變體 `cargo build -p server` 逐一收斂編譯紅、記實際須補處數後還原；
   ②`envelope.rs`:29 `compile_fail` doctest 現形與「加 `from_err_with_data` 後仍非 vacuous」的改寫形（暫改後 `cargo test --doc` 實跑、記結論還原）；
   ③`advisory_lock_user` 自 `handler/auth/login.rs`:519 上提為 facade `pub(crate)`（DbErr 形）後，login 端 `AppError` 映射的薄殼形（暫改實編譯、記還原）；
@@ -80,14 +88,68 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   ⑥`handler/role.rs::update_role_endpoints_super_full_candidate_save_…` 三 assert 現形與候選外 audit 域 5 列實測（B-113 續綠佐證）；
   ⑦★定案 `SessionRevokeCleanup` 建或不建——實測既有 `ChainRowsCleanup`（依 sid）與 `SessionEventCleanup` 能否涵蓋
   「一次撤多 sid」的殘列面（撤銷測會一次產生 N 個 sid）；涵蓋＝不建、於 T021 型 doc 寫明理由，不涵蓋＝建。
-- [ ] T003 ★主線任務（user 親決後）：0063 轉 accepted＋更新 `.specify/memory/constitution.md`（v1.8.0→v1.9.0；research R10；由下而上改：
+  ★**七項結論（2026-08-27 容器內實跑、全數還原、`git -C rust-api status` 零殘留）**：
+  ①**補臂面＝3 處、非 4**——加空殼變體後 `cargo build -p server` 收斂 2 處（`error.rs`:75 `code()`／:91 `key()`〔R11 記作 `msg()`〕），
+  `cargo test --workspace --no-run` 再收斂 1 處（:216 `issuable_witness`，`#[cfg(test)]`）。★`http()` 有 `_` 萬用臂 ⇒ **不需補臂**
+  （BizData 走 200，正確）；research R11 #9 記的「四處」把 `http()` 也算進去了。
+  ②**doctest 現形＝2 支 compile_fail 全綠**（`request_context.rs`:77／`envelope.rs`:29）。`envelope.rs`:29 測的是**欄位私有性**、
+  加 `from_err_with_data` 不影響 ⇒ **測本體維持原樣仍非 vacuous、不改**。★「`from_err` 仍 data null」**不能**寫成 doctest：
+  `from_err` 為 `pub(crate)`、doctest 以外部 crate 編譯 ⇒ 實測 `E0624 associated function is private`。該斷言落點＝既有
+  `#[cfg(test)]` 模組（`envelope.rs`:185 已有一支），T007 新增 `from_err_with_data` 時在同模組加對照測。★T007 要改的是
+  doctest **上方散文**：「合法出口僅兩條」→三條、「錯誤時必為 null」→加唯二例外句。
+  ③**上提可行、編譯綠**。facade 形＝`pub(crate) async fn advisory_lock_user<C: ConnectionTrait>(conn: &C, uid: i64)
+  -> Result<(), DbErr>`（`sea_orm::Statement::from_sql_and_values` 直下 raw SQL、`.await?`）；login 端薄殼形＝
+  `sys_user::advisory_lock_user(&txn, uid).await.map_err(internal("login advisory lock"))?;`——`internal` 的 step 字面沿用 ⇒
+  tracing 訊號與 `AppError` 映射零變更、既有 11 步鏈行為不動。
+  ④**txn 邊界＝`state.db.begin()`:159 →`txn.commit()`:285**；`find_by_hash_for_update(&txn,…)`:160 起持鎖、
+  `roles_of_user(&txn, claims.uid)`:234 已在鎖內 ⇒ **活性重驗落點＝:234 之前**（取得 `row` 且過 active 分支之後、簽發前）。
+  失敗分支＝直接 `return Err(AppError::Logout)`，與 :165「查無列」同一出口；模組 doc 既有碼面鐵律「本端點一切拒絕只有
+  8888 一個出口」⇒ 新判定腿天然對齊、**零新碼零新鍵**。
+  ⑤**三閘全綠**；`RUNTIME_APPEND_TABLES` 收窄集恰 4 表（`session_event`／`sys_login_attempt`／`sys_token`／`sys_operation_log`）。
+  `sys_user`／`sys_user_role`／`sys_pwd_custody` **皆在集外** ⇒ gate2 seed 逐列全等（含 id 欄、未排序 diff）；`sys_user_id_seq`
+  在 gate2 setval 名冊內（`seed.sql`:481 `setval(...,3,true)`）⇒ addUser 走 nextval 之測**必**還原 setval(3,true)。
+  `sys_pwd_custody` 實測**零列**、欄集＝(user_id, created_at, created_by)。★**定案：`sys_pwd_custody` 不入收窄集**——
+  它不是 append-only 運行期表、列由業務寫端產生且應被測試清乾淨；入集會讓真實漂移失去守門。走 `PwdCustodyCleanup`。
+  ⑥★**關鍵發現：`outside_protected` 現值恰 1，唯一成員＝`/systemManage/updateUserSessionPolicy POST`**（實測：R_SUPER 現役
+  端點列 50、候選集 35、候選外 15＝本刀 10 支 user 端點＋audit 5 支〔getAccessLog／getLoginAttempt／getOperationLog／
+  getSessionEvent／purgeAuditLog，皆 protected=false〕）。`outside_protected` 目前只出現在 `role.rs`:2666 的 **assert 訊息**、
+  非真 assert。★**因果**：本刀 T060 註冊 `updateUserSessionPolicy` 後它進候選集 ⇒ `outside_protected` **降為 0** ⇒
+  **T068 的「種合成候選外 protected 探針列」不是加強、是必要條件**，否則升真 assert 會在 T060 之後轉紅（前提消失）。
+  ⑦★**定案：建 `SessionRevokeCleanup`**。理由＝既有 `ChainRowsCleanup`（`DELETE sys_token WHERE rotation_chain=$1`）與
+  `SessionEventCleanup`（`DELETE session_event WHERE sid=$1`）**鍵皆為單一 sid**，而撤銷測一次產生 N 個 sid、N 於「起手掛
+  守衛」時點未知 ⇒ 結構性涵蓋不到。新守衛鍵＝**uid**（測試以顯式大 id 造列、起手即知），兩腿（★序不可反：先 event 後 token，
+  否則第二腿刪完就查不到 sid——本形直接以 uid 為鍵故無此依賴，但腿序仍照 event→token 與既有守衛一致）：
+  `DELETE FROM session_event WHERE user_id = $1`／`DELETE FROM sys_token WHERE created_by = $1`
+  （★`sys_token` **無** `user_id` 欄、擁有者 uid 落在 `created_by`——`facade/sys_token.rs`:42 逐字「`owner_uid`→`created_by`」）。
+- [X] T003 ★主線任務（user 親決後）：0063 轉 accepted＋更新 `.specify/memory/constitution.md`（v1.8.0→v1.9.0；research R10；由下而上改：
   修訂日誌一行／版本行／§I.7 島 I 六條塊〔島 H 之後〕／§III.2 表加三列／`LOGIN-CAPTCHA-WIRING` 紀律欄刪「(ii) 不在授權內」句）
   ＋`python3 tools/docs-sync.py generate`；同 commit（`docs(constitution): amend …`）。★本 task 完成前：一切 base-web 既有檔凍結。
   新列變異自證：暫改 (v) 列範圍欄一路徑為裸措辭→`fork-delta-lint` 紅→還原。
-- [ ] T004 [P] 前端基線量測（結論補記本 task、供 i18n 與欄寬 task 用）：`page.manage.user` zh-cn／en-us 現有葉鍵集逐鍵列出（現 19）；
+  ★**結論**：憲法 v1.9.0 落地（commit 971f370）——版本行／修訂日誌／§I.7 島 I 六條（島 H 之後）／§III.2 表列 12→15／
+  LOGIN-CAPTCHA (i) 列刪「用途 (ii) 不在授權內」句，由下而上改、逐處落點先斷言再改。lint 0 錯誤、generate 重算 11 檔。
+  ★**新列變異自證：實測與預期不同、已改判**——把 (v) 列範圍欄首路徑改裸措辭 → `fork-delta-lint` **rc=0（綠）**，因
+  `user/index.vue` 尚無任何 `(v)` 標記、三元組第 3 維無從觸發 ⇒ **該列此刻結構性 vacuous**。反證守門本身有效：對已有標記的
+  (ii) 列做同樣變異 → **rc=1、5 筆 findings**。⇒ 三個新列（(v)／(vi)／LOGIN-CAPTCHA(ii)）的真變異自證**延後至第一個往該列
+  落標記的實作單元**：(v)→U6 之 T030、(vi)→U7 之 T050、LOGIN-CAPTCHA(ii)→U8 之 T065，紅證逐字補記各該 task。教訓＝L-063。
+  ★還原照 L-060（存原文→寫回＋md5 對照，不用 `git checkout`——同檔另有未 commit 的 Amendment 改動）。
+- [X] T004 [P] 前端基線量測（結論補記本 task、供 i18n 與欄寬 task 用）：`page.manage.user` zh-cn／en-us 現有葉鍵集逐鍵列出（現 19）；
   `views/manage/user/index.vue` 現有欄集與各欄 `width|minWidth` 與 `scroll-x` 現值；`user-search.vue` 與 rev4 同檔 `diff` 是否逐位相同
   （零改動則不入 (v) 檔級名單）；`authStore.userInfo` 現有欄（`roles` 為 code 集之證據）。
-- [ ] T005 [P] `docs/ops/BACKLOG.md`：B-134 觸發器與本刀關係複核（首登強制改密＝非射程、custody 只時戳）；B-020／B-098 敘述各一行標「刀 B 期間狀態」；
+  ★**量測結論（2026-08-27）**：①`page.manage.user` 兩語各 **19 葉鍵**（`title`／`userName`／`userGender`／`nickName`／
+  `userPhone`／`userEmail`／`userStatus`／`userRole` 8＋`form.{同上 7 鍵}` 7＋`addUser`／`editUser` 2＋`gender.{male,female}` 2）
+  ——與 research R11 #2 一致；`page.userCenter` **尚不存在**（(vi) 要開的正是新 top-level 命名空間）。
+  ②`views/manage/user/index.vue` 現 **9 欄**：selection 48／index 64／userName minWidth 100／userGender 100／nickName minWidth 100／
+  userPhone 120／userEmail minWidth 200／status 100／operate 130 ⇒ **Σ＝962＝現 `scroll-x="962"`**（rev5 側不變式現況成立；
+  rev4 的 962 才是未隨欄寬改的瑕疵）。本刀新增 roles／sessionPolicy／userMemo／四審計欄後 `scroll-x` 同批改為新 Σ。
+  ③`user-search.vue` 對 **rev4 同檔**與**最原始源 `example` 基線**兩向 `diff` 皆逐位相同 ⇒ 零改動、**不入 (v) 檔級名單**（已入憲法該列紀律欄）。
+  ④`authStore.userInfo` 四欄＝`userId`／`userName`／`roles`／`buttons`（`handler/auth/user_info.rs`:30-40）；`roles` 為
+  **DB-fresh 角色 code 集**（`sys_user_role::roles_of_user`）⇒ T057 之「非超管＝`roles` 不含 `R_SUPER`」可行。
+  ★**連帶警示（供 T050）**：`userInfo.userName` 實際是 `nick_name.unwrap_or(user_name)`＝**顯示名、非登入帳號名** ⇒
+  改密卡的 `:user-name`（供 `forbid_username` 前端提示用）**不可**取自它，否則暱稱與帳號名不同的使用者會拿到錯的規則提示。
+  ⑤另補測（供 T027／T069／SC-001）：dev 庫 `p` 政策列 distinct path×method＝**50**、`getAllEndpoints`＝**35**，差 15＝本刀
+  10 支預埋＋audit 5 支未實作 ⇒ 兩數落差是**預埋量、非漂移**；本刀後 `getAllEndpoints` 應為 45（+10 支 Policy；user-center
+  兩支走 Authed 不入）。
+- [X] T005 [P] `docs/ops/BACKLOG.md`：B-134 觸發器與本刀關係複核（首登強制改密＝非射程、custody 只時戳）；B-020／B-098 敘述各一行標「刀 B 期間狀態」；
   ★不刪任何條目（關帳集中於 T073）。
 
 **Checkpoint**: 憲法授權到手、未知數清空——後端 Foundational 可開；base-web 既有檔解凍。
@@ -100,6 +162,9 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 **⚠️ 本 phase 未完成前不得開任何 US（T006～T014 [P] 檔域不相交；T015～T021 序列或半序）。**
 
+  ★**結論（零刪除、35 條不變）**：B-134 標「射程關係確認不變＋憲法 I6 位已為其保留」；B-020 標「刀 B 期間狀態」——第二消費者
+  自本刀起存在但採**專用桶**、**刻意不通用化** `throttle::precheck`（判定維度／軟區語意／觀測 source 皆不同），是否通用化之
+  定案排 T073；B-098 標「本刀補 `Api.UserAdmin.*`／`Api.UserCenter.*` 裁判、`Api.IpRule.*` 七支續留帳不關帳」。
 - [ ] T006 [P] `rust-api/server/src/model/password.rs`：新增 `hash`（argon2id、PHC；與既有 `verify` 同參數集）／`PASSWORD_POLICY_KEYS: [&str; 7]`／
   `VIOLATION_*` 八常數（字面＝Lint24 白名單 `biz.user.passwordViolation.*` 尾段）／`PasswordPolicy` 型／`load_policy`（單快照讀 `system_settings`、
   缺鍵 fail-default）／`validate_against_policy(pw, user_name, &policy) -> Vec<&'static str>`（收集全部違規、chars 計長、bytes ≤
