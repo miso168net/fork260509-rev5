@@ -7,6 +7,7 @@
 |---|---|---|
 | auth.login.failed | 帳號或密碼錯誤 | Incorrect username or password |
 | auth.session.kicked | 您的帳號已在其他裝置登入，此工作階段已結束 | Your account signed in elsewhere; this session ended |
+| auth.session.kickedByAdmin | 此工作階段已被管理員結束，請重新登入 | This session was ended by an administrator, please sign in again |
 | auth.session.reLogin | 請重新登入 | Please log in again |
 | auth.token.expired | 登入已逾時，正在重新取得授權 | Session expired, refreshing |
 | biz.auth.captchaRequired | 請完成圖形驗證碼後再試 | Please complete the captcha and try again |
@@ -47,6 +48,7 @@
 | biz.throttle.invalidUnlockTarget | 解鎖對象不正確 | Invalid unlock target |
 | biz.user.cannotDeleteSelf | 不能刪除自己 | Cannot delete yourself |
 | biz.user.cannotEditSelfRoleOrStatus | 不能修改自己的角色或狀態 | Cannot change your own roles or status |
+| biz.user.cannotKickSelf | 不能踢除自己 | Cannot kick yourself |
 | biz.user.notFound | 使用者不存在 | User not found |
 | biz.user.passwordViolation.forbidUsername | 不可與使用者名稱相同 | must not be identical to the user name |
 | biz.user.passwordViolation.maxBytes | 位元組數超過上限 | byte length exceeds the limit |

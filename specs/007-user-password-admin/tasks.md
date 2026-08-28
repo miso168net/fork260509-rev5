@@ -355,23 +355,67 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T033 [P] [US2] `rust-api/server/src/handler/user.rs` 測段：kick 正向（`{revoked:n}`、rotated 不動、事件 `admin_kick`、稽核 `kick`）＋
+- [X] T033 [P] [US2] `rust-api/server/src/handler/user.rs` 測段：kick 正向（`{revoked:n}`、rotated 不動、事件 `admin_kick`、稽核 `kick`）＋
   射程（self 拒、Super 可踢〔受包含規則〕、停用可踢、已刪 `notFound`）；停用／刪除路徑之撤銷斷言（事件 reason 逐值）。
-- [ ] T034 [P] [US2] `rust-api/server/src/auth/enforce.rs` 測段：denylist reason 分派三向（`kicked`→7777＋既有鍵、`admin_kick`→7777＋
+- [X] T034 [P] [US2] `rust-api/server/src/auth/enforce.rs` 測段：denylist reason 分派三向（`kicked`→7777＋既有鍵、`admin_kick`→7777＋
   `auth.session.kickedByAdmin`、`revoked`→8888）＋既有 003 測全綠（島 C 語意不變）。
-- [ ] T035 [P] [US2] `rust-api/server/src/handler/auth/refresh.rs` 測段：停用使用者之 refresh 鎖內重驗被拒（8888）／已軟刪同；
+- [X] T035 [P] [US2] `rust-api/server/src/handler/auth/refresh.rs` 測段：停用使用者之 refresh 鎖內重驗被拒（8888）／已軟刪同；
   正常使用者不受影響（既有 rotation／grace／reuse 測全綠）。
-- [ ] T036 [P] [US2] `rust-api/server/tests/contract.rs`：`user-kick` ContractCase；`ROUTES_COUNT` 56→57。
+- [X] T036 [P] [US2] `rust-api/server/tests/contract.rs`：`user-kick` ContractCase；`ROUTES_COUNT` 56→57。
 
 ### Implementation for User Story 2
 
-- [ ] T037 [US2] `rust-api/server/src/handler/user.rs`：`kick_user` handler（沿用 T026 之 `finish_user_write` 斷權整腿、
+- [X] T037 [US2] `rust-api/server/src/handler/user.rs`：`kick_user` handler（沿用 T026 之 `finish_user_write` 斷權整腿、
   ★本 task 只增 kick 專屬的 reason `admin_kick` 分派與 `{revoked:n}` 回應形，不重寫該腿）＋`router.rs` 一條＋
   `ROUTES_COUNT` 56→57；重設密碼路徑（US3 T045）亦沿用同一腿、reason `password_reset`。
-- [ ] T038 [US2] `rust-api/server/src/auth/enforce.rs`：`enforce_mw` 依 denylist reason 分派碼與鍵（新增 `REASON_ADMIN_KICK` 臂）；
+- [X] T038 [US2] `rust-api/server/src/auth/enforce.rs`：`enforce_mw` 依 denylist reason 分派碼與鍵（新增 `REASON_ADMIN_KICK` 臂）；
   ★doc 明寫三 reason 不互換（島 C）；`backend.biz`／`auth.session` 新鍵四處同步（Lint24 同步律）。
-- [ ] T039 [US2] `rust-api/server/src/handler/auth/refresh.rs`：鎖內使用者活性重驗（依 T002④ 落點；不活→既有 8888 路徑）＋
+- [X] T039 [US2] `rust-api/server/src/handler/auth/refresh.rs`：鎖內使用者活性重驗（依 T002④ 落點；不活→既有 8888 路徑）＋
   doc 記「003 島 C 新增判定腿、非方向反轉」；★`getUserInfo`／`enforce_mw` 不判 status 之 003 拍板不動。
+
+★**U3 執行結果（實作 workflow `wf_f593ae25-d56` ＋審查專跑 `wf_7bd2441d-418`〔12 agents〕、2026-08-29 收尾）**
+
+- **量**：rust 測試 924→**933**（淨增 9）；**ROUTES 56→57**；contract case 57→**58**；backend msg key +2
+  （`auth.session.kickedByAdmin`＋`biz.user.cannotKickSelf`）。容器內 serial rc=0、`cargo fmt` 綠；
+  七閘＋`fork-delta-lint` 全綠、`docs-sync lint` 0 錯誤、`pnpm typecheck` rc=0。零 migration、零 seed 變更。
+- ★**本輪抓到的真缺陷（規格輪第一筆）**：`handler/auth/refresh.rs` 的 `revoked` 分支**未接 `admin_kick`** ⇒
+  被管理員踢除者走**換發路徑**時得 8888＋`auth.session.reLogin`，而非 US2 Scenario 1 要求的 7777＋
+  `auth.session.kickedByAdmin`。連帶揭穿 `auth/enforce.rs` 的 fn doc 假述——它宣稱自己是全 codebase 唯一的
+  reason→(碼, msg 鍵) 分派點，實際上 `refresh.rs` 是第二處。兩者同批修，`cache/mod.rs` 的
+  `REASON_ADMIN_KICK` 型 doc「分派點恰一處」亦同批訂正為恰二處。
+- **審查輪**：規格符合性 **第 3 輪（確認輪）零 blocker 收斂**（round 0／1／2 各 3／2／1 筆、逐輪修完）。
+  碼品質輪跑了 3 輪 review（3／4／3 筆）＋2 輪 fix，**第 13 支 agent 撞保險絲 throw**（見下）。
+- ★★**碼品質輪的確認輪未跑（誠實記載、本單元的已知缺口）**：碼品質 round 2 的 3 筆由**主線接手修完**
+  （取鎖點機器證④／`user.rs` 三處「七端點」bump／`self_heal` 併入 `test_db::heal`），並各自完成
+  自驗與變異紅證；但**防呆⑤ 所要求的「fix 迴圈後之確認輪」在本單元未執行**。
+  ⇒ 殘餘風險＝「主線那三筆修法本身是否引入新問題」，現有覆蓋＝全量 933 綠＋七閘＋變異紅證。
+  ⇒ **處置：併入收刀前的 final holistic review**（CLAUDE.md §2 之「全單元完成 → final holistic review」），
+  屆時本單元列為重點掃描面；另 U9 之 T069（全量閘）與 T070（CDP 三方對照）亦覆蓋本單元行為面。
+- **保險絲事故**：審查專跑的 `AGENT_FUSE` 我手挑 12，而該形的**結構最壞值是 14**
+  （0 implementer ＋ 2 cycle × (2×`MAX_FIX_ROUNDS`+1) ＝ 2×7）⇒ 健康的 run 在第 13 支被誤斬。
+  已立 **L-068**（保險絲一律由同檔常數推導＋自我斷言、不得手挑），memory 之編排定型亦補上該公式。
+- **主線於單元邊界的處置六則**：
+  ①**三支既有測被打紅、皆在允許清單外**（agent 依空間邊界未動、升級主線）——`handler/role.rs` 的
+  `POLICY_ENDPOINT_COUNT` 42→43＋末條期望值 `restoreUser`→`kickUser`＋註解續 bump 說明；
+  `handler/auth/logout.rs` 兩支測各補三行 `sys_user` fixture（T039 把「查無列」判為不活所致）。
+  ②`handler/mod.rs` 模組 doc「上線七支／餘三支」→「八支／餘二支」＋補記 `ROUTES_COUNT` 56→57。
+  ③**追認** `AppError::ModalLogoutByAdmin` 新變體與 7777 **同列共用**——Lint24 的後端實發集只掃
+  `AppError::Biz/BizData` 構造點與 `key()` 固定臂，而既有 `ModalLogout` 的鍵是寫死固定臂、無處承載第二個值；
+  形沿 `BizData` 共用 2222 列之先例，13 碼矩陣零變更、可發碼仍九。
+  ④**追認** T039 刻意**不加** `FOR UPDATE`（用 `find_by_id`）——refresh 端點沒取 per-user advisory，
+  對 `sys_user` 下列鎖等於「列鎖→無 advisory」插隊，與 user 域寫端的 advisory→列 固定序互為 ABBA（島 I1）。
+  ⑤**追認射程外擴**：base-web 四檔多補 `biz.user.cannotKickSelf`——T037 的 self 守門必然構造該鍵、
+  Lint24 「後端有前端無」方向會逐鍵 ERROR，與「lint 0 錯誤」硬性要求直接衝突；★該限制是**任務書的疏漏**
+  （我方 prompt 只授權 `kickedByAdmin`）。⇒ **T051 射程由九鍵再縮為八鍵**（已改本檔）。
+  ⑥**接受探針揭露**：implementer 曾暫改清單外兩檔驗證補丁充分性（結果 930/930）後以 sha256 還原——
+  主線復核交付樹零殘留，判為與變異測試同族的合法手法（改壞→驗→逐位還原）。
+- **變異紅證合計九發**：implementer 六發（三向 reason 分派拔臂／碼對鍵錯／refresh 拔活性判／判準漏
+  `deleted_at`／kick 動到 rotated／denylist reason 誤傳）＋射程二發（替 kick 補 seed 守門→Super 踢不掉即紅／
+  拔 self 守門→回 0000 即紅）＋主線一發（把 `kick` 的 advisory 取鎖行下沉到列鎖之後 →
+  `55P03…該寫端先鎖列再取 advisory（島 I1 固定鎖序反轉、與亦取同一把鎖的 login 構成 ABBA）`）。
+- **kick 的射程**（刻意、已有測與紅證）：**不受 seed 保護**——Super 可踢、停用帳號可踢、self 禁踢、
+  已刪 `notFound`（contracts §8 與 data-model §3.1 之 kick 列守門僅 notFound→self→T ⊆ A）。
+- **守門固定序第④步**在 kick 亦**只留掛點位**、doc 標明由 US4 之 T054 一次掛滿八支寫端。
 
 **Checkpoint**: US2 可獨立驗收——四路斷權即時、分鍵正確、refresh 不再是漏洞。
 
@@ -420,7 +464,7 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   `:user-name` 不用 `authStore.userInfo.userName`）＋`base-web/src/views/user-center/index.vue`（修改型 (vi)：父層骨架、
   只掛改密卡、三卡位留白）。
 - [ ] T051 [US3] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`zh-tw.ts`＋`app.d.ts`：`page.userCenter.*` 新 top-level 命名空間＋
-  `backend.biz.user.*` **剩餘九鍵**（★十一鍵已於 U2 邊界先行補齊——Lint24 同步律要求孤兒鍵窗不得跨越外層 commit；本 task 只補 `cannotKickSelf`／`cannotResetSelfPassword`／`sessionPolicyInvalid`／`passwordConfirmMismatch`／`oldPasswordMismatch`／`passwordSameAsOld`／`changePasswordThrottled`／`passwordPolicy`／`pwdSetTooFrequent`）＋`auth.session.kickedByAdmin`（四處同步、Lint24）＋`page.manage.user.pwdGen.*`；`pnpm typecheck` 綠。
+  `backend.biz.user.*` **剩餘八鍵**（★十一鍵已於 U2 邊界、`cannotKickSelf` 已於 U3 邊界先行補齊——Lint24 同步律要求孤兒鍵窗不得跨越外層 commit；本 task 只補 `cannotResetSelfPassword`／`sessionPolicyInvalid`／`passwordConfirmMismatch`／`oldPasswordMismatch`／`passwordSameAsOld`／`changePasswordThrottled`／`passwordPolicy`／`pwdSetTooFrequent`）＋`auth.session.kickedByAdmin`（四處同步、Lint24）＋`page.manage.user.pwdGen.*`；`pnpm typecheck` 綠。
 
 **Checkpoint**: US3 可獨立驗收——政策三入口、明細可讀、冷卻與節流、個人中心可自助改密。
 

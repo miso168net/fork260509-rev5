@@ -47,6 +47,7 @@
 | /systemManage/getRoleMenu | GET | Policy | get-role-menu | 否 |
 | /systemManage/getSystemSettings | GET | Policy | get-system-settings | 否 |
 | /systemManage/getUserList | GET | Policy | user-get-list | 否 |
+| /systemManage/kickUser | POST | Policy | user-kick | 否 |
 | /systemManage/restoreIpRule | POST | Policy | restore-ip-rule | 否 |
 | /systemManage/restoreMenu | POST | Policy | restore-menu | 否 |
 | /systemManage/restorePolicy | POST | Policy | restore-policy | 否 |
