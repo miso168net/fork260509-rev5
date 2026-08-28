@@ -45,6 +45,9 @@
 | biz.systemSettings.invalidValue | 設定值不合法（型別不符、超出範圍或非允許選項） | Invalid setting value (wrong type, out of range or not an allowed option) |
 | biz.systemSettings.notFound | 找不到指定的設定鍵 | The specified setting key was not found |
 | biz.throttle.invalidUnlockTarget | 解鎖對象不正確 | Invalid unlock target |
+| biz.user.cannotDeleteSelf | 不能刪除自己 | Cannot delete yourself |
+| biz.user.cannotEditSelfRoleOrStatus | 不能修改自己的角色或狀態 | Cannot change your own roles or status |
+| biz.user.notFound | 使用者不存在 | User not found |
 | biz.user.passwordViolation.forbidUsername | 不可與使用者名稱相同 | must not be identical to the user name |
 | biz.user.passwordViolation.maxBytes | 位元組數超過上限 | byte length exceeds the limit |
 | biz.user.passwordViolation.maxLength | 長度超過政策上限 | length exceeds the policy maximum |
@@ -53,6 +56,14 @@
 | biz.user.passwordViolation.requireLowercase | 須包含小寫字母 | must contain a lowercase letter |
 | biz.user.passwordViolation.requireSpecial | 須包含特殊符號 | must contain a special character |
 | biz.user.passwordViolation.requireUppercase | 須包含大寫字母 | must contain an uppercase letter |
+| biz.user.roleNotFound | 角色不存在 | Role not found |
+| biz.user.seededProtected | 內建帳號受保護 | Built-in account is protected |
+| biz.user.superCannotDisable | 超級管理員不可停用 | Super administrator cannot be disabled |
+| biz.user.userEmailExists | 信箱已被使用 | Email already in use |
+| biz.user.userEmailInvalid | 信箱格式不正確 | Invalid email format |
+| biz.user.userNameExists | 使用者名稱已存在 | Username already exists |
+| biz.user.userNameImmutable | 使用者名稱不可修改 | Username cannot be changed |
+| biz.user.userNameInvalid | 使用者名稱格式不正確 | Invalid username format |
 | common.listSeparator | 、 | ,  |
 | common.success | 操作成功 | Operation successful |
 | system.forbidden | 沒有權限執行此操作 | You do not have permission to perform this action |

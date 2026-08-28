@@ -272,31 +272,31 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 ### Tests for User Story 1 ⚠️（先紅後綠）
 
-- [ ] T022 [P] [US1] `rust-api/server/src/model/facade/sys_user.rs` 測段：寫端五組——`insert`（唯一撞 23505 兜底、空字串→NULL、
+- [X] T022 [P] [US1] `rust-api/server/src/model/facade/sys_user.rs` 測段：寫端五組——`insert`（唯一撞 23505 兜底、空字串→NULL、
   預設啟用、零角色）／`update`（三態、`userName` 出現即拒、值 diff no-op、roleIds 全量替換、界外 id 拒）／`soft_delete`＋
   `batch_soft_delete`（seed 保護、self、任一違規整批 rollback、指派硬刪、空陣列 no-op）／`restore`（同名活性撞、同信箱活性撞、
   零回灌、status 保留）／`list`＋`list_deleted`（排序、濾、分頁）。
-- [ ] T023 [P] [US1] `rust-api/server/src/handler/user.rs` 測段（endpoint 級、`oneshot_json_from` 帶真 connect-info）：七支各正向＋
+- [X] T023 [P] [US1] `rust-api/server/src/handler/user.rs` 測段（endpoint 級、`oneshot_json_from` 帶真 connect-info）：七支各正向＋
   拒因映射（`notFound`／`userNameExists`／`userEmailExists`／`userEmailInvalid`／`userNameImmutable`／`seededProtected`／
   `cannotDeleteSelf`／`cannotEditSelfRoleOrStatus`／`roleNotFound`）；稽核列同交易斷言（`operation`／payload 不含 `$argon2`）。
-- [ ] T024 [P] [US1] `rust-api/server/tests/contract.rs`：七支 ContractCase（`user-get-list`／`user-get-deleted`／`user-add`／
+- [X] T024 [P] [US1] `rust-api/server/tests/contract.rs`：七支 ContractCase（`user-get-list`／`user-get-deleted`／`user-add`／
   `user-update`／`user-delete`／`user-batch-delete`／`user-restore`；case_key 反查形、不抄 rev4 路徑字面）；`ROUTES_COUNT` 斷言同步。
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] `rust-api/server/src/model/facade/sys_user.rs`：寫端家族實作（`insert`／`update`／`soft_delete`／`batch_soft_delete`／
+- [X] T025 [US1] `rust-api/server/src/model/facade/sys_user.rs`：寫端家族實作（`insert`／`update`／`soft_delete`／`batch_soft_delete`／
   `restore`／`list`／`list_deleted`）——鎖序照全程紀律；`update` 之 roleIds 走 T016 `replace_roles_of_user`；軟刪同交易
   `delete_all_of_user`＋`revoke_all_of_user`（事件 `user_deleted`）；`violated_constraint` 收斂 23505；
   ★錯誤型 enum 逐支（`UserCreateError`／`UserUpdateError`／…）供 handler remap。
-- [ ] T026 [US1] `rust-api/server/src/handler/user.rs`：七支 handler＋`begin_and_lock_user`（begin→advisory(uid)→`FOR UPDATE` 活性列）＋
+- [X] T026 [US1] `rust-api/server/src/handler/user.rs`：七支 handler＋`begin_and_lock_user`（begin→advisory(uid)→`FOR UPDATE` 活性列）＋
   `finish_user_write`（稽核→commit→**斷權整腿**〔交易內 `revoke_all_of_user`＋逐 sid `session_event`；commit 後
   best-effort 逐 sid `cache::denylist_set(sid, reason, ttl.refresh_secs)`、失敗只 warn〕→reload 條件）＋`map_*_err` remap；
   ★停用（status→2、reason `user_disabled`）與刪除（reason `user_deleted`）兩路於本 task 即完整生效——US1 之
   「被撤者下一次請求 8888」為本 phase 驗收條件、不得延到 US2；守門固定序（①notFound②seed③self
   ④`assert_no_escalation`⑤業務）；共用件零拷貝。
-- [ ] T027 [US1] `rust-api/server/src/router.rs`：七條 RouteDef（`Protection::Policy`、DELETE 兩支）＋`ROUTES_COUNT` 49→56；
+- [X] T027 [US1] `rust-api/server/src/router.rs`：七條 RouteDef（`Protection::Policy`、DELETE 兩支）＋`ROUTES_COUNT` 49→56；
   `docs-sync.py generate` 併 `reference/routes`。
-- [ ] T028 [US1] `rust-api/server/src/handler/user.rs`＋`rust-api/server/tests/authz_entrypoint_lint.rs`：角色集**實際變更**時
+- [X] T028 [US1] `rust-api/server/src/handler/user.rs`＋`rust-api/server/tests/authz_entrypoint_lint.rs`：角色集**實際變更**時
   commit 後 `reload_enforcer`（B-093 閉合、Applied 即觸發不問 diff 之口徑照 006 grant 面）＋`RELOAD_CALL_FILES` 擴
   `handler/user.rs`（恰等斷言、實得序以實跑為準）＋deleteUser 硬刪指派亦觸發（data-model §3.4）＋測（無角色變更零觸發之特性測）。
 - [ ] T029 [US1] `base-web/src/typings/api/rev5-user-admin.d.ts`＋`base-web/src/service/api/rev5-user-admin.ts` 新檔（`Api.UserAdmin.*`；
@@ -309,6 +309,38 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   `userName` 編輯模式 disabled；memo textarea；update wrapper 剝 `userName`；★角色下拉全列（不預判包含規則、G8）。
 - [ ] T032 [US1] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`base-web/src/typings/app.d.ts`：`page.manage.user` 補列表／抽屜／
   回收桶／確認框鍵（兩語鍵集相等、依 contracts/msg-keys.md 候選）＋`App.I18n.Schema.page.manage.user` 型節；`pnpm typecheck` 綠。
+
+★**U2 執行結果（workflow `wf_44629d8c-192` 實作＋`wf_bc16443b-8c1`／`wf_5f336143-fed` 兩支審查專跑、共 24 agents、2026-08-28 收尾）**
+
+- **量**：rust 測試 878→**924**（淨增 46）；**ROUTES 49→56**；`RELOAD_CALL_FILES` 三檔→**四檔**（實得序 menu < policy_archive < role < user）；
+  contract case 50→57。容器內 serial rc=0、`cargo fmt` 綠；七閘＋`fork-delta-lint` 全綠、`docs-sync lint` 0 錯誤、`pnpm typecheck` rc=0。
+  零 migration、零 seed 變更；seed 三帳號完整性複驗通過。
+- **審查**：規格符合性第 2 輪零 blocker 收斂；碼品質輪跑滿 3 輪 fix＋確認輪，確認輪餘 2 筆——主線逐項自 grep 復核，**兩筆全數成立**、已於邊界修完。
+- ★**跨單元埋雷（本輪最有價值的一筆）**：`add_user` 的 ④ `assert_no_escalation` 保留位原落在 `state.db.begin()` **之前**、即
+  `roleIds` 解出之前，與 contracts §3 的守門序（`roleNotFound` → `N ⊆ A`）相反。U2 零行為影響（④ 尚未實作），但**T054 照原位填**會讓
+  「界外 roleId ＋越權角色集」的請求回 5003 而非 `roleNotFound`。已把保留位移到 `sys_user::insert` 呼叫之前、三處 doc 序訂正到與契約逐字同序。
+- **碼品質輪修掉的 vacuous 守門（各附變異紅證）**：①島 I1 的 per-user advisory 鎖在五個寫端呼叫點**全無紅點**（整支拔掉或移到
+  `FOR UPDATE` 之後全量測試仍綠）→ 補 `test_db::assert_user_advisory_precedes_row_lock` 骨架＋逐寫端腿；②denylist 廣播的
+  **TTL＝refresh_secs 無紅點**（改 access_secs 全綠——而那正是憲法島 C 點名要修的 rev4 缺陷形）；③**denylist reason 字面零機器守**
+  （改 `admin_kick` 全綠 ⇒ 被撤者由 8888 靜默變 7777 modal）；④三支純函式守門的多數分支無紅點（email 五腿只覆蓋一腿、
+  userName 長度上界零覆蓋、`wire_gender_tristate` 三腿全零）；⑤`sys_user::update` 自行重算 `roles_changed`、**丟棄**
+  `replace_roles_of_user` 的回值，使其 doc 宣告的「reload 唯一判準」零消費。
+- **主線於單元邊界補的守門＋變異紅證**：`facade/sys_user.rs::UserCreate` 的手寫 `Debug` 遮蔽（島 I5 密碼三重不洩之**日誌面**）
+  全樹零測釘 → 補 `user_create_debug_redacts_the_plaintext_password`（三腿：不含明文／含遮蔽字面／非敏感欄照印）＋把第三份
+  `"<redacted>"` 字面收攏為檔內 `const REDACTED`。變異（`.field("password", &self.password)`）→ FAILED at `sys_user.rs:1901`，
+  訊息逐字印出明文；還原後 md5 逐位對照。
+- ★**主線於邊界補的 i18n（Lint24 同步律）**：U2 落了 11 個新 `biz.user.*` 實發鍵，依 tasks.md 全程紀律「同一次工作樹編輯內齊備、
+  孤兒鍵窗不得跨越任何一次外層 commit」，於本單元邊界補齊四處（`zh-tw.ts`／`zh-cn.ts`／`en-us.ts` backend 樹＋`app.d.ts` backend 型節）。
+  ★**刻意只補 11 鍵**：Lint24 為**雙向**閘（`tools/docs-sync.py` 之 `frontend - backend - whitelist` → 孤兒鍵 ERROR），
+  另 9 鍵的後端構造點要到 U3／U4／U5 才存在 ⇒ **T051 的射程隨之改為「補剩餘 9 鍵」**。
+- **主線裁定（回報備查）**：①`active_email_taken` 的 `exclude_id` 參數**移除**——我在 U2 中段曾依 implB 的 escalation 追認保留該參數，
+  碼品質輪查出其 `Some` 分支**結構性不可達**（該 fn 首道濾網已是 `deleted_at IS NULL`、而 restore 的標的是已刪列）、
+  且 fn doc 對它的必要性敘述不實 ⇒ **推翻先前追認**、移除參數並補真正的機器釘
+  `restore_does_not_treat_the_targets_own_email_as_a_conflict`（釘住「排除標的的是軟刪濾網」）。
+  ②手機欄「≤32」守門缺口不在本刀發明新 msg key（四權威皆無、rev4 藍本亦無）→ **B-136** 交 user 收刀前裁定。
+  ③`handler/role.rs` 兩處 006 期失真 doc 訂正（候選外 15→**8** 列、protected 仍 1；「本刀終態 35」→「本刀 U2 後 42、終態 45」）。
+- **新帳**：B-136（手機守門缺口）／B-137（`R_SUPER` 生產面兩份字面）／B-138（`ilike_contains` 三份拷貝待收攏）／
+  L-065（破壞性守門的變異測試會真的毀 seed）／L-066（負向樣本要帶清理鍵前綴）／L-067（Lint25 的執行單元輪次形連本代都判紅）。
 
 **Checkpoint**: US1 可獨立驗收——七支 API＋user 頁列表與抽屜；斷權由 Foundational 之 `revoke_all_of_user` 已生效（分派與文案於 US2 定案）。
 
@@ -388,7 +420,7 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   `:user-name` 不用 `authStore.userInfo.userName`）＋`base-web/src/views/user-center/index.vue`（修改型 (vi)：父層骨架、
   只掛改密卡、三卡位留白）。
 - [ ] T051 [US3] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`zh-tw.ts`＋`app.d.ts`：`page.userCenter.*` 新 top-level 命名空間＋
-  `backend.biz.user.*` 二十鍵＋`auth.session.kickedByAdmin`（四處同步、Lint24）＋`page.manage.user.pwdGen.*`；`pnpm typecheck` 綠。
+  `backend.biz.user.*` **剩餘九鍵**（★十一鍵已於 U2 邊界先行補齊——Lint24 同步律要求孤兒鍵窗不得跨越外層 commit；本 task 只補 `cannotKickSelf`／`cannotResetSelfPassword`／`sessionPolicyInvalid`／`passwordConfirmMismatch`／`oldPasswordMismatch`／`passwordSameAsOld`／`changePasswordThrottled`／`passwordPolicy`／`pwdSetTooFrequent`）＋`auth.session.kickedByAdmin`（四處同步、Lint24）＋`page.manage.user.pwdGen.*`；`pnpm typecheck` 綠。
 
 **Checkpoint**: US3 可獨立驗收——政策三入口、明細可讀、冷卻與節流、個人中心可自助改密。
 

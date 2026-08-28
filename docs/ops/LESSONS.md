@@ -1,4 +1,4 @@
-<!-- next: L-065 -->
+<!-- next: L-068 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -77,3 +77,6 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-062｜drvfs 上治理工具的耗時是 I/O 稅不是邏輯（587×、9p 並發有效 6.33×）——憑直覺列的優化清單會全數落空](LESSONS/L-062-drvfs-io-tax-dominates-hook-time.md)
 - [L-063｜開新 ★軌道用途時當場做的「新列變異自證」結構性 vacuous（尚無標記可比、回綠像有效）](LESSONS/L-063-new-track-purpose-mutation-test-is-vacuous-before-markers.md) — Amendment 只宣稱「機制已驗（拿已有標記的既有列反證）」，新列真自證排進第一個落標記的實作單元；通則＝變異前先確認被守面已有實例
 - [L-064｜AppError::Biz/BizData 的 match 臂寫成 `(..)` 會被 Lint24 判成無法靜態解析的構造點，而 cargo 全綠時看不見](LESSONS/L-064-lint24-bizdata-match-arm-must-be-two-underscores.md) — 臂一律寫 `(_, _)`；rust 單元收尾的自驗必須含 `docs-sync.py lint`，cargo 綠與 lint 綠是兩件事
+- [L-065｜對破壞性守門做變異測試會真的破壞 seed 列，而刪除式清理守衛結構上救不了](LESSONS/L-065-destructive-guard-mutation-really-destroys-seed.md) — mutate 型測試改掛快照還原式守衛（SeedUserRestoreCleanup）；判別問句＝這支測失敗時庫裡是多出東西還是變掉東西
+- [L-066｜「應該被拒」的負向樣本也要帶清理鍵前綴，否則守門被改壞那一發的殘列圈不到](LESSONS/L-066-negative-samples-need-cleanup-key-prefixes.md) — 用「帶前綴但仍違規」的構造（uniq_key 加違規尾綴）；判別問句＝這個樣本沒被拒會在庫裡留下什麼
+- [L-067｜Lint25 的「執行單元輪次」形連本代的刀號＋輪次寫法都判紅，而改寫成刀名全形會踩另一個形](LESSONS/L-067-lint25-unit-round-shape-traps-current-generation-too.md) — ops 帳本一律寫「本刀 U2」；判準是「長得像不像那幾個 regex」而非「是不是跨代引用」
