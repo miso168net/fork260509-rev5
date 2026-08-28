@@ -430,33 +430,83 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T040 [P] [US3] `rust-api/server/src/handler/user.rs` 測段：addUser／resetUserPassword 之政策違規（`BizData` 攜 `violations`）、
+- [X] T040 [P] [US3] `rust-api/server/src/handler/user.rs` 測段：addUser／resetUserPassword 之政策違規（`BizData` 攜 `violations`）、
   冷卻（`remainingSeconds`、interval=0 停用、不同 operator 互不影響、addUser 計入）、self 拒（`cannotResetSelfPassword`）。
-- [ ] T041 [P] [US3] `rust-api/server/src/handler/user_center.rs` 測段：changePassword 五步序逐步拒因＋成功後撤他 session 保留當前＋
+- [X] T041 [P] [US3] `rust-api/server/src/handler/user_center.rs` 測段：changePassword 五步序逐步拒因＋成功後撤他 session 保留當前＋
   事件 `password_changed`＋稽核 `change_password`＋custody touch。
-- [ ] T042 [P] [US3] `rust-api/server/src/throttle/change_pwd.rs` 測段（整合面）：連錯 5 次後第 6 次 `changePasswordThrottled`（在雜湊驗證前、
+- [X] T042 [P] [US3] `rust-api/server/src/throttle/change_pwd.rs` 測段（整合面）：連錯 5 次後第 6 次 `changePasswordThrottled`（在雜湊驗證前、
   零稽核）、成功改密清桶、redis 停機 fail-open＋降級計數。
-- [ ] T043 [P] [US3] `rust-api/server/src/handler/auth/login.rs` 測段：★登入路徑零政策驗證之機器守（seed 帳號 6 字元密碼登入成功；
+- [X] T043 [P] [US3] `rust-api/server/src/handler/auth/login.rs` 測段：★登入路徑零政策驗證之機器守（seed 帳號 6 字元密碼登入成功；
   `login.rs` 全檔零 `validate_against_policy` 引用之 grep 型斷言）。
-- [ ] T044 [P] [US3] `rust-api/server/tests/contract.rs`：`user-reset-password`／`user-center-change-password`／
+- [X] T044 [P] [US3] `rust-api/server/tests/contract.rs`：`user-reset-password`／`user-center-change-password`／
   `user-center-get-password-policy` 三 ContractCase；`ROUTES_COUNT` 57→60。
 
 ### Implementation for User Story 3
 
-- [ ] T045 [US3] `rust-api/server/src/model/facade/sys_user.rs`：`reset_password`（政策→冷卻→hash→UPDATE＋custody touch＋撤全 active
+- [X] T045 [US3] `rust-api/server/src/model/facade/sys_user.rs`：`reset_password`（政策→冷卻→UPDATE＋custody touch＋撤全 active
   ＋事件 `password_reset`）／`change_own_password`（五步序；成功 `revoke_others_of_user(keep=sid)`＋事件 `password_changed`）；
   ★`insert` 補政策＋custody touch（G14）。
-- [ ] T046 [US3] `rust-api/server/src/handler/user.rs`：`reset_user_password` handler＋`router.rs` 一條＋`ROUTES_COUNT` 57→58；
+  ★**as-built（ADR 0068）**：雜湊**生成**外移至 handler 取鎖前（`password::NewPassword::prepare`），故上列兩序皆不含 `hash` 一格；
+  facade 本體零 argon2 生成、有源碼掃描守 `password_hash_never_computed_inside_row_lock`。舊密 `verify` 續留鎖內（島 I1 守門判定）。
+- [X] T046 [US3] `rust-api/server/src/handler/user.rs`：`reset_user_password` handler＋`router.rs` 一條＋`ROUTES_COUNT` 57→58；
   ★self 拒導向個人中心（拒因鍵 `cannotResetSelfPassword`）。
-- [ ] T047 [US3] `rust-api/server/src/handler/user_center.rs`：`change_password`（Authed、標的恆 `claims.uid`、節流前置）＋
+- [X] T047 [US3] `rust-api/server/src/handler/user_center.rs`：`change_password`（Authed、標的恆 `claims.uid`、節流前置）＋
   `get_password_policy`（七鍵投影）＋`router.rs` 兩條（`Protection::Authed`、零 casbin seed）＋`ROUTES_COUNT` 58→60。
-- [ ] T048 [US3] `rust-api/server/src/handler/route.rs`：自助路由白名單（FR-032）——碼內常數
+- [X] T048 [US3] `rust-api/server/src/handler/route.rs`：自助路由白名單（FR-032）——碼內常數
   `SELF_SERVICE_ROUTES: [&str; 1] = ["user-center"]`＋`get_user_routes` 於 casbin 過濾結果**之後**恆併入該白名單
   （聯集去重；`hide_in_menu` 故側欄不現、只從頭像下拉進）＋檔頭「rev4 之 `SELF_SERVICE_ROUTES` 不帶回——前提未成立」
   句改寫為「自本刀帶回（承 rev4:ADR 0065）」＋常數 doc 寫明擴充紀律（只收「受眾＝本人」之自助頁家族、RBAC 資源頁
   MUST NOT 入）；★單測兩向：零 menu 政策角色（新建之零角色帳號）仍得 `user-center` 路由／白名單外路由不受影響；
   seed 之 `p|R_SUPER|user-center|menu` 保留不動（聯集下冗餘無害）。★本 task 未完成前，非超管（含 R_ADMIN／R_USER）
   進不了個人中心 ⇒ US3 之 Independent Test 與 T070 之 CDP 第 5 步皆不可驗。
+★**U4 執行結果（主 run `wf_d72fc03f-63e` 8 支＋碼品質專跑 `wf_032b5464-cc3` 7 支、2026-08-29 收尾）**
+
+- **量**：rust 測試 933→**958**（淨增 25）。容器內 serial rc=0；`cargo fmt --all -- --check` rc=0；
+  ROUTES 57→**60**；`POLICY_ENDPOINT_COUNT` 43→**44**（三條新 route 只有 `resetUserPassword` 進政策維，
+  user-center 兩支是 `Protection::Authed`＋零 casbin seed）；七閘全綠＋`docs-sync lint` 0 錯誤。
+  零 migration、零 seed 變更。base-web 四檔恰補**七鍵**（`sessionPolicyInvalid` 構造點在 T058／T060 ⇒ 本單元補了就是孤兒鍵紅）。
+- **審查**：規格符合性四輪（三輪 fix＋確認輪）、碼品質四輪（三輪 fix＋確認輪），**兩輪的確認輪各自仍有 blocker**
+  ⇒ script 依防呆⑤ 判「跑滿上限」return。★**但這不是不收斂**：每輪 blocker 集合皆相異、每輪 fix 皆有改動，
+  是逐層深挖（規格輪 2+2+2+1 筆、碼品質輪 5+4+5+3 筆，共 24 筆）。主線據此判定接手修而非重跑審查。
+  ★**副作用**：規格輪 return 使**碼品質輪零輪次** ⇒ 依 L-027 另開新 runId 專跑（不用 resume），CONTEXT 烤入十四項勿重報清單。
+- **本輪最有價值的三筆 finding**：
+  ①**argon2 雜湊落在列鎖內**（規格輪第 2 輪）——違反憲法島 I5 末句。fix 新增 `password::NewPassword`
+  （明文＋PHC 成對載體、唯一構造路徑 `prepare()`、**刻意零 `Debug` impl** ⇒ 想 `derive(Debug)` 的外層型直接編譯失敗），
+  兩支寫端改由 handler 於取鎖前算；補源碼掃描守 `password_hash_never_computed_inside_row_lock` ＋三發變異紅證。
+  ②**`passwordPolicy` 譯文佔位符 `{list}` vs 後端 data 鍵 `violations`**（碼品質輪第 3 輪）——**使用者可見缺陷**：
+  違規明細會在 toast 上整段消失，而 Lint24（只比鍵集）／typecheck（看不到字串內容）／端點測（只驗 code 與 msg 鍵）三道全部攔不到。
+  ★根因在契約表**自身自相矛盾**（鍵欄寫 `{violations}`、兩個藍本欄寫 `{list}`），前端照藍本欄抄。
+  已依 §4 用 `errata` 機器枚舉全 repo（命中 1 處）逐處訂正；衍生 **B-139**。
+  ③**`finish_user_write` 提為 `pub(crate)` 打穿 `RELOAD_CALL_FILES` 名冊閘射程**（碼品質輪確認輪）——
+  該閘掃 `reload_enforcer` token 的檔集合，而唯一那行 reload 住在 `finish_user_write` 體內 ⇒
+  任何 handler 都能 `use` 它並傳 `reload = true` 觸發全域熱套而不進名冊、全樹零紅點。已立 **L-069**。
+- **主線於單元邊界的處置五則**：
+  ①**補取鎖點機器證⑤⑥**（規格確認輪唯一 blocker）：查證屬實（`sys_user.rs` 六個取鎖行對四支機器證），
+  區塊標題「四支」→「六支」。★第⑥支（`change_own_password`）是本組實害最重的——該端點 handler 只做
+  `state.db.begin()`、不走 `begin_and_lock_user`，故 facade 那行是自助改密路上**唯一且承重**的取鎖點；
+  刪掉它信封／拒因／票面／事件／稽核一字不變、全樹仍綠。兩發變異紅證（各下沉取鎖行）皆得逐字
+  「55P03＝該寫端先鎖列再取 advisory」，還原 `diff -q` 逐位相同。
+  ②**新增 `FINISH_USER_WRITE_CONSUMER_FILES` 名冊閘**（碼品質確認輪第 1 筆）：`tests/authz_entrypoint_lint.rs`
+  加家檔常數＋消費者名冊＋`finish_user_write_consumers_match_declared_roster`；連帶把 detector 與掃描面
+  泛化為 `call_lines_of(stripped, pat)`／`scan_excluding(home_rel, detector)`（零拷貝、既有 16 支測全數不受影響）。
+  兩發變異紅證：名冊清空→紅且實得 `[("handler/user_center.rs", [275])]`（證明真的掃到）；detector pattern 打錯一字→紅且實得 `[]`（證明綠不是兩邊皆空）。
+  ③**`sys_token::revoke_others_of_user` 的 fn doc 訂正**（確認輪第 2 筆）：原文寫死 login 語境
+  （caller 恆 login 第⑨步、reason 恆 `kicked`、`keep_sid` 恆「本次登入新生」、advisory 恆由 login 持有），
+  而本單元讓自助改密成為第二個 caller（reason `password_changed`／denylist `revoked`／keep 是既有會話／
+  advisory 自己取）。已比照姊妹 `revoke_all_of_user` 的形改為逐路列消費者，並補「reason 與 keep 語意
+  一律留在 caller、勿寫回本層」的警語。★審查員誤判該檔在允許清單外（實際在內），但 finding 本身成立。
+  ④**「走 `nextval` 者恰二支」名冊 bump 為三支**（確認輪第 3 筆）：本單元的冷卻測第①腿真的打 `addUser` 建列。
+  行為面本就正確（該測已掛 `with_name_prefixes`），純註解失真。順帶記入「政策違規測雖打 addUser 但被守門擋在
+  INSERT 之前 ⇒ 不消耗 `nextval`、不入名冊」。
+  ⑤**契約勘誤**：`contracts/msg-keys.md` 之 `passwordPolicy` 譯文欄 `{list}` → `{violations}`（見上②）。
+- **拍板級升級一筆、user 親決**（2026-08-29）：`change_own_password` 五步序第④格的 `password::verify` 仍在鎖內，
+  與島 I5 末句字面相衝、與島 I1「守門判定 MUST 鎖內重驗」正面相碰。三選項（改條文／立例外 ADR／verify 外移回 rev4 形）
+  中 user 選**改條文**：憲法 **1.9.0 → 1.9.1**（PATCH／澄清），末句區分雜湊**生成**（鎖外）與**驗證**（鎖內），
+  **碼零改動**；ADR **0068**。理由＝承襲 rev4 條文時字面不夠精確，非真衝突。
+- **本單元新帳**：B-139（佔位符↔data 鍵名零機器守）／B-140（`auth::Identity` 不帶 `sid`、`current_sid` 是 Bearer 解析小抄本）／
+  B-141（三件共用件住哪一家、`finish_user_write` 結構性搬不動）／L-069（可見性放寬打穿名冊閘射程）。
+- **未竟**：碼品質輪確認輪的三筆由主線修完後**未再跑一輪確認**（同 U3 之形）⇒ 併入收刀前的 final holistic review。
+
 - [ ] T049 [US3] `base-web/src/typings/api/rev5-user-center.d.ts`＋`base-web/src/service/api/rev5-user-center.ts` 新檔＋
   `base-web/src/hooks/business/pwd-policy.ts` 新檔（`buildPolicyRules`；取不到靜默降 required）＋
   `base-web/src/components/custom/pwd-gen-modal.vue` 新檔（`crypto.getRandomValues`、依政策產合規密碼）。

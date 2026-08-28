@@ -141,7 +141,10 @@
   `touch`；addUser 亦 `touch`（G14）；判定位＝既有拒因全過後、UPDATE 前（rev4 序）。
 - changePassword 五步序：`find_active_by_id_for_update(claims.uid)`→兩次一致（`biz.user.passwordConfirmMismatch`）→
   舊密 `verify`（失敗→`record_failure`＋`biz.user.oldPasswordMismatch`）→新≠舊（`biz.user.passwordSameAsOld`）→
-  政策→hash→UPDATE＋touch＋`revoke_others_of_user`＋事件＋稽核→commit→`clear` 桶。
+  政策→UPDATE＋touch＋`revoke_others_of_user`＋事件＋稽核→commit→`clear` 桶。
+  ★**as-built 調整（U4、ADR 0068）**：本節原序把 `hash` 列在政策與 UPDATE 之間，實作時外移——雜湊**生成**
+  由 handler 於開交易前以 `password::NewPassword::prepare` 算好（憲法島 I5 之生成／驗證分野），facade 本體零
+  argon2 生成；**可觀察面零變化**（拒因序一格未動）。舊密 `verify` 屬守門判定、依島 I1 續留鎖內。
 - 改密節流（零藍本）：`throttle/change_pwd.rs`——鍵 `cpwd:{uid}`；`precheck`：GET≥5 ⇒ `biz.user.changePasswordThrottled`
   （在 `verify` 之前、零稽核）；`record_failure`：INCR＋EXPIRE 900（滑動窗簡化＝固定 TTL 續期；spec「滑動窗」以
   「每次失敗刷新 15 分鐘窗」實作、常數 `CHANGE_PWD_MAX_FAILS=5`／`CHANGE_PWD_WINDOW_SECS=900`）；redis Err ⇒

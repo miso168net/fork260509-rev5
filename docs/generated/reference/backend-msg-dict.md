@@ -49,7 +49,13 @@
 | biz.user.cannotDeleteSelf | 不能刪除自己 | Cannot delete yourself |
 | biz.user.cannotEditSelfRoleOrStatus | 不能修改自己的角色或狀態 | Cannot change your own roles or status |
 | biz.user.cannotKickSelf | 不能踢除自己 | Cannot kick yourself |
+| biz.user.cannotResetSelfPassword | 請到個人中心修改自己的密碼 | Change your own password in the user center |
+| biz.user.changePasswordThrottled | 嘗試次數過多，請稍後再試 | Too many attempts, please try again later |
 | biz.user.notFound | 使用者不存在 | User not found |
+| biz.user.oldPasswordMismatch | 舊密碼不正確 | Old password is incorrect |
+| biz.user.passwordConfirmMismatch | 兩次輸入的密碼不一致 | Passwords do not match |
+| biz.user.passwordPolicy | 密碼不符合安全策略：{violations} | Password does not meet the policy: {violations} |
+| biz.user.passwordSameAsOld | 新密碼不能與舊密碼相同 | New password must differ from the old one |
 | biz.user.passwordViolation.forbidUsername | 不可與使用者名稱相同 | must not be identical to the user name |
 | biz.user.passwordViolation.maxBytes | 位元組數超過上限 | byte length exceeds the limit |
 | biz.user.passwordViolation.maxLength | 長度超過政策上限 | length exceeds the policy maximum |
@@ -58,6 +64,7 @@
 | biz.user.passwordViolation.requireLowercase | 須包含小寫字母 | must contain a lowercase letter |
 | biz.user.passwordViolation.requireSpecial | 須包含特殊符號 | must contain a special character |
 | biz.user.passwordViolation.requireUppercase | 須包含大寫字母 | must contain an uppercase letter |
+| biz.user.pwdSetTooFrequent | 密碼設定過於頻繁，請 {remainingSeconds} 秒後再試 | Password was set too recently, retry in {remainingSeconds}s |
 | biz.user.roleNotFound | 角色不存在 | Role not found |
 | biz.user.seededProtected | 內建帳號受保護 | Built-in account is protected |
 | biz.user.superCannotDisable | 超級管理員不可停用 | Super administrator cannot be disabled |

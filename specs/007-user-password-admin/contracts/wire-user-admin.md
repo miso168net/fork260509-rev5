@@ -71,7 +71,7 @@
 ## 9. `POST /systemManage/resetUserPassword`
 
 - Body：`{ id: number, password: string }`（管理員手輸或前端產密；後端不回傳密碼）。notFound→self
-  （`cannotResetSelfPassword`）→T ⊆ A→政策（攜參）→冷卻（攜參）→hash→UPDATE＋custody touch＋撤全 active
+  （`cannotResetSelfPassword`）→T ⊆ A→政策（攜參）→冷卻（攜參）→UPDATE＋custody touch＋撤全 active
   （`password_reset`）＋稽核 `reset_password`。200 `data: null`。
 
 ## 10. `POST /systemManage/updateUserSessionPolicy`

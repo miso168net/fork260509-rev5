@@ -15,6 +15,6 @@
 - Body：`{ oldPassword: string, newPassword: string, confirmPassword: string }`。
 - 步序（任一步拒即零寫入）：帳號存在且活性（`notFound`）→兩次一致（`passwordConfirmMismatch`）→節流 precheck
   （`changePasswordThrottled`，在舊密驗證前）→舊密正確（否則 INCR＋`oldPasswordMismatch`）→新≠舊（`passwordSameAsOld`）→
-  政策（`passwordPolicy` 攜參）→冷卻對 (self, self)（`pwdSetTooFrequent` 攜參）→hash→UPDATE＋custody touch＋
+  政策（`passwordPolicy` 攜參）→冷卻對 (self, self)（`pwdSetTooFrequent` 攜參）→UPDATE＋custody touch＋
   `revoke_others_of_user(keep=claims.sid)`＋事件 `password_changed`＋稽核 `change_password`→commit→清桶。
 - 200 `data: null`；其他裝置下一次請求 8888；當前裝置不受影響。

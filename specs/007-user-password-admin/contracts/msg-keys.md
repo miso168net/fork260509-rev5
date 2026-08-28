@@ -27,7 +27,7 @@
 | `oldPasswordMismatch` | 舊密錯 | 旧密码不正确 | Old password is incorrect |
 | `passwordSameAsOld` | 新＝舊 | 新密码不能与旧密码相同 | New password must differ from the old one |
 | `changePasswordThrottled` | 舊密猜測超限 | 尝试次数过多，请稍后再试 | Too many attempts, please try again later |
-| `passwordPolicy`（攜參 `{violations}`） | 政策違規 | 密码不符合安全策略：{list} | Password does not meet the policy: {list} |
+| `passwordPolicy`（攜參 `{violations}`） | 政策違規 | 密码不符合安全策略：{violations} | Password does not meet the policy: {violations} |
 | `pwdSetTooFrequent`（攜參 `{remainingSeconds}`） | 冷卻未滿 | 密码设置过于频繁，请 {remainingSeconds} 秒后再试 | Password was set too recently, retry in {remainingSeconds}s |
 
 ## `backend.auth.session.*`（既有子樹＋1）
