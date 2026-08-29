@@ -538,14 +538,19 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 - **未竟**：碼品質輪確認輪那筆為「結構性無法自修、已立帳」⇒ 無殘留修復項；但確認輪之後未再跑一輪
   （同 U3～U5 之形）⇒ 併入收刀前的 final holistic review。
 
-- [ ] T049 [US3] `base-web/src/typings/api/rev5-user-center.d.ts`＋`base-web/src/service/api/rev5-user-center.ts` 新檔＋
+- [X] T049 [US3] `base-web/src/typings/api/rev5-user-center.d.ts`＋`base-web/src/service/api/rev5-user-center.ts` 新檔＋
   `base-web/src/hooks/business/pwd-policy.ts` 新檔（`buildPolicyRules`；取不到靜默降 required）＋
   `base-web/src/components/custom/pwd-gen-modal.vue` 新檔（`crypto.getRandomValues`、依政策產合規密碼）。
-- [ ] T050 [US3] `base-web/src/views/user-center/modules/password-card.vue` 新檔（只舊密碼一路、無 radio、規則來自 hook、
+- [X] T050 [US3] `base-web/src/views/user-center/modules/password-card.vue` 新檔（只舊密碼一路、無 radio、規則來自 hook、
   `:user-name` 不用 `authStore.userInfo.userName`）＋`base-web/src/views/user-center/index.vue`（修改型 (vi)：父層骨架、
   只掛改密卡、三卡位留白）。
-- [ ] T051 [US3] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`zh-tw.ts`＋`app.d.ts`：`page.userCenter.*` 新 top-level 命名空間＋
-  `backend.biz.user.*` **剩餘八鍵**（★十一鍵已於 U2 邊界、`cannotKickSelf` 已於 U3 邊界先行補齊——Lint24 同步律要求孤兒鍵窗不得跨越外層 commit；本 task 只補 `cannotResetSelfPassword`／`sessionPolicyInvalid`／`passwordConfirmMismatch`／`oldPasswordMismatch`／`passwordSameAsOld`／`changePasswordThrottled`／`passwordPolicy`／`pwdSetTooFrequent`）＋`auth.session.kickedByAdmin`（四處同步、Lint24）＋`page.manage.user.pwdGen.*`；`pnpm typecheck` 綠。
+- [X] T051 [US3] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`app.d.ts`：`page.userCenter.*` 新 top-level 命名空間
+  ＋`page.manage.user.pwdGen.*`；`pnpm typecheck` 綠（兩語鍵集相等）。
+  ★★**射程已四度收窄——backend 樹本 task 一鍵不補**：`backend.biz.user.*` 二十鍵與 `auth.session.kickedByAdmin`
+  **已於 U2～U5 各單元邊界全數補齊**（U2 十一鍵／U3 `cannotKickSelf`＋`kickedByAdmin`／U4 七鍵／U5 `sessionPolicyInvalid`）。
+  成因＝Lint24 是**雙向**的：孤兒鍵窗不得跨越任何一次外層 commit ⇒ 每個發鍵的後端單元必須在自己的邊界補齊，
+  補不齊當場紅、提前補則成孤兒鍵同樣紅。★**本 task 若再補 backend 鍵即為重複宣告**（typecheck 紅）。
+  ★`zh-tw.ts` 亦不動——該檔**只有 `backend` 樹**（無 page 樹、非 `App.I18n.Schema` 標註）。
 
 **Checkpoint**: US3 可獨立驗收——政策三入口、明細可讀、冷卻與節流、個人中心可自助改密。
 
@@ -591,9 +596,9 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   `GUARD_NO_ESCALATION_CONSUMER_FILES`（守「借道掛點式的人有沒有進過名冊」）；各附變異紅證。
 - [X] T055 [US4] `rust-api/server/src/handler/throttle.rs`：`unlock_login` 帳號維分支鎖內加 `assert_no_escalation`（T 取標的全部指派列）；
   IP 維不套；doc 記射程。
-- [ ] T056 [US4] `base-web/src/views/manage/user/index.vue`（修改型 (v)）：七枚按鈕碼逐鈕 `hasAuth` gating（B-099 形：外層 div 保底＋
+- [X] T056 [US4] `base-web/src/views/manage/user/index.vue`（修改型 (v)）：七枚按鈕碼逐鈕 `hasAuth` gating（B-099 形：外層 div 保底＋
   `v-show`＋內層 `v-if`）；★自己那列操作下拉不列「重設密碼」（self 五不）。
-- [ ] T057 [US4] `base-web/src/views/manage/user/modules/user-operate-drawer.vue`（修改型 (v)）：`sessionPolicy` 欄對非超管
+- [X] T057 [US4] `base-web/src/views/manage/user/modules/user-operate-drawer.vue`（修改型 (v)）：`sessionPolicy` 欄對非超管
   （`authStore.userInfo.roles` 不含 `R_SUPER`）顯示現值但 disabled＋提示鍵；★不發出必敗的第二支呼叫（G7）；
   self 之 `status`／`roleIds` 控制項 disabled。
 
@@ -650,9 +655,17 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   （現僅印在訊息裡、非 assert，故續綠）。★**T068 種合成候選外 protected 探針列之前，不可把該數升成真 assert。**
 - **本單元新帳**：B-142（no-escalation 判定的三處重複查詢面、收攏屬拍板級）。
 
-- [ ] T061 [US5] `base-web/src/views/manage/user/modules/user-unlock-modal.vue` 新檔（雙維下拉＋條件輸入、顯式帶 `dimension`、
-  打既有 `fetchUnlockLogin`）＋`index.vue` 頁首鈕接線（`user:unlock` gating）。
-- [ ] T062 [US5] **★射程已縮為確認輪**（本刀 U6 已隨 T030／T031 原文一併交付）：`userMemo` 列表純文字欄
+- [X] T061 [US5] `base-web/src/views/manage/user/modules/user-unlock-modal.vue` 新檔（雙維下拉＋條件輸入、顯式帶 `dimension`）
+  ＋**新增** `fetchUnlockLogin` 至 `base-web/src/service/api/rev5-user-admin.ts`＋`Api.UserAdmin.UnlockReq` 至
+  `base-web/src/typings/api/rev5-user-admin.d.ts`＋`index.vue` 頁首鈕接線（`user:unlock` gating）。
+  ★★**落字勘誤（本刀 U7 實暴）**：原文寫「打**既有** `fetchUnlockLogin`」——「既有」指的是
+  **後端端點**（`POST /systemManage/unlockLogin`，004 建、見 contracts §「既有 …（004；本刀接 UI＋帳號維套規則）」），
+  **不是前端 fetcher**。前端側該 fetcher 與其請求型在本 task 之前**全樹零命中**、由本 task 新建。
+  歸屬依契約檔頭逐字：本族 wire 型的家＝`Api.UserAdmin`（`rev5-user-admin.d.ts`／fetcher `rev5-user-admin.ts`），
+  且該契約標題即「使用者管理十支端點（**＋unlockLogin UI 接線**）」⇒ ★**不得**塞進 `rev5-user-center.*`
+  （那支檔頭逐字寫「兩支端點皆 `Protection::Authed`」，而 unlockLogin 是 `Protection::Policy`／super-only 的
+  `/systemManage/*` 端點），亦**不得**在 `.vue` 內直接 `import { request }`（全樹零先例、破分層）。
+- [X] T062 [US5] **★射程已縮為確認輪**（本刀 U6 已隨 T030／T031 原文一併交付）：`userMemo` 列表純文字欄
   （零原始 HTML 插值、`view-render-guard` 綠）＋抽屜 textarea（B-003 最後一張表）＋兩語 i18n 鍵
   （`userMemo`／`form.userMemo`）皆已落地。⇒ 本 task 只需**對賬確認**並為 B-003 最後一張表關帳，**勿重覆施工**。
   ★成因＝T030 原文逐字含「記事」欄、T031 原文逐字含「memo textarea」，且 U6 自驗要求 `view-render-guard` 綠
@@ -667,6 +680,48 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 **Goal**: B-089 結案（登入頁降 required-only）＋順路三條（B-129／B-132／B-128 ①②）。
 
 **Independent Test**: quickstart §3 末（含特殊字元密碼登入）＋§6-5；role 頁換角色 modal 無殘影；menu 頁回收桶每頁 10。
+
+★**U7 執行結果（首支 `wf_866e1f35-c3f` 3 支＋補跑 `wf_15c96e8a-2fc` 9 支、2026-08-29 收尾）**
+
+- **量**：前端十二檔（含六支新檔）。`pnpm typecheck` rc=0｜`pnpm lint` **0 errors**（唯一 warning 在未受改的
+  `user-detail/[id].vue`、屬既有）｜改動 `.ts` 逐檔 `oxlint` 0 warning／0 error｜`fork-delta-lint` 綠（授權判定 136→**141** 處）｜
+  `view-render-guard` 綠（受掃 18→**19** 檔）｜`docs-sync lint` 0 錯誤｜**wire-schema 86→89**（+3：`Api.UserAdmin.UnlockReq`／
+  `Api.UserCenter.ChangePasswordReq`／`Api.UserCenter.PasswordPolicyView`）。i18n 兩語各 **697 葉鍵**、對稱差集皆空。
+  `scroll-x` 1932→**2002**（operate 欄 130→200 同批改）。
+- **審查**：補跑的**規格符合性輪第 0 輪即零 blocker**；碼品質輪跑滿三輪 fix＋確認輪，餘 2 筆由主線接手。
+- ★★**首支為何 3 支就停：fix agent 回 `blocked`，而它是對的**。T061 的 `fetchUnlockLogin` 與 `UnlockReq`
+  唯一合法的家是 U6 建的 `service/api/rev5-user-admin.ts`／`typings/api/rev5-user-admin.d.ts`，而**我方 prompt 的
+  允許清單漏列了那兩支**。agent 逐條驗證後駁回三條繞道：塞 `rev5-user-center.*`（違該檔頭「兩支端點皆 `Authed`」，
+  而 unlockLogin 是 `Protection::Policy`／super-only）／`.vue` 內直呼 `request`（全樹零先例）／只做 gating 不接 API
+  （點了沒反應的鈕＋七枚孤兒 i18n 鍵，比不做更糟）。★**空間邊界該擋住的是越界，不是把人逼去繞道**——這次兩件都做到。
+- ★**它同時揭穿任務書的事實錯誤**：T061 原文「打**既有** `fetchUnlockLogin`」——「既有」指的是**後端端點**（004 建），
+  前端該 fetcher 全樹零命中。已勘誤 T061 並寫明歸屬依據與兩條禁止路徑。
+- ★★**契約落字勘誤（本輪最有價值的一筆、靜默錯）**：`contracts/wire-user-admin.md` 末節把來源維標的欄寫成
+  `ip?: string`，**而該節自陳「既有契約不變」**——既有契約（`specs/004-ip-trust-anchor/contracts/wire-throttle-unlock.md`）
+  的欄名是 `target`，後端 DTO `UnlockLoginReq` 亦為 `target`＋camelCase，rev4 前端同族型同。
+  ★**照 `ip` 落地會是靜默錯**：請求形制合法、後端只看到「來源維標的缺席」⇒ 恆回 `2222`，畫面上像是「這個 IP 沒被鎖」
+  而非「你送錯欄名」。implementer 取 `target`（正確側）並在型 doc 就地記載；主線已於契約補勘誤註。
+- **主線於單元邊界的處置三則**：
+  ①**`pwd-gen-modal.vue` 的 `defineModel` 具名 `show` → `visible`**（含兩處掛載點共 4 行）：全庫既有六支開關型
+  `defineModel` 全數具名 `visible`，連同單元交付的 `user-unlock-modal.vue` 也是——★兩支新檔自己就不同形。
+  危害在可讀性與擴散：寫錯不會 typecheck 紅（多餘的 `v-model:visible` 只是綁到不存在的 model 上、**浮層永不開啟且無錯誤訊息**）。
+  ②**`user-operate-drawer.vue` 的 self 不變式補到送出面**：`statusChanged`／`rolesChanged` 各補 `!selfFieldsLocked.value &&`，
+  與同函式的 `sessionPolicyChanged`（已有 `isSuper.value &&`）同形。★**同一函式自己立的原則只套用了一半**——
+  那段註解逐字寫著「把不變式只寫在一個 `:disabled` 上，等於讓一個顯示屬性當唯一防線」，卻只對 sessionPolicy 兌現。
+  現況不可達（回填值＋disabled ⇒ diff 恆 false），修的是守門的耐久性。
+  ③**契約 `ip` → `target` 勘誤**（見上；依 §4 用 `errata` 枚舉、1 處命中）。
+- **B-144 第三度復發**：`pnpm lint`（含 `--fix`）再次改寫清單外的 `views/manage/ip-rule/index.vue`（6 行註解排版）。
+  ★主線判定**還原**而非順手吃掉——U7 的 diff 已夠複雜，混入無關檔會讓復核更難；清償留給「動得到該檔的刀」（B-144 候選處置①）。
+  ★另註：`typings/components.d.ts` 的 diff 是 unplugin-vue-components 由 dev 容器自動重算的**生成物**，手動還原會被立刻改回，屬預期改動。
+- **主線追認兩則工程自決**（皆已於 `contracts/msg-keys.md` 落 as-built 註）：`page.userCenter.title` **刻意未設**
+  （頁標題已由既有 `route['user-center']` 承載，另立同義鍵＝零消費者＋第二份說法）／`passwordHint` 落
+  `page.manage.user.*` **直屬層**（依契約列序，它是 `pwdGen.{...}` 的同級兄弟）。
+- ★**(vi) 用途變異自證已完成**（首支）：REAL_RC=1、2 筆「檔 `src/views/user-center/index.vue` 不在 ★軌道
+  `BASE-WEB-MANAGE-PAGE-WIRING(vi)` 授權檔案集」，還原後 `diff -q` 逐位相同、RESTORED_RC=0。
+  ⇒ **(v)（U6）與 (vi)（U7）皆已補做**；餘 `LOGIN-CAPTCHA-WIRING(ii)` 屬 U8 之 T065。
+- **T062 對賬確認屬實**（未重覆施工）：`userMemo` 列表欄走預設純文字渲染、抽屜 textarea、兩語 `userMemo`／`form.userMemo` 皆在。
+  ⇒ **B-003 最後一張表可於收刀關帳**。
+- **未竟**：碼品質輪確認輪兩筆由主線修完後未再跑一輪（同 U3～U6 之形）⇒ 併入收刀前的 final holistic review。
 
 - [X] T063 [P] [US6] `base-web/src/views/manage/role/modules/{menu-auth-modal.vue,button-auth-modal.vue,endpoint-auth-modal.vue}`
   （(iii) 補完、免 bump）：`getChecks()` 起手清 `rawChecks`／`protectedIds`＋`getHome()` 請求世代（B-129）；★排在 US1 抽屜照抄範式之前

@@ -91,8 +91,14 @@
 
 ## 既有 `POST /systemManage/unlockLogin`（004；本刀接 UI＋帳號維套規則）
 
-- Body：`{ dimension: 'user' | 'ip', userName?: string, ip?: string }`（既有契約不變）。帳號維：標的存在且 T ⊆ A（5003）；
+- Body：`{ dimension: 'user' | 'ip', userName?: string, target?: string }`（既有契約不變）。帳號維：標的存在且 T ⊆ A（5003）；
   IP 維不套。UI＝user 頁頁首 modal（`user:unlock` gating）。
+  > ★**2026-08-29 勘誤（本刀 U7 邊界）**：來源維標的欄原寫作 `ip`，係落字之誤——**本節自陳「既有契約不變」，
+  > 而既有契約的欄名是 `target`**。三方交叉查證一致：①`specs/004-ip-trust-anchor/contracts/wire-throttle-unlock.md`
+  > 請求表三欄逐字為 `dimension`／`userName`／`target`②後端 DTO `handler/throttle.rs` 之 `UnlockLoginReq` 為
+  > `target: Option<String>`＋`#[serde(rename_all = "camelCase")]` ⇒ 上 wire 即 `target`③rev4 前端同族型亦為 `target`。
+  > ★**照 `ip` 落地會是靜默錯**：請求形制合法、後端只看到「來源維標的缺席」⇒ 恆回 `2222`，畫面上看起來像是
+  > 「這個 IP 沒被鎖」而非「你送錯欄名」。本刀 U7 的實作取 `target`（正確側），型 doc 已就地記載本勘誤。
 
 ## 12. 已知態（本刀收官時的 as-built 落差，非待辦缺件）
 

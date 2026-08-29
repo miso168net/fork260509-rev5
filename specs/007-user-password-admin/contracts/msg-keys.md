@@ -50,6 +50,11 @@
 
 `title`／`password.{title,oldPassword,newPassword,confirmPassword,submit,success,hint}`。
 
+> ★**as-built 註（本刀 U7）**：其中 `title`（頁標題）**未設**——個人中心的頁標題已由既有 `route['user-center']`
+> 承載（兩語皆在），另立同義鍵即多一枚零消費者的鍵與第二份說法。餘七鍵照列落地。
+> ★另註：`page.manage.user.passwordHint` 落在 `page.manage.user.*` 的**直屬層**（非 `pwdGen.*` 子樹）——
+> 依本檔列序，它是 `pwdGen.{...}` 的同級兄弟。
+
 ## 前端內部詞彙表（既有、零新增）
 
 `biz.user.passwordViolation.{minLength,maxLength,maxBytes,requireDigit,requireLowercase,requireUppercase,requireSpecial,forbidUsername}`＋
