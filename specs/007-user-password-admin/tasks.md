@@ -299,15 +299,15 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 - [X] T028 [US1] `rust-api/server/src/handler/user.rs`＋`rust-api/server/tests/authz_entrypoint_lint.rs`：角色集**實際變更**時
   commit 後 `reload_enforcer`（B-093 閉合、Applied 即觸發不問 diff 之口徑照 006 grant 面）＋`RELOAD_CALL_FILES` 擴
   `handler/user.rs`（恰等斷言、實得序以實跑為準）＋deleteUser 硬刪指派亦觸發（data-model §3.4）＋測（無角色變更零觸發之特性測）。
-- [ ] T029 [US1] `base-web/src/typings/api/rev5-user-admin.d.ts`＋`base-web/src/service/api/rev5-user-admin.ts` 新檔（`Api.UserAdmin.*`；
+- [X] T029 [US1] `base-web/src/typings/api/rev5-user-admin.d.ts`＋`base-web/src/service/api/rev5-user-admin.ts` 新檔（`Api.UserAdmin.*`；
   contracts/wire-user-admin.md 逐欄；直接路徑 import 不經 barrel；`system-manage.ts` 不動）＋`pnpm exec oxlint <file>` 綠。
-- [ ] T030 [US1] `base-web/src/views/manage/user/index.vue`（修改型 (v)、逐行 `原行:`）：接真 `fetchGetUserList`／`fetchGetDeletedUsers`；
+- [X] T030 [US1] `base-web/src/views/manage/user/index.vue`（修改型 (v)、逐行 `原行:`）：接真 `fetchGetUserList`／`fetchGetDeletedUsers`；
   刪 console.log 假實作；回收桶 `showDeleted` toggle 切兩資料源（已刪模式隱搜尋卡、operate 欄換復原、不加刪除時間欄）；
   列表欄含角色／狀態／會話政策／記事／審計欄；`scroll-x`＝Σ 欄寬（依 T004 量測）；★治理清單呼叫帶參（B-132 於本頁結構性不重現）。
-- [ ] T031 [US1] `base-web/src/views/manage/user/modules/user-operate-drawer.vue`（修改型 (v)）：接真 `fetchAddUser`／`fetchUpdateUser`；
+- [X] T031 [US1] `base-web/src/views/manage/user/modules/user-operate-drawer.vue`（修改型 (v)）：接真 `fetchAddUser`／`fetchUpdateUser`；
   刪 `getRoleOptions()` mock 段改打 `fetchGetAllRoles`；修 `path="email"`→`userEmail`（帶 `原行:`）；password 僅新增模式；
   `userName` 編輯模式 disabled；memo textarea；update wrapper 剝 `userName`；★角色下拉全列（不預判包含規則、G8）。
-- [ ] T032 [US1] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`base-web/src/typings/app.d.ts`：`page.manage.user` 補列表／抽屜／
+- [X] T032 [US1] `base-web/src/locales/langs/{zh-cn,en-us}.ts`＋`base-web/src/typings/app.d.ts`：`page.manage.user` 補列表／抽屜／
   回收桶／確認框鍵（兩語鍵集相等、依 contracts/msg-keys.md 候選）＋`App.I18n.Schema.page.manage.user` 型節；`pnpm typecheck` 綠。
 
 ★**U2 執行結果（workflow `wf_44629d8c-192` 實作＋`wf_bc16443b-8c1`／`wf_5f336143-fed` 兩支審查專跑、共 24 agents、2026-08-28 收尾）**
@@ -507,6 +507,37 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   B-141（三件共用件住哪一家、`finish_user_write` 結構性搬不動）／L-069（可見性放寬打穿名冊閘射程）。
 - **未竟**：碼品質輪確認輪的三筆由主線修完後**未再跑一輪確認**（同 U3 之形）⇒ 併入收刀前的 final holistic review。
 
+★**U6 執行結果（workflow `wf_709a7170-fec`、11 支、2026-08-29 收尾）**
+
+- **量**：前端接真十檔（含兩支新檔）。`pnpm typecheck` rc=0｜兩支新檔 `oxlint` 0 error／0 warning｜
+  `fork-delta-lint` 綠（授權判定 101→**136** 處）｜`view-render-guard` 綠｜`docs-sync lint` 0 錯誤。零 rust 改動。
+  `page.manage.user` 兩語各 19→**37 葉鍵**（+18、鍵集相等）；`scroll-x` **962→1932**（16 欄 Σ、機器重算核對）。
+- **審查**：★**規格符合性輪第 1 輪即零 blocker**（本刀最好的一次）；碼品質輪跑滿三輪 fix＋確認輪，餘 1 筆。
+- ★★**用途 (v) 的變異自證（L-063 補做、本單元是 (v) 的第一個落標記處）——這次真的紅**：
+  改壞憲法 §III.2 之 (v) 列範圍欄路徑 → `fork-delta-lint` **REAL_RC=1**、14 筆「不在 ★軌道
+  `BASE-WEB-MANAGE-PAGE-WIRING(v)` 授權檔案集」；還原後 md5 逐位相同、RESTORED_RC=0。
+  ⇒ L-063 的預測完全兌現：T003（Amendment 當下）那次 rc=0 是**結構性 vacuous**（碼裡零 (v) 標記可比），
+  真正的守門力要到第一個落標記處才驗得出來。★同紀律套用於 (vi)→T050、LOGIN-CAPTCHA(ii)→T065。
+- **主線於單元邊界的處置四則**：
+  ①**契約勘誤兩處**：`wire-user-admin.md` §3／§4 的 `nickName?: string` 補 `| null`——§4 的 updateUser 走
+  tristate（後端 `Option<Option<String>>`）、與本節散文自己寫的「null＝清空」相抵，且與同 Body 其餘四個可空欄不一致；
+  與 §共用型那筆（U1 邊界）**同一欄同源落字**。★依 §4 用 `errata` 機器枚舉（5 處命中）**逐處判性質**：
+  §1 之 `UserSearchParams.nickName` **刻意不補**（模糊過濾字串、只有「有值／未設」兩態，後端以
+  `filter(|v| !v.is_empty())` 把空字串當未設，標 `| null` 憑空多一個沒有語意的態）——理由已就地寫進該行，
+  免得下次 errata 命中時又被「順手補齊」。
+  ②**`contracts` 新增 §12 已知態**＋**B-143 立帳**：搜尋卡的手機／信箱兩欄填了不會濾（§1 過濾面恰四欄）。
+  ★**這對 rev4 是行為回退**（rev4 前後端那兩欄真的會濾），而 `user-search.vue` 不在 (v) 的範圍欄內、
+  本刀結構性無法自修 ⇒ 立帳＋列入 T070 的 CDP 已知態排除清單，免得被當成「rev5 沒做完」重新發現一次。
+  ③**B-144 立帳**：`pnpm lint` 會改寫允許清單外的既有檔（本輪誤改 `ip-rule/index.vue` 的註解排版、
+  成因是該檔本來就不是 lint-clean）——空間邊界靠「工作樹只出現清單內檔」判定，這筆改寫會讓清單外檔平白出現。
+  ④**B-145 立帳**：持有停用角色的帳號、其既有指派在抽屜下拉不可見（列 wire 的 `roles` 不濾狀態、
+  `getAllRoles` 只回活性且啟用者）。U6 已以「`roleIds` 只在真改了才送」＋`roleAssignLocked` 鎖定態擋住靜默丟失，
+  代價是該帳號暫時改不動角色指派。
+- **T062 射程改述**：memo 兩面已隨 T030／T031 原文一併落地（列表純文字欄＋抽屜 textarea＋兩語鍵）
+  ⇒ T062 縮為**確認輪**、勿重覆施工（已改本檔）。
+- **未竟**：碼品質輪確認輪那筆為「結構性無法自修、已立帳」⇒ 無殘留修復項；但確認輪之後未再跑一輪
+  （同 U3～U5 之形）⇒ 併入收刀前的 final holistic review。
+
 - [ ] T049 [US3] `base-web/src/typings/api/rev5-user-center.d.ts`＋`base-web/src/service/api/rev5-user-center.ts` 新檔＋
   `base-web/src/hooks/business/pwd-policy.ts` 新檔（`buildPolicyRules`；取不到靜默降 required）＋
   `base-web/src/components/custom/pwd-gen-modal.vue` 新檔（`crypto.getRandomValues`、依政策產合規密碼）。
@@ -621,8 +652,11 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 - [ ] T061 [US5] `base-web/src/views/manage/user/modules/user-unlock-modal.vue` 新檔（雙維下拉＋條件輸入、顯式帶 `dimension`、
   打既有 `fetchUnlockLogin`）＋`index.vue` 頁首鈕接線（`user:unlock` gating）。
-- [ ] T062 [US5] `base-web/src/views/manage/user/{index.vue,modules/user-operate-drawer.vue}`：`userMemo` 列表純文字欄
-  （零原始 HTML 插值、`view-render-guard` 綠）＋抽屜 textarea（B-003 最後一張表）；i18n 鍵同批。
+- [ ] T062 [US5] **★射程已縮為確認輪**（本刀 U6 已隨 T030／T031 原文一併交付）：`userMemo` 列表純文字欄
+  （零原始 HTML 插值、`view-render-guard` 綠）＋抽屜 textarea（B-003 最後一張表）＋兩語 i18n 鍵
+  （`userMemo`／`form.userMemo`）皆已落地。⇒ 本 task 只需**對賬確認**並為 B-003 最後一張表關帳，**勿重覆施工**。
+  ★成因＝T030 原文逐字含「記事」欄、T031 原文逐字含「memo textarea」，且 U6 自驗要求 `view-render-guard` 綠
+  （該守門的標的正是記事欄的純文字插值）⇒ 結構上不可能只做一半。
 
 **Checkpoint**: US5 可獨立驗收——七枚按鈕碼與 seed 68 全數取得消費者。
 
@@ -634,7 +668,7 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 **Independent Test**: quickstart §3 末（含特殊字元密碼登入）＋§6-5；role 頁換角色 modal 無殘影；menu 頁回收桶每頁 10。
 
-- [ ] T063 [P] [US6] `base-web/src/views/manage/role/modules/{menu-auth-modal.vue,button-auth-modal.vue,endpoint-auth-modal.vue}`
+- [X] T063 [P] [US6] `base-web/src/views/manage/role/modules/{menu-auth-modal.vue,button-auth-modal.vue,endpoint-auth-modal.vue}`
   （(iii) 補完、免 bump）：`getChecks()` 起手清 `rawChecks`／`protectedIds`＋`getHome()` 請求世代（B-129）；★排在 US1 抽屜照抄範式之前
   （實際執行序見 Dependencies）。
 - [ ] T064 [P] [US6] `base-web/src/views/manage/menu/index.vue`（(ii) 補完、帶 `原行:`）：切回收桶模式時重置 `pagination.pageSize`
@@ -654,6 +688,12 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   （base-web 型 commit→容器內 `python3 tools/wire-schema.py extract`→fixtures commit→外層 pin）＋`Api.UserAdmin.*`／
   `Api.UserCenter.*` 每 definition 裁判（正向≥1／反例≥1；`status` 二值、`roles` 陣列、可空欄 null 形為重點）＋
   `python3 tools/wire-schema.py check` 綠；definitions 自 75 淨增（補記實數）；★`Api.IpRule.*` 七支不補（B-098 留帳句不動）。
+  ★★**排程勘誤（本刀 U6 實暴）**：本 task 原設想「重抽留到 Polish 期一次做」，但 **`wire-schema` 是 pre-commit 閘**——
+  任何新增 `typings/api/**` 的單元，其**外層 commit 當場就會被擋**（訊息：「快照與 typings 重抽不一致」）。
+  ⇒ 重抽**不是**可延後的收尾動作，而是「新增 wire 型的單元邊界必辦」。U6 已中途重抽一次：
+  **75→86**（+11 個 `Api.UserAdmin.*`、零移除），rust-api 快照與 pin 隨該單元同批 bump。
+  ⇒ 本 task 的殘餘射程＝**U7 之後的最後一次重抽**（吸收 `Api.UserCenter.*`）＋**每 definition 的裁判腿**
+  （正向≥1／反例≥1）＋終值補記；重抽本身屆時多半已是 no-op。
 - [ ] T068 `rust-api/server/src/handler/role.rs`：B-113 處置——種合成候選外 protected 探針列（非 seed、`CasbinCleanup` 兜底）、
   把 `outside_protected≥1` 自 assert 訊息升為真 assert；★該測續綠非轉紅（T002⑥ 佐證）；BACKLOG 條文更正隨 T073。
 - [ ] T069 全量閘：容器 serial 全量 `cargo test` rc=0（基線 829、淨增補記實數）＋`docs-sync.py lint` 0 錯誤＋`schema-gate.py check` 三閘綠

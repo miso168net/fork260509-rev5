@@ -14,7 +14,10 @@
   createdAt: string, createdBy: string | null, updatedAt: string | null, updatedBy: string | null }`（`roles`＝現役角色 code；
   `createdBy／updatedBy`＝帳號名經 `resolve_operator_names`；id 欄走 `serialize_i64_number_guarded`）。
 - `UserSearchParams`＝`{ current: number, size: number, userName?: string, nickName?: string, status?: UserStatus,
-  userGender?: string }`（模糊欄空字串＝未設）。
+  userGender?: string }`（模糊欄空字串＝未設）。★**過濾面恰此四欄**（`userName`／`nickName`／`status`／`userGender`）——
+  搜尋卡上的手機／信箱兩欄不在其內，見 §12 已知態。
+  ★本型的 `nickName` **刻意不帶 `| null`**（勿比照 §3／§4 的同名欄「順手補齊」）：它是模糊過濾字串、只有「有值／未設」
+  兩態，後端以 `q.nick_name.filter(|v| !v.is_empty())` 把空字串當未設；標上 `| null` 會憑空多出一個沒有語意的態。
 - `UserList`＝`PageRes<UserRecord>`（共用分頁信封；現役 `id ASC`）。
 
 > ★**2026-08-28 勘誤（U1 邊界、主線工程自決）**：`nickName` 原寫作非可空 `string`，係落字之誤——本檔 §3 addUser 之 `nickName?`（選填、空字串→NULL）、DB `sys_user.nick_name`（nullable=YES）、rev5 既有同族欄慣例（`Api.RoleAdmin` 之 `roleMemo: string | null`）與 rev4 自身 typing（`nickName?: string | null`）四者一致指向可空，且照原字面落地就得在 handler 端捏一個空字串當值（＝rev4 的空字串摺疊形，research R2 明列不帶回）。故訂正為 `string | null`；碼面 `handler/user.rs` 之 `Option<String>` 為正、無須改。
@@ -29,7 +32,7 @@
 
 ## 3. `POST /systemManage/addUser`
 
-- Body：`{ userName: string, password: string, nickName?: string, userGender?: string | null, userPhone?: string | null,
+- Body：`{ userName: string, password: string, nickName?: string | null, userGender?: string | null, userPhone?: string | null,
   userEmail?: string | null, status?: UserStatus, roleIds?: number[], userMemo?: string | null }`（空字串→NULL；status 預設 `'1'`；
   roleIds 預設 `[]`）。
 - 守門序：形制（`userNameInvalid`）→現役唯一（`userNameExists`／`userEmailExists`，含 23505 兜底）→信箱格式
@@ -39,9 +42,12 @@
 
 ## 4. `POST /systemManage/updateUser`
 
-- Body：`{ id: number, nickName?: string, userGender?: string | null, userPhone?: string | null, userEmail?: string | null,
+- Body：`{ id: number, nickName?: string | null, userGender?: string | null, userPhone?: string | null, userEmail?: string | null,
   status?: UserStatus, roleIds?: number[], userMemo?: string | null }`（三態：缺席＝不動、null＝清空；`userName` 出現即拒
   `userNameImmutable`；`roleIds`＝期望全集全量替換）。
+  > ★**2026-08-29 勘誤（本刀 U6 邊界）**：`nickName` 原寫作 `string`，與同 Body 其餘四個可空欄不一致，且與本節散文自己寫的
+  > 「三態：缺席＝不動、**null＝清空**」相抵——後端該欄是 `Option<Option<String>>`（`handler/user.rs` 之 `UpdateReq`），
+  > null 這一態本來就收得到。與 §共用型那筆（2026-08-28、U1 邊界）**同一欄同源落字**，此處補齊。
 - 守門序：notFound→seed（id 1 且 status→'2'：`superCannotDisable`；id 1 且 roleIds 缺 R_SUPER：`seededProtected`）→self
   （`status`／`roleIds` 出現：`cannotEditSelfRoleOrStatus`）→T ⊆ A ∧ N ⊆ A（5003）→唯一／格式→值 diff（全缺席早退＋
   無變更＝no-op 0000 零寫入）。
@@ -87,3 +93,15 @@
 
 - Body：`{ dimension: 'user' | 'ip', userName?: string, ip?: string }`（既有契約不變）。帳號維：標的存在且 T ⊆ A（5003）；
   IP 維不套。UI＝user 頁頁首 modal（`user:unlock` gating）。
+
+## 12. 已知態（本刀收官時的 as-built 落差，非待辦缺件）
+
+- **搜尋卡的手機／信箱兩欄填了不會濾**：`user-search.vue` 渲染 `userPhone`／`userEmail` 兩個輸入欄（並掛 pattern 驗證），
+  但 §1 的過濾面恰四欄、後端對那兩欄沉默忽略。本刀 U6 的接線選擇**逐欄顯式只送四欄**（而非整包散開），
+  以免「畫面可填」看起來像「後端會濾」；但欄位本身仍在畫面上。
+  ★**這對 rev4 是行為回退**：rev4 前端送整包 `searchParams`、rev4 後端的 `UserSearchParams` 確收
+  `user_phone`／`user_email` 兩欄 ⇒ 在 rev4 那兩欄是真的會濾的。rev5 把過濾面收窄成四欄是 rev5 拍板；
+  收窄之後留下兩個外觀正常、行為已失效的入口，是接線層的落差。
+  ★**本刀結構性無法自修**：`user-search.vue` 不在憲法 §III.2 用途 (v) 的範圍欄內（明文零改動、任何 diff 即紅），
+  擅改即破軌道授權邊界 ⇒ 已立 **B-143**。★**T070 的 CDP 三方對照請把本項列入已知態排除清單**，
+  免得被當成「rev5 沒做完」重新發現一次。
