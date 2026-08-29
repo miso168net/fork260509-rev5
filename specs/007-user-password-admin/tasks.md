@@ -726,11 +726,11 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 - [X] T063 [P] [US6] `base-web/src/views/manage/role/modules/{menu-auth-modal.vue,button-auth-modal.vue,endpoint-auth-modal.vue}`
   （(iii) 補完、免 bump）：`getChecks()` 起手清 `rawChecks`／`protectedIds`＋`getHome()` 請求世代（B-129）；★排在 US1 抽屜照抄範式之前
   （實際執行序見 Dependencies）。
-- [ ] T064 [P] [US6] `base-web/src/views/manage/menu/index.vue`（(ii) 補完、帶 `原行:`）：切回收桶模式時重置 `pagination.pageSize`
+- [X] T064 [P] [US6] `base-web/src/views/manage/menu/index.vue`（(ii) 補完、帶 `原行:`）：切回收桶模式時重置 `pagination.pageSize`
   （B-132 修法①；★只動 menu 頁、不動 `hooks/common/table.ts`）。
-- [ ] T065 [US6] `base-web/src/views/_builtin/login/modules/pwd-login.vue`（修改型 (vii)、逐行 `原行:`）：`formRules` 之 pwd／userName
+- [X] T065 [US6] `base-web/src/views/_builtin/login/modules/pwd-login.vue`（修改型 (vii)、逐行 `原行:`）：`formRules` 之 pwd／userName
   改 `createRequiredRule`；★不動 `src/constants/reg.ts`；register／reset-pwd stub 不動。
-- [ ] T066 [P] [US6] `docs/ops/RUNBOOK.md`：前端驗證指令分工一段（.vue 走 `pnpm lint`／`.ts` 走 `pnpm exec oxlint <file>`；
+- [X] T066 [P] [US6] `docs/ops/RUNBOOK.md`：前端驗證指令分工一段（.vue 走 `pnpm lint`／`.ts` 走 `pnpm exec oxlint <file>`；
   ★`eslint` 對 `src/**/*.ts` 零覆蓋、`--max-warnings=0` 之 rc=1 為假紅）＋本刀編排 script 前端驗證段照此（B-128 ①②）。
 
 **Checkpoint**: US6 可獨立驗收——設得進的密碼登得進；三條順路缺陷關帳。
@@ -738,6 +738,40 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 ---
 
 ## Phase 9: Polish & Cross-Cutting（DoD 收攏）
+
+★**U8 執行結果（★主線親做、無 workflow、2026-08-29）**
+
+- **軌別自決（回報備查）**：三條 task 合計改動 < 30 行＋一段 RUNBOOK，開 workflow 至少 3 支 agent、
+  跑數十分鐘，編排成本大於收益 ⇒ 主線親做（global CLAUDE.md §9「default to doing the work yourself」）。
+- **T064（menu 頁 pageSize 歸位、B-132 修法①）**：`watch(showDeleted, ...)` 內先判等再賦值＋早退。
+  ★**早退是必要的、不是優化**：`pagination` 的 `{page, pageSize}` 由 hook 的 `paginationParams` watch 監聽，
+  同 tick 把兩值一起改只會合併觸發**一次**重取；若照原樣再呼一次 `getDataByPage(1)`，當 `page` 已是 1 時
+  它會直接 `getData()`，與 watch 那次疊成**同一次切換發兩個請求**，而且第一個還帶著舊的 `size=100`。
+  值未變的路徑（自回收桶切回治理清單）仍由 `getDataByPage(1)` 補一次重取。★只動本頁、未動 `hooks/common/table.ts`。
+  ★歸位值寫成具名常數 `MENU_DEFAULT_PAGE_SIZE`（＝hook 預設 `pageSize: 10`＝`pageSizes` 首項）而非裸 10——
+  它與 hook 預設是同一個約定，裸數字讀不出這層相依。
+- **T065（登入表單降 required-only、`LOGIN-CAPTCHA-WIRING(ii)`）**：`formRules.userName`／`formRules.pwd`
+  （皆為 `[required, patternRules.*]`）改為只取 `createRequiredRule`。★論證逐字入碼註：**設得進的密碼必須登得進**
+  ——本刀讓三入口共用後端的密碼政策單一驗證點（島 I5）、政策鍵可由超管運行期調整；前端若還按一組寫死的正則擋人，
+  就會出現「密碼照政策設好了、登入頁卻說格式不對」的死路。`src/constants/reg.ts` 未動、兩支 stub 未動、
+  用途 (i) 的 captcha 軟區條件渲染零變更。
+  ★**踩到一個標記形制坑**：`原行:` 必須與 `[rev5-inline …]` 在**同一行**——把說明寫成多行、`原行:` 落在續行時，
+  `fork-delta-lint` 逐字報「缺 [rev5-inline token——裸 `原行:` 不構成合法修改型標記」。改為「多行說明在上、
+  最後一行為完整單行標記＋`；原行: …`」後綠（授權判定 141→**144** 處）。
+- **T066（RUNBOOK §9b 前端驗證指令分工、B-128 ①②）**：四件各有其職的表（typecheck／`.vue` 走 `pnpm lint`／
+  `.ts` 走 `oxlint`／標記與渲染閘）＋兩條★注意事項：①`eslint` 對 `src/**/*.ts` **零覆蓋**、`--max-warnings=0`
+  之 rc=1 是**假紅**②`pnpm lint` 內含 `--fix`，會就地改寫「本來就不 lint-clean 的既有檔」（B-144），
+  跑完必須檢查 `git status` 並把清單外的檔存原文→寫回還原。B-128 ② 面（編排 script 照此）已於 U6／U7／U8 三支兌現。
+- ★★**`LOGIN-CAPTCHA-WIRING(ii)` 的變異自證（L-063 的第三處、也是最後一處）**：改壞憲法 §III.2 之 (ii) 列範圍欄
+  → `fork-delta-lint` 逐字紅 **3 筆**「檔 `src/views/_builtin/login/modules/pwd-login.vue` 不在 ★軌道
+  `BASE-WEB-LOGIN-CAPTCHA-WIRING(ii)` 授權檔案集」；還原（存原文→寫回、非 `git checkout`）後 md5 逐位相同
+  （`8b0c7bdc…`）、`git status` 零殘留、重跑 rc=0。
+  ⇒ **(v)（U6）／(vi)（U7）／(ii)（U8）三個新用途的變異自證全部補做完畢，L-063 清償。**
+- **B-144 第四度復發**：`pnpm lint` 又改寫 `views/manage/ip-rule/index.vue`，已還原（同 U7 判定）。
+  ★該筆的處置紀律現已成文於 RUNBOOK §9b。
+- **驗證**：`pnpm typecheck` rc=0｜`pnpm lint` **0 errors**（唯一 warning 在未受改的 `user-detail/[id].vue`、屬既有）｜
+  `fork-delta-lint` 綠（**144** 處）｜`view-render-guard` 綠（19 檔）｜`wire-schema check` byte 一致（89）｜
+  `docs-sync lint` 0 錯誤。零 rust 改動。
 
 - [ ] T067 `rust-api/server/tests/wire_schema.rs`＋`rust-api/server/tests/fixtures/wire-schema.json`：跨子庫兩段式重抽
   （base-web 型 commit→容器內 `python3 tools/wire-schema.py extract`→fixtures commit→外層 pin）＋`Api.UserAdmin.*`／

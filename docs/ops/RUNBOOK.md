@@ -121,6 +121,31 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
   （封死：protected 端點授非 R_SUPER）／`biz.policy.notRestorable`（復原任一腿拒）→ 語意與掛點＝
   ADR 0054；封死謂詞＝`sys_casbin_policy.rs::protected_endpoint_set`；全量替換射程＝候選集（ADR 0056）。
 
+## 9b. 前端驗證指令分工（★誤用即假紅／假綠；B-128）
+
+在 `base-web/` 下跑。**四件各有其職，缺一不可互相替代**：
+
+| 面 | 指令 | 判準 |
+|---|---|---|
+| 型別 | `pnpm typecheck` | rc=0（`vue-tsc --noEmit --skipLibCheck`） |
+| `.vue` | `pnpm lint` | **0 errors**（既有 warning 見下方注意事項） |
+| `.ts` | `pnpm exec oxlint <file>` | 0 errors／0 warnings |
+| 標記與渲染 | 倉庫根跑 `python3 tools/fork-delta-lint.py`／`tools/view-render-guard.py` | 綠 |
+
+★★**`eslint` 對 `src/**/*.ts` 零覆蓋——拿它判 `.ts` 是假紅**：`pnpm exec eslint --print-config src/service/request/index.ts`
+回 `undefined`＝flat config 無匹配設定；實跑則以「File ignored because no matching configuration was supplied」
+計一個 warning ⇒ `--max-warnings=0` 下 **rc=1**。該現象對**未改動**的既有檔同樣重現（＝既存現象、非某次改動所致）。
+`.ts` 面的實際檢查由 `oxlint` 承接（`package.json` 之 `lint` 已是 `oxlint` 打頭）。
+
+★★**`pnpm lint` 內含 `--fix`，會就地改寫「本來就不 lint-clean 的既有檔」**（B-144）：本刀 U6～U8 三度撞到
+`src/views/manage/ip-rule/index.vue` 被重排一段 HTML 註解。危害在**執行單元的空間邊界靠「工作樹只出現允許清單內的檔」
+判定**——這筆改寫會讓清單外的檔平白出現在 `git status`，很容易被誤當成自己的交付。
+處置：跑完 `pnpm lint` 後檢查 `git status`，清單外的檔一律**存原文→寫回**還原（★不用 `git checkout`，L-060），
+並在交付報告裡註明。根治面＝讓那些檔一次性回到 lint-clean（B-144 候選處置①）。
+
+★**編排 script 的前端驗證段照此表寫**：把「`.ts` 走 oxlint、`.vue` 走 `pnpm lint`、MUST NOT 用 eslint 判 `.ts`」
+與上述 `--fix` 還原紀律逐條烤進 agent prompt（本刀 U6／U7／U8 三支已照辦）。
+
 ## 10. migration 操作
 
 ★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝
