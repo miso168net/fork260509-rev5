@@ -67,6 +67,7 @@
 | biz.user.pwdSetTooFrequent | 密碼設定過於頻繁，請 {remainingSeconds} 秒後再試 | Password was set too recently, retry in {remainingSeconds}s |
 | biz.user.roleNotFound | 角色不存在 | Role not found |
 | biz.user.seededProtected | 內建帳號受保護 | Built-in account is protected |
+| biz.user.sessionPolicyInvalid | 會話策略無效 | Invalid session policy |
 | biz.user.superCannotDisable | 超級管理員不可停用 | Super administrator cannot be disabled |
 | biz.user.userEmailExists | 信箱已被使用 | Email already in use |
 | biz.user.userEmailInvalid | 信箱格式不正確 | Invalid email format |

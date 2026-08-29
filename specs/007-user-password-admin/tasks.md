@@ -528,19 +528,37 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T052 [P] [US4] `rust-api/server/src/handler/user.rs` 測段（每支寫端 ≥2 負向＋1 正向、FR-021）：被授權 R_ADMIN 對持 R_SUPER 標的 5003／
+- [X] T052 [P] [US4] `rust-api/server/src/handler/user.rs` 測段（每支寫端 ≥2 負向＋1 正向、FR-021）：被授權 R_ADMIN 對持 R_SUPER 標的 5003／
   指派超出自身角色集 5003／Super（僅持 R_SUPER）對持其未持角色之標的成功（A＝全集非 vacuous）；測內以 `casbin_rule` 資料列 grant、
   `CasbinCleanup` 兜底；★停用角色仍計入 T 之案。
-- [ ] T053 [P] [US4] `rust-api/server/src/handler/throttle.rs` 測段：unlockLogin 帳號維套規則（R_ADMIN 解鎖持 R_SUPER 帳號 5003）／
+- [X] T053 [P] [US4] `rust-api/server/src/handler/throttle.rs` 測段：unlockLogin 帳號維套規則（R_ADMIN 解鎖持 R_SUPER 帳號 5003）／
   IP 維不套（既有行為不變）。
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4]（★變異紅證：任取一支寫端拆掉 `assert_no_escalation` 呼叫→實跑 T052 該支負向案確認紅→還原、
+- [X] T054 [US4]（★變異紅證：任取一支寫端拆掉 `assert_no_escalation` 呼叫→實跑 T052 該支負向案確認紅→還原、
   紅證逐字補記本 task；SC-006 之機器承載）`rust-api/server/src/handler/user.rs`：`assert_no_escalation` 掛八支寫端（守門序④；`actor_scope_of`＋
   `role_codes_all_of_user`＋`codes_of_role_ids` 取三元）＋違者 5003 純 key＋`tracing::warn!(actor, target, endpoint)`
   （★不含角色差集）。
-- [ ] T055 [US4] `rust-api/server/src/handler/throttle.rs`：`unlock_login` 帳號維分支鎖內加 `assert_no_escalation`（T 取標的全部指派列）；
+  ★**as-built（本刀 U5）**：唯一掛點式＝`handler::user::guard_no_escalation`（`pub(crate)`），八支寫端各呼一次、
+  `handler::throttle` 之 unlock 帳號維借道同一支（零同形拷貝）。`restore_user` 的鎖內位置**由 handler 自取
+  advisory 生出**（它的①鎖讀住 facade `sys_user::restore` 內、handler 端原本沒有「鎖後、寫入前」的位置）——
+  取此形而非改 facade 簽章：後者會讓 facade 的稽核快照依賴 caller 傳值，屬拍板級。
+  ★**恆過的只有兩支**（`restore_user` 之 `T ≡ ∅` 且不收 `roleIds`／`update_user_session_policy` 因 super-only）；
+  ★`add_user` **非恆過**——`T ≡ ∅` 但 `N`＝請求的 `roleIds` 可越界，「新開一個超管帳號」正是全樹最直接的提權路徑
+  （碼品質確認輪抓出守門骨架註解把它誤列為恆過、三處敘述分岔，主線已對齊）。
+  ★**變異紅證四發**（皆「先存原文→實跑→寫回」、md5 逐位還原、零 `git checkout`）：
+  ①拆 kickUser 的④ → `kickUser／T ⊄ A（★kick 無 seed 保護，擋它的只有島 I7）：5003 走 HTTP 403：
+  {"code":"0000","data":{"revoked":1},...} left: 200 right: 403`（被下放的 Admin 真的把持 `R_SUPER` 的帳號踢下線）
+  ②整格拆 unlock 帳號維守門 → `★★帳號維套規則：R_ADMIN 解鎖持 R_SUPER 的帳號須 5003 純 key…；實得 None
+  left: None right: Some(("5003", "system.forbidden"))`
+  ③`set_session_policy` 三值收斂改壞（`if false`）→ `值域外 → 2222：{"code":"0000",...} left: String("0000") right: "2222"`
+  ④拆 restoreUser 的④ → `restoreUser／T ⊄ A（合成態：已刪列仍掛 R_SUPER 指派）… left: 200 right: 403`
+  ——即那條「生產態恆過所以看不出來」的掛點確實有紅點守著。
+  ★**機器閘**：本刀 U5 邊界另補兩張名冊閘（`tests/authz_entrypoint_lint.rs`）——
+  `NO_ESCALATION_CALL_FILES`（守「不繞過掛點式、自己直呼純函式」）與
+  `GUARD_NO_ESCALATION_CONSUMER_FILES`（守「借道掛點式的人有沒有進過名冊」）；各附變異紅證。
+- [X] T055 [US4] `rust-api/server/src/handler/throttle.rs`：`unlock_login` 帳號維分支鎖內加 `assert_no_escalation`（T 取標的全部指派列）；
   IP 維不套；doc 記射程。
 - [ ] T056 [US4] `base-web/src/views/manage/user/index.vue`（修改型 (v)）：七枚按鈕碼逐鈕 `hasAuth` gating（B-099 形：外層 div 保底＋
   `v-show`＋內層 `v-if`）；★自己那列操作下拉不列「重設密碼」（self 五不）。
@@ -561,14 +579,46 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T058 [P] [US5] `rust-api/server/src/handler/user.rs` 測段：`update_user_session_policy` 三值收斂＋值域外 2222＋與現值相同 no-op＋
+- [X] T058 [P] [US5] `rust-api/server/src/handler/user.rs` 測段：`update_user_session_policy` 三值收斂＋值域外 2222＋與現值相同 no-op＋
   已刪 `notFound`＋改 single 不即時踢（既有 session 仍在之斷言）。
-- [ ] T059 [P] [US5] `rust-api/server/tests/contract.rs`：`user-update-session-policy` ContractCase；`ROUTES_COUNT` 60→61（終值）。
+- [X] T059 [P] [US5] `rust-api/server/tests/contract.rs`：`user-update-session-policy` ContractCase；`ROUTES_COUNT` 60→61（終值）。
 
 ### Implementation for User Story 5
 
-- [ ] T060 [US5] `rust-api/server/src/handler/user.rs`＋`rust-api/server/src/model/facade/sys_user.rs`：`update_user_session_policy` handler＋
+- [X] T060 [US5] `rust-api/server/src/handler/user.rs`＋`rust-api/server/src/model/facade/sys_user.rs`：`update_user_session_policy` handler＋
   `set_session_policy` facade＋`router.rs` 一條（protected 端點、super-only 結構性）＋`ROUTES_COUNT` 61。
+★**U5 執行結果（workflow `wf_4439ba93-594`、15 支＝結構最壞值、2026-08-29 收尾）**
+
+- **量**：rust 測試 958→**969**（淨增 11）。容器內 serial rc=0；`cargo fmt --all -- --check` rc=0；
+  ★**ROUTES 60→61＝終值**、`POLICY_ENDPOINT_COUNT` 44→**45＝終態**（末條期望值改 `updateUserSessionPolicy`）；
+  七閘全綠＋`docs-sync lint` 0 錯誤。零 migration、零 seed 變更。
+  base-web 四檔恰補**一鍵** `sessionPolicyInvalid`（zh-tw 繁體化為「會話策略無效」——與同子樹 `passwordPolicy`
+  的「安全策略」用字一致，未改用「政策／工作階段」以免同子樹出現第二種譯法）；★**本刀二十鍵自此補齊**
+  （U2 十一鍵＋U3 `cannotKickSelf`＋U4 七鍵＋U5 一鍵）⇒ **T051 射程只剩** `page.userCenter.*` 與 `page.manage.user.pwdGen.*`。
+- **審查**：★**規格符合性輪第 3 輪即收斂、零 blocker**（本刀首次規格面一次過）；碼品質輪跑滿三輪 fix＋確認輪，
+  確認輪餘 3 筆由主線接手。agent 用量 15＝結構最壞值，保險絲 16 恰好容下（L-068 的推導公式在此得到實測驗證）。
+- **主線於單元邊界的處置三則**（皆先自 grep 查證、不採信）：
+  ①**守門骨架註解把 `add_user` 誤列為「判定結構性恆過」**（三處敘述分岔：骨架註解／模組 doc 說恆過、fn doc 說
+  `N ⊆ A`）——★這正是該註解自稱要防的事：它寫「此處只列名以免有人以為那三處是誤植」，等於主動告訴下一個
+  維護者 addUser 那行是裝飾，而 addUser 的 `N` 越界正是最直接的提權路徑。已把它移出恆過名單（三支→兩支）
+  並補上「勿把它加回去」的理由與機器證指路。
+  ②**補兩張 no-escalation 名冊閘**：`assert_no_escalation` 的呼叫點名冊（守「不繞過掛點式」、FR-018 具名純函式
+  單點之機器承載）＋`guard_no_escalation` 的跨 handler 消費者名冊（守「借道掛點式的人有沒有進過名冊」）。
+  ★審查員指出的處境與 L-069 逐字同形——`guard_no_escalation` 同樣剛由私有升 `pub(crate)`、被 `throttle.rs` 跨檔
+  消費；且本刀真的出現過一份同形拷貝並在 `target` 欄分岔（一份 `?Option<i64>`、一份裸 `i64`，以 `target=<id>`
+  過濾只撈得到一半），碼品質輪收攏了拷貝卻沒留下防止下一份的紅點。兩發變異紅證：名冊各自清空 → 實得
+  `[("handler/user.rs", [1110])]`／`[("handler/throttle.rs", [218])]`。
+  ③**`set_session_policy` 的 `Result<bool>` 收成 `Result<()>`**：那個布林全樹零消費者、零斷言，寫死成單一值也
+  不會紅；no-op 的機器承載在端點測的 op-log 列數 delta。fn doc 補上與 `update` 之 `roles_changed`（有實際去處）
+  的對照，免得日後有人照類比加回來。
+- **契約次序訂正兩處**（規格輪的非阻斷觀察，主線裁定）：`contracts` §7 與 `data-model` §3.1 的 restoreUser 守門鏈
+  原把 `T(∅) ⊆ A` 排在同名／同信箱之後，與八支寫端通則序（④先於⑤業務）相反。生產態下 `T ≡ ∅` ⇒ ④恆過、
+  兩序在任何生產可達輸入下逐位同形，唯合成態才分得出 ⇒ **取通則序**，免得八支裡留一支需要另記的例外。
+  依 §4 用 `errata` 機器枚舉（2 處命中、逐處處置）。
+- **B-113 探針前提如預期消失**：`updateUserSessionPolicy` 註冊後進候選集 ⇒ `outside_protected` 實際降為 **0**
+  （現僅印在訊息裡、非 assert，故續綠）。★**T068 種合成候選外 protected 探針列之前，不可把該數升成真 assert。**
+- **本單元新帳**：B-142（no-escalation 判定的三處重複查詢面、收攏屬拍板級）。
+
 - [ ] T061 [US5] `base-web/src/views/manage/user/modules/user-unlock-modal.vue` 新檔（雙維下拉＋條件輸入、顯式帶 `dimension`、
   打既有 `fetchUnlockLogin`）＋`index.vue` 頁首鈕接線（`user:unlock` gating）。
 - [ ] T062 [US5] `base-web/src/views/manage/user/{index.vue,modules/user-operate-drawer.vue}`：`userMemo` 列表純文字欄

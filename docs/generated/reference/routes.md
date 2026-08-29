@@ -63,5 +63,6 @@
 | /systemManage/updateRoleMenu | POST | Policy | update-role-menu | 否 |
 | /systemManage/updateSystemSetting | POST | Policy | update-system-setting | 否 |
 | /systemManage/updateUser | POST | Policy | user-update | 否 |
+| /systemManage/updateUserSessionPolicy | POST | Policy | user-update-session-policy | 否 |
 | /userCenter/changePassword | POST | Authed | user-center-change-password | 否 |
 | /userCenter/getPasswordPolicy | GET | Authed | user-center-get-password-policy | 否 |

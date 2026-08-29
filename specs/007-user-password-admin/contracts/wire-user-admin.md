@@ -60,8 +60,12 @@
 
 ## 7. `POST /systemManage/restoreUser`
 
-- Body：`{ id: number }`。鎖已刪列（查無→`notFound`）→同名活性（`userNameExists`）→同信箱活性（`userEmailExists`）→
-  T(∅) ⊆ A→成對清 `deleted_*`；零回灌、status 保留。稽核 `restore`。200 `data: null`。
+- Body：`{ id: number }`。鎖已刪列（查無→`notFound`）→T(∅) ⊆ A→同名活性（`userNameExists`）→
+  同信箱活性（`userEmailExists`）→成對清 `deleted_*`；零回灌、status 保留。稽核 `restore`。200 `data: null`。
+  ★**次序勘誤（本刀 U5 as-built）**：原文把 `T(∅) ⊆ A` 排在兩格業務守門之後，與八支寫端的通則序
+  （①notFound ②seed ③self ④no-escalation ⑤業務）相反。生產態下 `T ≡ ∅`（刪除交易已硬刪全部指派、
+  復原零回灌）⇒ ④恆過，兩序在**任何生產可達輸入**下的回應逐位元同形，唯合成態（已刪列仍掛指派）
+  才分得出。統一取通則序，以免八支裡留一支需要另記的例外。
 
 ## 8. `POST /systemManage/kickUser`
 

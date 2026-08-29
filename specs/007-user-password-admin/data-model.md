@@ -83,7 +83,7 @@
 | 停用 | updateUser status→1 | 同上 | 啟用 | 無撤銷 |
 | 啟用／停用 | updateUser roleIds | ＋N ⊆ A、界外 id 拒 | 角色＝N | 差集硬刪＋新增；實際變更 ⇒ commit 後 reload_enforcer |
 | 啟用／停用 | deleteUser／batch | notFound→seed 三帳號→self→T ⊆ A；batch 任一違規整批 rollback | 軟刪 | 硬刪指派＋撤全 active＋事件 `user_deleted`＋稽核 `delete`（batch 逐列） |
-| 軟刪 | restoreUser | 鎖已刪列→同名活性→同信箱活性（撞→2222）→T(∅) ⊆ A | 刪除前 status、零角色 | 稽核 `restore`；零 reload |
+| 軟刪 | restoreUser | 鎖已刪列→T(∅) ⊆ A→同名活性→同信箱活性（撞→2222）〔本刀 U5 as-built：④依通則序排在⑤業務守門之前；生產態 T ≡ ∅ 故兩序逐位同形，詳 contracts §7 該節勘誤〕 | 刪除前 status、零角色 | 稽核 `restore`；零 reload |
 | 軟刪 | 其他寫端 | — | — | `biz.user.notFound` |
 | 啟用／停用 | kickUser | notFound→self 禁→T ⊆ A | 同態 | 撤全 active＋事件 `admin_kick`＋denylist `admin_kick`（7777）＋稽核 `kick` |
 | 啟用／停用 | resetUserPassword | notFound→self 禁（→個人中心）→T ⊆ A→政策→冷卻 | 同態（新雜湊） | custody touch；撤全 active＋事件 `password_reset`＋稽核 `reset_password` |
