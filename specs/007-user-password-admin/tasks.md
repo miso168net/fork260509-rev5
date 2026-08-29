@@ -773,7 +773,7 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   `fork-delta-lint` 綠（**144** 處）｜`view-render-guard` 綠（19 檔）｜`wire-schema check` byte 一致（89）｜
   `docs-sync lint` 0 錯誤。零 rust 改動。
 
-- [ ] T067 `rust-api/server/tests/wire_schema.rs`＋`rust-api/server/tests/fixtures/wire-schema.json`：跨子庫兩段式重抽
+- [X] T067 `rust-api/server/tests/wire_schema.rs`＋`rust-api/server/tests/fixtures/wire-schema.json`：跨子庫兩段式重抽
   （base-web 型 commit→容器內 `python3 tools/wire-schema.py extract`→fixtures commit→外層 pin）＋`Api.UserAdmin.*`／
   `Api.UserCenter.*` 每 definition 裁判（正向≥1／反例≥1；`status` 二值、`roles` 陣列、可空欄 null 形為重點）＋
   `python3 tools/wire-schema.py check` 綠；definitions 自 75 淨增（補記實數）；★`Api.IpRule.*` 七支不補（B-098 留帳句不動）。
@@ -783,12 +783,50 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   **75→86**（+11 個 `Api.UserAdmin.*`、零移除），rust-api 快照與 pin 隨該單元同批 bump。
   ⇒ 本 task 的殘餘射程＝**U7 之後的最後一次重抽**（吸收 `Api.UserCenter.*`）＋**每 definition 的裁判腿**
   （正向≥1／反例≥1）＋終值補記；重抽本身屆時多半已是 no-op。
-- [ ] T068 `rust-api/server/src/handler/role.rs`：B-113 處置——種合成候選外 protected 探針列（非 seed、`CasbinCleanup` 兜底）、
+- [X] T068 `rust-api/server/src/handler/role.rs`：B-113 處置——種合成候選外 protected 探針列（非 seed、`CasbinCleanup` 兜底）、
   把 `outside_protected≥1` 自 assert 訊息升為真 assert；★該測續綠非轉紅（T002⑥ 佐證）；BACKLOG 條文更正隨 T073。
-- [ ] T069 全量閘：容器 serial 全量 `cargo test` rc=0（基線 829、淨增補記實數）＋`docs-sync.py lint` 0 錯誤＋`schema-gate.py check` 三閘綠
+- [X] T069 全量閘：容器 serial 全量 `cargo test` rc=0（基線 829、淨增補記實數）＋`docs-sync.py lint` 0 錯誤＋`schema-gate.py check` 三閘綠
   ＋`entity-drift-gate.py check`＋`fork-delta-lint.py`（修改型僅「三用途 ∪ 順路補完」8 支既有檔；`components.d.ts`／`service/api/index.ts` `git diff` 零輸出斷言）
   ＋`route-artifact-gate.py check`（零重算）＋`view-render-guard.py check`＋`seed-view-gate.py check`＋`rust-fmt-gate.py check`
-  ＋`pnpm typecheck` 綠＋三名冊閘綠（`RELOAD_CALL_FILES` 實得序）。
+  ＋`pnpm typecheck` 綠＋★**五**名冊閘綠（`RELOAD_CALL_FILES` 實得序／`ENFORCER_WRITE_FILES`／本刀新增三張：`FINISH_USER_WRITE_CONSUMER_FILES`〔U4，L-069〕／`NO_ESCALATION_CALL_FILES`＋`GUARD_NO_ESCALATION_CONSUMER_FILES`〔U5〕——原文「三」係開刀時的量、本刀期間增為五）。
+★**U9A 執行結果（workflow `wf_af40b2e5-4bb`、9 支、2026-08-30 收尾；T067＋T068，T069 主線續跑）**
+
+- ★★**本刀第一次兩輪審查都自行收斂**：規格符合性輪**第 0 輪零 blocker**、碼品質輪跑到**確認輪亦零 blocker**
+  （`ok: true`、零 escalation）。前六個單元的確認輪都還有 blocker 由主線接手。
+- **量**：rust 測試 969→**998**（+29＝新增裁判腿數，逐位吻合）；`wire_schema` 套件 100 passed。
+  改動面僅兩檔（`tests/wire_schema.rs` +1252／`handler/role.rs` +80）；**base-web 零改動**、
+  `wire-schema.json` **零 diff**（未被手改、`check` byte 一致 89）。
+- **T067 殘餘（裁判腿）**：本刀十四個新 definition（`Api.UserAdmin.*` 十二含 `UnlockReq`／`Api.UserCenter.*` 二）
+  各補正向≥1＋反例≥1，共 29 支 `#[test]`（正向 15／反例 14）。三重點欄全覆蓋：`status` 二值（`"3"`／`"0"`／`null` 三形）、
+  `roles` 陣列**型與元素型兩層**、可空欄 `null` 形**三種分岔各自釘死**（`UserRecord` 省略即紅／`UpdateReq` 三態
+  `["null","string"]`／`AddReq.nickName` 不可空）。
+  ★審查員以 **Python `Draft7Validator`（獨立於 rust `jsonschema` crate 的第二套實作）** 重跑全部正向與反例實例覆核，
+  零裝飾性反例——這是本輪最紮實的一筆驗證。
+- **T068（B-113 探針升真 assert）**：確為「**先種**合成探針列 → **再**升真 assert」。
+  探針＝`/systemManage/__t068ProbeOutsideCandidates`（非 seed、DB default `nextval`、`v0='R_SUPER'`），
+  由既有 `CasbinCleanup::new(&["R_SUPER"])` 的 `(v0=$1 OR v1=$1) AND id > 163` 腿刮掉、seq 由其 `setval(…,163,true)` 腿收回
+  ⇒ **零新守衛、零 seed 變更**。★**該測續綠非轉紅**（原文逐字要求）。
+  ★審查員以**凍結 seed × `router.rs` 的 `Protection::Policy` 獨立重算**驗證該 assert 非恆真：
+  ROUTES 61／Policy 45／R_SUPER 端點列 50／候選內 45／**候選外恰 5 列**＝五支稽核端點，`protected` 皆 FALSE
+  ⇒ seed 側 `outside_protected` 為 0，`>= 1` 完全靠自種探針供給，拿掉 `seed_live_policy` 該測必紅。
+  實測殘列：`casbin_rule` 探針列 **0**、`max(id)=163`／`count=163`／`casbin_rule_id_seq.last_value=163`。
+- **主線於單元邊界的處置兩則**（皆為碼品質輪列為「非阻擋性觀察」者，主線判定順手做掉）：
+  ①**`user_admin_list_res_page_res_matches_snapshot` 的 `items_required.len() == 14` 改為名集恰等**
+  （十四欄逐字），形沿同檔 `Api.RoleAdmin.RoleEndpointGrantRes` 的 `["method","path"]` 先例、合 ADR 0024 要求②
+  「結構斷言優先於數量斷言」。★理由：數量斷言擋不住「刪一欄又補一欄」的**補償式改動**，而那正是 wire 契約最該釘住的一格。
+  變異紅證：期望陣列內 `userPhone`→`userPhoneX` → 逐欄印出 left／right 而紅；還原後零殘留。
+  ②**檔頭「★上一行的 75」指涉訂正**（該 75 實際在 29 行之上、非緊鄰上一行）。
+- ★**主線自我更正（過程留痕）**：上述變異紅證我前兩次都得到「沒紅」，一度誤判為 CLAUDE.md §11 的 drvfs 假綠。
+  實際上**兩次都是我自己的操作錯**——第一次 `replace(..., 1)` 命中了檔內**另一處**同字面（`USER_RECORD_DEF` 的
+  十四欄名集、位在 2672 行），第二次沿用了錯的測試 filter（`user_admin_list_res_page` 不涵蓋那支）。
+  改以行號精確定位＋對應 filter 後當場紅。★**教訓**：變異測試的「沒紅」有兩種成因——守門真的 vacuous，
+  或**變異根本沒打到被守的那一格**；先自證「我改的確實是那一行、跑的確實是那支測」，再談守門有效性。
+- **T069 全量閘（主線續跑、同批完成）**：容器內 serial 全量 `cargo test` rc=0（**998**）＋九支閘全綠
+  （`docs-sync lint` 0 錯誤／`schema-gate` 四綠／`entity-drift` 零漂移／`route-artifact` 重算冪等／`view-render-guard` 19 檔／
+  `seed-view-gate` 51 鍵／`rust-fmt-gate`／`wire-schema` byte 一致 89／`fork-delta-lint` rc=0）＋`pnpm typecheck` rc=0
+  ＋★**五支名冊閘全綠**（原文寫「三」＝開刀時的量；本刀期間增為五，已改述該 task）
+  ＋`components.d.ts`／`service/api/index.ts` **零 diff 斷言成立**＋修改型恰 **8 支既有檔**（與原文吻合）。
+
 - [ ] T070 CDP 三方對照（quickstart §6 全動線七步；★排 schema-gate 之後）：Super 全套／Admin 預設態（只見編輯鈕）／下放後（六鈕出現、
   同級成功、對 Super 5003）／踢除 7777 新文案／停用 8888／個人中心改密卡動態規則／登入頁特殊字元密碼直送／rev4 42080 逐項對照；
   已知態排除清單逐項驗現狀形；走查後清殘列＋`sys_user_id_seq` 還原＋三閘複驗；差異逐項判定（rev5 拍板差異 or 缺陷）補記本 task。
