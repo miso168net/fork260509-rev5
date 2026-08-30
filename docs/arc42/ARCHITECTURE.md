@@ -391,7 +391,7 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 ## §12 名詞表
 
 - **刀**：一個 feature 的完整交付單位（brainstorm→SDD→TDD→收刀）；縱切刀＝功能縱貫、橫切刀＝慣例橫貫。
-- **收刀**：feature merge 回 default branch＋簿記三步（events append＋NOTES＋generate）。
+- **收刀**：feature merge 回 default branch＋簿記三步（events append＋NOTES＋generate）＋perf 第四步（簿記 commit 落地後量其牆鐘、append `close_bookkeeping` perf 事件；ADR 0070）。
 - **輕量軌**：維護項不開 SDD 的交付軌（分支＋編排單元＋merge＋misc 事件收單）；判準與程序見 CLAUDE.md §2。
 - **島**：具狀態機性質的行為子系統（如 token rotation）；其不變式經 amendment 入 constitution §I.7。
 - **軌道**：constitution §III 授權的 base-web 改動邊界類別。

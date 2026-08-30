@@ -28,6 +28,7 @@
 token 計數：UTF-8 bytes ÷ 3 保守近似（測試鎖定算法）。
 """
 import concurrent.futures
+import fnmatch
 import contextlib
 import functools
 import io
@@ -4920,6 +4921,19 @@ def _code_id_grep(subdir, tree, pathspecs):
     return r.returncode, r.stdout, r.stderr
 
 
+def _code_id_tree_files(subdir, tree):
+    """列 pin 指向樹的全部檔名（`git ls-tree -r --name-only -z`）；回 (rc, stdout, stderr)——供
+    Lint29「掃描面為空」守衛在 python 端以 fnmatch 對 SUBMODULE_ID_SCAN 的 pathspec 計數
+    （git 預設 pathspec 的 `*` 亦匹配 `/`，fnmatch 同語意）。git 開不起來時 rc＝None。"""
+    try:
+        r = subprocess.run(["git", "-c", "core.quotepath=off", "ls-tree", "-r", "--name-only",
+                            "-z", tree], cwd=subdir,
+                           capture_output=True, encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return None, "", exc.__class__.__name__
+    return r.returncode, r.stdout, r.stderr
+
+
 def lint_submodule_code_ids(root, cache=None, reg=None):
     """Lint29：子庫碼面裸 B-／L- 編號超出本代 next-id 即紅（B-148）。
 
@@ -4938,7 +4952,10 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
       （upstream rebase 卷史後合法失聯）；git grep 其餘非零退出＝ERROR（fail-loud、不吞）；
       -z 記錄不帶「<sha>:」前綴或解析不出「<path>\\0<行號>\\0<內容>」三欄＝ERROR（輸出形有變則
       每筆記錄都會被丟掉、條款恆綠零告警——同屬掃描面未建立，不吞；唯一合法的無前綴記錄＝
-      split 尾端空字串）。
+      split 尾端空字串）；★pin 樹內零檔匹配 pathspec＝ERROR「掃描面為空」（git grep 對零檔
+      pathspec 回 rc 1、與「掃乾淨」不可分——SUBMODULE_ID_SCAN 與子庫版面脫節時整條款會靜默
+      零覆蓋、現況驗收案照綠；同 walkthrough-baseline「空面的全等是假綠」紀律，final holistic
+      透鏡 B 實暴後補）。
     ★reg＝lint25_registry 結果（None＝現算、與 Lint25 同一份 next-id 讀法）；自測注入固定值以與
       真 repo 配號脫鉤。
     """
@@ -4955,12 +4972,15 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
         targets.append((sub, sha))
     if not targets:
         return out
-    results = run_git_concurrently(
+    batch = run_git_concurrently(
         [functools.partial(_code_id_grep, os.path.join(root, sub), sha, SUBMODULE_ID_SCAN[sub])
-         for sub, sha in targets])
+         for sub, sha in targets]
+        + [functools.partial(_code_id_tree_files, os.path.join(root, sub), sha)
+           for sub, sha in targets])
+    results, trees = batch[:len(targets)], batch[len(targets):]
     if reg is None:
         reg = lint25_registry(root)
-    for (sub, sha), (rc, stdout, stderr) in zip(targets, results):
+    for (sub, sha), (rc, stdout, stderr), (trc, tout, _terr) in zip(targets, results, trees):
         if rc not in (0, 1):
             if rc is not None and sha not in git_object_types([sha], os.path.join(root, sub)):
                 out.append(finding(WARN, "Lint29", sub,
@@ -4972,6 +4992,16 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
                                f"git grep 退出碼 {rc}" + (f"：{head}" if head else "")
                                + "——掃描面未建立、不得視同乾淨（fail-loud）"))
             continue
+        # 掃描面存在性（fail-loud）：pin 樹內須至少一檔匹配 pathspec，否則 rc 1「無命中」＝假綠
+        if trc == 0:
+            names = [n for n in tout.split("\0") if n]
+            pats = SUBMODULE_ID_SCAN[sub]
+            if not any(fnmatch.fnmatchcase(n, pat) for n in names for pat in pats):
+                out.append(finding(ERROR, "Lint29", sub,
+                                   f"掃描面為空：pin {sha[:12]} 的樹內零檔匹配 pathspec "
+                                   f"{'／'.join(pats)}——SUBMODULE_ID_SCAN 與子庫版面脫節、"
+                                   "不得視同乾淨（fail-loud）；改常數或還原版面後重跑"))
+                continue
         prefix = sha + ":"
         unparsed = 0
         for rec in stdout.split("\n"):
@@ -11397,6 +11427,17 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
             with self.assertRaises(AssertionError) as cm:
                 _assert_submodule_id_scan()
         self.assertIn("docs-site", str(cm.exception))
+
+    def test_empty_scan_face_is_error(self):
+        """ERROR（fail-loud、final holistic 透鏡 B 補釘）：pin 樹內零檔匹配 pathspec（子庫版面漂移而
+        SUBMODULE_ID_SCAN 未跟）→ git grep 回 rc 1 與「掃乾淨」不可分，須指名「掃描面為空」；
+        該樹內非碼檔的超號 token 不另報（本就不在射程）。拔掉守衛即回 []＝本案紅。"""
+        _sub_with_files(self.root, "rust-api", {"README.md": "B-151\n", "src/x.toml": "# B-151\n"})
+        f = self._of("rust-api")
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api")], msg=str(f))
+        self.assertIn("掃描面為空", f[0]["msg"])
+        self.assertIn("*.rs", f[0]["msg"])
 
     def test_pathspec_boundary(self):
         """pathspec 邊界：base-web 只掃 src/ 下 *.ts／*.vue（含 src/ 直屬子檔與深層），src/ 外的

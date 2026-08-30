@@ -22,7 +22,7 @@ fork260509-rev5/
 │   ├── ops/LESSONS.md               坑與防法索引（一行一坑＋防法 hook；動手前掃一遍）
 │   ├── ops/LESSONS/                 L-NNN 一坑一檔（append-only；晉升必答欄 promoted_to）
 │   ├── ops/RUNBOOK.md               dev stack 操作手冊：起停／輪替／備份／維運端點
-│   ├── ops/events.jsonl             事件源：收刀／review／里程碑／效能資料點 perf（機器讀；人讀 MILESTONES、perf 讀 reference/perf）
+│   ├── ops/events.jsonl             事件源：收刀／review／里程碑／勘誤／效能資料點 perf（機器讀；人讀 MILESTONES、perf 讀 reference/perf）
 │   ├── brainstorms/                 各刀階段 0 產出（NNN- 前綴）與創世期史料（000＝啟動書、b2-～b7-＝創世證據）
 │   ├── reviews/                     review 報告史料
 │   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（事件表；perf 型另居 reference/perf）
@@ -107,7 +107,7 @@ fork260509-rev5/
 | 為什麼當初這樣決定 | [docs/generated/DECISIONS-INDEX.md](docs/generated/DECISIONS-INDEX.md) 找編號 → `docs/arc42/decisions/` 讀全文 |
 | rev4 當初的設計結論與教訓 | [docs/brainstorms/000-doc-architecture.md](docs/brainstorms/000-doc-architecture.md) §5 知識匯出包（K1 設計結論／K2 設計域／K3 教訓候選） |
 | 這套文件架構為什麼長這樣 | [docs/brainstorms/000-doc-architecture.md](docs/brainstorms/000-doc-architecture.md)（創世啟動書、史料） |
-| 查埠／帳號／schema／畫面／效能現況 | `docs/generated/reference/` 六張正典表（機器生成、嚴禁手改）：[ports](docs/generated/reference/ports.md)／[accounts](docs/generated/reference/accounts.md)／[schema](docs/generated/reference/schema.md)／[screens](docs/generated/reference/screens.md)／[tools-cli](docs/generated/reference/tools-cli.md)／[perf](docs/generated/reference/perf.md)（效能資料點全序列；引信判讀＝STATE.md 效能引信行） |
+| 查埠／帳號／schema／畫面／效能現況 | `docs/generated/reference/` 正典表（機器生成、嚴禁手改；成員以 STATE.md「reference 對賬」段為準）：[routes](docs/generated/reference/routes.md)／[ports](docs/generated/reference/ports.md)／[accounts](docs/generated/reference/accounts.md)／[schema](docs/generated/reference/schema.md)／[screens](docs/generated/reference/screens.md)／[tools-cli](docs/generated/reference/tools-cli.md)／[perf](docs/generated/reference/perf.md)（效能資料點全序列；引信判讀＝STATE.md 效能引信行） |
 
 ## 常見疑惑
 

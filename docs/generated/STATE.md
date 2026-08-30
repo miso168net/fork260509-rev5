@@ -3,16 +3,16 @@
 
 ## git
 - default branch：rev5-admin-root
-- pins：base-web=7b7cd86｜rust-api=51c9f79
+- pins：base-web=7b7cd86｜rust-api=b1ec283
 
 ## constitution
 - 版本：1.9.1
 
 ## 帳面統計
 - ADR：71（accepted 69、superseded 2）
-- BACKLOG 待辦：34（next：B-151）｜滯後：8
+- BACKLOG 待辦：35（next：B-152）｜滯後：8
 - LESSONS：72 筆（next：L-073）
-- events：70 筆（feature_close 7、misc 35、perf 28）
+- events：71 筆（feature_close 7、misc 35、perf 29）
 
 ## 最近事件（尾 3 筆、新在前）
 - 2026-08-30｜misc｜Lint28／Lint29 上線（B-146、B-148 關帳、維護批 U2）：Lint28＝活書 §1 建置狀態 ⊇ events feature_close 刀號集（單向對賬、缺即 ERROR 指名刀名與收刀日）；Lint29＝兩子庫 pin 指向樹之碼面（rust-api *.rs、base-web src/ *.ts／*.vue）裸 B-／L- 編號超出本代 next-id 即 ERROR（git grep 粗篩＋Lint25 判準複用、skip／warn 沿 Lint17／Lint18）；名冊三檔範圍字串同 commit bump 至 Lint03～Lint29；本筆即新名冊承載事件
