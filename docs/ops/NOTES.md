@@ -32,9 +32,9 @@
 - 兩筆待補：B-035 雙平台 DoD 之 macOS 側；setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀。帶 migration 的刀沿用 001 紀律（收刀前 refresh＋演進帳登記＋三閘綠，RUNBOOK §10）。
 
 - **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-124／B-125／B-131～B-133（★B-127／B-128／B-129 已由 007-user-password-admin 關帳）。★另六條已滯後（查全帳須併看 BACKLOG-DEFERRED.md）；B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
-- **★下一動作＝待 user 拍板下一刀**（007 已收官、無預拍者）。候選群：①**B-008 餘兩張 view ＋ audit 五端點**
-  （豁免表到期即紅、時間壓力最明確）②**治理工具面三條同族**＝B-146／B-147／B-148（皆「文件／碼註對賬」類新
-  lint 條款，同批做最省）③**B-149 急迫**（RUNBOOK 900/900 零餘裕，下一個寫它的人當場被擋；結構解＝新開
-  `PERF-DATAPOINTS.md` 附屬文件）④餘 B-124／B-125／B-133。★SDD 五步之 specify **手動**起手；維護項走輕量軌。
+- **★下一動作＝下一刀起手維護批（已拍板 2026-08-30、輕量軌）＝B-146／B-147／B-148／B-149 四條同批**：B-149 走
+  事件源化（events.jsonl 新 type `perf`＋generate 產 reference/perf.md＋STATE 效能引信機器判；需立新 ADR）＋NOTES
+  已收官段整段刪留指針（→MILESTONES.md）；細節與自決假設逐字在 B-149。**下一刀本體待拍板**：候選 B-008 餘兩張
+  view＋audit 五端點（豁免表到期即紅）／餘 B-124／B-125／B-133。★SDD 五步之 specify **手動**起手。
 - **效能現況**（詳＝RUNBOOK §12.1）：全鏈四型（文件 13.89／基礎鏈中位數 14.617／pin bump 19.41／merge
   4.55s）皆遠低於 45s 警戒、引信未觸發。★**merge commit 不跑 pre-commit**（無 `pre-merge-commit` hook）——「最重情境在 merge 那顆」的舊期待已由 007 實測推翻；真實上界仍是情境 B。
