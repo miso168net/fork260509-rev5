@@ -2365,6 +2365,7 @@ TOOLS_PY = ("tools/docs-sync.py", "tools/fork-delta-lint.py", "tools/schema-gate
             "tools/entity-drift-gate.py", "tools/wf-watchdog.py",
             "tools/view-render-guard.py", "tools/route-artifact-gate.py",
             "tools/seed-view-gate.py", "tools/rust-fmt-gate.py",
+            "tools/walkthrough-baseline.py",
             "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
             "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
             "deploy/backup-db.py")
@@ -10019,6 +10020,7 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("tools/route-artifact-gate.py", ("check", "test")),
                ("tools/seed-view-gate.py", ("check", "test")),
                ("tools/rust-fmt-gate.py", ("check", "test")),
+               ("tools/walkthrough-baseline.py", ("diff", "snapshot", "test")),
                ("deploy/preflight-secrets.py", ("test",)),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
@@ -10077,6 +10079,7 @@ class TestToolsCliTruthTable(unittest.TestCase):
         ★B-080 納冊：view-render-guard／route-artifact-gate 進名冊（12→14 支）。
         ★006 T025 納冊：seed-view-gate 進名冊（14→15 支、B-088 對賬閘）。
         ★B-112／ADR 0057 納冊：rust-fmt-gate 進名冊（15→16 支、rust 格式守門）。
+        ★B-147 納冊：walkthrough-baseline 進名冊（16→17 支、走查前後全表基準對賬）。
         ★案名刻意不含支數（B-112 改名）：名冊每長一支就得連帶改名，否則測名與斷言各說各話
         ——而失真的測名沒有任何斷言會紅（同本類 docstring「不記硬數字」之理）。"""
         self.assertEqual(TOOLS_PY,
@@ -10086,16 +10089,17 @@ class TestToolsCliTruthTable(unittest.TestCase):
                           "tools/wf-watchdog.py",
                           "tools/view-render-guard.py", "tools/route-artifact-gate.py",
                           "tools/seed-view-gate.py", "tools/rust-fmt-gate.py",
+                          "tools/walkthrough-baseline.py",
                           "deploy/preflight-secrets.py", "deploy/decrypt-secrets.py",
                           "deploy/generate-secrets.py", "deploy/setup-reaper-role.py",
                           "deploy/backup-db.py"))
         self.assertEqual(TOOLS_SH, ("bootstrap",))
         md = gen_tools_cli(compute_tools_cli(ROOT))
         heads = [ln for ln in md.splitlines() if ln.startswith("## ")]
-        self.assertEqual(len(heads), 17, msg=str(heads))
+        self.assertEqual(len(heads), 18, msg=str(heads))
         # ★抬頭敘述同案釘死：只驗節數時，寫死字面的抬頭支數漂移不會被任何斷言碰到——
         # 生成檔「抬頭說六支、實列七節」在 347 案全綠下存活（rev4:019 U1 實證）。
-        self.assertIn("來源＝治理工具名冊 17 支掃源（python 16 支", md)
+        self.assertIn("來源＝治理工具名冊 18 支掃源（python 17 支", md)
 
     def test_compute_and_render_every_rostered_tool(self):
         """真表每支名冊工具一節：python 列子命令集、bash 列存在＋用法行；空集合工具明示直跑。"""

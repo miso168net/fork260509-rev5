@@ -93,7 +93,7 @@ pc_run "docs-sync-lint" python3 tools/docs-sync.py lint
 #   deploy/ 的機密管線腳本轉 python 後同列本名冊；本行與 docs-sync 的 TOOLS_PY、
 #   tools/bootstrap.sh 的 run_tool_test 三處手抄，由 docs-sync 自測對賬（漏接線即紅）。
 staged=$(git diff --cached --name-only)
-for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py tools/route-artifact-gate.py tools/rust-fmt-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
+for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py tools/route-artifact-gate.py tools/rust-fmt-gate.py tools/walkthrough-baseline.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
   if echo "$staged" | grep -qxF "$t"; then
     pc_run "selftest-$(basename "$t" .py)" python3 "$t" test
   fi

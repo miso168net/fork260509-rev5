@@ -41,6 +41,8 @@ fork260509-rev5/
 │   ├── seed-view-gate.py            seed sys_menu.component 之 view.* ⊆ 前端 view 集對賬閘（B-088／FR-049；pre-commit 條件觸發）
 │   ├── rust-fmt-gate.py             rust 格式守門：容器內 cargo fmt --all --check 唯讀比對（B-112／ADR 0057；
 │   │                                pre-commit 條件觸發、stack 未起＝具名跳過）
+│   ├── walkthrough-baseline.py      CDP 真登入走查前後的全表基準 snapshot／diff（表列數＋序列＋redis 前綴鍵數；B-147／L-071；
+│   │                                需 dev stack、不掛 pre-commit，契約＝RUNBOOK 走查還原契約節）
 │   └── wf-watchdog.py               workflow 編排看門狗（stall／runaway 保險絲、可鎖定目標 run）
 ├── deploy/                          營運面：dev stack 部署資產＋機密管線（管「跑起來的系統」）
 │   ├── secrets_common.py            落點解析共用庫（消費者五支＝下列四支 CLI＋secret-value-guard）

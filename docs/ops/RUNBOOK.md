@@ -146,6 +146,24 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 ★**編排 script 的前端驗證段照此表寫**：把「`.ts` 走 oxlint、`.vue` 走 `pnpm lint`、MUST NOT 用 eslint 判 `.ts`」
 與上述 `--fix` 還原紀律逐條烤進 agent prompt（本刀 U6／U7／U8 三支已照辦）。
 
+## 9c. CDP 真登入走查的環境還原契約（B-147；常駐程序、讀者是每一刀而非下一刀）
+
+★**判準形而非清單形**：**走查期間被寫過的全部表與 redis 鍵都要還原，與任何閘的射程無關**（L-071 ②）——
+「某道閘不檢查 X」只說明該閘的射程、不說明 X 無害；清單式防法已證偽（006 的清單擋不住 007 的組合）。六步、次序不可反：
+
+1. 走查**前**取基準：`python3 tools/walkthrough-baseline.py snapshot tmp/walkthrough-baseline.json`（三面現算：全部表列數／全部序列／redis 前綴鍵數）。
+2. 走查（CDP 入口與帳號＝CLAUDE.md §7）。
+3. 清理——面的定義＝步驟 1 之後被寫過的一切；舉例（**非窮舉**）：種子面逐值還原（sys_user／sys_user_role／casbin_rule／
+   sys_pwd_custody）；runtime-append 四表清列＋各自 seq 復位（session_event／sys_login_attempt／sys_token／sys_operation_log；
+   seq 名冊＝`tools/schema-gate.py` 常數 `RUNTIME_APPEND_TABLES`）；redis 走查前綴鍵清除；其他被走查動到的表與序列復位（如 sys_user_id_seq）。
+4. 對賬：`python3 tools/walkthrough-baseline.py diff tmp/walkthrough-baseline.json` **rc 0 為準、非三閘綠**——三閘只覆蓋種子面
+   （runtime-append 四表在 schema-gate 收窄集內＝剝列比對、redis 不在任何閘的射程），「三閘綠而全量紅」＝L-055／L-071 的招牌徵狀。
+5. 容器內全量測試（L-071 ③；不能以三閘綠代替）。
+6. 三閘綠（`python3 tools/schema-gate.py check`）。
+
+反例教訓（以 ID 引用、全文在 LESSONS/）：L-055（runtime-append 殘列 × seq 復位＝下一輪全量 23505 連環紅、殘列與爆點隔一整輪）；
+L-071（防法晉升到下一刀的一次性 quickstart＝一刀半衰期、六天後原樣復發——本節與上述工具即其再晉升位）。
+
 ## 10. migration 操作
 
 ★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝
@@ -196,6 +214,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 tools/route-artifact-gate.py check` / `test` | 路由外掛產物四檔（`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之**產出檔集對賬＋重算冪等＋零手改**三道——★憲法 §III.2 第五列「產物檔紀律」的**唯一**機器守（該四檔受 fork-delta 檢查全域豁免）。★**刻意不掛 pre-commit**：實跑外掛三趟、實測 15.2s，且依賴 dev stack 在跑，而 pre-commit MUST 在 stack 沒起時可用；落點＝**單元邊界／CI 手動跑** | check **是**、test 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `python3 tools/rust-fmt-gate.py check` / `test` | rust-api 容器內 `cargo fmt --all --check`（**唯讀**、設定＝`rust-api/rustfmt.toml`；B-112／ADR 0057）四態分流：docker 不可用或 compose 檔缺席＝具名跳過 rc 0／rust-api 容器未在跑＝具名跳過 rc 0／全綠 rc 0（印耗時）／未格式化 rc 1（印 `Diff in` 段數＋前 12 行摘要＋補救命令）／容器在跑但映像未含 rustfmt component＝**rc 2 fail-loud**（附重建映像命令、刻意不設豁免）。★檢查的是 rust-api **工作樹**、非 pin 指向的 commit（worktree 髒時多印一行警示、不影響 rc）。pre-commit **條件觸發**：rust-api pin bump 或本檔 staged 時自動跑（★跳過邏輯住工具內、hook 段零條件判斷）／自測（離線、subprocess 全樁） | check **條件**（容器在跑才實跑，否則具名跳過）、test 否 |
+| `python3 tools/walkthrough-baseline.py snapshot <檔>` / `diff <檔>` / `test` | CDP 真登入走查前後的全表基準對賬（B-147；L-071 防法①機制化）：三面**全部現算、零手抄名冊**——public schema 全部表列數（清單自 information_schema 現算、單一 UNION ALL 撈；含 seaql_migrations）／全部序列 last_value＋is_called／redis DBSIZE＋逐前綴鍵數（前綴＝鍵第一個冒號前段、無冒號歸「(無前綴)」）。`snapshot` 寫 JSON 基準檔（`<檔>` 必填、無隱含落點；另帶 taken_at＋schema_version）、`diff` 重取現況逐值比對、只列有差者（面／名／基準值／現值／差）＋末行摘要、忽略 taken_at。★唯讀：pg 只 SELECT／目錄視圖、redis 只 DBSIZE／SCAN；密碼只在容器內 sh 的 `$(cat /run/secrets/redis_password)`、host argv 與輸出皆不含。★零表或零序列＝rc 2 而非全等（空面全綠是假綠、同 schema-gate 紀律）。契約（何時跑、清理判準）＝§9c；★不掛 pre-commit 條件觸發（要 dev stack、走查收尾才有意義）、手動跑／自測（離線、subprocess 全樁） | snapshot／diff **是**、test 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
 | `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔；passphrase **只輸入一次**（腳本對每個 recipient 提示自動代餵；`RV5_DECRYPT_MANUAL=1`＝逐次手打退路） | 否（需 docker＋互動 tty） |
@@ -204,7 +223,8 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 退出碼注意：view-render-guard＝命中 1、射程異常（掃到零檔）2、用法錯 64；seed-view-gate＝判定紅（缺 view／豁免到期／幽靈豁免／導出集≠imports 鍵集）1、射程異常（seed 檔／views／imports.ts 缺席或空集）2、用法錯 64；route-artifact-gate＝判定紅 1、環境前提不成立（stack 未起／基線缺席）2、用法錯 64；
 rust-fmt-gate＝未格式化 1、環境不可用（容器在跑但 cargo-fmt 缺席）2、用法錯 64（docker 不可用／
 容器未在跑＝**具名跳過 0**，訊息與「全綠 0」不同字樣）；
-schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
+walkthrough-baseline＝有差 1、環境或結構異常（docker 不可執行／psql·redis 失敗／psql 輸出不可解／基準檔缺席或壞形／比對面為空）2、
+用法錯 64；schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
 不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
 異常 2、用法錯 64；docs-sync refresh
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
@@ -290,7 +310,7 @@ EOF
 ```
 
 - **本批終態實測**（★**2026-08-18 重量測**（治理批 B-080 納冊後 pre-commit 迴圈名冊 12 支；
-  **2026-08-25 起 13 支**——見情境 B 表 † 註）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
+  **2026-08-25 起 13 支、2026-08-30 起 14 支**——見情境 B 表 † 註）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
   python 工具——betterleaks 樣式掃描為原生二進位、不在本表量測面；**條件觸發段**另列於
   兩表之後）。**單跑上限推導＝該列中位數 ×3
   進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
@@ -306,8 +326,8 @@ EOF
   | `python3 tools/docs-sync.py lint` | 12.251s | 37s |
   | **基礎鏈合計** | **13.695s** | **42s**（＝合計中位數 ×3；逐列上限加總同為 42s、以本值為權威） |
 
-  情境 B＝理論最壞 staged（pre-commit 名冊 13 支工具本體全 staged、條件自測全中）＝
-  基礎鏈＋13 支 test（★名冊＝test 名冊（TOOLS_PY 16 支中帶 test 介面的 15 支；
+  情境 B＝理論最壞 staged（pre-commit 名冊 14 支工具本體全 staged、條件自測全中）＝
+  基礎鏈＋14 支 test（★名冊＝test 名冊（TOOLS_PY 17 支中帶 test 介面的 16 支；
   fork-delta-lint 無 test 介面、天然不入迴圈而走條件觸發段）減 `HOOK_TEST_LOOP_EXEMPT`
   具名豁免 2 支（view-render-guard／seed-view-gate——其 self-test 隨 check 連帶跑））：
 
@@ -326,15 +346,18 @@ EOF
   | `python3 deploy/backup-db.py test` | 17 | 1.649s | 5s |
   | `python3 tools/wf-watchdog.py test` | 30 | 0.158s | 1s |
   | `python3 tools/rust-fmt-gate.py test` † | 11 | 0.125s | 1s |
-  | **13 支 test 合計** | **977＋具名段** | **23.412s** | — |
+  | `python3 tools/walkthrough-baseline.py test` ‡ | 24 | 0.095s | 1s |
+  | **14 支 test 合計** | **1001＋具名段** | **23.507s** | — |
 
   （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
   （†rust-fmt-gate＝**2026-08-25** 維護批 A（B-112／ADR 0057）新入名冊、該列為當日單獨量測，
   其餘各列沿 08-18 值。★同日 `docs-sync test` 案數已 524→**527**（本批 U1~U5 新案）但中位數
   未重測，故該列與合計之案數仍記 08-18 值——讀本表時注意其時點混成。）
+  （‡walkthrough-baseline＝**2026-08-30** 維護批（B-147）新入名冊、該列為當日單獨量測（三跑中位）、
+  其餘各列沿舊值；合計列照加總更新、**未**重測情境 B、故不 append `full_chain` 事件——混成時點的合計不是一次量測。）
 
-  **情境 B 合計＝37.107s**（13.695＋23.412）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
-  為準：37.107s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
+  **情境 B 合計＝37.202s**（13.695＋23.507）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
+  為準：37.202s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
 
   **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；★**前四列**沿 2026-08-16
   量測值（同法）、其後各批未重測；seed-view-gate 一列為 006-authz-governance 刀入冊當日量測、rust-fmt-gate

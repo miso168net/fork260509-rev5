@@ -9,7 +9,7 @@
   B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
 - **★進行中＝下一刀起手維護批**（輕量軌、拍板 2026-08-30、自 default f1c0951 開出）：四條 docs-sync 條款面＋B-124①。
   首條（效能資料點事件源化）已由本批 U1 落地＝ADR 0070（events `perf` 型別＋`reference/perf.md`＋STATE 效能引信、
-  RUNBOOK §12.1 瘦身、本檔已收官段刪除）；B-146／B-148 已由本批 U2 落地＝Lint28（活書 §1 建置狀態 ⊇ events feature_close 刀號集）／Lint29（子庫碼面裸 B-／L- 編號超出本代 next-id 即紅）；餘 B-147＋B-124① 依序編排。
+  RUNBOOK §12.1 瘦身、本檔已收官段刪除）；B-146／B-148 已由本批 U2 落地＝Lint28（活書 §1 建置狀態 ⊇ events feature_close 刀號集）／Lint29（子庫碼面裸 B-／L- 編號超出本代 next-id 即紅）；B-147 已由本批 U3 落地＝tools/walkthrough-baseline.py＋RUNBOOK §9c 走查還原契約；餘 B-124① 依序編排。
 - **批後＝下一刀本體待拍板**：候選 B-008 餘兩張 view＋audit 五端點（豁免表到期即紅）／B-124 餘項／B-125／B-133。
   ★SDD 五步之 specify **手動**起手。
 - **效能現況**：全序列→`docs/generated/reference/perf.md`、引信判讀→`docs/generated/STATE.md`「效能引信」行（機器判、

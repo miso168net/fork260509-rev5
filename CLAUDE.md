@@ -206,3 +206,5 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   `127.0.0.1:9229`（Node 24 內建 WebSocket、勿裝 ws 套件），開分頁對照 42080（rev4）vs
   22080（rev5）、必要時加 42089（原版基線）三方比。★一律用 127.0.0.1、不用 localhost
   （兩者 origin 不同、token 不共享）；dev 帳號 Super／Admin／User、密碼 123456。
+  ★真登入走查**前後**各跑一次 `python3 tools/walkthrough-baseline.py snapshot tmp/walkthrough-baseline.json`／`diff <同檔>`
+  （全表基準對賬：表列數＋序列＋redis 前綴鍵數；diff rc 0 才算環境已還原、三閘綠不算）；走查還原契約（判準形六步）＝RUNBOOK §9c。

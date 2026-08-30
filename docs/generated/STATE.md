@@ -10,7 +10,7 @@
 
 ## 帳面統計
 - ADR：70（accepted 68、superseded 2）
-- BACKLOG 待辦：35（next：B-150）｜滯後：8
+- BACKLOG 待辦：35（next：B-151）｜滯後：8
 - LESSONS：72 筆（next：L-073）
 - events：70 筆（feature_close 7、misc 35、perf 28）
 
