@@ -444,19 +444,19 @@ EOF
     `seed-view-gate` 進鏈，`docs-sync test` 未進）。對照同日文件型 13.89s ⇒ 條件段淨增 **5.5s**（與 B-130 後
     `fork-delta-lint` 3.93s＋其餘次秒級之和吻合）；距警戒餘 2.3 倍。★結清「下一刀必做」②，惟本顆 staged 者為
     rust-api 而非 base-web gitlink、`fork-delta-lint` 係經憲法觸發。★**本節撞頂＝B-149**。
+  - **★★同日第四筆：merge commit ＝4.55s rc=0**（`5e8b32f`；staged **兩個** gitlink）——**推翻本序列
+    先前的期待**：舊記載說「收刀 merge 那顆是尚未量過的最重情境」，實測卻比 pin bump 型（19.41s）短 4 倍。
+    根因＝**merge commit 不跑 `pre-commit`**（git 對 merge 走 `pre-merge-commit`，而本 repo `.githooks/`
+    只裝 `pre-commit`／`pre-push`，實地確認）。⇒ 最重情境不在 merge 那顆，真實上界仍是情境 B。
+    ★**副作用**：收刀 merge 不受任何 lint 把關，分支最後一顆的綠燈即收刀全部憑據（merge 前每顆都過閘，
+    但別誤以為 merge 又驗了一次）。
   - ★**既有「下一刀必做」三項結算**：①`wire-schema check --staged-gate` 重測＝**已由 B-130 那筆結清**
     （真路徑 0.43s、走 `no-typings` 短路）②pin bump 型牆鐘＝**已補**（同日第三筆 19.41s）。★收刀 `merge --no-ff` 那顆宜再測——staged **兩個** gitlink、本序列未量過
     ③`docs-sync lint` 慢路徑處置＝B-130 已處置、本刀無新增條款。
-- **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
-  （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
-  test 合計 **24.593s**（自測案數合計 938）；情境 B 合計 **34.499s**。⇒ 兩日內**基礎鏈
-  +38%**（9.907→13.695；恆跑段、每顆 commit 都付——正是 ADR 0044 引信盯的面）、情境 B
-  +7%（淨增 2.483s）；成長主力＝`docs-sync lint` **單項**（8.388→12.251、+3.863s：B-090
-  分檔制 47 條目檔掃描面＋Lint26/27 兩新條款——單項增量即超過情境 B 淨增）；`docs-sync
-  test` 案數 496→524 但中位數反降（16.272→15.415、−5.3%），與其餘各列同向
-  （唯 `preflight-secrets test` 微升 0.087→0.130；route-artifact-gate 本批新入列、無前值）。
-  再前一批（2026-08-08）＝基礎鏈 7.041／
-  11 支 test 19.735（893 案）／情境 B 26.776。
+- **史料批次**（同法量測，供成長率比較；★**2026-08-30 依 B-149 候選②壓縮**——逐項分析全文查 git）：
+  2026-08-16＝基礎鏈 **9.907s**／11 支 test 24.593s（938 案）／情境 B 34.499s；
+  2026-08-08＝基礎鏈 7.041／test 19.735（893 案）／情境 B 26.776。⇒ 08-16→08-18 基礎鏈 **+38%**、
+  成長主力是 `docs-sync lint` 單項（8.388→12.251，B-090 分檔制掃描面＋Lint26/27 兩新條款）。
 - **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
   無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
   docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit
