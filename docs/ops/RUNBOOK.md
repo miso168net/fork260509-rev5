@@ -38,8 +38,8 @@ secret、錯誤訊息誤導（DB 連線失敗／boot panic 不指真因）。所
 
 ## 6. 備份與還原
 
-★**命令驗證狀態**：§6.1／§6.2 全序列**已於 2026-08-07 真還原演練實跑**（紀錄＝§6.3）；
-§6.4 原地還原命令形**未實跑**——破壞性操作、須 operator 明確同意後另行執行。
+★**命令驗證狀態**：§6.1 與 §6.2 **已真跑**（2026-08-07 手打四段全序列、2026-08-31 `drill`
+子命令；紀錄＝§6.3）；§6.4 原地還原命令形**未實跑**——破壞性操作、須 operator 明確同意後另行執行。
 
 ### 6.1 備份（pg_dump 走容器、host 除 docker 外零依賴）
 
@@ -50,38 +50,38 @@ python3 deploy/backup-db.py dump
 自 dev stack 的 postgres 容器 `pg_dump` 整庫（plain SQL）、落
 `$HOME/backups-fork260509-rev5/`（檔名帶 UTC 時戳、絕不覆寫既有檔）。**落點紀律**＝
 $HOME 下以 repo 目錄名為根（`SECRETS_DIR` 同款命名、rev4:0084 防跨代撞名）、絕不落 repo 內。
-★本工具**零機密處理**：不碰 age 私鑰、不碰 `$SECRETS_DIR` 明文——機密檔與資料卷的**配對
-備份＝第二段**（排程化亦同，BACKLOG B-023）、明確不在本章。★界線另一條：plain `pg_dump`
+★本工具**零機密處理**：不碰 age 私鑰、不碰 `$SECRETS_DIR` 明文——機密檔與資料卷**不入本工具
+備份**（各資產的理由與去處＝§6.5）；備份排程化＝BACKLOG B-023（落點／保留策略待拍板、工具現無
+任何刪舊／排程能力）。★界線另一條：plain `pg_dump`
 只含單一 database、**不含 cluster 級 globals（role 定義與其密碼）**——現況零 role GRANT
 故全新 cluster 可直灌；日後 reaper role 建立後 dump 會帶 `GRANT … TO reaper`，還原目標
 須先建該 role（否則 `ON_ERROR_STOP` 停在首個 GRANT）。
 
-### 6.2 還原演練（scratch 容器、★非破壞——既有容器與卷零觸碰）
+### 6.2 還原演練（`drill` 子命令；scratch 容器、★非破壞——既有容器與卷零觸碰）
 
 ```bash
-docker run -d --name rev5-admin-drill-pg -v rev5-admin-drill-pg-data:/var/lib/postgresql \
-  -e POSTGRES_USER=soybean -e POSTGRES_PASSWORD=drill-scratch \
-  -e POSTGRES_DB=soybean_admin_rust postgres:18.4-alpine
-until docker exec rev5-admin-drill-pg pg_isready -U soybean -d soybean_admin_rust >/dev/null 2>&1; do sleep 1; done
-python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>" --container rev5-admin-drill-pg
-python3 deploy/backup-db.py dump --container rev5-admin-drill-pg
+python3 deploy/backup-db.py drill "$HOME/backups-fork260509-rev5/<dump 檔名>"
 ```
 
-驗證＝normalize 後逐位元比對（剝 pg_dump 隨機 token 行、與 schema-gate normalize 同則）＋
-唯讀抽驗（對 scratch 庫 `psql -Atc` 數列數對照現庫）：
+一條命令走完 2026-08-07 手打四段的全序列（同判準、同名稱）：起全新 scratch 容器
+`rev5-admin-drill-pg`＋卷 `rev5-admin-drill-pg-data`（`postgres:18.4-alpine`＝與 dev stack 同版、
+`--image` 可換；★逐位元相等的前提＝原 dump 標頭「Dumped by pg_dump version」與 --image 同版，不同版會以「normalize 後不等 FAIL」現身、非備份損壞；`docker run` 非零＝FAIL、本次建出的殘留隨即清理——★唯一例外＝撞名：守衛之後才被他人
+佔名〔併行 drill、`--keep` 留下的 scratch〕，docker 原話「is already in use by container」＝視為他人資產、
+不刪、印自清命令）→ 等 `pg_isready`（走 TCP＝L-074、上限 60s、逾時＝FAIL 並清理；探測時 docker 不可得＝
+127、仍嘗試清理）→ restore 灌入 →
+re-dump 落**隔離 tempdir**（★絕不落 `$HOME/backups-*`、絕不落 repo 內、演練完即刪）→ normalize
+（剝 `\restrict`／`\unrestrict` 隨機 token 行、與 `tools/schema-gate.py` normalize 同則）後**逐位元
+比對**：相等＝**PASS**（印 sha256）、不等＝**FAIL** rc 1（印首個差異行號）→ 清理。
 
-```bash
-grep -v -e '^\\restrict ' -e '^\\unrestrict ' "$HOME/backups-fork260509-rev5/<原 dump>" > tmp/a.norm
-grep -v -e '^\\restrict ' -e '^\\unrestrict ' "$HOME/backups-fork260509-rev5/<re-dump>" > tmp/b.norm
-cmp tmp/a.norm tmp/b.norm && echo 逐位元相等
-```
+★非破壞三道守衛：①drill 名容器／卷**已存在＝FAIL、不覆用不刪**（operator 自清；`docker run` 撞名同此）
+②清理**只刪名稱恰為上述兩字面者**（名稱守衛、非 drill 名一律拒刪並 FAIL；`rm -f`／`volume rm` 兩命令
+一律跑完、任一非零即印全部非零者＋自清命令）③re-dump 不落備份落點。
+`--keep`＝保留 scratch 供唯讀抽驗（例：`docker exec rev5-admin-drill-pg psql -U soybean -d soybean_admin_rust -Atc 'select count(*) from sys_user'`
+對照現庫）、看完照工具印出的清理命令自清。退出碼＝0 PASS／1 FAIL／64 用法／127 docker 缺；
+docker 工具非零原樣透傳。
 
-收尾清理**只准刪演練自建、名稱帶 drill 者**（既有 stack 的容器與卷絕不動）：
-
-```bash
-docker rm -f rev5-admin-drill-pg && docker volume rm rev5-admin-drill-pg-data
-rm tmp/a.norm tmp/b.norm
-```
+手打四段（起容器＋`pg_isready` 迴圈／restore＋dump／grep normalize＋cmp／只刪 drill 名）已由本命令
+逐字機器化、自本節刪除——完成即刪、git 即史（原文在 2026-08-07 收單那批 commit 的本節）。
 
 ### 6.3 演練紀錄
 
@@ -89,6 +89,12 @@ rm tmp/a.norm tmp/b.norm
   （`rev5-admin-drill-pg`／`rev5-admin-drill-pg-data`）restore rc=0 → re-dump normalize 後
   `cmp` **逐位元相等**（sha256 同值）＋唯讀抽驗（sys_user 3／sys_menu 78／sys_role 3／
   public 表 16、兩庫同值）→ scratch 清理；docker 容器與卷名冊演練前後 diff 零增減。
+- **2026-08-31**（B-023 還原演練自動化收單、`drill` 子命令首跑）：同一份 2026-08-07 dump
+  （60791 bytes）→ `drill` rc=0：scratch 起動 → `pg_isready` 5.6s → restore rc=0 → re-dump
+  60791 bytes 落 tempdir → normalize 後 **PASS 逐位元相等**（sha256
+  `255ef2d406fececa4a185c2ebbe90440fd55d9c1e082dc3e829e1f5f04912450`、60641 bytes）→ 清理；
+  docker 容器與卷名冊演練前後 diff 零增減、`$HOME/backups-fork260509-rev5/` 檔數不變（1）。同批 U4R
+  碼品質修補（`docker run` 改截 stderr 判撞名）後複跑：rc=0、`pg_isready` 5.8s、sha256 同值、名冊 diff 零增減。
 
 ### 6.4 原地還原（★破壞性——覆寫 dev stack 既有庫；未實跑、須 operator 明確同意後執行）
 
@@ -101,6 +107,17 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 `dropdb` 起即無回頭路——執行前先照 §6.1 再留一份新 dump；還原後跑
 `python3 tools/schema-gate.py check` 三閘綠＝驗收。
 
+### 6.5 機密檔與資料卷不入本工具備份（2026-08-31 定；原「配對備份」半件縮編為本節）
+
+| 資產 | 處置 | 理由 |
+|---|---|---|
+| `$SECRETS_DIR/*.txt` 明文機密 | **不備份** | 明文只是 `deploy/secrets.dev.enc.yaml` 密文的投影（密文已入版控）、`python3 deploy/decrypt-secrets.py` 隨時可重投影；明文進備份＝多一份脫離密文保護的暴露面 |
+| age 私鑰與 passphrase | **不在本工具射程**、走 §15.5 人工離線義務（ADR 0015） | 缺一即密文不可解、離線備份義務含 passphrase 本身；機器備份放不下「人持有」這個前提 |
+| `postgres_data` 卷 | 卷本體不備、由 §6.1 `pg_dump` 邏輯備份涵蓋 | 邏輯 dump 跨版可還原、§6.2 `drill` 已證 restore 後逐位元相等 |
+| `redis_data` 卷 | 不備份 | 不開 AOF 持久化（004 重評結論、§16.4 已載）：快取非權威狀態、判定面不依賴快取、遺失可自癒 |
+| dev 建置快取卷（`base_web_node_modules`／`base_web_pnpm_store`／`rust_api_cargo_cache`／`rust_api_target`；docker-compose.dev.yml 宣告） | 不備份 | dev-only 建置快取、`pnpm install`／`cargo build` 可完整重建、非權威狀態 |
+| obs／metrics 卷（loki／alloy／grafana／prometheus／pushgateway） | 不備份 | profiles opt-in、一般 up 不建；觀測資料非權威狀態 |
+
 ## 7. 機密輪替表（生成明細→`deploy/secrets/README.md`；密文面連帶＝§15）
 
 （本章隨機密管線就位後補實文；創世期無內容。）
@@ -111,7 +128,28 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 ## 9. 維運端點與 DB 直連
 
-（本章隨對應刀補實文；創世期無內容。）
+**稽核欄複驗紀律**（B-078；讀者＝要寫稽核報表／對賬腳本／機器閘的人）：稽核列的轉發鏈欄 `x_forwarded_for` 由
+`trust::rightmost_window_str` **逐字保留**鏈欄原文（不可解析欄是鑑識痕跡、刻意不正規化），而 `real_ip` 是
+`trust::to_canonical(..).to_string()` 的**壓縮小寫**形 ⇒ 鏈欄寫 IPv6 非正規化字面（如 `2001:DB8::9`、`2001:0db8::9`）時
+`real_ip` 落 `2001:db8::9`，`x_forwarded_for LIKE '%'||real_ip||'%'` 這類**字串包含式複驗得假陰性**——在 F8 的兩個成立條件下（真實來源由鏈推導、
+窗 ≤ `XFF_MAX_CHARS` 字元）該跳仍在窗內、以同一份取窗＋正規化重推得同一結論；帶埠 `1.2.3.4:5678`、帶區域 `fe80::5%wlan0`、方括號包裹形不受影響。
+★**紀律**：複驗 MUST 走**重推**＝以該列 `peer_ip`（傳輸層對端欄、可 NULL）與當時生效的信任模型設定（TOML 載入之 `TrustModel`）
+呼叫 `trust::resolve_client_ip(&tm, peer_ip, Some(x_forwarded_for))`（`normalize_xff` 是它的內部步驟、模組私有、**非外部入口**），
+回傳位址經 `trust::to_canonical` 折疊後與 `real_ip` 比相等；★**只比位址、不比 `ip_confidence`**（`chain_rejected` 由原鏈跳數定案、
+欄已截至 `MAX_XFF_TOKENS` 欄、不可由欄重推）。★**不可重推之列（至少五類、報表必先排除，否則把合法列報成缺口＝假陽性）**：
+①`peer_ip` 為 NULL；②`peer_ip` 落在信任模型 `[tunnel]` 來源集且 `ip_confidence` 為 `fallback`／`chain_rejected`——production 固定序
+在 `resolve_client_ip` 之後還有通道覆蓋層 `trust::apply_tunnel_fallback`，命中時真實來源改取**未入庫**的訪客位址標頭、信心仍為回退態，
+列上無從辨別當時有無該標頭，故此類**整批排除**；③鏈欄字元數恰達 `XFF_MAX_CHARS`（1024）——入庫前淨化已切掉窗的**左**端、
+欄不再是當時的判定輸入（可複現反例見 `request_context.rs` 之 `sanitize_x_forwarded_for` rustdoc）；④**跨越信任模型設定變更的列**——判定
+全繫於當時 `TrustModel` 的六個集合（`is_trusted`），而列不記任何設定版本（`sys_login_attempt` 11 欄無快照欄、`trust::Evidence` 明載不入 DB），
+且生效模型還隨 `load_trust_model` 三層降級態（缺路徑退扁平環境變數／非 UTF-8 退全空）漂移 ⇒ 用今日設定重推昨日的列會把合法來源整批報成缺口。
+報表 MUST 以設定變更時點切分區間、每區間用該區間生效的模型重推（時點來源＝設定檔變更史：dev＝`deploy/trust-model.dev.toml` 的 git 史、
+prod＝`APP_TRUST_MODEL_PATH` 所指檔的部署變更紀錄＋啟動載入告警）；切不出時點的區間標「不可判」交人工判讀、不得憑今日設定出結論；⑤`ip_confidence` 為 NULL 的 003 期以前歷史列——該批列的 `real_ip` 非由本代信任模型推導（004 之前無 trust 模型；append-only、不遷移，`model/facade/sys_login_attempt.rs` 的節流計數亦以它為已知陷阱），任何版本重推皆對不上、整批排除。★現無 rust 之外的重推入口
+（唯一落點＝rust 側測試／小工具，屬 B-078 殘餘）；憲法 F8 講的複驗性就是重推；
+`LIKE` 字串判別只限手動走查一眼看（specs/004 之 quickstart §1b），**不得搬進正式報表／對賬腳本／機器閘**——搬了即把
+合法的 IPv6 來源系統性報成「稽核欄不含真實來源」，憑空製造一批假的鑑識缺口告警。★「先把鏈欄逐欄正規化再字串比對」這條看似更穩的路**同樣不行**——
+那會丟掉逐字鑑識痕跡、與 `rightmost_window_str` 刻意不正規化的設計相抵（重推是在記憶體裡正規化、欄本身一字不動，故此棄案理由不反噬所選方案）。
+殘餘工項→ops/BACKLOG **B-078**。
 
 ## 9a. 授權治理面速查（006；僅指針）
 
@@ -137,11 +175,11 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 計一個 warning ⇒ `--max-warnings=0` 下 **rc=1**。該現象對**未改動**的既有檔同樣重現（＝既存現象、非某次改動所致）。
 `.ts` 面的實際檢查由 `oxlint` 承接（`package.json` 之 `lint` 已是 `oxlint` 打頭）。
 
-★★**`pnpm lint` 內含 `--fix`，會就地改寫「本來就不 lint-clean 的既有檔」**（B-144）：本刀 U6～U8 三度撞到
+★★**`pnpm lint` 內含 `--fix`，只要樹上存在非 lint-clean 的既有檔就會就地改寫**（B-144 實例、2026-08-31 已清償）：007 之 U6～U8 三度撞到
 `src/views/manage/ip-rule/index.vue` 被重排一段 HTML 註解。危害在**執行單元的空間邊界靠「工作樹只出現允許清單內的檔」
 判定**——這筆改寫會讓清單外的檔平白出現在 `git status`，很容易被誤當成自己的交付。
 處置：跑完 `pnpm lint` 後檢查 `git status`，清單外的檔一律**存原文→寫回**還原（★不用 `git checkout`，L-060），
-並在交付報告裡註明。根治面＝讓那些檔一次性回到 lint-clean（B-144 候選處置①）。
+並在交付報告裡註明。既知實例已於 2026-08-31 一次性回到 lint-clean（B-144 收單、base-web pin b827063）；候選之 pre-commit 斷言形判不可行（允許清單只住 workflow script 常數、子庫 pre-commit 零 python、攔截點錯）⇒ 現無在案根治面，本節「存原文→寫回」紀律即唯一防線（日後再現非 lint-clean 檔即復發形）。
 
 ★**編排 script 的前端驗證段照此表寫**：把「`.ts` 走 oxlint、`.vue` 走 `pnpm lint`、MUST NOT 用 eslint 判 `.ts`」
 與上述 `--fix` 還原紀律逐條烤進 agent prompt（本刀 U6／U7／U8 三支已照辦）。
@@ -340,24 +378,26 @@ EOF
   | `python3 tools/entity-drift-gate.py test` | 45 | 0.175s | 1s |
   | `python3 tools/route-artifact-gate.py test` | —* | 0.070s | 1s |
   | `python3 deploy/preflight-secrets.py test` | 30 | 0.130s | 1s |
-  | `python3 deploy/decrypt-secrets.py test` | 71 | 2.366s | 8s |
+  | `python3 deploy/decrypt-secrets.py test` § | 83 | 2.395s | 8s |
   | `python3 deploy/generate-secrets.py test` | 35 | 1.710s | 6s |
   | `python3 deploy/setup-reaper-role.py test` | 32 | 0.585s | 2s |
-  | `python3 deploy/backup-db.py test` | 17 | 1.649s | 5s |
+  | `python3 deploy/backup-db.py test` § | 49 | 4.398s | 14s |
   | `python3 tools/wf-watchdog.py test` | 30 | 0.158s | 1s |
   | `python3 tools/rust-fmt-gate.py test` † | 11 | 0.125s | 1s |
   | `python3 tools/walkthrough-baseline.py test` ‡ | 24 | 0.095s | 1s |
-  | **14 支 test 合計** | **1001＋具名段** | **23.507s** | — |
+  | **14 支 test 合計** | **1045＋具名段** | **26.285s** | — |
 
   （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
   （†rust-fmt-gate＝**2026-08-25** 維護批 A（B-112／ADR 0057）新入名冊、該列為當日單獨量測，
-  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **598**（2026-08-30；08-25 時 527）但中位數
+  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **614**（2026-08-30 B-150／B-151 維護批後；該批前 599、08-25 時 527）但中位數
   未重測，故該列與合計之案數仍記 08-18 值——讀本表時注意其時點混成。）
   （‡walkthrough-baseline＝**2026-08-30** 維護批（B-147）新入名冊、該列為當日單獨量測（三跑中位）、
   其餘各列沿舊值；合計列照加總更新、**未**重測情境 B、故不 append `full_chain` 事件——混成時點的合計不是一次量測。）
+  （§decrypt-secrets／backup-db 兩列＝**2026-08-31** 外層維護批 U4（B-030 parity 五面斷言＋B-023 `drill`）重量（三跑中位）、
+  其餘各列沿舊值；合計列照加總更新、**未**重測情境 B。上限依本節推導式重算：decrypt 列 2.395×3＝7.185→**8s** 不變（U4 時 2.371s／82 支；U4R 碼品質複審修補〔④⑤互比冗斷言刪除、補雙漂移釘死案〕後 83 支、三跑中位 2.395s）；backup-db 列 4.398×3＝13.194→**14s**（自 5s 兩段調升：U4 時 3.737×3＝11.211→12s〔drill 自測入冊後案數 17→40、中位數增為舊值 2.3 倍，舊上限僅餘 1.33 倍餘裕、已落入 drvfs 抖動可及範圍；U4R 規格審查修補〔restore／dump 的 run 注入縫＋docker run 失敗分支清理〕後 40→42 支、三跑中位 3.752→3.737s〕；U4R 碼品質審查修補〔pg_isready 重試路徑入測、docker run 撞名不刪他人資產、清理兩命令跑完、探測時 docker 不可得仍清理〕後 42→49 支、三跑中位 4.398s、推導值 13.194 越過 12s 故再依式進位 14s）。）
 
-  **情境 B 合計＝37.202s**（13.695＋23.507）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
-  為準：37.202s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
+  **情境 B 合計＝39.980s**（13.695＋26.285）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
+  為準：39.980s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
 
   **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；★**前四列**沿 2026-08-16
   量測值（同法）、其後各批未重測；seed-view-gate 一列為 006-authz-governance 刀入冊當日量測、rust-fmt-gate
@@ -800,7 +840,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&
 |---|---|
 | 登入頁三顆快速登入鈕把 dev seed 帳密帶進前端 bundle ★轉 prod 前必須拆除 | ops/BACKLOG **B-064** |
 | 前端 demo 資產去留（alova 第二請求棧等） | ops/BACKLOG **B-018** |
-| 備份自動化第二段（排程化／機密與資料卷配對備份／還原演練自動化） | ops/BACKLOG **B-023**；第一段已收單＝§6 |
+| 備份排程化（落點／保留策略／自動刪舊待拍板） | ops/BACKLOG **B-023**；dump／restore＝§6.1、還原演練自動化已收單＝§6.2 `drill`、機密與資料卷不入備份＝§6.5 |
 | 快取持久化模式（redis AOF） | 004 重評結論＝**維持現狀不開**（暴險受「狀態即權威」封頂：判定面不依賴快取、解鎖標記遺失可再解鎖自癒） |
 | IP 閘阻擋告警無量的上界（加了 deny 規則後 log 量由被擋方決定） | ops/BACKLOG **B-077** |
+| 三張稽核表（sys_access_log／sys_login_attempt／sys_operation_log）為 append-only；sys_casbin_policy_archive 有消費面（restore 即刪列、006）——四表皆無 retention 政策與清理排程 | ops/BACKLOG **B-016** |
 | 機密輪替與 prod 值 | §7、§15 |

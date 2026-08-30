@@ -1,0 +1,4 @@
+---
+promoted_to: CLAUDE.md §2 編排範本「每個 agent prompt 烤進不可違反項」句（2026-08-30 補「變異紅證必附 skipped=0、探針勿自 repo 外載入 mutant」）
+---
+- **L-073**｜**變異探針把改壞的副本放到 repo 外目錄再 import，模組級 `ROOT` 跟著載入點走、現況驗收案整批靜默 skip——「改壞了也沒紅」其實是「那些案根本沒跑」**：`tools/docs-sync.py` 的 `ROOT = dirname(dirname(abspath(__file__)))` 以檔案位置推 repo 根，而現況驗收案掛的 `@unittest.skipUnless(_day1_pending(...))` 在 class body 期就求值；探針把 mutant 寫到 scratchpad 再載入，ROOT 指到 scratchpad 上層、真 repo 檔全部「缺席」⇒ 全部現況驗收案被 skip，`testsRun` 與未變異時一模一樣、輸出只多一段 `OK (skipped=N)`，紅證因此失真。★**2026-08-30 實暴**（B-150／B-151 維護批碼品質輪 fix agent 自陳）。★**判準——變異「沒紅」有三種成因**：守門真 vacuous／變異沒打到那一格／**那些案根本沒跑**；先自證後兩者才談第一者（前兩者的判準見 [[L-063-new-track-purpose-mutation-test-is-vacuous-before-markers]]）。★**防法**：①探針一律**就地變異**——先存原文→改真檔→跑→寫回（同 [[L-060-restore-temp-mutation-without-git-checkout]] 的還原紀律）；非要載入副本，載入前把 `ROOT` 逐字改寫成真 repo 路徑②探針輸出必印並斷言 `skipped=0`——unittest 的 `OK (skipped=N)` 本身就是訊號，別只看 `testsRun`／`FAILED`③紅證寫進 report 時附 skipped 值，審查員據此判紅證是否成立。

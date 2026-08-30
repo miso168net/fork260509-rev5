@@ -14,7 +14,7 @@
                   Lint19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
                   Lint20 空集合守衛八組；Lint21 名冊腳本 index exec bit＝100755；
                   Lint22 條款範圍字串名冊 vs 掃源上界；
-                  Lint24 前後端 msg key 契約閘；
+                  Lint24 前後端 msg key 契約閘（＋zh-cn backend 鍵集＝zh-tw 鍵集對賬腿）；
                   Lint25 跨代裸編號閘：前代編號空間的裸引用須帶 revN: 前綴；
                   Lint26 LESSONS 分檔對賬：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填；
                   Lint27 README 目錄樹 vs tools/／deploy/ 腳本檔集對賬：兩向紅、只報不改；
@@ -2421,9 +2421,39 @@ _RE_DIR_GUARD = r"(?!(?:" + "|".join(TOOLS_PY_DIRS) + r")/)"
 #   (?=[`|/／]) 要求續值 token 後緊接反引號或下一分隔符——「python3 tools/…」這種 token 後
 #   還有空白與引數的完整命令形因此不會被當成前一支的續值（它由 RE_CMD_PY 自己那輪去驗）。
 #   誤收的後果＝對 RUNBOOK 現行「`…check` / `python3 …test`」句型誤紅 ERROR 硬擋（U5 實證）。
+# ★跨段續值容許 `<…>` 佔位 token（B-150、明示契約）：續值 token 之後可夾零到多個 `<…>` 佔位
+#   （含其前後空白；佔位內可含空白、不可含反引號與尖括號）。★收尾前瞻**隨佔位枚數換形**：零
+#   佔位＝維持原前瞻（反引號或下一分隔符）；夾了一枚以上佔位＝**只認結尾反引號**（不認分隔符
+#   ——理由見下段「兩形擇一、不可合併」；把兩形寫成一形即誤紅 `<dir>/subpath`）。
+#   於是 `snapshot <檔>` / `diff <檔>` / `test` 三值全進判定；修前只有首值受驗、`diff <檔>`
+#   的空白讓前瞻失敗、整鏈中止（B-147 變異實證：改壞 diff／test 無一筆紅）。
+#   ★為何仍擋得住完整命令形：容忍段只收「尖括號包住的佔位」，`python3 tools/…py test` 的
+#   續段在 python3 之後是空白＋路徑（非 `<`）、前瞻照舊失敗；`check <檔> 散文` 的散文詞
+#   亦不是佔位形、不成續值。★只放寬 SLASH 形（跨段）：PIPE 形（同段緊接）語意不變，跨段
+#   仍只認斜線、不認直豎線（表格欄界）——本容忍不改跨段判定。
+# ★收尾前瞻**兩形擇一、不可合併**（尾段 _RE_SUB_TAIL）：①有佔位時只認**結尾反引號**
+#   （`(?=`)`）②無佔位時維持原前瞻（反引號或下一分隔符）。合併寫法（佔位段可選＋共用
+#   `(?=[`|/／])`）會讓佔位**之後的斜線**也算合法收尾，於是「帶佔位目錄的路徑」被拆成
+#   兩個子命令：`…errata <詞>` / `check <dir>/subpath` 的 subpath 被當成續值而誤紅 ERROR
+#   （pre-commit 硬擋）——與註解上方記載的「誤收的後果」同一形、只是換了觸發邊。路徑段
+#   在手冊裡是自然寫法（`<dir>/report.md`），故此邊界由自測釘死（見
+#   test_placeholder_before_slash_path_does_not_start_a_continuation）。
+# ★佔位段形制**四條子句逐條由自測釘死**（test_placeholder_run_shape_is_pinned）——改動任一條
+#   都無其他訊號（全套自測照綠、真語料照樣零 findings），故一律以反例守：
+#   ①至少一枚（`+` 非 `*`）：「token＋空白＋結尾反引號」不成續值，否則排版尾空白就會靜默把
+#     該 token 收進判定面。放寬＝靜默**擴大**受驗面（多收假子命令即誤紅）。
+#   ②佔位內不含尖括號（`[^<>]`）：「`<a> 散文 <b>`」不算單一佔位、鏈就地中止，否則整段散文
+#     都被當佔位吞掉、其後任何 token 都成續值。放寬＝靜默**擴大**受驗面。
+#   ③佔位內不含反引號（`[^`]`）：佔位不得跨出自己那個代碼段。放寬＝把「反引號之後的內容」
+#     整段吞成佔位，其後的假子命令被收成續值而誤紅 ERROR（pre-commit 硬擋）——與上方記載的
+#     「誤收的後果」同一形、只是換了觸發邊。
+#   ④佔位後容許尾空白（佔位段的第二個 `[ \t]*`）：手冊把值寫成「`check <檔> `」（佔位後有
+#     排版尾空白）時鏈不得中止。拿掉＝方向相反的靜默**縮小**受驗面——其後的子命令全部退出
+#     判定，正是 B-150 立案要消滅的「零覆蓋且零訊號」形。
+_RE_SUB_TAIL = r"(?:(?:[ \t]*<[^`<>\n]*>)+[ \t]*(?=`)|(?=[`|/／]))"
 RE_SUB_PIPE = re.compile(r"[|/／]" + _RE_DIR_GUARD + r"([a-z][a-z0-9-]*)")
 RE_SUB_SLASH = re.compile(r"[^`\n]*`\s*[/／]\s*`" + _RE_DIR_GUARD
-                          + r"([a-z][a-z0-9-]*)(?=[`|/／])")
+                          + r"([a-z][a-z0-9-]*)" + _RE_SUB_TAIL)
 
 
 def _old_py_name_alt(rel):
@@ -4200,10 +4230,12 @@ def lint_range_strings(root):
 # ---------------------------------------------------------------------------
 
 # 掃描面＝rust-api/server/src 底下全部 .rs 生產碼（#[cfg(test)] 區間以大括號配對整段排除、
-# 行首 // 註解排除）；前端側復用 parse_locale_backend 解析 zh-tw backend 樹。
+# 行首 // 註解排除）；前端側復用 parse_locale_backend 解析 zh-tw backend 樹；第二腿再讀 zh-cn
+# backend 樹、鍵集須＝zh-tw 鍵集（B-030 子項；只比鍵集不比值、缺檔 fail-closed）。
 I18N_RS_SRC_DIR = "rust-api/server/src"
 I18N_ERROR_RS = "rust-api/server/src/error.rs"     # key() 固定鍵抽取標的（碼表單一來源檔）
 I18N_FRONTEND_LOCALE = "base-web/src/locales/langs/zh-tw.ts"
+I18N_FRONTEND_LOCALE_CN = "base-web/src/locales/langs/zh-cn.ts"   # 第二腿：鍵集對賬對象
 # 間接常數名冊（字面釘死；掃到 Biz(Cow::Borrowed(常數)) 形時查表）：
 # throttle/mod.rs 之 LOCKED_MSG_KEY／CAPTCHA_REQUIRED_MSG_KEY 兩筆。掃描時另抓
 # 「const 名: &str = "值";」宣告比對名冊值——源碼改值而名冊未跟＝ERROR（名冊漂移即恆綠洞）。
@@ -4474,10 +4506,39 @@ def check_i18n_contract(backend, frontend, whitelist):
     return out
 
 
+def check_locale_key_parity(zh_tw, zh_cn):
+    """Lint24 第二腿純判定（B-030 子項）：zh-cn backend 鍵集須＝zh-tw 鍵集，兩向差集各報一筆
+    ERROR、逐鍵指名（zh-cn 缺＝zh-tw 有而 zh-cn 無；zh-cn 多＝反向）。★只比鍵集、不比值：
+    值層（佔位符 ↔ 後端 data 鍵名）對賬另見 BACKLOG B-139。"""
+    out = []
+    missing = sorted(set(zh_tw) - set(zh_cn))
+    extra = sorted(set(zh_cn) - set(zh_tw))
+    if missing:
+        out.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_CN,
+                           f"zh-cn 缺 {len(missing)} 鍵（zh-tw 有而 zh-cn 無）：{'、'.join(missing)}"
+                           "——三語 locale 同 commit 補鍵（rev4:L-094）、簡中缺鍵即 vue-i18n "
+                           "fallback 吐裸識別字"))
+    if extra:
+        out.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_CN,
+                           f"zh-cn 多 {len(extra)} 鍵（zh-cn 有而 zh-tw 無）：{'、'.join(extra)}"
+                           "——zh-tw 為契約主鍵集；確為新鍵則先補 zh-tw、確廢棄則自 zh-cn 刪鍵"))
+    return out
+
+
 def i18n_contract_self_test():
     """防恆綠：紅樣本四型（後端多鍵／前端孤兒鍵／白名單腐化／白名單鍵不在字典）必紅且帶
-    關鍵內容、綠樣本（含白名單內部鍵）必綠；失效即 ERROR（比照 Lint16/Lint21/Lint22 慣例）。"""
+    關鍵內容、綠樣本（含白名單內部鍵）必綠；失效即 ERROR（比照 Lint16/Lint21/Lint22 慣例）。
+    第二腿（zh-cn 鍵集對賬）另以「少一鍵必紅、同鍵集必綠」兩樣本自證。"""
     out = []
+    if not any(x["level"] == ERROR and "丙.丁" in x["msg"]
+               for x in check_locale_key_parity({"甲.乙", "丙.丁"}, {"甲.乙"})):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（zh-cn 少一鍵）未被攔下——第二腿已恆綠，"
+                           "修復 check_locale_key_parity 後重跑"))
+    if check_locale_key_parity({"甲.乙"}, {"甲.乙"}):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：綠樣本（zh-cn 同鍵集）誤報——第二腿判定過寬，"
+                           "修復 check_locale_key_parity 後重跑"))
     site = {"甲.乙": [("樣本.rs", 7)]}
     f = check_i18n_contract(site, {"甲.丙"}, frozenset(("甲.丙",)))
     if not any(x["level"] == ERROR and "甲.乙" in x["msg"] and "樣本.rs:7" in x["msg"]
@@ -4514,9 +4575,14 @@ def lint_i18n_contract(root, exemptions=None):
     區間排除；無法靜態解析＝ERROR fail-loud）；前端側＝parse_locale_backend 解析 zh-tw
     backend 樹。組裝＝self-test 防恆綠＋雙側取值＋差集判定；任一側結構性錯誤＝只報該錯、
     不進差集（比對無基準）。本條款無 skip、severity 一律 ERROR。
-    ★掃描面註記（雙審 minor 收單）：前端側僅 zh-tw；en-us 由 msg-dict 兩語鍵集斷言
-    （compute_msg_dict_rows、generate/check 路徑）間接守；zh-cn 不在任何 lint 掃描面、
-    僅由 app.d.ts Schema 之 vue-tsc typecheck 兜底（不在 pre-commit）——強化候選詳 rev4:B-135。"""
+    ★第二腿（B-030 子項「zh-cn 鍵集不在掃描面」、2026-08-30 起有機器守）：zh-tw 樹解析成功
+    後再讀 zh-cn（同 parse_locale_backend、只多讀一檔），鍵集須＝zh-tw 鍵集——兩向差集各報一筆
+    ERROR 逐鍵指名（check_locale_key_parity）；zh-cn 缺檔＝ERROR 指名路徑、樹解析失敗＝ERROR
+    （皆 fail-closed）。zh-tw 缺席或解析失敗時本腿不評（比對無基準、只報 zh-tw 那筆）。
+    ★誠實邊界：本腿**只比鍵集、不比值**——值層佔位符 ↔ 後端 data 鍵名的對賬另見 BACKLOG
+    B-139；en-us 由 msg-dict 兩語鍵集斷言（compute_msg_dict_rows、generate/check 路徑）間接守
+    （D9 拍板兩語、MSG_DICT_LOCALES 不含 zh-cn）；app.d.ts Schema 之 vue-tsc typecheck 仍為
+    型別側兜底（不在 pre-commit）。"""
     out = i18n_contract_self_test()
     backend, errs = scan_backend_msg_keys(root)
     text = _read(root, I18N_FRONTEND_LOCALE)
@@ -4525,12 +4591,27 @@ def lint_i18n_contract(root, exemptions=None):
         errs.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
                             "前端 locale 檔缺席（讀不到）——字典側無法建立，fail-closed"
                             "（Lint20 家族）"))
-    else:
+    parity = []
+    if text is not None:
         try:
             frontend = set(parse_locale_backend(text, I18N_FRONTEND_LOCALE))
         except BackendDictError as ex:
             errs.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
                                 f"backend 樹解析失敗：{ex}——fail-loud"))
+        else:
+            # 第二腿：zh-cn 鍵集＝zh-tw 鍵集（基準＝剛解析成功的 zh-tw 樹；缺檔／解析失敗皆紅）
+            text_cn = _read(root, I18N_FRONTEND_LOCALE_CN)
+            if text_cn is None:
+                parity.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_CN,
+                                      "zh-cn locale 檔缺席（讀不到）——鍵集對賬無法建立，"
+                                      "fail-closed（Lint20 家族）"))
+            else:
+                try:
+                    parity = check_locale_key_parity(
+                        frontend, set(parse_locale_backend(text_cn, I18N_FRONTEND_LOCALE_CN)))
+                except BackendDictError as ex:
+                    parity.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_CN,
+                                          f"backend 樹解析失敗：{ex}——fail-loud"))
     if errs:
         # ★Day 1 具名豁免（§4.5.10 類三／B4 乙③）：判定點必須在此——兩個 early-return
         #   的 errs 已集齊、尚未 return 的這一刻。放進 check_i18n_contract 內是不可達的
@@ -4545,8 +4626,8 @@ def lint_i18n_contract(root, exemptions=None):
                 return out + [finding(SKIP, "Lint24", "lint24.day1",
                                       f"Day 1 具名豁免（{table['lint24.day1'][0]}）——"
                                       "任一側源到位即該側規則接管，兩側皆備即全檢")]
-        return out + errs
-    return out + check_i18n_contract(backend, frontend, I18N_FRONTEND_INTERNAL_KEYS)
+        return out + errs + parity
+    return out + check_i18n_contract(backend, frontend, I18N_FRONTEND_INTERNAL_KEYS) + parity
 
 
 # ---------------------------------------------------------------------------
@@ -4893,8 +4974,9 @@ def lint_id_namespace(root, tracked, exemptions=None):
 # 掃描面（寫死本檔、不取自任何外部輸入）：子庫 → 交給 git grep 的 pathspec 組。
 # ★git 預設 pathspec 的 `*` 亦匹配 `/`（fnmatch 無 FNM_PATHNAME）：`src/*.ts` 即涵蓋 src/ 下
 #   任意深度；`src/**/*.ts` 形反而漏掉 src/ 直屬子檔（2026-08-30 實測 base-web：117 vs 116 檔）。
+# ★取捨登記（B-151；為何是這幾個樣式、為何不是更多）住 lint_submodule_code_ids docstring。
 SUBMODULE_ID_SCAN = {
-    "rust-api": ("*.rs",),
+    "rust-api": ("*.rs", "*.toml"),
     "base-web": ("src/*.ts", "src/*.vue"),
 }
 # 粗篩樣式（POSIX ERE、交給 `git grep -E`）：只負責把含 B-／L- 三位號的候選行撈出來，精判在
@@ -4938,10 +5020,20 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
     """Lint29：子庫碼面裸 B-／L- 編號超出本代 next-id 即紅（B-148）。
 
     掃描面＝兩子庫由**外層 index 之 gitlink SHA 指向的樹**（SUBMODULE_ID_SCAN：rust-api 全部
-    *.rs、base-web 之 src/ 下 *.ts／*.vue）；整行文字一視同仁（註解與字串常值皆掃）——碼面任何
-    位置的超號裸編號都不該存在。逐 token 判準**複用 Lint25**：緊鄰左側 rev2:～rev5: 前綴＝合規；
-    NNN ≤ next-id 或 900～999 假號段＝原生放行（lint25_native）；其餘＝ERROR、where＝
-    <子庫>/<path>:行 N、msg 指名 token 與去處。
+    *.rs＋*.toml、base-web 之 src/ 下 *.ts／*.vue）；整行文字一視同仁（註解與字串常值皆掃）——
+    碼面任何位置的超號裸編號都不該存在。逐 token 判準**複用 Lint25**：緊鄰左側 rev2:～rev5:
+    前綴＝合規；NNN ≤ next-id 或 900～999 假號段＝原生放行（lint25_native）；其餘＝ERROR、
+    where＝<子庫>/<path>:行 N、msg 指名 token 與去處。
+    ★掃描面取捨登記（B-151；隱性邊界升格為登記過的取捨）：
+      - rust-api `*.toml` **納入**：Cargo.toml／rustfmt.toml 等設定檔與碼同紀律——我方全新寫、
+        註解裡引用 B-／L- 編號的習慣與 .rs 相同（2026-08-30 pin 樹內 7 檔、現況命中四筆皆
+        ≤ next-id），同一字串寫在 .rs 會紅、寫在 .toml 不會＝B-148 要消滅的形；成本面小、零新
+        git 子行程（同一發 git grep 多一個 pathspec）。
+      - base-web `*.md` **刻意不納**：src/ 外的 CHANGELOG／README 是 upstream 原檔，一旦命中只能
+        動 upstream 既有行才修得掉——撞憲法 §III.2 的授權軌道（原行紀律）、且把上游更新吃進
+        誤報面；base-web 側 src/ 外今日零命中、無射程缺口可補。
+      - 生成 fixture（如 rust-api `server/tests/fixtures/wire-schema.json`）**不納**：生成檔的紅
+        須回源頭（產生器／來源 schema）修、不由本閘承載——在生成物上報紅只會引人手改生成物。
     ★為何掃 pin 指向的樹而非工作樹：外層 repo 記錄的就是 pin（Lint17 已互證 pin＝worktree
       HEAD）；子庫未 commit 的改動不在掃描面（同 Lint16 增量面語意）。
     ★為何 `git grep` 而非 python 逐檔 open：drvfs 逐檔 I/O 稅是 B-130 的教訓——一發 git grep 在庫
@@ -4952,10 +5044,12 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
       （upstream rebase 卷史後合法失聯）；git grep 其餘非零退出＝ERROR（fail-loud、不吞）；
       -z 記錄不帶「<sha>:」前綴或解析不出「<path>\\0<行號>\\0<內容>」三欄＝ERROR（輸出形有變則
       每筆記錄都會被丟掉、條款恆綠零告警——同屬掃描面未建立，不吞；唯一合法的無前綴記錄＝
-      split 尾端空字串）；★pin 樹內零檔匹配 pathspec＝ERROR「掃描面為空」（git grep 對零檔
-      pathspec 回 rc 1、與「掃乾淨」不可分——SUBMODULE_ID_SCAN 與子庫版面脫節時整條款會靜默
-      零覆蓋、現況驗收案照綠；同 walkthrough-baseline「空面的全等是假綠」紀律，final holistic
-      透鏡 B 實暴後補）。
+      split 尾端空字串）；★pin 樹內**逐 pathspec** 判存在性、任一樣式零檔匹配即 ERROR
+      「掃描面為空」並指名該樣式（git grep 對零檔 pathspec 回 rc 1、與「掃乾淨」不可分——
+      SUBMODULE_ID_SCAN 與子庫版面脫節時整條款會靜默零覆蓋、現況驗收案照綠；同
+      walkthrough-baseline「空面的全等是假綠」紀律，final holistic 透鏡 B 實暴後補）。
+      ★不對全體樣式取 OR：`*.toml` 進場後 Cargo.toml 在任何 cargo workspace 都必然存在，OR
+      形會讓 rust-api 的守衛恆綠、`*.rs` 那一半失去偵測（碼品質透鏡補釘）。
     ★reg＝lint25_registry 結果（None＝現算、與 Lint25 同一份 next-id 讀法）；自測注入固定值以與
       真 repo 配號脫鉤。
     """
@@ -4992,14 +5086,19 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
                                f"git grep 退出碼 {rc}" + (f"：{head}" if head else "")
                                + "——掃描面未建立、不得視同乾淨（fail-loud）"))
             continue
-        # 掃描面存在性（fail-loud）：pin 樹內須至少一檔匹配 pathspec，否則 rc 1「無命中」＝假綠
+        # 掃描面存在性（fail-loud）：pin 樹內**每個 pathspec 各**須至少一檔匹配，否則 rc 1
+        # 「無命中」＝假綠。★逐 pathspec 判定、不對全體取 OR（碼品質透鏡補釘）：OR 形只要任一
+        # 樣式命中即判非空，而 rust-api 自 B-151 起含 `*.toml`、Cargo.toml 在任何 cargo
+        # workspace 都必然存在 ⇒ 該庫守衛結構性恆綠，`*.rs`（該庫主要碼面）整片失覆蓋也偵測
+        # 不到。訊息只列空掉的樣式，指名脫節的是哪一格。
         if trc == 0:
             names = [n for n in tout.split("\0") if n]
-            pats = SUBMODULE_ID_SCAN[sub]
-            if not any(fnmatch.fnmatchcase(n, pat) for n in names for pat in pats):
+            empty = [pat for pat in SUBMODULE_ID_SCAN[sub]
+                     if not any(fnmatch.fnmatchcase(n, pat) for n in names)]
+            if empty:
                 out.append(finding(ERROR, "Lint29", sub,
                                    f"掃描面為空：pin {sha[:12]} 的樹內零檔匹配 pathspec "
-                                   f"{'／'.join(pats)}——SUBMODULE_ID_SCAN 與子庫版面脫節、"
+                                   f"{'／'.join(empty)}——SUBMODULE_ID_SCAN 與子庫版面脫節、"
                                    "不得視同乾淨（fail-loud）；改常數或還原版面後重跑"))
                 continue
         prefix = sha + ":"
@@ -10055,7 +10154,7 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
                ("deploy/setup-reaper-role.py", ("test",)),
-               ("deploy/backup-db.py", ("dump", "restore", "test")))
+               ("deploy/backup-db.py", ("drill", "dump", "restore", "test")))
 
 
 def _tools_fixture(d):
@@ -10373,6 +10472,105 @@ class TestCmdFormLint(unittest.TestCase):
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
         self.assertIn("bogus-gate", f[0]["msg"])
 
+    def test_placeholder_token_after_continuation_value_is_still_checked(self):
+        """★B-150 正面（明示契約）：續值 token 之後容許 `<…>` 佔位（含其前後空白）再遇
+        結尾反引號或下一分隔符——`errata <詞>` / `check <檔>` / `test` 三值全進判定。
+
+        修前：`[^`\\n]*` 只在**首值**之後容納引數，續值 token 卻要求緊接分隔符或反引號，
+        `check <檔>` 的空白讓前瞻失敗、整鏈當場中止——`check`／`test` 既不誤紅也零覆蓋
+        （B-147 落地時變異實證：改壞 RUNBOOK 表列的 diff／test 無一筆紅）。
+        """
+        line = "| `python3 tools/docs-sync.py errata <詞>` / `check <檔>` / `test` | x | 否 |\n"
+        self.assertEqual(self._f(line), [])
+        # 佔位內含空白（`<sops 參數>` 形）與全形斜線一併容許
+        self.assertEqual(
+            self._f("`python3 tools/docs-sync.py errata <詞>`／`check <同 檔>`／`test`\n"), [])
+        # 紅案：佔位之前的假子命令須紅（＝該值真的進了判定、不是被跳過）
+        f = self._f("| `python3 tools/docs-sync.py errata <詞>` / `diffx <檔>` / `test` | x | 否 |\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("diffx", f[0]["msg"])
+        # 紅案：佔位**之後**的第三值仍在鏈上（佔位不得讓鏈中止）
+        f = self._f("| `python3 tools/docs-sync.py errata <詞>` / `check <檔>` / `bogus3` | x | 否 |\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus3", f[0]["msg"])
+
+    def test_placeholder_does_not_turn_a_full_command_form_into_a_continuation(self):
+        """★B-150 負面回歸（明示契約）：佔位容忍只放在「續值 token 與分隔符之間」，
+        不得讓後接的完整命令形（`python3 tools/….py test`）被當成前一支的續值——
+        那一段仍由 RE_CMD_PY 自己那輪去驗（同 test_cross_span_continuation_is_not_another_command_form）。
+        """
+        cases = [
+            # ①首值帶佔位、續段為完整命令形（python3 前綴）
+            "| `python3 tools/docs-sync.py errata <詞>` / `python3 tools/schema-gate.py test` "
+            "| 條件 | 否 |\n",
+            # ②續段為「完整命令形＋佔位」
+            "`python3 tools/docs-sync.py errata <詞>` / `python3 tools/schema-gate.py test <檔>`\n",
+            # ③續段以 tools 路徑起手（真子命令仍須被驗——此行應恰零 finding）
+            "`tools/docs-sync.py errata <詞>`／`tools/schema-gate.py gate2 <檔>`\n",
+        ]
+        for text in cases:
+            self.assertEqual(self._f(text), [], msg=text)
+        # 反面：續段為「完整命令形＋假子命令＋佔位」→ 由 RE_CMD_PY 自己那輪抓、恰一筆
+        f = self._f("`tools/docs-sync.py errata <詞>`／`tools/schema-gate.py bogus-gate <檔>`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus-gate", f[0]["msg"])
+        # 反面：佔位之後接非分隔符的散文詞（bogus4），不得把它收成續值（`check <檔> bogus4` 非合法形）
+        self.assertEqual(
+            self._f("`python3 tools/docs-sync.py errata <詞>` / `check <檔> bogus4`\n"), [])
+
+    def test_placeholder_before_slash_path_does_not_start_a_continuation(self):
+        """★B-150 誤報邊界（明示契約）：佔位**之後的斜線**不算合法收尾——「帶佔位目錄的
+        路徑」（`<dir>/subpath`、`<root>/report.md`）是手冊裡的自然寫法，若讓佔位段共用
+        `(?=[`|/／])` 收尾，路徑段會被 RE_SUB_PIPE 從那個斜線續鏈、當成下一個子命令而誤紅
+        ERROR（pre-commit 硬擋）。守法＝有佔位時只認結尾反引號（_RE_SUB_TAIL 第一形）。
+        """
+        for text in (
+                "`python3 tools/docs-sync.py errata <詞>` / `check <dir>/subpath`\n",
+                "`python3 tools/docs-sync.py errata <詞>` / `check <root>/report.md`\n",
+                "| `python3 tools/docs-sync.py errata <詞>` / `check <dir>/<name>.md` | x |\n"):
+            self.assertEqual(self._f(text), [], msg=text)
+        # 正面對照：收緊不減覆蓋——同形但佔位後直接收尾者，第三值仍在鏈上（假子命令須紅）
+        f = self._f("`python3 tools/docs-sync.py errata <詞>` / `check <檔>` / `bogus-tail`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus-tail", f[0]["msg"])
+
+    def test_placeholder_run_shape_is_pinned(self):
+        """★B-150 佔位段形制（明示契約，四條皆為守門面而非敘述）：
+        ①至少一枚（`+` 非 `*`）——「token＋空白＋結尾反引號」不成續值，否則排版尾空白就
+          會靜默把該 token 收進判定面；
+        ②佔位內不含尖括號——`<a> 散文 <b>` 不算單一佔位，鏈就地中止，否則整段散文都會被
+          當佔位吞掉、其後任何 token 都成續值；
+        ③佔位內不含反引號——佔位不得跨出自己那個代碼段，否則「反引號之後的內容」被整段吞成
+          佔位、其後的假子命令被收成續值而誤紅 ERROR（pre-commit 硬擋）；
+        ④佔位後容許尾空白——手冊把值寫成 `check <檔> `（佔位後有排版尾空白）時鏈不得中止。
+        ①②③放寬皆是**擴大**受驗面（多收假子命令即誤紅），④拿掉則是方向相反的**縮小**受驗面
+        （其後子命令全部退出判定＝B-150 要消滅的零覆蓋形）；四者皆無其他訊號（碼品質透鏡實測：
+        四條變異各只紅本案一支、其餘 612 案照綠），故逐條在此釘死。
+        """
+        # ①`bogus1` 後只有空白就收尾（無佔位）＝不成續值：整鏈中止、零 finding
+        self.assertEqual(
+            self._f("`python3 tools/docs-sync.py errata <詞>` / `bogus1 `\n"), [])
+        # ②佔位內含尖括號的散文段＝非佔位形：`bogus2` 不進判定、零 finding
+        self.assertEqual(
+            self._f("`python3 tools/docs-sync.py errata <詞>` / `bogus2 <a> 散文 <b>`\n"), [])
+        # 對照組：把兩形改成合法佔位形後，同一個假子命令即紅（證上面兩案的綠來自形制、
+        # 不是來自 `bogus1`／`bogus2` 這兩個 token 被整體豁免）
+        for text, name in (
+                ("`python3 tools/docs-sync.py errata <詞>` / `bogus1 <檔>`\n", "bogus1"),
+                ("`python3 tools/docs-sync.py errata <詞>` / `bogus2 <a> <b>`\n", "bogus2")):
+            f = self._f(text)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn(name, f[0]["msg"])
+        # ③佔位內含反引號的樣本＝佔位跨出代碼段：`bogus3` 不得被收成續值（此行應恰零 finding；
+        #   把字元集放寬成容許反引號即誤紅 bogus3——與跨段誤收同一形的實害）
+        self.assertEqual(
+            self._f("`python3 tools/docs-sync.py errata <詞>` / `bogus3 <a`／`b>`\n"), [])
+        # ④佔位後帶排版尾空白仍續鏈：第三值的假子命令須紅（拿掉尾段的 `[ \t]*` 即整鏈就地
+        #   中止、本案轉綠＝受驗面被靜默縮小）
+        f = self._f("`python3 tools/docs-sync.py errata <詞>` / `check <檔> ` / `bogus4`\n")
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("bogus4", f[0]["msg"])
+
     def test_multi_space_aligned_fake_subcommand_is_caught(self):
         """★A8：以多空白對欄書寫的假子命令（非目錄樹行）須抓得到。"""
         f = self._f("| `python3 tools/docs-sync.py   bogus-aligned` | 說明 | 否 |\n")
@@ -10458,6 +10656,23 @@ class TestCmdFormLint(unittest.TestCase):
     def test_live_manuals_are_clean(self):
         """★現庫三件活手冊零命令形漂移（條款上線即自紅＝接線或語料選錯）。"""
         self.assertEqual(lint_cmd_forms(ROOT), [])
+
+    def test_live_runbook_walkthrough_baseline_subcommands_stay_covered(self):
+        """★覆蓋面釘子（B-150 收單）：真語料 docs/ops/RUNBOOK.md 中 tools/walkthrough-baseline.py
+        實際進入判定的子命令集 ⊇ {snapshot, diff, test}。只有「不誤紅」案（上一支）時，手冊改排版
+        （佔位後多一個說明詞、分隔符換頓號、佔位改具名引數）會讓 diff／test 靜默退出判定面而
+        全綠——正是 B-150 立案的成因形。語料路徑與期望值逐字釘死、不取自被測常數（防套套邏輯）。"""
+        text = _read(ROOT, "docs/ops/RUNBOOK.md")
+        self.assertIsNotNone(text, "RUNBOOK 缺席＝語料選錯，不得靜默")
+        seen = set()
+        for line in text.splitlines():
+            for m in RE_CMD_PY.finditer(line):
+                if m.group(1) != "tools/walkthrough-baseline.py" or m.group("sub") is None:
+                    continue
+                seen.add(m.group("sub"))
+                seen.update(_extra_subs(line, m.end()))
+        self.assertTrue({"snapshot", "diff", "test"} <= seen,
+                        f"RUNBOOK 的 walkthrough-baseline 命令形受驗子命令集退化為 {sorted(seen)}")
 
     def test_run_lint_wires_cmd_forms(self):
         """★接線層：lint_cmd_forms 從 run_lint 掉線＝Lint19 整條靜默下線。"""
@@ -11299,7 +11514,8 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         <子庫>/<path>:行 N、msg 指名 token 與去處（ADR 0012）。★整行文字一視同仁：第三行
         的 token 住字串常值裡照抓。"""
         _sub_with_files(self.root, "rust-api",
-                        {"src/a.rs": "// 見 B-151 條\n// 承 L-074 教訓\nlet s = \"L-074\";\n"})
+                        {"Cargo.toml": "# 乾淨\n",
+                         "src/a.rs": "// 見 B-151 條\n// 承 L-074 教訓\nlet s = \"L-074\";\n"})
         f = self._of("rust-api")
         self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
                          [(ERROR, "Lint29", "rust-api/src/a.rs:行 1"),
@@ -11313,7 +11529,8 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         """綠案五形：revN: 前綴／next-id 本身（B-150、L-073）／假號段（B-999、L-901）／
         原生（B-045、L-001）／左界為英數者（10B-151、xL-074）不成 token。"""
         _sub_with_files(self.root, "rust-api",
-                        {"src/a.rs": "// rev4:B-151 與 rev2:L-074\n// B-150 與 L-073\n"
+                        {"Cargo.toml": "# 乾淨\n",
+                         "src/a.rs": "// rev4:B-151 與 rev2:L-074\n// B-150 與 L-073\n"
                                      "// B-999 L-901\n// B-045 L-001\n// 10B-151 xL-074\n"})
         self.assertEqual(self._of("rust-api"), [])
 
@@ -11329,7 +11546,7 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
           本案是 Lint29 側的對稱守門（兩者是各自獨立的運算式、非共用函式）。
         """
         _sub_with_files(self.root, "rust-api",
-                        {"src/a.rs": "// 見 rev4:L-087 與 L-089 兩條\n"})
+                        {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// 見 rev4:L-087 與 L-089 兩條\n"})
         f = self._of("rust-api")
         self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
                          [(ERROR, "Lint29", "rust-api/src/a.rs:行 1")], msg=str(f))
@@ -11370,7 +11587,8 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
     def test_git_grep_failure_is_error(self):
         """ERROR（fail-loud）：git grep 非零且非「無命中」（rc∉{0,1}）而 pin 可解→掃描面未建立、
         不得視同乾淨。★rc=1＝無命中屬正常（綠案 fixture 即實證、不得誤判為錯誤）。"""
-        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "rust-api",
+                        {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// 乾淨\n"})
         original = globals()["_code_id_grep"]
         globals()["_code_id_grep"] = lambda subdir, tree, pathspecs: (2, "", "fatal: 模擬失敗\n")
         try:
@@ -11389,7 +11607,8 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
           的正是 == []、會一路陪著綠下去（同粗篩樣式在 BSD libc 靜默零命中的家族）。
         ★該行的超號 token 不得另報 finding：記錄既然解析不出來，行號與路徑都不可信。
         """
-        sha = _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        sha = _sub_with_files(self.root, "rust-api",
+                              {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// 乾淨\n"})
         original = globals()["_code_id_grep"]
         globals()["_code_id_grep"] = lambda subdir, tree, pathspecs: (
             0, f"{sha}:src/a.rs\x001:// B-151 x\n", "")
@@ -11405,7 +11624,8 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
     def test_prefixless_record_is_error(self):
         """ERROR（fail-loud、U2R 確認輪補釘）：rc=0 但記錄不帶「<sha>:」前綴（＝檔名欄輸出形變的
         退化形）→ 與解析不出三欄同歸 unparsed、不得當雜訊靜默丟棄；該行超號 token 不另報。"""
-        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "rust-api",
+                        {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// 乾淨\n"})
         original = globals()["_code_id_grep"]
         globals()["_code_id_grep"] = lambda subdir, tree, pathspecs: (
             0, "src/a.rs\x001\x00// B-151 x\n", "")
@@ -11432,16 +11652,49 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         """ERROR（fail-loud、final holistic 透鏡 B 補釘）：pin 樹內零檔匹配 pathspec（子庫版面漂移而
         SUBMODULE_ID_SCAN 未跟）→ git grep 回 rc 1 與「掃乾淨」不可分，須指名「掃描面為空」；
         該樹內非碼檔的超號 token 不另報（本就不在射程）。拔掉守衛即回 []＝本案紅。"""
-        _sub_with_files(self.root, "rust-api", {"README.md": "B-151\n", "src/x.toml": "# B-151\n"})
+        _sub_with_files(self.root, "rust-api", {"README.md": "B-151\n", "src/x.json": "B-151\n"})
         f = self._of("rust-api")
         self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
                          [(ERROR, "Lint29", "rust-api")], msg=str(f))
         self.assertIn("掃描面為空", f[0]["msg"])
         self.assertIn("*.rs", f[0]["msg"])
+        self.assertIn("*.toml", f[0]["msg"])
+
+    def test_partial_scan_face_names_the_empty_pathspec(self):
+        """★ERROR（fail-loud、逐 pathspec；碼品質透鏡補釘）：樹內有 *.toml 卻零 *.rs＝rust-api
+        主要碼面整片失覆蓋，仍須紅，且訊息只指名空掉的那個樣式。
+
+        ★本案專釘「逐 pathspec 判存在性、不對全體樣式取 OR」那條腿：OR 形只要任一樣式命中即判
+          非空，而 Cargo.toml 在任何 cargo workspace 都必然存在⇒ 本案轉綠、rust-api 的守衛自
+          `*.toml` 進場（B-151）後結構性不可能再觸發，`*.rs` 那一半永遠測不到「零匹配＝假綠」。
+        """
+        _sub_with_files(self.root, "rust-api",
+                        {"Cargo.toml": "# 乾淨\n", "README.md": "B-151\n"})
+        f = self._of("rust-api")
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api")], msg=str(f))
+        self.assertIn("掃描面為空", f[0]["msg"])
+        self.assertIn("*.rs", f[0]["msg"])
+        self.assertNotIn("*.toml", f[0]["msg"])
+
+    def test_rust_toml_over_next_id_red(self):
+        """★B-151 紅案：rust-api `*.toml`（任意深度）入掃描面——Cargo.toml／server/Cargo.toml 內的
+        超號裸編號逐 token ERROR、where 指名檔與行；同樹的 *.rs 乾淨行不另報。
+        ★本案專釘 SUBMODULE_ID_SCAN 的 "*.toml" 那格：拿掉即本案轉綠（守門失效被自測抓到）。"""
+        _sub_with_files(self.root, "rust-api",
+                        {"Cargo.toml": "# 見 B-151 條\n", "server/Cargo.toml": "# L-074\n",
+                         "src/a.rs": "// 乾淨\n"})
+        f = self._of("rust-api")
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api/Cargo.toml:行 1"),
+                          (ERROR, "Lint29", "rust-api/server/Cargo.toml:行 1")], msg=str(f))
+        self.assertIn("B-151", f[0]["msg"])
+        self.assertIn("L-074", f[1]["msg"])
 
     def test_pathspec_boundary(self):
         """pathspec 邊界：base-web 只掃 src/ 下 *.ts／*.vue（含 src/ 直屬子檔與深層），src/ 外的
-        .ts／.vue 與 src/ 內的 .md 不掃；rust-api 只掃 *.rs（任意深度）、Cargo.toml 等非 .rs 不掃。"""
+        .ts／.vue 與 src/ 內的 .md 不掃；rust-api 掃 *.rs 與 *.toml（任意深度、B-151 起）、
+        README.md 等 *.md 不掃。"""
         _sub_with_files(self.root, "base-web",
                         {"src/a.ts": "// B-151\n", "src/b.vue": "<!-- B-151 -->\n",
                          "src/deep/er/c.ts": "// B-151\n", "src/d.md": "B-151\n",
@@ -11452,13 +11705,15 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         f = lint_submodule_code_ids(self.root, reg=self.REG)
         self.assertEqual(sorted(x["where"] for x in f),
                          ["base-web/src/a.ts:行 1", "base-web/src/b.vue:行 1",
-                          "base-web/src/deep/er/c.ts:行 1", "rust-api/server/src/a.rs:行 1"],
+                          "base-web/src/deep/er/c.ts:行 1", "rust-api/Cargo.toml:行 1",
+                          "rust-api/server/src/a.rs:行 1"],
                          msg=str(f))
 
     def test_scans_pin_tree_not_worktree(self):
         """★掃 pin 指向的樹、非工作樹：子庫未 commit 的超號改動不在掃描面（同 Lint16 增量面
         語意——外層 repo 記錄的就是 pin）。"""
-        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "rust-api",
+                        {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// 乾淨\n"})
         _wfile(self.root, "rust-api/src/a.rs", "// B-151 尚未 commit\n")
         self.assertEqual(self._of("rust-api"), [])
 
@@ -11468,7 +11723,8 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         本條款——信號純淨。"""
         with tempfile.TemporaryDirectory() as d:
             _init_outer(d)
-            _sub_with_files(d, "rust-api", {"src/a.rs": "// B-151\n"})
+            _sub_with_files(d, "rust-api",
+                            {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// B-151\n"})
             f = run_lint(d)
             self.assertTrue(any(x["code"] == "Lint29" and x["level"] == ERROR for x in f),
                             msg=str([x for x in f if x["code"] == "Lint29"]))
@@ -11568,18 +11824,137 @@ class TestI18nContractGate(unittest.TestCase):
                 + "        captchaRequired: '請過驗證碼'\n      }\n    }\n"
                 + "  },\n")
 
-    def _fixture(self, d, locale=None, handler=None, error_rs=None):
+    def _fixture(self, d, locale=None, handler=None, error_rs=None, locale_cn=None):
+        """★zh-cn 預設＝與 zh-tw 同一份樹（鍵集對賬腿上線後 fixture 須兩檔齊備、缺檔即紅）；
+        locale_cn 可另給以造兩向差集。"""
         _wfile(d, I18N_ERROR_RS, self.ERROR_RS if error_rs is None else error_rs)
         _wfile(d, "rust-api/server/src/handler.rs",
                self.HANDLER_RS if handler is None else handler)
         _wfile(d, I18N_FRONTEND_LOCALE, self._locale() if locale is None else locale)
+        _wfile(d, I18N_FRONTEND_LOCALE_CN,
+               (self._locale() if locale is None else locale) if locale_cn is None else locale_cn)
 
     def test_healthy_green(self):
         """②健康綠：字面＋常數間接＋key() 固定鍵 vs 字典全對齊；白名單內部鍵
-        （listSeparator）不誤報；綁定臂／萬用臂屬 match 樣式、不入實發集。"""
+        （listSeparator）不誤報；綁定臂／萬用臂屬 match 樣式、不入實發集；zh-cn 與 zh-tw
+        同鍵集（第二腿綠）。"""
         with tempfile.TemporaryDirectory() as d:
             self._fixture(d)
             self.assertEqual(lint_i18n_contract(d), [])
+
+    # -- zh-cn backend 鍵集＝zh-tw 鍵集（B-030 子項、第二腿） ----------------------------
+    def test_zh_cn_missing_key_red_names_key(self):
+        """★第二腿紅案①：zh-cn 少一鍵（auth.login.locked）→ 恰一筆 ERROR、指名該鍵與「zh-cn 缺」；
+        主腿（後端 vs zh-tw）全對齊、不另報。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale_cn=self._locale(with_locked=False))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual((f[0]["level"], f[0]["code"]), (ERROR, "Lint24"))
+            self.assertIn("auth.login.locked", f[0]["msg"])
+            self.assertIn("zh-cn 缺", f[0]["msg"])
+            self.assertIn(I18N_FRONTEND_LOCALE_CN, f[0]["where"])
+
+    def test_zh_cn_extra_key_red_names_key(self):
+        """★第二腿紅案②：zh-cn 多一鍵（orphan.key）→ 恰一筆 ERROR、指名該鍵與「zh-cn 多」。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale_cn=self._locale(
+                extra="    orphan: {\n      key: '孤'\n    },\n"))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("orphan.key", f[0]["msg"])
+            self.assertIn("zh-cn 多", f[0]["msg"])
+
+    def test_zh_cn_locale_missing_or_unparsable_red(self):
+        """★第二腿 fail-closed：zh-cn 檔缺席＝ERROR 指名路徑；zh-cn 樹解析失敗＝ERROR fail-loud
+        （兩者皆不得靜默視同對齊）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            os.remove(os.path.join(d, I18N_FRONTEND_LOCALE_CN))
+            f = lint_i18n_contract(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(ERROR, I18N_FRONTEND_LOCALE_CN)], msg=str(f))
+            self.assertIn("缺席", f[0]["msg"])
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale_cn="const local = { backend: {} };\nexport default local;\n")
+            f = lint_i18n_contract(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(ERROR, I18N_FRONTEND_LOCALE_CN)], msg=str(f))
+            self.assertIn("解析失敗", f[0]["msg"])
+
+    def test_zh_cn_leg_not_evaluated_without_zh_tw_basis(self):
+        """★第二腿的比對基準＝zh-tw 鍵集：zh-tw 缺席時只報 zh-tw 那筆、不再對 zh-cn 另報
+        （比對無基準；Day 1 兩側皆缺的合併語意亦不受第二腿影響）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            os.remove(os.path.join(d, I18N_FRONTEND_LOCALE))
+            f = lint_i18n_contract(d)
+            self.assertEqual([x["where"] for x in f], [I18N_FRONTEND_LOCALE], msg=str(f))
+
+    def test_zh_cn_leg_evaluated_even_when_backend_side_has_errors(self):
+        """★第二腿的**獨立性**（errs 分支串接是真決策）：後端側先出結構性錯誤（構造點無法
+        靜態解析）時，zh-cn 鍵集漂移仍須同時報出——第二腿的基準是「zh-tw 解析成功」，
+        與後端側是否健康無關。
+
+        突變自證：把 errs 分支的 `return out + errs + parity` 改成 `return out + errs`，
+        僅本案轉紅（其餘三個方向另有守：拿掉 missing 腿／extra 腿／比對恆相等皆紅）。
+        後果形＝後端側一旦先紅，zh-cn 漂移就靜默消失、零訊號（vacuous 守門）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d,
+                          handler=self.HANDLER_RS + "fn z() -> AppError {\n"
+                          "    AppError::Biz(some_var)\n}\n",
+                          locale_cn=self._locale(with_locked=False))
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "無法靜態解析" in x["msg"] for x in f),
+                            msg=str(f))
+            self.assertTrue(any(x["level"] == ERROR and x["where"] == I18N_FRONTEND_LOCALE_CN
+                                and "zh-cn 缺" in x["msg"]
+                                and "auth.login.locked" in x["msg"] for x in f), msg=str(f))
+
+    def test_zh_cn_leg_not_evaluated_when_zh_tw_unparsable(self):
+        """★第二腿基準的另一半（缺席那半＝test_zh_cn_leg_not_evaluated_without_zh_tw_basis）：
+        zh-tw **解析失敗**時亦不評——即使 zh-cn 此刻真有漂移，也只報 zh-tw 那筆
+        （比對無基準；報一個對不到基準的差集只會把人指向錯的檔）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale="const local = { backend: {} };\nexport default local;\n",
+                          locale_cn=self._locale(with_locked=False))
+            f = lint_i18n_contract(d)
+            self.assertEqual([x["where"] for x in f], [I18N_FRONTEND_LOCALE], msg=str(f))
+            self.assertIn("解析失敗", f[0]["msg"])
+
+    def test_run_lint_wires_zh_cn_parity(self):
+        """★接線層：第二腿從 run_lint 掉線＝靜默下線。fixture 之 zh-cn 少一鍵，run_lint 必出
+        帶該鍵名與「zh-cn 缺」的 Lint24 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            self._fixture(d, locale_cn=self._locale(with_locked=False))
+            f = run_lint(d, exemptions={})
+            self.assertTrue(any(x["code"] == "Lint24" and x["level"] == ERROR
+                                and "zh-cn 缺" in x["msg"] and "auth.login.locked" in x["msg"]
+                                for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint24"]))
+
+    @unittest.skipUnless(_day1_pending("base-web/src/locales/langs/zh-tw.ts",
+                                       "base-web/src/locales/langs/zh-cn.ts"),
+                         "掃描面不在：解除＝base-web worktree 在位（zh-tw.ts／zh-cn.ts 皆可讀）")
+    def test_real_repo_zh_cn_key_set_equals_zh_tw(self):
+        """★現況驗收：真 repo zh-cn backend 鍵集 ＝ zh-tw 鍵集（非空；純判定零 findings）。
+
+        ★兩個掃描對象常數先逐字釘死（§4.5.4 測試側自持）：本案的期望值全取自被測常數，不釘
+        即套套邏輯——常數漂到 en-us.ts 時本案照綠（實測：en-us 的 backend 樹恰亦 74 鍵、與
+        zh-tw 鍵集相等），第二腿會靜默退化成「en-us 鍵集腿」（en-us 本就由 msg-dict 兩語鍵集
+        斷言守著），zh-cn 這一面回到零覆蓋且零訊號。
+        """
+        self.assertEqual(I18N_FRONTEND_LOCALE, "base-web/src/locales/langs/zh-tw.ts")
+        self.assertEqual(I18N_FRONTEND_LOCALE_CN, "base-web/src/locales/langs/zh-cn.ts")
+        tw = set(parse_locale_backend(_read(ROOT, I18N_FRONTEND_LOCALE), I18N_FRONTEND_LOCALE))
+        cn = set(parse_locale_backend(_read(ROOT, I18N_FRONTEND_LOCALE_CN),
+                                      I18N_FRONTEND_LOCALE_CN))
+        self.assertTrue(tw, msg="zh-tw backend 樹為空")
+        self.assertEqual(tw, cn)
+        self.assertEqual(check_locale_key_parity(tw, cn), [])
 
     def test_backend_key_missing_red_names_site_and_fix(self):
         """①後端多鍵紅：字典抽掉 biz.a.x → ERROR 指名構造點 file:line、附三語 locale

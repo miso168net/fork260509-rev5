@@ -69,7 +69,7 @@
 
 ## deploy/backup-db.py
 - 語言：python
-- 子命令：`dump`｜`restore`｜`test`
+- 子命令：`drill`｜`dump`｜`restore`｜`test`
 
 ## tools/bootstrap.sh
 - 語言：bash

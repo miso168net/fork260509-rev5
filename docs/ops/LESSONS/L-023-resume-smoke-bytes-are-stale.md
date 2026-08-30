@@ -1,5 +1,5 @@
 ---
-promoted_to: 未盤點（2026-08-17 分檔遷移前存量；盤點工項＝B-091 承載）
+promoted_to: CLAUDE.md §2 看門狗段（「已完成 agent 走快取不重跑」＋L-027 之快取判定句＝防法③已載）；防法①（續跑冒煙改看最新 agent 檔 mtime＋本輪新字串）候選位＝tools/wf-watchdog.py 檔頭 docstring resume 場景段（現載「沿用原 runId」、未載「ARMED 冒煙位元組屬前一輪」）、不在本單元允許面、待下一把動該檔的刀（2026-08-30 B-091 盤點）
 ---
 - **L-023**｜**`resumeFromRunId` 續跑時，看門狗 ARMED 行的冒煙位元組數是**前一輪**的殘留、
   不可據以判斷「新 prompt 有沒有送達」**：U-M 因允許清單缺口回 blocked，補列後以

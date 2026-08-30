@@ -1,5 +1,5 @@
 ---
-promoted_to: 未盤點（2026-08-17 分檔遷移前存量；盤點工項＝B-091 承載）
+promoted_to: 無：候選位＝CLAUDE.md §3（子庫 git 操作一律 `git -C <子庫>` 形＋破壞性驗證每項還原後 `git -C <子庫> status --porcelain` 機器確認再進下一項）不在本單元允許面、待下一把動 §3 的刀（與 L-070 同位、併入；§3 之子庫還原／前進類指令現為 `git -C` 形，但未載「一律」與還原確認句；worktree 內 push 另為顯式 cd-in 形、屆時一併處置〔改 `-C` 形或註明刻意例外〕；2026-08-30 B-091 盤點）
 ---
 - **L-012**｜submodule 內檔案的還原若在**外層** repo 執行，會**靜默失敗**：
   `git checkout -- <子庫>/<路徑>` 只回一行 `error: pathspec '…' did not match any file(s)

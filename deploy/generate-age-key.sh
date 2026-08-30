@@ -54,7 +54,7 @@ esac
 #   COPY 立即紅、不會悄悄把機密拉進來。
 if ! docker build --pull --no-cache -t "$AGE_IMAGE" - < "$SCRIPT_DIR/Dockerfile.age"; then
   if docker image inspect "$AGE_IMAGE" >/dev/null 2>&1; then
-    echo "警示：映像重建失敗（離線／限流？）——沿用本機既有 $AGE_IMAGE，其 age 未必是最新版。" >&2
+    echo "警示：映像重建失敗（離線／限流？）——沿用本機既有 ${AGE_IMAGE}，其 age 未必是最新版。" >&2
   else
     echo "FAIL：映像重建失敗、本機亦無既有 $AGE_IMAGE ——首次產鑰需能連外重建一次：" >&2
     echo "        docker build --pull --no-cache -t $AGE_IMAGE - < deploy/Dockerfile.age" >&2
@@ -124,7 +124,7 @@ chmod 600 "$KEYS"
 FIRST=$(head -1 "$KEYS"); LAST=$(tail -1 "$KEYS")
 CR=$(tr -cd '\r' < "$KEYS" | wc -c | tr -d ' '); BYTES=$(wc -c < "$KEYS" | tr -d ' ')
 [ "$FIRST" = "$BEGIN_MARK" ] && [ "$LAST" = "$END_MARK" ] && ARMORED=True || ARMORED=False
-echo "自檢｜passphrase 加殼＝$ARMORED｜CR 數＝$CR（應 0）｜bytes=$BYTES｜公鑰行已捕捉＝True"
+echo "自檢｜passphrase 加殼＝${ARMORED}｜CR 數＝${CR}（應 0）｜bytes=${BYTES}｜公鑰行已捕捉＝True"
 if [ "$ARMORED" != True ] || [ "$CR" != 0 ]; then
   echo "FAIL：產物不是 armored passphrase 加殼形（應以 $BEGIN_MARK 起首、$END_MARK 收尾、零 CR）" >&2
   echo "      ——passphrase 那步或萃取沒生效；刪檔重做" >&2

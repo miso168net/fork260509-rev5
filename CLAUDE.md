@@ -53,7 +53,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW、
 　rust 全程 serial、容器內 build/test、★rust 碼完工前容器內 `cargo fmt --all`（ADR 0057）、
-　review agent 只讀不寫 repo 檔、★絕不 push/merge、
+　review agent 只讀不寫 repo 檔、★絕不 push/merge、★變異紅證必附 skipped=0（探針勿自 repo 外載入 mutant、L-073）、
 　★實作先讀 rev4 對應碼（../fork260509-rev4/ 直讀、★該樹絕不寫入）高度參照但重打字消化不拷貝、註解一律重寫
 　（rev4 出處帶 rev4: 前綴）、rev5 拍板差異點不得帶回（ADR 0019）。
 ★workflow script 防呆六件套（缺一不發射）：
@@ -77,6 +77,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　⑥空間邊界：fix agent prompt 烤進允許檔案清單（＝該執行單元 tasks 涉檔＋review findings
 　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→status 回 blocked 附原因
 　　升級主線、絕不擅改；次輪清單只縮不擴。
+　　★清單另納會因本單元改動而連動的釘值測所在檔；清單答「碰得到什麼」而非 task 寫了什麼——對實碼查（值域／建構點／下游消費）、寧可多列（L-022／L-042／L-052）。
 ★主線看門狗（非終止型故障不會有完成通知）：★Workflow launch 與 Monitor 看門狗
 　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（已實證）。
 　Monitor command＝`python3 tools/wf-watchdog.py <冒煙token> [wf目錄|runId]`（缺目標＝自動發現最新 wf 目錄、毋需 launch 回傳值故可同回合並發；
@@ -149,6 +150,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   每個事實只有一個人寫的家；鏡像不是機器生成、就是不存在。
 - **時態分離**：活書永遠現在式；未來式住 ops/（NOTES／BACKLOG）；過去式住 git＋events。
 - **完成即刪、git 即史**：BACKLOG 做完刪列、決策翻案立新 ADR；沒有歸檔搬運手續。
+  ★刪列前先掃現在式文件家族的待辦式引用並同批改對，且反向核該家族引用的每個 B-NNN 仍在兩卷內（史述保留；L-072）——兩向缺一都會漏掉斷鏈。
 - **ADR**：一決策一檔 `docs/arc42/decisions/NNNN-<slug>.md`；accepted 後 body 不可變
   （typo 級修正：commit message 帶 `[adr-amend]`＋設 `DOCS_SYNC_ADR_AMEND=1` 過 lint）；
   翻案＝新檔 `supersedes: [舊號]`、
