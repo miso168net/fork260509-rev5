@@ -1,4 +1,4 @@
-<!-- next: L-074 -->
+<!-- next: L-075 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -86,3 +86,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-071｜教訓晉升到下一刀的一次性文件＝半衰期只有一刀（L-055 六天後原樣復發）](LESSONS/L-071-a-lesson-promoted-into-the-next-one-shot-doc-has-a-one-blade-half-life.md) — 走查前取全表基準、後逐值比對（不變式取代清單）；清理面與閘的射程無關；寫 promoted_to 先問「這位置的讀者是不是下一個踩坑的人」
 - [L-072｜刪 BACKLOG 條目沒掃引用，當場造出指涉斷鏈](LESSONS/L-072-deleting-a-backlog-entry-without-sweeping-its-references.md) — 刪列後雙向掃現在式文件家族；判準＝「這句在說曾經，還是在說現在還沒做」（歷史記述正當、待辦式引用才是斷鏈）
 - [L-073｜變異探針從 repo 外載入 mutant，現況驗收案整批靜默 skip](LESSONS/L-073-mutation-probe-loaded-outside-repo-skips-live-cases.md) — 就地變異或改寫 ROOT；紅證必印 skipped=0
+- [L-074｜pg_isready 不帶 -h 對初始化期只聽 unix socket 的暫時 server 回綠，restore 撞上重啟](LESSONS/L-074-pg-isready-without-host-flag-greens-on-init-temp-server.md) — 就緒探測一律 `-h 127.0.0.1`（TCP 就緒＝最終 server）；手寫 postgres 等待迴圈前 grep 本 ID

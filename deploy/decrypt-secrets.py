@@ -1745,6 +1745,218 @@ class TestAutoDriver(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 機密名冊五面 parity（B-030 子項；B-037 紀律＝各面各寫一份、本層只加斷言、絕不合併成單一來源）
+# ---------------------------------------------------------------------------
+
+# 五面（HEAD 實數）：①deploy/generate-secrets.py LEAF_SPECS 9＋COMPOSITES 3＋PLACEHOLDER_NAME 1＝13
+# ②deploy/preflight-secrets.py REQUIRED 13 ③docker-compose.yml 頂層 secrets: 12
+# ④deploy/secrets.dev.enc.yaml 頂層鍵 10（sops 中繼除外）⑤本檔 EXPECTED_KEYS 10。
+# 基數各異各有語意，差額以具名常數逐字登記——parity 斷言＝「差集恰等於登記的差額」，
+# 差額漂移（多一名／少一名）即紅、指名到面與名。
+
+
+# ③compose 對②的差額：reaper 身分只給 deploy/setup-reaper-role.py 設密、不進 compose
+#   （docker-compose.yml 之 secrets: 區塊內註解有登記）。
+COMPOSE_EXCLUDED = ("reaper_password",)
+# ④密文檔／⑤EXPECTED_KEYS 對②的差額：三支 composite 由 generate-secrets.py 自 leaf 重生、
+#   不入密文檔（本檔 EXPECTED_KEYS 註解同義）。
+ENC_EXCLUDED = ("database_url", "redis_url", "reaper_database_url")
+
+# compose 頂層 secrets: 區塊（stdlib 正則、不引 yaml）：區塊起於行首 `secrets:`、止於下一個
+# 頂層鍵；只收恰兩空白縮排的鍵行（`file:` 子鍵四空白、註解行 # 起首皆不收）。
+_RE_COMPOSE_TOP = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*:")
+_RE_COMPOSE_SECRET = re.compile(r"^  ([a-z_][a-z0-9_]*):\s*$")
+# 密文檔頂層鍵：行首非空白起頭的 `name:`；sops 中繼區塊不是機密。
+_RE_ENC_TOP = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):")
+
+
+def compose_secret_names(text):
+    """docker-compose.yml 全文 → 頂層 secrets: 區塊的機密名（檔內序）。"""
+    names, inside = [], False
+    for line in text.splitlines():
+        if _RE_COMPOSE_TOP.match(line):
+            inside = line.startswith("secrets:")
+            continue
+        if inside:
+            m = _RE_COMPOSE_SECRET.match(line)
+            if m:
+                names.append(m.group(1))
+    return names
+
+
+def enc_top_keys(text):
+    """deploy/secrets.dev.enc.yaml 全文 → 頂層鍵（檔內序、排除 sops 中繼）。"""
+    return [m.group(1) for m in (_RE_ENC_TOP.match(ln) for ln in text.splitlines())
+            if m and m.group(1) != "sops"]
+
+
+def _diff_face(out, label, names, base_label, base):
+    """單面差集 → 指名訊息（多出／缺各一形；名稱排序、訊息可重現）。"""
+    names, base = set(names), set(base)
+    for name in sorted(names - base):
+        out.append(f"{label} 多出 {name}（{base_label} 無）")
+    for name in sorted(base - names):
+        out.append(f"{label} 缺 {name}（{base_label} 有）")
+
+
+def parity_check(generate_names, required, compose_names, enc_keys, expected_keys):
+    """五面 parity 純函式：回差異訊息清單、空＝一致。斷言＝①＝②；③＝②−COMPOSE_EXCLUDED；
+    ④＝②−ENC_EXCLUDED；⑤＝②−ENC_EXCLUDED；差額常數所指之名必在②（否則＝登記過期）。
+    ★④與⑤各自對②比一次（每面漂移各有指名自己的訊息）；spec 字面的「④＝⑤」由前二式
+    蘊含（④＝基準 ∧ ⑤＝基準 ⇒ ④＝⑤）、不另互比——互比排在前二式之後不可能改變紅綠、
+    只會在已紅時多印同義訊息（無紅證可守；雙漂移釘死案守住本裁定、加回互比即紅）。"""
+    out = []
+    req = set(required)
+    for const_name, const in (("COMPOSE_EXCLUDED", COMPOSE_EXCLUDED),
+                              ("ENC_EXCLUDED", ENC_EXCLUDED)):
+        for name in const:
+            if name not in req:
+                out.append(f"{const_name} 登記的 {name} 不在 preflight REQUIRED——差額登記已過期")
+    _diff_face(out, "①generate 名冊", generate_names, "②preflight REQUIRED", req)
+    _diff_face(out, "③compose secrets:", compose_names,
+               "②preflight REQUIRED−COMPOSE_EXCLUDED", req - set(COMPOSE_EXCLUDED))
+    enc_base = req - set(ENC_EXCLUDED)
+    _diff_face(out, "④enc 頂層鍵", enc_keys, "②preflight REQUIRED−ENC_EXCLUDED", enc_base)
+    _diff_face(out, "⑤decrypt EXPECTED_KEYS", expected_keys,
+               "②preflight REQUIRED−ENC_EXCLUDED", enc_base)
+    return out
+
+
+def _load_deploy_module(filename, modname):
+    """以路徑載入 deploy/ 同目錄工具（同 TestNewlineGuard 載 preflight 之形）：取其名冊常數，
+    不改值、不觸發其 test 入口。"""
+    spec = importlib.util.spec_from_file_location(modname, os.path.join(HERE, filename))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TestSecretsRosterParity(unittest.TestCase):
+    """五面 parity：fixture 紅案每面各一（少一名／多一名各指名）＋真 repo 現況案（零差異）。
+    ★現況案缺檔＝FAIL 非跳過：五面少一面就沒有 parity 可言，跳過即假綠。"""
+
+    # 合成 fixture（名稱刻意非真名、避免與現況案互相掩護）：generate 面次序刻意異於 preflight
+    # 面——parity 比的是集合、不是序列。
+    _REQ = ("leaf_a", "leaf_b", "reaper_password", "database_url", "redis_url",
+            "reaper_database_url", "alert_webhook_url")
+    _GEN = ("leaf_b", "leaf_a", "reaper_password", "alert_webhook_url",
+            "database_url", "redis_url", "reaper_database_url")
+    _COMPOSE = ("leaf_a", "leaf_b", "database_url", "redis_url", "reaper_database_url",
+                "alert_webhook_url")
+    _ENC = ("leaf_a", "leaf_b", "reaper_password", "alert_webhook_url")
+    _EXP = ("leaf_a", "leaf_b", "reaper_password", "alert_webhook_url")
+
+    def _check(self, **override):
+        faces = dict(generate_names=self._GEN, required=self._REQ,
+                     compose_names=self._COMPOSE, enc_keys=self._ENC,
+                     expected_keys=self._EXP)
+        faces.update(override)
+        return parity_check(**faces)
+
+    def test_exclusions_are_pinned(self):
+        """差額常數字面釘死（reaper 只給 setup-reaper-role、不進 compose；composite 由 leaf
+        重生、不入密文）——常數縮水＝斷言跟著縮水，故逐字列出。"""
+        self.assertEqual(COMPOSE_EXCLUDED, ("reaper_password",))
+        self.assertEqual(ENC_EXCLUDED, ("database_url", "redis_url", "reaper_database_url"))
+
+    def test_consistent_fixture_has_no_diff(self):
+        self.assertEqual(self._check(), [])
+
+    def test_face1_generate_minus_and_plus_are_named(self):
+        minus = self._check(generate_names=tuple(n for n in self._GEN if n != "leaf_b"))
+        self.assertTrue(any("generate" in m and "缺 leaf_b" in m for m in minus), msg=minus)
+        plus = self._check(generate_names=self._GEN + ("ghost_gen",))
+        self.assertTrue(any("generate" in m and "多出 ghost_gen" in m for m in plus), msg=plus)
+
+    def test_face2_preflight_minus_and_plus_are_named(self):
+        """②是三條斷言的共同基準：少一名時 ①③ 皆指名「多出」該名、多一名時皆指名「缺」。"""
+        minus = self._check(required=tuple(n for n in self._REQ if n != "leaf_a"))
+        self.assertTrue(any("generate" in m and "多出 leaf_a" in m for m in minus), msg=minus)
+        self.assertTrue(any("compose" in m and "多出 leaf_a" in m for m in minus), msg=minus)
+        plus = self._check(required=self._REQ + ("ghost_req",))
+        self.assertTrue(any("generate" in m and "缺 ghost_req" in m for m in plus), msg=plus)
+        self.assertTrue(any("compose" in m and "缺 ghost_req" in m for m in plus), msg=plus)
+        self.assertTrue(any("enc" in m and "缺 ghost_req" in m for m in plus), msg=plus)
+
+    def test_face3_compose_minus_and_plus_are_named(self):
+        minus = self._check(compose_names=tuple(n for n in self._COMPOSE if n != "redis_url"))
+        self.assertTrue(any("compose" in m and "缺 redis_url" in m for m in minus), msg=minus)
+        # ★reaper_password 出現在 compose＝差額登記失效（多出而非合法差額）
+        plus = self._check(compose_names=self._COMPOSE + ("reaper_password",))
+        self.assertTrue(any("compose" in m and "多出 reaper_password" in m for m in plus),
+                        msg=plus)
+
+    def test_face4_enc_minus_and_plus_are_named(self):
+        minus = self._check(enc_keys=tuple(n for n in self._ENC if n != "reaper_password"))
+        self.assertTrue(any("enc" in m and "缺 reaper_password" in m for m in minus), msg=minus)
+        # ★composite 混入密文檔＝多出（它該由 leaf 重生）
+        plus = self._check(enc_keys=self._ENC + ("database_url",))
+        self.assertTrue(any("enc" in m and "多出 database_url" in m for m in plus), msg=plus)
+
+    def test_face5_decrypt_minus_and_plus_are_named(self):
+        minus = self._check(expected_keys=tuple(n for n in self._EXP if n != "leaf_a"))
+        self.assertTrue(any("decrypt" in m and "缺 leaf_a" in m for m in minus), msg=minus)
+        plus = self._check(expected_keys=self._EXP + ("ghost_dec",))
+        self.assertTrue(any("decrypt" in m and "多出 ghost_dec" in m for m in plus), msg=plus)
+
+    def test_face4_face5_double_drift_yields_one_message_each(self):
+        """④、⑤ 同時各漂一名＝恰兩訊息、各指名自己的面。釘死「④＝⑤ 不另互比」裁定：
+        若加回 ④ 對 ⑤ 的互比，雙漂移會多出兩行同義訊息、本案即紅。"""
+        out = self._check(enc_keys=tuple(n for n in self._ENC if n != "leaf_a"),
+                          expected_keys=tuple(n for n in self._EXP if n != "leaf_b"))
+        self.assertEqual(sorted(out), [
+            "④enc 頂層鍵 缺 leaf_a（②preflight REQUIRED−ENC_EXCLUDED 有）",
+            "⑤decrypt EXPECTED_KEYS 缺 leaf_b（②preflight REQUIRED−ENC_EXCLUDED 有）",
+        ])
+
+    def test_stale_exclusion_is_named(self):
+        """差額常數指到 preflight 沒有的名字＝登記已過期（改名後殘留）：指名而非靜默放行。"""
+        req = tuple(n for n in self._REQ if n != "reaper_password")
+        out = self._check(required=req,
+                          generate_names=tuple(n for n in self._GEN if n != "reaper_password"),
+                          enc_keys=tuple(n for n in self._ENC if n != "reaper_password"),
+                          expected_keys=tuple(n for n in self._EXP if n != "reaper_password"))
+        self.assertTrue(any("COMPOSE_EXCLUDED" in m and "reaper_password" in m for m in out),
+                        msg=out)
+
+    def test_compose_parser_takes_only_top_level_secret_names(self):
+        """compose 面取名：只收 `secrets:` 區塊內兩空白縮排的鍵；註解行、`file:` 子鍵、
+        下一個頂層鍵之後的內容一律不收。"""
+        text = ("services:\n  api:\n    secrets:\n      - not_top\n"
+                "secrets:\n  alpha:\n    file: ./x/alpha.txt\n"
+                "  # 註解：beta 的來歷\n  beta:\n    file: ./x/beta.txt\n"
+                "volumes:\n  gamma:\n")
+        self.assertEqual(compose_secret_names(text), ["alpha", "beta"])
+        self.assertEqual(compose_secret_names("services:\n  api: {}\n"), [])
+
+    def test_enc_parser_takes_top_level_keys_except_sops(self):
+        text = ("k1: ENC[AES256_GCM,data:x,type:str]\nk2: ENC[...]\n"
+                "sops:\n    age:\n        - recipient: age1abc\n    version: 3.9.0\n")
+        self.assertEqual(enc_top_keys(text), ["k1", "k2"])
+
+    def test_live_repo_five_faces_agree(self):
+        """★真 repo 現況案：五面實值載入、基數逐字釘死、parity 零差異。缺檔＝FAIL。"""
+        compose_path = os.path.join(ROOT, "docker-compose.yml")
+        enc_path = os.path.join(ROOT, ENC_REL)
+        for p in (compose_path, enc_path, os.path.join(HERE, "generate-secrets.py"),
+                  os.path.join(HERE, "preflight-secrets.py")):
+            self.assertTrue(os.path.isfile(p), msg=f"{p} 缺席——五面少一面、parity 無從成立")
+        generate = _load_deploy_module("generate-secrets.py", "generate_secrets_parity")
+        preflight = _load_deploy_module("preflight-secrets.py", "preflight_secrets_parity")
+        gen_names = (tuple(n for n, _a in generate.LEAF_SPECS)
+                     + tuple(n for n, _l, _t in generate.COMPOSITES)
+                     + (generate.PLACEHOLDER_NAME,))
+        with open(compose_path, encoding="utf-8") as fh:
+            compose_names = compose_secret_names(fh.read())
+        with open(enc_path, encoding="utf-8") as fh:
+            enc_keys = enc_top_keys(fh.read())
+        self.assertEqual((len(gen_names), len(preflight.REQUIRED), len(compose_names),
+                          len(enc_keys), len(EXPECTED_KEYS)), (13, 13, 12, 10, 10))
+        self.assertEqual(parity_check(gen_names, preflight.REQUIRED, compose_names,
+                                      enc_keys, EXPECTED_KEYS), [])
+
+
+# ---------------------------------------------------------------------------
 # 入口
 # ---------------------------------------------------------------------------
 

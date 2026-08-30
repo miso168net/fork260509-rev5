@@ -10154,7 +10154,7 @@ _FAKE_TOOLS = (("tools/docs-sync.py", ("generate", "lint")),
                ("deploy/decrypt-secrets.py", ("test",)),
                ("deploy/generate-secrets.py", ("test",)),
                ("deploy/setup-reaper-role.py", ("test",)),
-               ("deploy/backup-db.py", ("dump", "restore", "test")))
+               ("deploy/backup-db.py", ("drill", "dump", "restore", "test")))
 
 
 def _tools_fixture(d):

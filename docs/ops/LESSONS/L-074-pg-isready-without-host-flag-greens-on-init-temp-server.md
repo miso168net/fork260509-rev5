@@ -1,0 +1,4 @@
+---
+promoted_to: 碼註（deploy/backup-db.py `drill_ready_argv` docstring＝就緒探測走 TCP 的理由）＋RUNBOOK §6.2「走 TCP」括號句回指本 ID
+---
+- **L-074**｜**`pg_isready` 不帶 `-h` 會對 postgres 映像初始化期那個只聽 unix socket 的暫時 server 回綠，緊接的 restore 撞上它重啟——2026-08-07 手打演練是靠時序僥倖過的**：官方 postgres 映像 entrypoint 首次初始化（initdb→跑 init script）時先以 `listen_addresses=''` 起一個暫時 server、只開 unix socket；`docker exec … pg_isready -U … -d …` 預設走 socket、對它回 0，等待迴圈提前放行，下一步 psql restore 正好落在暫時 server 關閉、最終 server 起動之間的空窗（連線被拒或中途斷線）。★**2026-08-31 實暴**（B-023 `drill` 子命令首次真跑）；RUNBOOK §6.2 原手打四段之 `until docker exec rev5-admin-drill-pg pg_isready -U soybean -d soybean_admin_rust` 正是不帶 `-h` 的錯形，該手打形已於同日刪除、坑的活體痕跡只剩碼註與本條。★**防法**：①就緒探測一律 `-h 127.0.0.1`（只有最終 server 才聽 TCP）②任何新手寫的 postgres 等待迴圈（rev5 其他工具、compose healthcheck、對照 stack 腳本）動手前 grep 本 ID③探測通過後首個真連線失敗＝先懷疑此坑、再懷疑 dump 檔。
