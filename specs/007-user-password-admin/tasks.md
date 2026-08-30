@@ -827,10 +827,10 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   ＋★**五支名冊閘全綠**（原文寫「三」＝開刀時的量；本刀期間增為五，已改述該 task）
   ＋`components.d.ts`／`service/api/index.ts` **零 diff 斷言成立**＋修改型恰 **8 支既有檔**（與原文吻合）。
 
-- [ ] T070 CDP 三方對照（quickstart §6 全動線七步；★排 schema-gate 之後）：Super 全套／Admin 預設態（只見編輯鈕）／下放後（六鈕出現、
+- [x] T070 CDP 三方對照（quickstart §6 全動線七步；★排 schema-gate 之後）：Super 全套／Admin 預設態（只見編輯鈕）／下放後（六鈕出現、
   同級成功、對 Super 5003）／踢除 7777 新文案／停用 8888／個人中心改密卡動態規則／登入頁特殊字元密碼直送／rev4 42080 逐項對照；
   已知態排除清單逐項驗現狀形；走查後清殘列＋`sys_user_id_seq` 還原＋三閘複驗；差異逐項判定（rev5 拍板差異 or 缺陷）補記本 task。
-★**T070 CDP 走查結果（主線、2026-08-30；★七步中已驗六步、兩步留待收刀前補）**
+★**T070 CDP 走查結果（主線、2026-08-30；★七步**全數完成**——前六步於 U9 邊界、步驟 3／4 於收刀前 final holistic）**
 
 **已驗（逐項實測）**
 - **步驟 1 Super 全套**：列表 **15 欄**（序号／用户名／性别／昵称／手机号／邮箱／用户状态／**角色**／**会话策略**／
@@ -890,6 +890,39 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   `docs/ops/NOTES.md`「seed 68（manage_user view）」→「seed 68（updateUserSessionPolicy 端點）」、
   `handler/common.rs` 檔頭與 NOTES「六件」→七件、B-113 條文「由綠轉紅」→續綠、ADR 0022 §2② 由編號 0064 之新 ADR 一句澄清；
   ★`docs-sync.py errata <關鍵詞>` 逐處處置（禁只修被點名處）。
+★**T070 步驟 3／4 as-built（主線、2026-08-30，收刀前 final holistic 補齊）**
+
+- **前置（API 面十一腿，Super／Admin token）**：建 alice(id=4，R_ADMIN)／bob(id=5，R_USER)；預設態 Admin 打
+  `updateUser` **5003**；超管下放 R_ADMIN 端點 3→12 支＋按鈕碼 3→9 枚（`granted` 9／6、`revoked` 0）；
+  授 protected 的 `updateUserSessionPolicy` ⇒ **2222 `biz.role.protectedGrant`**（結構性封死成立）。
+  no-escalation 八腿：改 alice **0000**（同級互管）／改 Super **5003**／指派 R_SUPER **5003**／指派 Admin 不持的
+  R_USER **5003**／踢 Super **5003**／重設 Super 密碼 **5003**／刪 bob（T={R_USER} ⊄ A）**5003**／刪 alice
+  （T ⊆ A）**0000**。★**一則預期自我更正**：「Admin 刪 Super ⇒ 5003」是我寫錯的預期——契約 §5 守門序把 seed
+  保護排在 no-escalation **之前**（憲法島 I7 亦明文「seed 保護與 self 先判」），`2222 seededProtected` 才是正確
+  行為；補跑 bob／alice 兩腿才驗到 deleteUser 的**真** no-escalation 門。
+- **步驟 3（UI 面）**：★先自證身分＝解 JWT payload 得 `uid:2, roles:["R_ADMIN"]`（不以「看到幾顆鈕」反推身分）。
+  頁首鈕由步驟 2 的「刷新 列设置」變為 **新增／批量删除／解锁登录**＋刷新／列设置；列操作由「编辑」變為
+  **编辑／删除／操作**；操作下拉 **踢除下线／重置密码／随机密码**。★**alice 列與 Super 列的下拉項完全相同**
+  ⇒ **FR-020「前端 MUST NOT 預判包含規則」成立**（鈕依按鈕碼顯隱、不因標的是超管而藏）。動線：Admin 編輯
+  Super ⇒ toast **「没有权限执行此操作」**（5003 經 `translateBackendMsg`）；Admin 編輯 alice ⇒ **「更新成功」**。
+- **步驟 4（UI 面）**：alice 真登入 → Super 踢除 ⇒ alice 端得 **`.n-modal`「错误 此会话已被管理员结束，请重新登录」**
+  （7777 `ModalLogoutByAdmin` 新文案、**modal 型不自動跳轉**）；alice 重登 → Super 停用 ⇒ 得
+  **`.n-message`「请重新登录」＋自動跳 `/login/pwd-login`**（8888 silent）。★兩者表現明確不同＝**島 I2「三 reason
+  不互換」的 UI 端到端證明**。
+- ★**觀測手段的兩則自我更正**（皆「先自證位置／手段，再談被測物」）：①頁首鈕首次抓到 `[]` 是我的選擇器
+  （`.n-card__header button`）不對，實際容器 class 為 `flex-y-center gap-12px`——鈕一直都在 ②步驟 4 首跑 observer
+  錄到空，因為我用 `Page.navigate` 觸發請求，**整頁重載會換 document、把 MutationObserver 銷毀**；改用 SPA 內
+  「刷新」鈕（同一 document）後即錄到。另 node 腳本首次「逾時」也非頁面慢（列表 1 秒就緒），是**沒關
+  WebSocket、進程不退出**。
+- ★**清理與複驗**：種子面逐值還原（`sys_user` 3／`sys_user_role` 3／`casbin_rule` 163／`sys_pwd_custody` 0／
+  歸檔 0／兩 seq 3 與 163）；redis 三前綴清空（★首次 `--scan` 回空是 **NOAUTH** 不是無殘留，取容器內
+  `/run/secrets/redis_password` 後才查得到 11 支鍵）；rust-api 重啟令 enforcer 全量重載。
+  ★**三閘綠之後全量測試仍紅兩支**＝L-055 原樣復發、本刀立 **L-071**＋**B-147**：`schema-gate` 對四張
+  runtime-append 表結構性無感，我據此推論「不用清」，而 `sys_operation_log` 殘留 `user_id=4` 的列撞上復位後的
+  `sys_user_id_seq`（測試新建者也拿 id=4）⇒「稽核恰一列」變兩列；`sys_token` 殘留 uid 3 的列撞「uid 3 不得有
+  憑證列」。`TRUNCATE` 四表（**seq 刻意不復位**）後 **998 passed／0 failed**、三閘續綠。
+  007 的 quickstart 原本**零清理契約**（L-055 的晉升位是「後續刀沿抄」而沿抄沒發生）——已補入 §6 步驟 7。
+
 ★**T071～T073 as-built（主線、2026-08-30）**
 
 - **T071**：ADR 0064～0067 四支 draft→accepted 一次落地（body 皆零碼改動、記的是 as-built 與判準）。

@@ -100,7 +100,23 @@ python3 tools/docs-sync.py lint                                              # 0
 4. alice 雙開：Super 踢除 → alice 7777 modal 新文案；停用 → 8888。
 5. User 登入 → 頭像下拉「個人中心」→ 改密卡（動態規則跟政策）；登入頁輸入含特殊字元密碼直送（無前端格式紅字）。
 6. rev4 42080 同路徑逐項對照；預期差異＝三卡留白、兩語、無首登強制頁、7777 新文案（rev4 為舊文案）。
-7. 走查排 schema-gate 之後（會留列與序列推進）。
+7. 走查排 schema-gate 之後（會留列與序列推進）。★**走查後清理契約**（2026-08-30 as-built 補入——
+   本刀原文缺此段，L-055 的防法未被沿抄下來而原樣復發，詳 L-071）：
+   - **清理面＝走查期間被寫過的全部表，與任何閘的射程無關**。`schema-gate` 對
+     `session_event`／`sys_login_attempt`／`sys_token`／`sys_operation_log` 四張 runtime-append 表
+     結構性無感（收窄集剝列＋setval 正規化）⇒ **三閘複驗綠不等於環境已還原**。
+   - 種子面：`DELETE FROM sys_user_role/sys_pwd_custody/sys_user WHERE …` 走查建立的 id ＋
+     `DELETE FROM casbin_rule WHERE id>163` ＋ `setval('sys_user_id_seq',3,true)`／
+     `setval('casbin_rule_id_seq',163,true)`；歸檔面 `sys_casbin_policy_archive` 逐列核對。
+   - 運行期面：`TRUNCATE sys_token, session_event, sys_operation_log, sys_login_attempt`；
+     ★**表清空後 seq 刻意不復位**（復位到 1 會讓下一輪 nextval 落在殘列 id 上＝L-055 第一形）。
+   - 快取面：`session:*`／`cpwd:*`／`throttle:*` 三前綴 DEL（redis 需 `-a $(cat /run/secrets/redis_password)`；
+     ★**無認證時 `--scan` 回空是 NOAUTH 而非「無殘留」**，先自證再下結論）。
+   - 判準：**走查前取全表基準列數與 seq，走查後逐值比對**——不是「照清單刪」（清單會隨情境失效：
+     006 撞的是 auth seq × `sys_token`，本刀撞的是 user seq × `sys_operation_log`）。
+   - 收尾必跑：三閘 ＋ **容器內全量測試**（★三閘綠而全量紅是本坑的典型徵狀：本刀實暴兩支——
+     `uid 3 不得有憑證列` 撞 `sys_token` 殘列、`稽核恰一列` 撞 `sys_operation_log` 中 user_id 與
+     復位後 seq 重號的殘列）。
 
 ## 7. 收刀閘
 
