@@ -17,7 +17,10 @@ rev5-admin 是一套管理後台系統：前端 fork 自 soybean-admin（Vue3＋
 **目前建置狀態**：文件地基（創世）＋schema 基線（001）＋系統設定縱切（002）＋auth 會話
 縱切（003：真登入／rotation／撤銷矩陣／節流三區／圖形驗證碼／i18n 接線）＋IP 信任錨縱切
 （004：真實來源還原**七態**＋轉發鏈逾上界的拒絕腿一態〔＝`ip_confidence` 欄值域共八態，但第八態由三層矩陣**之前**的短路產生、不是矩陣的出口〕／IP 存取閘與門鈴熱重載／IP 規則管理頁與五支端點／來源維節流／
-管理員解鎖端點）就位；其餘域隨波次建置。
+管理員解鎖端點）＋角色與選單 CRUD（005：role／menu 兩域 CRUD、選單序列化域、判定面 rebuild-swap
+熱重載、授權歸檔寫入面）＋三維授權治理（006：端點／選單／按鈕三維讀寫、結構性封死、回收桶
+與 policy-archive 頁）＋使用者與密碼治理（007：管理面十支＋自助兩支、no-escalation 包含規則、
+密碼政策與設密冷卻、改密舊密節流、user 管理頁與個人中心改密卡）就位；其餘域隨波次建置。
 
 ## §2 約束
 
@@ -83,9 +86,9 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   `alt_stub.rs` 替代登入誠實 stub 四出口）／`handler/captcha.rs`＋`captcha/`（圖形驗證碼
   簽章題）／`throttle/`（登入失敗節流狀態機——003 起帳號維、004 起雙維）／`cache/`
   （redis session 加速層：denylist／grace／last_activity／throttle L1 與解鎖標記鍵面）；
-  資料面 `model/facade/` **12 支**（session_event／sys_casbin_archive／sys_casbin_policy／
-  sys_ip_rule／sys_login_attempt／sys_menu／sys_operation_log／sys_role／sys_token／
-  sys_user／sys_user_role／system_settings；`sys_casbin_archive`＝005 授權歸檔寫入面＋
+  資料面 `model/facade/` **13 支**（session_event／sys_casbin_archive／sys_casbin_policy／
+  sys_ip_rule／sys_login_attempt／sys_menu／sys_operation_log／sys_pwd_custody／sys_role／
+  sys_token／sys_user／sys_user_role／system_settings；`sys_casbin_archive`＝005 授權歸檔寫入面＋
   006 回收桶讀端 list／restore（復原＝鎖內固定序五腿重驗、詳 ADR 0055）——選單域
   advisory 鎖底座 key `0x7265_7635_6D65_6E75`＋`insert_archived` role_id 反查內收＋
   reason gate 五值集（006 擴 menu_revoke／button_revoke）；固定鎖序 advisory→歸檔表列→
@@ -106,11 +109,26 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   三個建構點 `from_trust`／`from_headers`／`new`——鑑識三欄的唯一產出處）／`config.rs` 的
   `load_trust_model`（啟動時一次載入、唯讀共享）。狀態容器 `AppState` 自本刀起為**七欄**
   （既有五欄＋`trust_model`／`ip_rules`；ADR 0041）。
+- **user 域模組拓樸**（007 落地）：`handler/user.rs`（管理面十支端點薄殼＋寫端收尾式
+  `finish_user_write`——commit→denylist 廣播→條件式 `reload_enforcer` 的唯一腿，`pub(crate)`
+  供自助改密共用，跨 handler 消費者另有名冊閘守）／`handler/user_center.rs`（自助兩支
+  changePassword／getPasswordPolicy，皆 `Protection::Authed`、零 casbin seed、不計入 policy
+  端點數）／`auth/no_escalation.rs`（島 I7 包含規則 `T ⊆ A ∧ N ⊆ A` 的具名純函式，八支使用者
+  寫端＋unlock 帳號維共用；與 `enforce.rs` 的 middleware 四參掛點分屬路徑級與 body 級兩射程）／
+  `model/facade/sys_pwd_custody.rs`（設密經手帳；只存時戳、零密碼材料，`touch` 與密碼欄 UPDATE
+  同交易）／`throttle/change_pwd.rs`（**第三個**節流子系統：判定鍵 uid、兩態無軟區、fail-open、
+  鍵前綴 `cpwd:` 與登入節流分離、降級自成第十三源；ADR 0066）。密碼政策核心住 `model/password.rs`
+  ——單一驗證點、八鍵單快照讀、缺鍵 fail-default，三個設密入口（addUser／resetUserPassword／
+  changePassword）共用；雜湊**生成**恆於取鎖前算好再進鎖、**驗證**依島 I1 於鎖內執行（ADR 0068）。
+- **test_db 名冊本刀擴三支**：`UserCleanup`（補業務鍵腿＋操作稽核腿＋`sys_user_id_seq` 還原）／
+  `PwdCustodyCleanup`（custody 首寫的 RAII 清理）／`SessionRevokeCleanup`（鍵＝uid 而非單一 sid——
+  撤銷測一次產生 N 個 sid 且 N 於起手時點未知，既有兩守衛結構性涵蓋不到）；逐支「為何非有不可」
+  同前住模組 doc、本書不複述（ADR 0062）。
 - **觀測面**：`/metrics` Prometheus exposition；序列一律 boot 時 pre-register 顯式 0
   （防「事件未發生＝序列缺席」使 `rate()` 失去基線——`obs.rs` 檔頭鐵律）。auth 刀新增
   三序列：`denylist_hit_total`（source＝redis／pg 恰二）、`throttle_degraded_total`
-  （source 恰十二、值集權威＝`obs::THROTTLE_DEGRADED_SOURCES`；003 立為六源、004 之
-  IP 域刀重推為十二源）、`throttle_soft_zone_total`（無 label）；004 之 IP 域刀再新增
+  （source 恰十三、值集權威＝`obs::THROTTLE_DEGRADED_SOURCES`；003 立為六源、004 之
+  IP 域刀重推為十二源、007 之改密節流自成第十三源）、`throttle_soft_zone_total`（無 label）；004 之 IP 域刀再新增
   兩序列：`ip_domain_degraded_total`（kind 恰五、值集權威＝`obs.rs` 的
   `IP_DOMAIN_DEGRADED_KINDS`〔**crate 內私有 const**、非跨 crate API〕，逐字取自該刀
   data-model §5 降級矩陣）、`ipgate_blocked_total`（**無 label**——阻擋**不屬
@@ -195,8 +213,8 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   只有在加 access 的形下才讀得通。
   rotate-grace 冪等窗＝`cache::GRACE_TTL_SECS`（30s）。
 - 撤銷讀面 as-built：redis 鍵 `session:denylist:{sid}` 存 reason 字面（`REASON_KICKED`／
-  `REASON_REVOKED` 兩常數集中於 `cache/mod.rs`），enforce_mw 讀端映 7777 modal／
-  8888 silent；權威關係、TTL 值與缺鍵語意＝constitution §I.7 島 C。
+  `REASON_REVOKED`／`REASON_ADMIN_KICK` **三常數**集中於 `cache/mod.rs`），enforce_mw 讀端
+  **三向分派**（見下「使用者域斷權」）；權威關係、TTL 值與缺鍵語意＝constitution §I.7 島 C。
 - single-session as-built：政策兩鍵＝`sys_user.session_policy`＋system_settings
   `single_session_default`，`effective_single` 判真後於 `handler/auth/login.rs` ⑨~⑪ 步
   同 txn 撤其他 chain 並落稽核、commit 後才 best-effort 廣播 denylist；兩層解析式與
@@ -204,7 +222,7 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 - idle 逾時 as-built：`session:{sid}:last_activity` 由 enforce_mw 放行後 best-effort 推進、
   事件冪等標記鍵＝`session:idle-emitted:{sid}`；門檻式、事件僅首次落與「不寫 denylist」
   ＝constitution §I.7 島 D。
-- 會話終止稽核＝`session_event` append-only 四事件（reuse／kicked／idle／logout）。
+- 會話終止稽核＝`session_event` append-only **五事件**（reuse／kicked／idle／logout／revoked）。
 
 ### 登入失敗節流三區（帳號維＋來源維）
 
@@ -245,7 +263,35 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 - 圖形驗證碼＝無狀態簽章題（HS256、leeway=0、nonce 消耗標記 SET NX＝一次性）；
   發題對任意 userName 一律發（零存在性洩漏）、題綁發題帳號。
 - 降級腿方向（redis 失聯＝軟區停用續驗密碼、PG 查詢失敗＝歸零放行＋`captcha_forced`
-  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰十二。
+  補償等）凍結於 constitution §I.7 島 E；訊號面＝`throttle_degraded_total` source 恰十三（第十三源＝007 之改密節流、自成一格）。
+
+### 使用者域斷權與密碼三入口（007 落地）
+
+- **denylist 三 reason 的分派**（島 I2「三 reason 不互換」的 as-built）：`REASON_REVOKED`
+  →8888 silent，涵蓋**四路**（停用／刪除／重設密碼／自助改密）；`REASON_ADMIN_KICK`→7777 modal
+  ＋文案 `auth.session.kickedByAdmin`，恰一路＝管理員踢除；`REASON_KICKED`→7777 modal＋既有文案，
+  恰一路＝single-session 頂替。★未知字面落 8888 側。★字面互換在 PG 面、稽核面與回應信封上
+  **全部看不出來**，故逐呼叫點各有一顆掛真 redis 的紅點守著（名冊住 `finish_user_write` doc）。
+- **兩套詞彙不共用**：`session_event`（PG 稽核）與 denylist（redis 快取）字面偶有重疊
+  （`admin_kick`）純屬對照方便。`session_event.event_type` 恰五、`reason` 恰七（003 之
+  `single_session`／`idle_timeout` ＋007 之 `user_disabled`／`user_deleted`／`password_reset`／
+  `password_changed`／`admin_kick`）——五個新 reason 配 `revoked` 事件分辨撤銷來源。
+- **撤銷的交易邊界**：撤票與逐 sid 事件由 facade 於**同一交易**落定（PG-first）；handler 的
+  `finish_user_write` 只做 commit 後的 best-effort denylist 廣播＋條件式判定面同步。denylist
+  TTL＝`refresh_secs`（取 access_secs 會讓被撤者於 (access, refresh) 窗內換發時讀得 nil
+  ＝「未撤」而放行）。判定面同步的觸發矩陣＝ADR 0067 款二。
+- **密碼三入口共用單一政策驗證點**（`model/password.rs`）；守門序 as-built：
+  - `addUser`：形制→現役唯一→信箱格式→roleIds 存在→N ⊆ A→**政策**→冷卻**免判**（新 id 無
+    前次可比）但 custody **照落**（初始密碼計入冷卻帳，否則「建帳後立刻重設」白得一次免費機會）。
+  - `resetUserPassword`：notFound→self→T ⊆ A→**政策**→**冷卻**→UPDATE＋custody touch＋撤全 active。
+  - `changePassword`：**節流**（uid 維、5 次／900 秒，落在 argon2 verify **之前**、拒絕路徑零計數
+    推進）→帳號存在→兩次一致→**舊密驗證**→新≠舊→**政策**→**冷卻**→UPDATE＋custody touch＋
+    撤其他 active（**保留當前 sid**）。
+  ★**政策恆排在冷卻之前**：兩者同時成立時，先讓使用者知道密碼哪裡不合格，比先叫他等幾十秒有用。
+  ★門檻的家不同：政策八鍵與冷卻 interval 住 `system_settings`，改密節流門檻是碼內常數
+  （判準＝ADR 0066 決定三）。
+  ★**登入路徑 MUST NOT 驗政策**（島 I5 明文）：seed 帳號密碼短於政策下限，驗了即結構性自鎖；
+  有源碼掃描守。
 
 ## §7 部署
 
@@ -295,15 +341,35 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   角色每請求現查 DB、不快取亦不採信 token 附帶——角色一撤、下一請求即生效。
 - **拒絕語意**（ADR 0022）：無權＝5003＋HTTP 403、msg＝純 i18n key、不揭露政策明細與
   持有角色；授權面內部故障＝5000、不偽裝成 403。
-- **no-escalation seam**（ADR 0022 定形）：空掛點 `no_escalation_check` 單一呼叫點、
-  簽章預留 async＋db；現況恆放行、deny 與政策拒絕走同一出口。
+- **no-escalation 兩射程**（形＝ADR 0022 定形、真邏輯＝007）：middleware 掛點
+  `no_escalation_check`（單一呼叫點、簽章預留 async＋db）**恆放行**＝路徑級上限位；真判定住
+  handler 鎖內的具名純函式（`auth/no_escalation.rs`）＝body 級指派集。★中介層取不到 body、
+  亦取不到鎖內的 T ⇒ 兩位置不是「暫時的」與「正式的」，是**不同射程**。deny 與政策拒絕同出口。
 - **三維授權治理**（006）：期望全集全量替換（diff 由系統導出）、射程＝候選集（候選外既得
   原封、界外靜默略過；ADR 0056）；protected 撤銷整批拒 `protectedRevoke`；結構性封死＝謂詞
   式（ptype=p ∧ protected ∧ v2∈動詞）鎖內現查、掛 updateRoleEndpoints＋restore 第③腿、拒因
   `protectedGrant`（ADR 0054）。回收桶：撤銷＝archive-move 完整快照、復原＝鎖內固定序五腿
   重驗（ADR 0055）、restorable 派生旗標與①～④腿同判準。觸發面：grant 面 Applied 即判定面
-  同步不問 diff（刻意例外、與移除面 if-archived 並陳）、呼叫點名冊三檔機器守；生效語意＝
+  同步不問 diff（刻意例外、與移除面 if-archived 並陳）、呼叫點名冊機器守（007 起**四檔**）；生效語意＝
   API 判定即時、前端選單／按鈕面下次載入生效（FR-022）。
+- **使用者域授權**（007）：**包含規則** `T ⊆ A ∧ N ⊆ A`（A＝操作者現役角色集、持 `R_SUPER`
+  者之 A 視為**全集**；T＝標的全部指派列、不濾角色狀態；N＝寫後角色集）——凍結面＝島 I7。
+  掛滿**八支使用者寫端＋unlock 帳號維**，判定序排在 seed 保護與 self 諸不**之後**、業務守門
+  **之前**；來源維解鎖不套（標的是位址、無角色可比）。同級互管**允許**（`A ⊆ A` 成立）。
+  ★`addUser` 不因「T 恆空」而結構性恆過——`N`＝請求 roleIds 可越界，「新開一個超管帳號」是最
+  直接的提權路徑，故它進名單。
+- **前端不預判包含規則**（FR-020）：角色下拉全列、列級鈕只依按鈕碼顯隱，後端為唯一裁判。
+  預判會讓前端多一份必須與後端同步的規則副本，而兩份規則分岔時使用者看到的是「按鈕不見了」
+  而非「被拒絕了」——後者可診斷，前者只能猜。
+- **按鈕 gating 的判準**（釋義＝ADR 0063 款三）：**該頁 menu 維政策是否僅 `R_SUPER`**。
+  僅 `R_SUPER` ⇒ 門已在頁級（進不來就談不上按鈕），頁內不做逐鈕 gating（`manage_role`／
+  `manage_menu` 屬此）；含非超管角色 ⇒ 逐鈕 gating（`manage_user`＝{R_SUPER, R_ADMIN}，
+  故七枚按鈕碼逐鈕判）。★判準是**政策實況**、不是頁面的重要性。
+- **名冊閘的射程紀律**（007 擴三張）：`reload_enforcer` 呼叫點名冊之外，另有
+  `finish_user_write` 跨 handler 消費者、`no_escalation` 判定呼叫點、`guard_no_escalation`
+  掛點消費者三張。★**新增名冊的觸發條件＝可見性放寬**：把一支內含受管呼叫的函式由私有提升為
+  `pub(crate)`，借道者就能觸發該行為而自身檔案不出現受掃 token ⇒ 上一道名冊閘的射程被打穿
+  （L-069）。凡提升這類函式的可見性，同批補一張消費者名冊。
 
 ## §9 架構決策
 
@@ -330,3 +396,13 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 - **活書**：本檔——現在式 as-built 敘事，人寫、lint 守約。
 - **事件源**：docs/ops/events.jsonl——收刀／review／里程碑的 append 型單一事實源。
 - **傘狀 repo**：本 repo；只記文件、spec、gitlink pin，不含子體實碼。
+- **停用／軟刪**：停用＝`status` 轉 `'2'`（列仍在、可再啟用）；軟刪＝`deleted_at` 落值（自現役面
+  消失、可經回收桶復原、status 保留零回灌）。兩者皆撤標的全部 active 票。
+- **踢除／撤銷**：踢除＝管理員的**顯式**斷線（denylist `admin_kick`→7777 modal）；撤銷＝停用／
+  刪除／重設密碼／自助改密**連帶**發生的失效（`revoked`→8888 silent）。★DB 面同為 token 轉非
+  active，差別只在 reason 字面與使用者看到的碼；互換即體驗錯位而無斷言會紅（島 I2）。
+- **鎖定**（登入節流域）：計數逾門檻後**新的登入嘗試**被拒；不動 token、不寫 denylist，解除靠
+  `unlockLogin` 或等窗過。★已持未過期 token 的人**既有 session 照常**——鎖的是門，不是屋內的人。
+- **重設密碼／修改密碼**：重設＝管理員對**他人**（`resetUserPassword`、無需舊密、撤標的全部
+  active 票）；修改＝本人對**自己**（`changePassword`、需舊密、撤其他 active 票但**保留當前**）。
+  ★共用同一政策驗證點與同一冷卻帳；self 是兩者相反的禁區——管理端禁對自己重設、自助端只能對自己。

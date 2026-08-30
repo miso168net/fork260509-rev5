@@ -1,4 +1,4 @@
-<!-- next: L-070 -->
+<!-- next: L-071 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -82,3 +82,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-067｜Lint25 的「執行單元輪次」形連本代的刀號＋輪次寫法都判紅，而改寫成刀名全形會踩另一個形](LESSONS/L-067-lint25-unit-round-shape-traps-current-generation-too.md) — ops 帳本一律寫「本刀 U2」；判準是「長得像不像那幾個 regex」而非「是不是跨代引用」
 - [L-068｜agent 保險絲低於 script 的結構最壞值時會在健康的 run 上開火，且必定開在最後一支](LESSONS/L-068-agent-fuse-below-structural-worst-case-fires-on-healthy-runs.md) — 由同檔常數推導＋自我斷言（WORST = 實作支數 + cycle 數 × (2·MAX_FIX_ROUNDS+1)）、不得手挑；通則＝安全邊界要從它所守的東西推導
 - [L-069｜可見性放寬把既有名冊閘的射程打穿、全樹零紅點](LESSONS/L-069-visibility-widening-punches-through-a-roster-gate.md) — 改可見性前先 grep 函式體內有無被 token 掃描閘守著的呼叫；有就同批補一道消費者名冊閘、兩閘 doc 互相指路
+- [L-070｜shell cwd 跨呼叫持久化，在傘狀 repo 裡把路徑錯誤偽裝成「檔案不見了」](LESSONS/L-070-shell-cwd-persists-across-calls-in-an-umbrella-repo.md) — 子庫一律 `git -C`、非 git 指令用絕對路徑；路徑類錯誤先 `pwd` 自證位置再談對象

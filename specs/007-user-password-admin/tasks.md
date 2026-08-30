@@ -877,19 +877,50 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   ③操作欄在 `scroll-x=2002` 的橫向捲動區外（座標 x=2211 超出視窗）⇒ 須先
   `Emulation.setDeviceMetricsOverride` 放大 viewport 或 `scrollIntoView({inline:'end'})`。
 
-- [ ] T071 ★主線任務：ADR ②～⑤ draft→accepted——`0064`（BizData 明細通道：射程二鍵、澄清 ADR 0022 §2② 之誤、結 B-024③ 受眾邊界）／
+- [x] T071 ★主線任務：ADR ②～⑤ draft→accepted——`0064`（BizData 明細通道：射程二鍵、澄清 ADR 0022 §2② 之誤、結 B-024③ 受眾邊界）／
   `0065`（`SELF_SERVICE_ROUTES` 碼內白名單，承 rev4:ADR 0065、紀律嚴限自助頁家族）／`0066`（設密冷卻＋改密節流：custody 只時戳、
   fail-open 同島 E、常數門檻、觀測 source）／`0067`（ADR 0042 第 2 項措辭訂正＝解鎖入口為使用者管理頁，走 v1.6.1 對 0043 範式；
   ＋ADR 0053 觸發矩陣補一列＝user 指派寫端）；各 `provenance` 指向 brainstorm／spec 條號；`docs-sync.py generate`。
-- [ ] T072 ★主線任務：活書 `docs/arc42/ARCHITECTURE.md` §5（facade 新兩檔與寫端家族、test_db 名冊三守衛——落筆先算餘裕 20 行）＋
+- [x] T072 ★主線任務：活書 `docs/arc42/ARCHITECTURE.md` §5（facade 新兩檔與寫端家族、test_db 名冊三守衛——落筆先算餘裕 20 行）＋
   §6（斷權四路與 reason 分派、密碼三入口與冷卻節流序——餘裕 40）＋§8（授權慣例加 no-escalation 包含規則與掛點分工、
   按鈕 gating 判準——餘裕 77）＋§12 詞彙六條（停用／軟刪／踢除／撤銷／鎖定／重設 vs 修改密碼）＋
   `docs/arc42/FORK-DELTA-WIRING.md`（(v)(vi)(vii) 三用途接線 as-built）；撞頂即依 ADR 0062 輕量軌下放（不再逐次 ADR）。
-- [ ] T073 ★主線任務：`docs/ops/BACKLOG.md` 關帳與勘誤——刪 B-003／B-021／B-024／B-089／B-093／B-113／B-127／B-129／B-128／B-132
+- [x] T073 ★主線任務：`docs/ops/BACKLOG.md` 關帳與勘誤——刪 B-003／B-021／B-024／B-089／B-093／B-113／B-127／B-129／B-128／B-132
   （B-020 視通用 seam 是否做、B-025 只結①留②、B-098 續留）＋`docs/ops/LESSONS.md`（若有踩坑）＋勘誤四處：
   `docs/ops/NOTES.md`「seed 68（manage_user view）」→「seed 68（updateUserSessionPolicy 端點）」、
   `handler/common.rs` 檔頭與 NOTES「六件」→七件、B-113 條文「由綠轉紅」→續綠、ADR 0022 §2② 由編號 0064 之新 ADR 一句澄清；
   ★`docs-sync.py errata <關鍵詞>` 逐處處置（禁只修被點名處）。
+★**T071～T073 as-built（主線、2026-08-30）**
+
+- **T071**：ADR 0064～0067 四支 draft→accepted 一次落地（body 皆零碼改動、記的是 as-built 與判準）。
+  ①`0064` BizData 明細通道——★查證出 ADR 0022 決定 2 理由②「`AppError` 已有 `BizData` 變體形」是**事實誤述**
+  （同期 `error.rs` 碼註逐字「B12 不建 rev4:B-047 之 BizData 攜參形」，該變體到本刀 U1／`7575379` 才進場）；
+  受眾邊界判準立為「明細是**操作者自陳輸入**的評估結果 vs. **系統的**狀態或模型」，B-024③ 據此結掉。
+  ②`0065` 自助路由白名單——★rev5 **沒有** rev4 那條 §III.2(g) 頁級豁免條文，改以二支柱立論（§I.2 含義射程
+  限「業務 menu」＋`sys_menu` id 16 之 `hide_in_menu = TRUE` 實值）。③`0066` 冷卻與節流——結掉 B-021 兩個殘餘
+  拍板點（fail-open／碼內常數），判準＝「這個數字的正確值是否隨組織而異」；B-020 通用化半邊判 won't-fix。
+  ④`0067` 兩款訂正——ADR 0042 第 2 項的入口歸屬預測（實落使用者管理頁、可見落差同批解除）＋ADR 0053 款四
+  觸發矩陣擴 user 域，★**補的是兩列不是一列**（本檔原文「補一列」為預估失準：as-built 觸發源恰二＝
+  `updateUser` 角色集實際變更／`deleteUser`＋`batchDeleteUser` 之 `had_roles`）。
+- **T072**：§5（user 域拓樸五支新檔＋facade 12→13＋test_db 三守衛）／§6（denylist 三 reason 分派、兩套詞彙、
+  撤銷交易邊界、密碼三入口守門序）／§8（no-escalation 兩射程、前端不預判、gating 判準、名冊閘射程紀律）／
+  §12（業務詞彙四組六條）＋`FORK-DELTA-WIRING.md`（(v)(vi) 與 LOGIN-CAPTCHA (ii) 三用途 as-built＋
+  `原行:` 同行形制紀律）。★**射程外順手修五處現在式失準**（活書的現在式義務、非擴 scope）：
+  §1 建置狀態停在 004（★005／006 **連兩刀遺漏**⇒ 根因立帳 B-146）、觀測 source 十二→十三、
+  denylist reason 兩常數→三、`session_event` 四事件→五、reload 名冊三檔→四檔。各節行數
+  §1 18/40｜§5 85/90｜§6 148/160｜§8 73/130｜§12 21/30，全在配額內。
+- **T073**：關帳**十一條**（本檔原列十條＋B-020——其通用化半邊由 ADR 0066 決定四判 won't-fix，翻案觸發器＝
+  出現第三個消費者且與既有兩者之一同形）；B-025 只結①（★自證：`sys_user_role::delete_all_of_user` 硬刪與
+  `deleted_at` 同交易同 advisory 域、全程零 casbin 歸檔列 ⇒ 窗結構性不存在）、②事後對賬掃描續留；B-098 續留。
+  ★**十一條逐條自證前提**（不採信本檔記載）：B-003 兩面各有 `userMemo`／B-089 三行 required-only 且
+  `constants/reg.ts` 零 diff／B-113 探針升真 assert／B-127 收攏至 `handler/common.rs`／B-128 RUNBOOK §9b 分工表／
+  B-129 三檔皆有 `B-129①` 清空腿＋`homeReq` 世代／B-132 `MENU_DEFAULT_PAGE_SIZE` 重置。
+  勘誤逐處處置：①NOTES「seed 68（manage_user view）」→已改為端點名（★同述另在 `events.jsonl` 行 33，
+  append-only 不可改＝ADR 0012 決定 5；其餘三處命中皆為**勘誤指令本身**、改掉即失去指涉，保留）
+  ②「六件→七件」**本檔失準**——`handler/common.rs` 檔頭現為**八件**（B-108 第七、本刀 T017 第八）、碼側早已正確，
+  處置改為在 NOTES 該句就地加註現況 ③「由綠轉紅」隨 B-113 關帳自然消解（errata 現存二處皆為勘誤指令本身）
+  ④ADR 0022 決定 2② 之澄清＝ADR 0064 背景段。
+
 - [ ] T074 `docs/ops/RUNBOOK.md` §12.1 量測法實測 pre-commit 一筆（低於 ADR 0044 之 45s 警戒；hook 自報值與逐支中位數法不可混用）＋
   結論補記本 task；收刀簿記（events `feature_close`＋NOTES＋generate）由收刀程序承接、不列 push／merge。
 

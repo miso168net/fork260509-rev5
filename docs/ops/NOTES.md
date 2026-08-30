@@ -22,7 +22,7 @@
   **005-role-menu-crud**（merge 0125f8c、本代第五刀）：role＋menu CRUD 16 端點、ROUTES 38
   終態、測試 512→650、憲法 1.7.0（島 H＋用途(ii)）、ADR 0048～0052、零 migration；序列化域
   ＋rebuild-swap 熱重載＋歸檔寫入面三底座就緒（授權治理刀依賴面全兌現）｜
-  **授權治理刀起手維護批**（輕量軌、merge 524d8b9：B-094 收攏＝handler/common.rs 六件＋facade violated_constraint、
+  **授權治理刀起手維護批**（輕量軌、merge 524d8b9：B-094 收攏＝handler/common.rs 六件（★該批當時之數；現為八件——B-108 收第七、007 T017 收第八）＋facade violated_constraint、
   B-101 test_db::test_state 單一字面＋(Router, AppState) 變體、B-085 自證測、B-102 三測、B-098 十二裁判；四筆關帳、測試 650→682）｜
   **006-authz-governance**（merge 307ed51、本代第六刀、B-088 關帳）：三維授權治理 11 端點、ROUTES 49 終態、測試 682→793、憲法 1.8.0（島 G＋(iii)(iv)）、ADR 0053～0056、零 migration；
   封死＋射程＝候選集＋五腿 restore；三 modal 接真＋policy-archive 頁；seed-view-gate；wire 75。
@@ -33,7 +33,7 @@
 
 - **★下一刀＝刀 B（user＋password 管理）**：B-089／B-021／B-020 連鎖在彼、scope 已預拍「全納入含
   changePassword」（2026-08-18、記兩檔 §3 表 #4）；★起手必復核 B-093（deleteRole 判定面繼承窗）
-  ＋B-113（R_SUPER wire 案前提、seed 未來端點註冊後重審）；seed 68（manage_user view）在彼兌現。
+  ＋B-113（R_SUPER wire 案前提、seed 未來端點註冊後重審）；seed 68（`updateUserSessionPolicy` 端點）在彼兌現。
 - **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-124／B-125／B-127～B-129／B-131～B-133。★另六條已滯後（查全帳須併看 BACKLOG-DEFERRED.md）；B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
 - ★下一動作＝刀 B `/speckit-specify`（input＝docs/brainstorms/007-user-password-admin.md、階段 0 已定稿＝41 題親決、Q09 取下放）；
   specify 手動起手（絕不排自動流程、否則 spec 落 default）→ clarify → plan → tasks → analyze、每步 commit。
