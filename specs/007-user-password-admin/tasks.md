@@ -921,7 +921,7 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   處置改為在 NOTES 該句就地加註現況 ③「由綠轉紅」隨 B-113 關帳自然消解（errata 現存二處皆為勘誤指令本身）
   ④ADR 0022 決定 2② 之澄清＝ADR 0064 背景段。
 
-- [ ] T074 `docs/ops/RUNBOOK.md` §12.1 量測法實測 pre-commit 一筆（低於 ADR 0044 之 45s 警戒；hook 自報值與逐支中位數法不可混用）＋
+- [x] T074 `docs/ops/RUNBOOK.md` §12.1 量測法實測 pre-commit 一筆（低於 ADR 0044 之 45s 警戒；hook 自報值與逐支中位數法不可混用）＋
   結論補記本 task；收刀簿記（events `feature_close`＋NOTES＋generate）由收刀程序承接、不列 push／merge。
 
 ---
@@ -940,6 +940,17 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
 - **執行單元映射**（編排每單元一支 workflow；research R12 定稿）：U0＝T001～T005（主線、user 親決）｜U1＝T006～T021（後端底座）｜
   U2＝T022～T028（US1 後端）｜U3＝T033～T039（US2）｜U4＝T040～T048（US3 後端、含自助白名單）｜U5＝T052～T055＋T058～T060（US4／US5 後端）｜
   U6＝T063＋T029～T032（US1 前端、B-129 先修）｜U7＝T049～T051＋T056／T057／T061／T062（US3／US4／US5 前端）｜
+★**T074 as-built（主線、2026-08-30）**：兩個量測面各實測一筆，值與判讀全文落 RUNBOOK §12.1 資料點序列。
+①**牆鐘**（真 commit、`perf_counter` 包 `git commit` 整命令、單次）＝**13.89s rc=0**（U10 治理收尾
+commit `b5b6912`，零 gitlink／零工具本體）——對照同型的 2026-08-18 文件型 26.10s，**B-130 提速在真實
+commit 面兌現（−47%）**，距警戒 45s 餘 3.2 倍。②**逐支中位數**（情境 A 基礎鏈、乾淨環境、每支 3 跑）＝
+0.138／1.153／13.326 ⇒ **合計 14.617s**；對照 2026-08-18 同法之 13.695s 為 +6.7%，而其間掃描面多了
+005／006／007 三刀的全部產出 ⇒ 成長被 B-130 的 I/O 稅處置吸收。★兩值**不可混算**（不同量測面）。
+★**誠實界線兩則**：①這兩筆**都不是收刀簿記型**，ADR 0044 引信所指的本刀資料點須於收刀簿記那顆補記
+（引信「連續兩刀 ≥60s」以現值判未觸發）②RUNBOOK 既有「下一刀必做」第②項（pin bump 型牆鐘實測）
+**本刀仍未做**——U1～U9 各有一顆 pin bump commit 而當時未計時（執行疏漏）、U10 零 gitlink 改動故無機會，
+已續掛至收刀的 `merge --no-ff` 那顆（它 staged 兩個 gitlink＝該項要的最重情境）。
+
   U8＝T064～T066（US6）｜U9＝T067～T070（重抽與全量閘與 CDP）｜U10＝T071～T074（治理收尾）。
 - **共享檔序列鏈（同檔不 [P]）**：`facade/sys_user.rs`（T015→T022→T025→T045→T060）、`facade/sys_user_role.rs`（T016→T025）、
   `handler/user.rs`（T018→T023→T026→T028→T033→T037→T040→T046→T052→T054→T058→T060）、

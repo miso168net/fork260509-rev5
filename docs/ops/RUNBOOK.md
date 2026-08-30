@@ -422,6 +422,28 @@ EOF
   處置面全數證偽（lint 的檔案系統原語佔 64%、邏輯僅 7%；fork-delta 的 select.poll 佔 99%）。
   ★**合成公式的第二處誤導已結清**：`wire-schema check --staged-gate` 真路徑僅 **0.43s**（走 `no-typings`
   短路），而合成值沿用 08-16 的 8.431s（未短路路徑）——B-130 所列「先決事實」自此不再是待辦。
+- **★2026-08-30 007-user-password-admin 之 U10 收尾：兩個量測面各一筆**（★兩值**不可混算**——
+  hook 自報牆鐘與逐支中位數是不同量測面，本節既有紀律）。
+  - **牆鐘實測（真 commit、`time.perf_counter` 直接包 `git commit` 整命令、單次）＝13.89s rc=0**
+    （U10 治理收尾 commit `b5b6912`；staged＝4 支新 ADR＋活書＋附屬文件＋BACKLOG／LESSONS／NOTES／
+    tasks＋`docs/generated`，**零 gitlink、零工具本體** ⇒ `fork-delta-lint`／`view-render-guard`／
+    `seed-view-gate`／`docs-sync test` 皆未進鏈）。對照同型的 2026-08-18 之**文件型 26.10s** ⇒
+    **B-130 的提速在真實 commit 面兌現**（−47%）。距警戒 45s 餘 3.2 倍。
+  - **逐支中位數（情境 A 基礎鏈、乾淨環境、每支 3 跑取中位）**：`secret-value-guard check` **0.138s**／
+    `docs-sync check` **1.153s**／`docs-sync lint` **13.326s** ⇒ **基礎鏈合計 14.617s**。
+    對照 2026-08-18 同法同情境的 13.695s ⇒ **+6.7%**（主項＝`lint` 12.251→13.326、+8.8%）。
+    ★**這個 +8.8% 要正著讀**：其間 repo 掃描面增加了 005／006／007 **三刀**的全部產出
+    （ADR 0053～0068、LESSONS 分檔 47→70 條、三份 spec 目錄、活書四節擴充），而基礎鏈只漲不到一成
+    ——B-130 的 I/O 稅處置正是在吸收這段成長。★**勿與 B-130 那筆的 25.34→15.92 混算**：該筆是
+    「同一支 bench、同條件三跑取最佳」，量測面與本序列不同（該筆自己也載明不可混算）。
+  - ★**誠實界線**：本刀這兩筆**都不是收刀簿記型**（那顆＝events append＋NOTES＋generate，尚未發生）
+    ⇒ **ADR 0044 引信所指的本刀資料點，須於收刀簿記那顆 commit 補記**；引信（連續兩刀 ≥60s）
+    以現有值判**未觸發**。
+  - ★**既有「下一刀必做」三項結算**：①`wire-schema check --staged-gate` 重測＝**已由 B-130 那筆結清**
+    （真路徑 0.43s、走 `no-typings` 短路）②pin bump 型 commit 的牆鐘實測＝**本刀仍未做**——本刀
+    U1～U9 各有一顆 pin bump 外層 commit 而當時未計時（執行疏漏），U10 又是零 gitlink 改動故無機會；
+    ⇒ **續掛至收刀的 `merge --no-ff` 那顆**（它 staged 兩個 gitlink，恰是①②要的最重情境）
+    ③`docs-sync lint` 慢路徑處置＝B-130 已處置、本刀無新增條款。
 - **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
   （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
   test 合計 **24.593s**（自測案數合計 938）；情境 B 合計 **34.499s**。⇒ 兩日內**基礎鏈
