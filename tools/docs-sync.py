@@ -5,7 +5,7 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint27（Lint03 事件帳逐列 schema：feature_close／review／misc／
+  lint            Lint03～Lint29（Lint03 事件帳逐列 schema：feature_close／review／misc／
                   erratum／perf 五型；Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
@@ -17,7 +17,9 @@
                   Lint24 前後端 msg key 契約閘；
                   Lint25 跨代裸編號閘：前代編號空間的裸引用須帶 revN: 前綴；
                   Lint26 LESSONS 分檔對賬：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填；
-                  Lint27 README 目錄樹 vs tools/／deploy/ 腳本檔集對賬：兩向紅、只報不改）
+                  Lint27 README 目錄樹 vs tools/／deploy/ 腳本檔集對賬：兩向紅、只報不改；
+                  Lint28 活書 §1 建置狀態 ⊇ events feature_close 刀號集：單向對賬、缺即紅；
+                  Lint29 子庫碼面（pin 指向樹）裸 B-／L- 編號超出本代 next-id 即紅）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
   errata <詞>     全 repo 同語意枚舉報告
@@ -2896,7 +2898,10 @@ def _arch_impact_nums(ai):
 
 
 def _book_section_content(text):
-    """活書各 §節內容（不含節標題行），供內容相異比對。回 {節號: 內容字串}。"""
+    """活書各 §節內容（不含節標題行）。回 {節號: 內容字串}。
+
+    共用者：Lint06 的內容相異比對、Lint28 的 §1 本文取用——節切分只此一份構造式。
+    """
     sec, buf, out = None, [], {}
     for line in (text or "").splitlines():
         m = RE_BOOK_SECTION.match(line)
@@ -2980,6 +2985,49 @@ def lint_arch_impact(root):
                 out.append(finding(ERROR, "Lint06", where,
                                    f"最新刀 merge^1→簿記活書 §{n} 內容有變動但 arch_impact"
                                    " 未宣稱"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Lint28 活書 §1 建置狀態 ⊇ events feature_close 刀號集（B-146）
+# ---------------------------------------------------------------------------
+
+def lint_book_build_status(root):
+    """Lint28：活書 §1「目前建置狀態」⊇ events feature_close 刀號集（B-146）。
+
+    射程：每一筆 feature_close 的 feature（NNN-slug）之三位刀號 NNN 須以獨立 token（前後皆非
+    數字）出現在活書 §1 本文（`## §1` 標題行之後、下一個 `## §` 之前）；缺＝ERROR，指名刀名與
+    收刀日期、去處＝§1 目前建置狀態段。
+    ★單向（⊇）、不做反向：feature branch 期間活書先於 feature_close 事件更新（收刀簿記排在
+      merge 之後），反向對賬會在每一刀施工中恆紅。
+    ★誠實邊界三則：活書缺席＝零 findings（存在性由 Lint20 守衛#8 之 BUDGETS 名冊承載）；
+      events 缺席／空＝零 findings（Lint20 承載）；feature 欄形錯＝跳過（格式面歸 Lint03、不重複報）。
+      §1 標題缺或本文空段＝每刀各紅（那正是「敘事沒跟上事實」的極端形）。
+    ★kind=horizontal 的刀同受對賬：它也是一刀、§1 建置狀態同樣該提。
+    ★為何敘事節也要機器對賬：§1 是活書唯一一處「本系統做到哪裡」的敘事，005／006 兩刀收尾
+      皆漏補、直到 007 才發現——Lint07／Lint10／Lint11 只看行數／時態／詞典，Lint06 只看節號，
+      內容有沒有跟上事實恰落在所有閘的射程之外（B-146）。
+    """
+    out = []
+    book = _read(root, BOOK)
+    if book is None:
+        return out
+    # ★節切分複用 Lint06 的 _book_section_content（單一構造式、絕不另抄一份）：抄本漂移＝
+    #   活書節標題形一變時兩閘對「§1 本文是哪些行」給出不同答案，且兩邊自測各自為政皆不紅。
+    body = _book_section_content(book).get(1, "")
+    for e in parse_events_loose(_read(root, EVENTS)):
+        if e.get("type") != "feature_close":
+            continue
+        feat = e.get("feature")
+        if not isinstance(feat, str) or not RE_FEATURE.match(feat):
+            continue
+        num = feat[:3]
+        if re.search(rf"(?<!\d){num}(?!\d)", body):
+            continue
+        out.append(finding(ERROR, "Lint28", f"{BOOK}｜§1",
+                           f"feature_close 刀 {feat}（收刀 {e.get('date')}）之刀號 {num} 未見於"
+                           f"活書 §1 本文——活書 §1 建置狀態須 ⊇ events 刀號集（B-146）；"
+                           "請在 §1「目前建置狀態」段補一項"))
     return out
 
 
@@ -4836,6 +4884,123 @@ def lint_id_namespace(root, tracked, exemptions=None):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Lint29 子庫碼面裸 B-／L- 編號 vs 本代 next-id（B-148）
+# ---------------------------------------------------------------------------
+
+# 掃描面（寫死本檔、不取自任何外部輸入）：子庫 → 交給 git grep 的 pathspec 組。
+# ★git 預設 pathspec 的 `*` 亦匹配 `/`（fnmatch 無 FNM_PATHNAME）：`src/*.ts` 即涵蓋 src/ 下
+#   任意深度；`src/**/*.ts` 形反而漏掉 src/ 直屬子檔（2026-08-30 實測 base-web：117 vs 116 檔）。
+SUBMODULE_ID_SCAN = {
+    "rust-api": ("*.rs",),
+    "base-web": ("src/*.ts", "src/*.vue"),
+}
+# 粗篩樣式（POSIX ERE、交給 `git grep -E`）：只負責把含 B-／L- 三位號的候選行撈出來，精判在
+# python 端複用 Lint25 的 bid／lid regex＋前綴／原生判準——不另立第二套判定、不另讀 next-id。
+# ★不用 \b：BSD libc 的 regcomp 不支援、會靜默零命中（同 _cred_grep_tree 的跨平台教訓）。
+LINT29_COARSE = "[BL]-[0-9][0-9][0-9]"
+# 精判 regex＝LINT25_SHAPES 之 bid／lid 兩族原樣組合（單一真值來源；Lint25 改形本處同步）
+RE_LINT29 = re.compile("|".join(pat for name, _label, pat in LINT25_SHAPES
+                                if name in ("bid", "lid")))
+
+
+def _code_id_grep(subdir, tree, pathspecs):
+    """對 pin 指向的樹跑一發 `git grep`；回 (rc, stdout, stderr)——git 開不起來時 rc＝None。
+
+    輸出形（-z）＝`<tree>:<path>\\0<行號>\\0<內容>\\n`（tree-ish 形帶 SHA 前綴、與工作樹形不同，
+    解析時以 SHA 前綴切）；rc 0＝有命中、1＝無命中（正常）、其餘＝執行失敗（呼叫端分 WARN／ERROR）。
+    """
+    try:
+        r = subprocess.run(["git", "-c", "core.quotepath=off", "grep", "-n", "-z", "-I", "-E",
+                            LINT29_COARSE, tree, "--", *pathspecs], cwd=subdir,
+                           capture_output=True, encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return None, "", exc.__class__.__name__
+    return r.returncode, r.stdout, r.stderr
+
+
+def lint_submodule_code_ids(root, cache=None, reg=None):
+    """Lint29：子庫碼面裸 B-／L- 編號超出本代 next-id 即紅（B-148）。
+
+    掃描面＝兩子庫由**外層 index 之 gitlink SHA 指向的樹**（SUBMODULE_ID_SCAN：rust-api 全部
+    *.rs、base-web 之 src/ 下 *.ts／*.vue）；整行文字一視同仁（註解與字串常值皆掃）——碼面任何
+    位置的超號裸編號都不該存在。逐 token 判準**複用 Lint25**：緊鄰左側 rev2:～rev5: 前綴＝合規；
+    NNN ≤ next-id 或 900～999 假號段＝原生放行（lint25_native）；其餘＝ERROR、where＝
+    <子庫>/<path>:行 N、msg 指名 token 與去處。
+    ★為何掃 pin 指向的樹而非工作樹：外層 repo 記錄的就是 pin（Lint17 已互證 pin＝worktree
+      HEAD）；子庫未 commit 的改動不在掃描面（同 Lint16 增量面語意）。
+    ★為何 `git grep` 而非 python 逐檔 open：drvfs 逐檔 I/O 稅是 B-130 的教訓——一發 git grep 在庫
+      內完成粗篩、python 只碰候選行（2026-08-30 實測 rust-api 406 行／base-web 33 行）；兩庫的
+      grep 以 run_git_concurrently 併發派出、drvfs 開庫延遲重疊。
+    ★skip／warn 語意沿 Lint17／Lint18：index 無該 gitlink＝SKIP；子庫目錄缺席／worktree 斷裂＝
+      SKIP（沿 submodule_head 既有判定、共用 cache 每庫只打一發）；pin SHA 在該庫不可解＝WARN
+      （upstream rebase 卷史後合法失聯）；git grep 其餘非零退出＝ERROR（fail-loud、不吞）；
+      -z 記錄不帶「<sha>:」前綴或解析不出「<path>\\0<行號>\\0<內容>」三欄＝ERROR（輸出形有變則
+      每筆記錄都會被丟掉、條款恆綠零告警——同屬掃描面未建立，不吞；唯一合法的無前綴記錄＝
+      split 尾端空字串）。
+    ★reg＝lint25_registry 結果（None＝現算、與 Lint25 同一份 next-id 讀法）；自測注入固定值以與
+      真 repo 配號脫鉤。
+    """
+    out, targets = [], []
+    for _key, sub in PIN_KEYS:
+        sha, why = index_gitlink(root, sub)
+        if sha is None:
+            out.append(finding(SKIP, "Lint29", sub, f"{why}——碼面編號掃描跳過"))
+            continue
+        _head, why = submodule_head(root, sub, cache)
+        if why:
+            out.append(finding(SKIP, "Lint29", sub, f"{why}——碼面編號掃描跳過"))
+            continue
+        targets.append((sub, sha))
+    if not targets:
+        return out
+    results = run_git_concurrently(
+        [functools.partial(_code_id_grep, os.path.join(root, sub), sha, SUBMODULE_ID_SCAN[sub])
+         for sub, sha in targets])
+    if reg is None:
+        reg = lint25_registry(root)
+    for (sub, sha), (rc, stdout, stderr) in zip(targets, results):
+        if rc not in (0, 1):
+            if rc is not None and sha not in git_object_types([sha], os.path.join(root, sub)):
+                out.append(finding(WARN, "Lint29", sub,
+                                   f"pin {sha[:12]} 在該庫不可解（upstream rebase 卷史後合法失聯）"
+                                   "——碼面編號掃描未執行；回該庫 fetch 該 SHA 後重跑"))
+                continue
+            head = ((stderr or "").strip().splitlines() or [""])[0]
+            out.append(finding(ERROR, "Lint29", sub,
+                               f"git grep 退出碼 {rc}" + (f"：{head}" if head else "")
+                               + "——掃描面未建立、不得視同乾淨（fail-loud）"))
+            continue
+        prefix = sha + ":"
+        unparsed = 0
+        for rec in stdout.split("\n"):
+            if not rec:
+                continue                              # split 尾端空字串＝唯一合法的無前綴形
+            if not rec.startswith(prefix) or rec.count("\0") < 2:
+                # 只丟一個 tree-ish 進 git grep ⇒ 合法記錄必帶「<sha>:」前綴；不帶前綴（檔名欄
+                # 輸出形變）或解析不出三欄（-z 分隔形變）都＝該行未受檢，不得靜默丟棄——兩道篩
+                # 對同一失效家族給相反處置＝條款恆綠零告警（U2R 確認輪實暴）
+                unparsed += 1
+                continue
+            path, lno, content = rec[len(prefix):].split("\0", 2)
+            for m in RE_LINT29.finditer(content):
+                kind = m.lastgroup
+                tok = m.group(kind)
+                if RE_LINT25_PREFIX.search(content[:m.start()]):
+                    continue                          # ①逐 token 前綴＝合規
+                if lint25_native(kind, tok, f"{sub}/{path}", reg):
+                    continue                          # ②本代原生（≤ next-id／假號段）
+                out.append(finding(ERROR, "Lint29", f"{sub}/{path}:行 {lno}",
+                                   f"碼面裸編號「{tok}」（{LINT25_LABELS[kind]}）超出本代 "
+                                   f"next-id——前代編號須帶前綴；{LINT25_HINT}"))
+        if unparsed:
+            out.append(finding(ERROR, "Lint29", sub,
+                               f"git grep -z 有 {unparsed} 筆記錄不帶「<sha>:」前綴或解析不出"
+                               "「<path>\\0<行號>\\0<內容>」三欄（輸出形有變）——該批行未受檢、"
+                               "掃描面不完整，不得視同乾淨（fail-loud）"))
+    return out
+
+
 def _assert_lint25_table():
     """啟動時斷言：四欄缺一不可——名冊自身腐化會讓整套豁免語意失真（同 _assert_day1_table）。"""
     for key, row in LINT25_EXEMPTIONS.items():
@@ -4853,6 +5018,18 @@ def _assert_lint25_table():
 _assert_lint25_table()
 
 
+def _assert_submodule_id_scan():
+    """啟動時斷言：SUBMODULE_ID_SCAN 鍵集 ＝ PIN_KEYS 子庫集——兩份手寫名冊不同步時 Lint29 會在
+    run_lint 中途以 KeyError traceback 收場（非具名 finding、操作者無從得知該補哪份名冊）；此處
+    提前到 import 期具名失敗（同 _assert_lint25_table／_assert_day1_table 之形）。"""
+    subs = {sub for _key, sub in PIN_KEYS}
+    assert set(SUBMODULE_ID_SCAN) == subs, \
+        f"SUBMODULE_ID_SCAN 鍵集 {sorted(SUBMODULE_ID_SCAN)} ≠ PIN_KEYS 子庫集 {sorted(subs)}——兩份名冊須同刀同步"
+
+
+_assert_submodule_id_scan()
+
+
 def run_lint(root, exemptions=None):
     # B-130：唯讀路徑，全輪共用一份 _read 快取（重複率 2.56×）
     with _read_cache_scope():
@@ -4860,11 +5037,12 @@ def run_lint(root, exemptions=None):
 
 
 def _run_lint_uncached(root, exemptions=None):
-    """組裝 Lint03～Lint27 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    """組裝 Lint03～Lint29 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
     Lint21 exec bit 守衛、Lint22 範圍字串守衛、
     Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘、Lint26 LESSONS 分檔對賬閘、
-    Lint27 README 目錄樹 vs 腳本檔集對賬閘。
+    Lint27 README 目錄樹 vs 腳本檔集對賬閘、Lint28 活書 §1 建置狀態對賬閘、
+    Lint29 子庫碼面編號閘。
     回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
     git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -4875,6 +5053,7 @@ def _run_lint_uncached(root, exemptions=None):
     findings += lint_close_existence(root)
     findings += lint_review_existence(root)
     findings += lint_arch_impact(root)
+    findings += lint_book_build_status(root)
     findings += lint_budgets(root)
     amend = os.environ.get("DOCS_SYNC_ADR_AMEND") == "1"
     if amend:
@@ -4919,6 +5098,7 @@ def _run_lint_uncached(root, exemptions=None):
     findings += lint_range_strings(root)
     findings += lint_i18n_contract(root, exemptions=exemptions)
     findings += lint_id_namespace(root, tracked)
+    findings += lint_submodule_code_ids(root, probe)
     return findings
 
 
@@ -7632,6 +7812,141 @@ class TestLintArchImpact(unittest.TestCase):
             g("add", "-A")
             g("commit", "-qm", "907-fake-notes")
             self._assert_only_skip_b(lint_arch_impact(d))
+
+
+class TestLintBookBuildStatus(unittest.TestCase):
+    """Lint28 活書 §1 建置狀態 ⊇ events feature_close 刀號集（B-146）：單向對賬、缺即紅。
+
+    fixture＝tempdir 自建（活書 §1 本文＋events 假刀）、真 repo 唯讀；刀號一律用 9 字頭
+    假號段（ADR 0012 決定 4）、不與 rev5 真刀號相撞。純判定案不碰 git。
+    """
+
+    BOOK_TEXT = (
+        "# 活書\n\n## §1 簡介與目標\n\n本系統簡介。\n\n"
+        "**目前建置狀態**：文件地基（創世）＋schema 基線（901）＋系統設定縱切（902）＋auth 會話\n"
+        "縱切（903：真登入／rotation）＋IP 信任錨縱切（904：七態）＋角色與選單（905）＋\n"
+        "三維授權（906）＋使用者與密碼（907：管理面十支）就位；其餘域隨波次建置。\n\n"
+        "## §2 約束\n\n§2 提及 908 不算 §1 的提及。\n\n## §10 品質\n\n9010 亦不算。\n"
+    )
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        _wfile(self.root, BOOK, self.BOOK_TEXT)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _events(self, nums, **extra):
+        rows = [dict(VALID_CLOSE, feature=f"{n:03d}-fake-slug", date=f"2026-07-{i + 10:02d}",
+                     **extra) for i, n in enumerate(nums)]
+        _wfile(self.root, EVENTS,
+               "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+
+    def test_all_knives_mentioned_green(self):
+        """綠案：七刀刀號皆以獨立 token 出現在 §1 本文→零 findings。"""
+        self._events(range(901, 908))
+        self.assertEqual(lint_book_build_status(self.root), [])
+
+    def test_missing_knife_red_names_feature_and_date(self):
+        """紅案（B-146 立案實證形：收刀後 §1 沒補）：第八刀 908 只在 §2 出現→恰一筆 ERROR，
+        指名刀名與收刀日期、去處＝§1 目前建置狀態段。★§2 的提及不算：射程限 §1 本文。"""
+        self._events(range(901, 909))
+        f = lint_book_build_status(self.root)
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual((f[0]["level"], f[0]["code"]), (ERROR, "Lint28"))
+        self.assertIn(BOOK, f[0]["where"])
+        self.assertIn("908-fake-slug", f[0]["msg"])
+        self.assertIn("2026-07-17", f[0]["msg"])
+        self.assertIn("§1", f[0]["msg"])
+
+    def test_digit_adjacent_token_is_not_a_mention(self):
+        """邊界：token 形「9011」不算 901 的提及（獨立 token 判準＝前後皆非數字）。"""
+        _wfile(self.root, BOOK, self.BOOK_TEXT.replace("（901）", "（9011）"))
+        self._events([901])
+        f = lint_book_build_status(self.root)
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("901-fake-slug", f[0]["msg"])
+
+    def test_digit_prefixed_token_is_not_a_mention(self):
+        r"""邊界（左界守門腿的對稱案）：token 形「2901」不算 901 的提及。
+
+        ★本案專釘 `(?<!\d)` 那條腿：§1 是敘事節、隨每刀改寫，冒出年份（2026）或版本／
+        計數字面這類「以刀號結尾的多位數」只是時間問題；少了左界，任一該類數字都會被
+        誤讀成「已提及」，而 B-146 要防的正是「收刀後 §1 沒補」——守門在該形上靜默失效。
+        """
+        _wfile(self.root, BOOK, self.BOOK_TEXT.replace("（901）", "（2901）"))
+        self._events([901])
+        f = lint_book_build_status(self.root)
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("901-fake-slug", f[0]["msg"])
+
+    def test_empty_section_one_red(self):
+        """邊界：§1 本文空段（標題直接接 §2）→每一刀各紅一筆；§2 內的提及救不了。"""
+        _wfile(self.root, BOOK, "## §1 簡介\n## §2 約束\n901 與 902 在 §2。\n")
+        self._events([901, 902])
+        f = lint_book_build_status(self.root)
+        self.assertEqual([x["level"] for x in f], [ERROR, ERROR], msg=str(f))
+
+    def test_book_missing_zero_findings(self):
+        """綠案（誠實邊界）：活書缺席＝零 findings——存在性由 Lint20 守衛#8 之 BUDGETS 名冊
+        承載，本條款不重複報同一件事。"""
+        os.remove(os.path.join(self.root, BOOK))
+        self._events(range(901, 909))
+        self.assertEqual(lint_book_build_status(self.root), [])
+
+    def test_events_missing_or_empty_zero_findings(self):
+        """綠案（誠實邊界）：events 缺席／空＝零 findings（Lint20 承載）。"""
+        self.assertEqual(lint_book_build_status(self.root), [])
+        _wfile(self.root, EVENTS, "")
+        self.assertEqual(lint_book_build_status(self.root), [])
+
+    def test_malformed_feature_skipped(self):
+        """綠案（誠實邊界）：feature 欄形錯（非 NNN-slug／非字串）＝跳過不報——格式面歸
+        Lint03、不重複報。"""
+        rows = [dict(VALID_CLOSE, feature="bad-form"), dict(VALID_CLOSE, feature=908)]
+        _wfile(self.root, EVENTS,
+               "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+        self.assertEqual(lint_book_build_status(self.root), [])
+
+    def test_horizontal_kind_also_reconciled(self):
+        """取態：kind=horizontal 的刀同受對賬——它也是一刀、§1 建置狀態同樣該提。"""
+        self._events([908], kind="horizontal")
+        f = lint_book_build_status(self.root)
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("908-fake-slug", f[0]["msg"])
+
+    def test_non_close_events_ignored(self):
+        """★只看 feature_close：非 close 型的列**即便帶 feature 欄**也不入對賬面。
+
+        ★misc 列刻意帶 feature="908-fake-slug"（908 只在 §2、不在 §1）：不如此則本案落不到
+          type 過濾那條腿上——VALID_MISC／VALID_REVIEW 本無 feature 欄，會先被後面「feature
+          欄形錯即跳過」那條腿吃掉，拿掉 type 過濾也照綠（vacuous 案）。本形下把
+          `type != "feature_close"` 過濾拿掉即當場紅。
+        ★本案直呼條款函式、不過 run_lint，故 misc 列帶 feature 不受 Lint03 未知欄位檢查影響。
+          過濾腿的價值＝防 EVENT_SCHEMAS 日後某型新增 feature 欄時，Lint28 對尚未收刀的刀要求
+          §1 提及（＝docstring 明文要避免的「反向對賬在施工中恆紅」）。
+        """
+        rows = (dict(VALID_MISC, feature="908-fake-slug"), VALID_REVIEW)
+        _wfile(self.root, EVENTS, "".join(json.dumps(r, ensure_ascii=False) + "\n"
+                                          for r in rows))
+        self.assertEqual(lint_book_build_status(self.root), [])
+
+    def test_run_lint_wires_book_build_status(self):
+        """★接線層：lint_book_build_status 從 run_lint 掉線＝Lint28 整條靜默下線。
+        Lint28 findings 只可能來自本條款——信號純淨。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _wfile(d, BOOK, "## §1 簡介\n建置狀態：尚無。\n## §2 約束\n")
+            _wfile(d, EVENTS, json.dumps(VALID_CLOSE, ensure_ascii=False) + "\n")
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "Lint28" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint28"]))
+
+    def test_real_repo_build_status_green(self):
+        """★現況驗收：真活書 §1 已提及 events 全部 feature_close 刀（B-146 立案時 007 T072
+        已補齊到 007）；條款上線即自紅＝活書漏補（修活書 §1、人寫面）或判定錯（修條款）。"""
+        self.assertEqual(lint_book_build_status(ROOT), [])
 
 
 class TestLintBudgets(unittest.TestCase):
@@ -10566,12 +10881,12 @@ class TestRangeStringGuard(unittest.TestCase):
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
     def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
-        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝27
-        （Lint27 README 目錄樹對賬閘為現行最大號）——上界前進時本測試逼著同刀更新
+        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝29
+        （Lint29 子庫碼面編號閘為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
         codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
         self.assertIn(self._own(), codes)
-        self.assertEqual(max(codes), 27)
+        self.assertEqual(max(codes), 29)
 
     @unittest.skipUnless(_day1_pending(*RANGE_ROSTER),
                          "Day 1 未達：解除＝RANGE_ROSTER 三檔全在（docs/ops/RUNBOOK.md 隨 B5 骨架落地）")
@@ -10901,6 +11216,229 @@ class TestLintIdNamespace(unittest.TestCase):
             f = run_lint(d)
             self.assertTrue(any(x["code"] == "Lint25" and x["level"] == ERROR for x in f),
                             msg=str([x for x in f if x["code"] == "Lint25"]))
+
+
+def _sub_with_files(d, name, files):
+    """建假子庫、寫入 files（rel→text）並 commit；外層 stage 其 gitlink；回 SHA。
+
+    與 _init_sub 的差別＝檔案內容與路徑由案自訂（Lint29 要在指定 pathspec 內外各種檔）。
+    """
+    sd = os.path.join(d, name)
+    os.makedirs(sd, exist_ok=True)
+    _git(sd, "init", "-q", "-b", "main")
+    for rel, text in files.items():
+        _wfile(sd, rel, text)
+    _git(sd, "add", "-A")
+    _git(sd, "commit", "-qm", "fixture")
+    sha = _git(sd, "rev-parse", "HEAD").strip()
+    _stage_gitlink(d, name, sha)
+    return sha
+
+
+class TestLintSubmoduleCodeIds(unittest.TestCase):
+    """Lint29 子庫碼面裸 B-／L- 編號 vs 本代 next-id（B-148）：pin 指向樹、git grep 粗篩、
+    Lint25 判準複用；skip／warn 語意沿 Lint17／Lint18。
+
+    fixture＝tempdir 假外層＋假子庫（於假子庫 commit 含各形 token 的檔、外層 stage gitlink）；
+    registry 注入固定值（b_next 150／l_next 73）——與真 repo 脫鉤，配號前進不改判定。
+    ★超號樣本（B-151／L-074）只住本檔 fixture 字串：本檔對 Lint25 屬檔案級永久豁免
+      （docs-sync.self-corpus），寫在其他檔會紅。
+    """
+
+    REG = dict(LINT25_SELF_TEST_REG, b_next=150, l_next=73)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        _init_outer(self.root)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _of(self, sub):
+        """屬該子庫的 findings——fixture 多半只造一個子庫，另一個必落「index 無該 gitlink」跳過。"""
+        return [x for x in lint_submodule_code_ids(self.root, reg=self.REG)
+                if x["where"] == sub or x["where"].startswith(sub + "/")]
+
+    def test_over_next_id_red(self):
+        """紅案兩形：B-151 超 next-id 150、L-074 超 next-id 073→逐 token ERROR，where＝
+        <子庫>/<path>:行 N、msg 指名 token 與去處（ADR 0012）。★整行文字一視同仁：第三行
+        的 token 住字串常值裡照抓。"""
+        _sub_with_files(self.root, "rust-api",
+                        {"src/a.rs": "// 見 B-151 條\n// 承 L-074 教訓\nlet s = \"L-074\";\n"})
+        f = self._of("rust-api")
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api/src/a.rs:行 1"),
+                          (ERROR, "Lint29", "rust-api/src/a.rs:行 2"),
+                          (ERROR, "Lint29", "rust-api/src/a.rs:行 3")], msg=str(f))
+        self.assertIn("B-151", f[0]["msg"])
+        self.assertIn("ADR 0012", f[0]["msg"])
+        self.assertIn("L-074", f[1]["msg"])
+
+    def test_compliant_and_native_forms_green(self):
+        """綠案五形：revN: 前綴／next-id 本身（B-150、L-073）／假號段（B-999、L-901）／
+        原生（B-045、L-001）／左界為英數者（10B-151、xL-074）不成 token。"""
+        _sub_with_files(self.root, "rust-api",
+                        {"src/a.rs": "// rev4:B-151 與 rev2:L-074\n// B-150 與 L-073\n"
+                                     "// B-999 L-901\n// B-045 L-001\n// 10B-151 xL-074\n"})
+        self.assertEqual(self._of("rust-api"), [])
+
+    def test_shared_prefix_does_not_cover_neighbour_red(self):
+        """★紅案（前綴須**緊鄰** token 左側、非整行任意位置）：同一行內前者帶 rev4: 前綴、
+        後者裸形→只後者紅。
+
+        ★本案專釘「逐 token 前綴」那條腿：判定若放寬成整行搜 rev[2-5]:（或「行內有 rev 字樣
+          即放行」），`見 rev4:L-087 與 L-089 兩條` 這種形會被靜默放行——而 B-148 的立案逐字
+          證據正是「同一檔內既有正確形（帶前綴）也有裸形」，同一行的變形只差一次改寫。
+          既有綠案每個 token 皆自帶前綴、紅案整行不含 rev 字樣，兩組樣本都落不到本格。
+        ★共享前綴形不合規＝ADR 0012 決定 3；Lint25 側由 TestLintIdNamespace 的共享前綴案釘住，
+          本案是 Lint29 側的對稱守門（兩者是各自獨立的運算式、非共用函式）。
+        """
+        _sub_with_files(self.root, "rust-api",
+                        {"src/a.rs": "// 見 rev4:L-087 與 L-089 兩條\n"})
+        f = self._of("rust-api")
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api/src/a.rs:行 1")], msg=str(f))
+        self.assertIn("L-089", f[0]["msg"])
+        self.assertNotIn("L-087", f[0]["msg"])
+
+    def test_skip_when_worktree_absent(self):
+        """SKIP：index 有 gitlink、子庫目錄缺席（fresh clone 無 worktree）→落跳過明細（沿 Lint17）。"""
+        _stage_gitlink(self.root, "rust-api", "1" * 40)
+        f = self._of("rust-api")
+        self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
+        self.assertIn("缺席", f[0]["msg"])
+
+    def test_skip_when_index_has_no_gitlink(self):
+        """SKIP：子庫目錄在、index 無該 gitlink→跳過明細（純外層 repo 形、沿 Lint17 A10）。"""
+        _init_sub(self.root, "rust-api")
+        f = self._of("rust-api")
+        self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
+        self.assertIn("index 無該 gitlink", f[0]["msg"])
+
+    def test_skip_when_worktree_broken(self):
+        """SKIP：子庫 .git gitfile 指向不存在的源倉（worktree 斷裂）→沿 submodule_head 既有判定、
+        不誤植成「SHA 失聯」。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// B-151\n"})
+        _break_worktree(self.root, "rust-api")
+        f = self._of("rust-api")
+        self.assertEqual([x["level"] for x in f], [SKIP], msg=str(f))
+        self.assertIn("開不起來", f[0]["msg"])
+
+    def test_warn_when_pin_unresolvable(self):
+        """WARN：worktree 在位但 pin SHA 在該庫不可解（upstream rebase 卷史後合法失聯、沿 Lint18）。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// B-151\n"})
+        _stage_gitlink(self.root, "rust-api", "1" * 40)
+        f = self._of("rust-api")
+        self.assertEqual([x["level"] for x in f], [WARN], msg=str(f))
+        self.assertIn("不可解", f[0]["msg"])
+
+    def test_git_grep_failure_is_error(self):
+        """ERROR（fail-loud）：git grep 非零且非「無命中」（rc∉{0,1}）而 pin 可解→掃描面未建立、
+        不得視同乾淨。★rc=1＝無命中屬正常（綠案 fixture 即實證、不得誤判為錯誤）。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        original = globals()["_code_id_grep"]
+        globals()["_code_id_grep"] = lambda subdir, tree, pathspecs: (2, "", "fatal: 模擬失敗\n")
+        try:
+            f = self._of("rust-api")
+        finally:
+            globals()["_code_id_grep"] = original
+        self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+        self.assertIn("退出碼 2", f[0]["msg"])
+
+    def test_unparsable_record_is_error(self):
+        """ERROR（fail-loud）：rc=0 但 -z 記錄解析不出「<path>\\0<行號>\\0<內容>」三欄
+        （此處餵入「僅檔名後帶 NUL、行號後仍是冒號」的退化形）→掃描面不完整、不得視同乾淨。
+
+        ★本案專釘「解析失敗不得靜默丟棄」那條腿：把解析失敗當成「這筆不存在」吞掉的話，-z
+          輸出形一變則每筆記錄都被丟掉⇒兩子庫恆回零 findings、恆綠零告警，而現況驗收案斷言
+          的正是 == []、會一路陪著綠下去（同粗篩樣式在 BSD libc 靜默零命中的家族）。
+        ★該行的超號 token 不得另報 finding：記錄既然解析不出來，行號與路徑都不可信。
+        """
+        sha = _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        original = globals()["_code_id_grep"]
+        globals()["_code_id_grep"] = lambda subdir, tree, pathspecs: (
+            0, f"{sha}:src/a.rs\x001:// B-151 x\n", "")
+        try:
+            f = self._of("rust-api")
+        finally:
+            globals()["_code_id_grep"] = original
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api")], msg=str(f))
+        self.assertIn("1 筆", f[0]["msg"])
+        self.assertIn("不得視同乾淨", f[0]["msg"])
+
+    def test_prefixless_record_is_error(self):
+        """ERROR（fail-loud、U2R 確認輪補釘）：rc=0 但記錄不帶「<sha>:」前綴（＝檔名欄輸出形變的
+        退化形）→ 與解析不出三欄同歸 unparsed、不得當雜訊靜默丟棄；該行超號 token 不另報。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        original = globals()["_code_id_grep"]
+        globals()["_code_id_grep"] = lambda subdir, tree, pathspecs: (
+            0, "src/a.rs\x001\x00// B-151 x\n", "")
+        try:
+            f = self._of("rust-api")
+        finally:
+            globals()["_code_id_grep"] = original
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api")], msg=str(f))
+        self.assertIn("1 筆", f[0]["msg"])
+        self.assertIn("不得視同乾淨", f[0]["msg"])
+
+    def test_scan_roster_pinned_to_pin_keys(self):
+        """啟動斷言（U2R 確認輪補釘）：SUBMODULE_ID_SCAN 鍵集須＝PIN_KEYS 子庫集；PIN_KEYS 多出一庫
+        而 SUBMODULE_ID_SCAN 未同步＝import 期具名 AssertionError，而非 lint 中途 KeyError。"""
+        _assert_submodule_id_scan()
+        with mock.patch.object(sys.modules[__name__], "PIN_KEYS",
+                               tuple(PIN_KEYS) + (("site", "docs-site"),)):
+            with self.assertRaises(AssertionError) as cm:
+                _assert_submodule_id_scan()
+        self.assertIn("docs-site", str(cm.exception))
+
+    def test_pathspec_boundary(self):
+        """pathspec 邊界：base-web 只掃 src/ 下 *.ts／*.vue（含 src/ 直屬子檔與深層），src/ 外的
+        .ts／.vue 與 src/ 內的 .md 不掃；rust-api 只掃 *.rs（任意深度）、Cargo.toml 等非 .rs 不掃。"""
+        _sub_with_files(self.root, "base-web",
+                        {"src/a.ts": "// B-151\n", "src/b.vue": "<!-- B-151 -->\n",
+                         "src/deep/er/c.ts": "// B-151\n", "src/d.md": "B-151\n",
+                         "build/e.ts": "// B-151\n", "packages/f.vue": "B-151\n"})
+        _sub_with_files(self.root, "rust-api",
+                        {"server/src/a.rs": "// B-151\n", "Cargo.toml": "# B-151\n",
+                         "README.md": "B-151\n"})
+        f = lint_submodule_code_ids(self.root, reg=self.REG)
+        self.assertEqual(sorted(x["where"] for x in f),
+                         ["base-web/src/a.ts:行 1", "base-web/src/b.vue:行 1",
+                          "base-web/src/deep/er/c.ts:行 1", "rust-api/server/src/a.rs:行 1"],
+                         msg=str(f))
+
+    def test_scans_pin_tree_not_worktree(self):
+        """★掃 pin 指向的樹、非工作樹：子庫未 commit 的超號改動不在掃描面（同 Lint16 增量面
+        語意——外層 repo 記錄的就是 pin）。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _wfile(self.root, "rust-api/src/a.rs", "// B-151 尚未 commit\n")
+        self.assertEqual(self._of("rust-api"), [])
+
+    def test_run_lint_wires_submodule_code_ids(self):
+        """★接線層：lint_submodule_code_ids 從 run_lint 掉線＝Lint29 整條靜默下線。tempdir 無
+        BACKLOG（next-id 讀不到）⇒ 非假號段的 B-151 一律非原生；Lint29 findings 只可能來自
+        本條款——信號純淨。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            _sub_with_files(d, "rust-api", {"src/a.rs": "// B-151\n"})
+            f = run_lint(d)
+            self.assertTrue(any(x["code"] == "Lint29" and x["level"] == ERROR for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint29"]))
+
+    @unittest.skipUnless(_day1_pending("rust-api/.git", "base-web/.git"),
+                         "掃描面不在：解除＝兩子庫 worktree 皆在位（唯讀看碼模式或尚未跑 bash tools/bootstrap.sh）；條款的 SKIP 腿另由 test_skip_when_worktree_absent 承載")
+    def test_real_repo_code_ids_clean(self):
+        """★現況驗收：真 repo 兩子庫 pin 樹零 ERROR（B-148 立案的裸形已於 007 收刀前補前綴）；
+        兩 worktree 在位時 pin 亦可解⇒不得有 SKIP／WARN。
+
+        ★守衛謂詞＝兩子庫 worktree 皆在位：worktree 缺席時本條款回的是 SKIP finding（非空
+        list），無守衛則「外層已 clone、子庫尚未 init」的機器會以 FAILED 收場，把「掃描面
+        不在」誤報成「工具壞了」（同 Lint20／Lint21／Lint22／Lint24 真 repo 案的既成慣例）。
+        """
+        self.assertEqual(lint_submodule_code_ids(ROOT), [])
 
 
 class TestI18nContractGate(unittest.TestCase):
