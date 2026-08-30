@@ -53,7 +53,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW、
 　rust 全程 serial、容器內 build/test、★rust 碼完工前容器內 `cargo fmt --all`（ADR 0057）、
-　review agent 只讀不寫 repo 檔、★絕不 push/merge、
+　review agent 只讀不寫 repo 檔、★絕不 push/merge、★變異紅證必附 skipped=0（探針勿自 repo 外載入 mutant、L-073）、
 　★實作先讀 rev4 對應碼（../fork260509-rev4/ 直讀、★該樹絕不寫入）高度參照但重打字消化不拷貝、註解一律重寫
 　（rev4 出處帶 rev4: 前綴）、rev5 拍板差異點不得帶回（ADR 0019）。
 ★workflow script 防呆六件套（缺一不發射）：
