@@ -22,11 +22,11 @@ fork260509-rev5/
 │   ├── ops/LESSONS.md               坑與防法索引（一行一坑＋防法 hook；動手前掃一遍）
 │   ├── ops/LESSONS/                 L-NNN 一坑一檔（append-only；晉升必答欄 promoted_to）
 │   ├── ops/RUNBOOK.md               dev stack 操作手冊：起停／輪替／備份／維運端點
-│   ├── ops/events.jsonl             事件源：收刀／review／里程碑（機器讀；人讀 MILESTONES）
+│   ├── ops/events.jsonl             事件源：收刀／review／里程碑／勘誤／效能資料點 perf（機器讀；人讀 MILESTONES、perf 讀 reference/perf）
 │   ├── brainstorms/                 各刀階段 0 產出（NNN- 前綴）與創世期史料（000＝啟動書、b2-～b7-＝創世證據）
 │   ├── reviews/                     review 報告史料
-│   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（全事件表）
-│                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表）
+│   └── generated/                   機器生成、嚴禁手改：STATE（現況帳）／MILESTONES（事件表；perf 型另居 reference/perf）
+│                                      ／DECISIONS-INDEX（ADR 索引）／reference/（全量正典表；perf＝效能資料點全序列）
 ├── tools/                           repo 治理面工具鏈（pre-commit／bootstrap 掛勾；管「版控品質」）
 │   ├── bootstrap.sh                 新機重建／體檢（刻意 bash＝驗證器不與被驗證者共用底座）
 │   ├── docs-sync.py                 文件系統中樞：lint 條款群／generate／errata／真表掃源
@@ -41,6 +41,8 @@ fork260509-rev5/
 │   ├── seed-view-gate.py            seed sys_menu.component 之 view.* ⊆ 前端 view 集對賬閘（B-088／FR-049；pre-commit 條件觸發）
 │   ├── rust-fmt-gate.py             rust 格式守門：容器內 cargo fmt --all --check 唯讀比對（B-112／ADR 0057；
 │   │                                pre-commit 條件觸發、stack 未起＝具名跳過）
+│   ├── walkthrough-baseline.py      CDP 真登入走查前後的全表基準 snapshot／diff（表列數＋序列＋redis 前綴鍵數；B-147／L-071；
+│   │                                需 dev stack、不掛 pre-commit，契約＝RUNBOOK 走查還原契約節）
 │   └── wf-watchdog.py               workflow 編排看門狗（stall／runaway 保險絲、可鎖定目標 run）
 ├── deploy/                          營運面：dev stack 部署資產＋機密管線（管「跑起來的系統」）
 │   ├── secrets_common.py            落點解析共用庫（消費者五支＝下列四支 CLI＋secret-value-guard）
@@ -105,7 +107,7 @@ fork260509-rev5/
 | 為什麼當初這樣決定 | [docs/generated/DECISIONS-INDEX.md](docs/generated/DECISIONS-INDEX.md) 找編號 → `docs/arc42/decisions/` 讀全文 |
 | rev4 當初的設計結論與教訓 | [docs/brainstorms/000-doc-architecture.md](docs/brainstorms/000-doc-architecture.md) §5 知識匯出包（K1 設計結論／K2 設計域／K3 教訓候選） |
 | 這套文件架構為什麼長這樣 | [docs/brainstorms/000-doc-architecture.md](docs/brainstorms/000-doc-architecture.md)（創世啟動書、史料） |
-| 查埠／帳號／schema／畫面現況 | `docs/generated/reference/` 五張正典表（機器生成、嚴禁手改）：[ports](docs/generated/reference/ports.md)／[accounts](docs/generated/reference/accounts.md)／[schema](docs/generated/reference/schema.md)／[screens](docs/generated/reference/screens.md)／[tools-cli](docs/generated/reference/tools-cli.md) |
+| 查埠／帳號／schema／畫面／效能現況 | `docs/generated/reference/` 正典表（機器生成、嚴禁手改；成員以 STATE.md「reference 對賬」段為準）：[routes](docs/generated/reference/routes.md)／[ports](docs/generated/reference/ports.md)／[accounts](docs/generated/reference/accounts.md)／[schema](docs/generated/reference/schema.md)／[screens](docs/generated/reference/screens.md)／[tools-cli](docs/generated/reference/tools-cli.md)／[perf](docs/generated/reference/perf.md)（效能資料點全序列；引信判讀＝STATE.md 效能引信行） |
 
 ## 常見疑惑
 

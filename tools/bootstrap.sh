@@ -173,6 +173,7 @@ run_tool_test tools/seed-view-gate.py
 #   ——雖然工具本身在 stack 未起時具名跳過 rc 0（不會誤紅），但體檢節跑一支恆跳過的 check
 #   零資訊量；fmt 實跑面由 pre-commit 條件觸發段承擔（B-112／ADR 0057）。
 run_tool_test tools/rust-fmt-gate.py
+run_tool_test tools/walkthrough-baseline.py
 run_tool_test deploy/preflight-secrets.py
 run_tool_test deploy/decrypt-secrets.py
 run_tool_test deploy/generate-secrets.py
@@ -189,7 +190,7 @@ ok "entity-drift-gate 全綠（self-test＋實比對）"
 # ★期望值取自 derive_lint_codes 掃源現算，**不落字面**——落字面就變成第四份名冊，
 #   條款被靜默拆掉時它照舊報舊數（正是準則 1 要防的「名冊與實作不同源」）。
 # ★注意：條款「數」與條款碼「上界」在 rev5 刻意不同——Q8 拍甲案（拆 Lint23 留洞、
-#   Lint24 保號），故集合為 {01..22, 24, 25, 26, 27}：數＝26、上界＝27。此處斷言的是**數**。
+#   Lint24 保號），故集合為 {01..22, 24, 25, 26, 27, 28, 29}：數＝28、上界＝29。此處斷言的是**數**。
 LINT_CLAUSE_COUNT=$(python3 - "$ROOT/tools/docs-sync.py" <<'PY'
 import re, sys
 src = open(sys.argv[1], encoding="utf-8-sig").read()

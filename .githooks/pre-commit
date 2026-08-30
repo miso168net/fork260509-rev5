@@ -1,6 +1,6 @@
 #!/bin/sh
 # rev5 pre-commit：機密掃描（rev4:019 三層防線；rev4:scan-gates §S1／§S2）→ docs-sync check（Lint01 生成
-# 一致）＋lint（Lint03～Lint27）。被擋時：錯誤訊息附去處；同回合修復後重試。
+# 一致）＋lint（Lint03～Lint29）。被擋時：錯誤訊息附去處；同回合修復後重試。
 #
 # ★兩種語意（rev4:019 scan-gates；註解即契約）：
 #   事件型（機密掃描＋值比對）：--no-verify 繞過＝機密「真進 git 歷史」、不可逆——僅剩
@@ -32,7 +32,9 @@ HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 #   越線放行＝警戒線恆亮、只訓練人忽略它）。
 # ★須容兩平台：同一份工具 drvfs 實測 lint 約 19s、APFS 約 1.27s（差一個量級）。
 # ★門檻調整走 ADR（§0.3 準則 5 慣例），不得就地改數字了事。
-# ★配套引信（ADR 0044）：收刀簿記型 commit 的實測值列為每刀例行量測、記入 RUNBOOK §12.1；
+# ★配套引信（ADR 0044）：收刀簿記型 commit 的實測值列為每刀例行量測、append events.jsonl 一筆
+#   close_bookkeeping perf 事件（人讀 docs/generated/reference/perf.md、引信機器判＝STATE.md 效能
+#   引信行；承載處訂正＝ADR 0070、量測法仍住 RUNBOOK §12.1）；
 #   **連續兩刀 ≥60s**（新兩錨中點）即強制觸發「優化慢路徑／再立 ADR／縮減名冊」三者之一。
 PRECOMMIT_WARN_SEC=45
 PRECOMMIT_FAIL_SEC=90
@@ -91,7 +93,7 @@ pc_run "docs-sync-lint" python3 tools/docs-sync.py lint
 #   deploy/ 的機密管線腳本轉 python 後同列本名冊；本行與 docs-sync 的 TOOLS_PY、
 #   tools/bootstrap.sh 的 run_tool_test 三處手抄，由 docs-sync 自測對賬（漏接線即紅）。
 staged=$(git diff --cached --name-only)
-for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py tools/route-artifact-gate.py tools/rust-fmt-gate.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
+for t in tools/docs-sync.py tools/schema-gate.py tools/wire-schema.py tools/secret-value-guard.py tools/entity-drift-gate.py tools/wf-watchdog.py tools/route-artifact-gate.py tools/rust-fmt-gate.py tools/walkthrough-baseline.py deploy/preflight-secrets.py deploy/decrypt-secrets.py deploy/generate-secrets.py deploy/setup-reaper-role.py deploy/backup-db.py; do
   if echo "$staged" | grep -qxF "$t"; then
     pc_run "selftest-$(basename "$t" .py)" python3 "$t" test
   fi
@@ -186,8 +188,9 @@ fi
 #   ——下一次 stack 在跑的 pin bump 會擋下，屬延遲一站而非漏網。
 # ★本檔**入**上方 `for t in …` 自測迴圈（非 HOOK_TEST_LOOP_EXEMPT）：其 self-test 不隨 check 連帶跑
 #   （check 要走 docker、多跑一輪離線自測零收益），故走迴圈形。
-# ★本段之耗時中位數、單跑上限與合成推估資料點一律住 RUNBOOK §12.1（條件觸發段表＋資料點序列已於
-#   2026-08-25 落帳）——「數字只住那一處」⇒ 本處刻意不複寫任何秒數。定性結論：本段使該節之收刀
+# ★本段之耗時中位數與單跑上限住 RUNBOOK §12.1 條件觸發段表；合成推估等資料點自 ADR 0070 起住
+#   events.jsonl 的 perf 事件（人讀 docs/generated/reference/perf.md）——「數字只住那一處」⇒ 本處
+#   刻意不複寫任何秒數。定性結論：本段使該節之收刀
 #   簿記型合成推估**越過 45s 警戒**（越線＝列示放行、不擋；硬擋 90s 仍遠），成因明確＝新增一道
 #   容器內守門而非慢路徑劣化。
 # ★存量一次格式化 commit 落地後 diff 段數歸零，但本段成本**不等比下降**（仍需全樹解析）——屆時重測。

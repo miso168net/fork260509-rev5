@@ -146,6 +146,24 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 ★**編排 script 的前端驗證段照此表寫**：把「`.ts` 走 oxlint、`.vue` 走 `pnpm lint`、MUST NOT 用 eslint 判 `.ts`」
 與上述 `--fix` 還原紀律逐條烤進 agent prompt（本刀 U6／U7／U8 三支已照辦）。
 
+## 9c. CDP 真登入走查的環境還原契約（B-147；常駐程序、讀者是每一刀而非下一刀）
+
+★**判準形而非清單形**：**走查期間被寫過的全部表與 redis 鍵都要還原，與任何閘的射程無關**（L-071 ②）——
+「某道閘不檢查 X」只說明該閘的射程、不說明 X 無害；清單式防法已證偽（006 的清單擋不住 007 的組合）。六步、次序不可反：
+
+1. 走查**前**取基準：`python3 tools/walkthrough-baseline.py snapshot tmp/walkthrough-baseline.json`（三面現算：全部表列數／全部序列／redis 前綴鍵數）。
+2. 走查（CDP 入口與帳號＝CLAUDE.md §7）。
+3. 清理——面的定義＝步驟 1 之後被寫過的一切；舉例（**非窮舉**）：種子面逐值還原（sys_user／sys_user_role／casbin_rule／
+   sys_pwd_custody）；runtime-append 四表清列＋各自 seq 復位（session_event／sys_login_attempt／sys_token／sys_operation_log；
+   seq 名冊＝`tools/schema-gate.py` 常數 `RUNTIME_APPEND_TABLES`）；redis 走查前綴鍵清除；其他被走查動到的表與序列復位（如 sys_user_id_seq）。
+4. 對賬：`python3 tools/walkthrough-baseline.py diff tmp/walkthrough-baseline.json` **rc 0 為準、非三閘綠**——三閘只覆蓋種子面
+   （runtime-append 四表在 schema-gate 收窄集內＝剝列比對、redis 不在任何閘的射程），「三閘綠而全量紅」＝L-055／L-071 的招牌徵狀。
+5. 容器內全量測試（L-071 ③；不能以三閘綠代替）。
+6. 三閘綠（`python3 tools/schema-gate.py check`）。
+
+反例教訓（以 ID 引用、全文在 LESSONS/）：L-055（runtime-append 殘列 × seq 復位＝下一輪全量 23505 連環紅、殘列與爆點隔一整輪）；
+L-071（防法晉升到下一刀的一次性 quickstart＝一刀半衰期、六天後原樣復發——本節與上述工具即其再晉升位）。
+
 ## 10. migration 操作
 
 ★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝
@@ -182,7 +200,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint27） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint29） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
@@ -196,6 +214,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 | `python3 tools/route-artifact-gate.py check` / `test` | 路由外掛產物四檔（`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之**產出檔集對賬＋重算冪等＋零手改**三道——★憲法 §III.2 第五列「產物檔紀律」的**唯一**機器守（該四檔受 fork-delta 檢查全域豁免）。★**刻意不掛 pre-commit**：實跑外掛三趟、實測 15.2s，且依賴 dev stack 在跑，而 pre-commit MUST 在 stack 沒起時可用；落點＝**單元邊界／CI 手動跑** | check **是**、test 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `python3 tools/rust-fmt-gate.py check` / `test` | rust-api 容器內 `cargo fmt --all --check`（**唯讀**、設定＝`rust-api/rustfmt.toml`；B-112／ADR 0057）四態分流：docker 不可用或 compose 檔缺席＝具名跳過 rc 0／rust-api 容器未在跑＝具名跳過 rc 0／全綠 rc 0（印耗時）／未格式化 rc 1（印 `Diff in` 段數＋前 12 行摘要＋補救命令）／容器在跑但映像未含 rustfmt component＝**rc 2 fail-loud**（附重建映像命令、刻意不設豁免）。★檢查的是 rust-api **工作樹**、非 pin 指向的 commit（worktree 髒時多印一行警示、不影響 rc）。pre-commit **條件觸發**：rust-api pin bump 或本檔 staged 時自動跑（★跳過邏輯住工具內、hook 段零條件判斷）／自測（離線、subprocess 全樁） | check **條件**（容器在跑才實跑，否則具名跳過）、test 否 |
+| `python3 tools/walkthrough-baseline.py snapshot <檔>` / `diff <檔>` / `test` | CDP 真登入走查前後的全表基準對賬（B-147；L-071 防法①機制化）：三面**全部現算、零手抄名冊**——public schema 全部表列數（清單自 information_schema 現算、單一 UNION ALL 撈；含 seaql_migrations）／全部序列 last_value＋is_called／redis DBSIZE＋逐前綴鍵數（前綴＝鍵第一個冒號前段、無冒號歸「(無前綴)」）。`snapshot` 寫 JSON 基準檔（`<檔>` 必填、無隱含落點；另帶 taken_at＋schema_version）、`diff` 重取現況逐值比對、只列有差者（面／名／基準值／現值／差）＋末行摘要、忽略 taken_at。★唯讀：pg 只 SELECT／目錄視圖、redis 只 DBSIZE／SCAN；密碼只在容器內 sh 的 `$(cat /run/secrets/redis_password)`、host argv 與輸出皆不含。★零表或零序列＝rc 2 而非全等（空面全綠是假綠、同 schema-gate 紀律）。契約（何時跑、清理判準）＝§9c；★不掛 pre-commit 條件觸發（要 dev stack、走查收尾才有意義）、手動跑／自測（離線、subprocess 全樁） | snapshot／diff **是**、test 否 |
 | `bash tools/bootstrap.sh` | 新機重建／舊機體檢 | 否 |
 | `./deploy/sops.sh <sops 參數>` | sops 官方容器 wrapper（digest 釘版、自 repo 根跑；自動選鑰＝見 §15.2 步驟 1 註記，`RV5_AGE_KEY_FILE` 可覆寫；營運程序＝§15） | 否（需 docker） |
 | `python3 deploy/decrypt-secrets.py` | 加密檔 → `$SECRETS_DIR` 寫出明文機密檔；passphrase **只輸入一次**（腳本對每個 recipient 提示自動代餵；`RV5_DECRYPT_MANUAL=1`＝逐次手打退路） | 否（需 docker＋互動 tty） |
@@ -204,7 +223,8 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 退出碼注意：view-render-guard＝命中 1、射程異常（掃到零檔）2、用法錯 64；seed-view-gate＝判定紅（缺 view／豁免到期／幽靈豁免／導出集≠imports 鍵集）1、射程異常（seed 檔／views／imports.ts 缺席或空集）2、用法錯 64；route-artifact-gate＝判定紅 1、環境前提不成立（stack 未起／基線缺席）2、用法錯 64；
 rust-fmt-gate＝未格式化 1、環境不可用（容器在跑但 cargo-fmt 缺席）2、用法錯 64（docker 不可用／
 容器未在跑＝**具名跳過 0**，訊息與「全綠 0」不同字樣）；
-schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
+walkthrough-baseline＝有差 1、環境或結構異常（docker 不可執行／psql·redis 失敗／psql 輸出不可解／基準檔缺席或壞形／比對面為空）2、
+用法錯 64；schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取失敗／check
 不一致 2、用法錯 64（check 於 stack 未起＝警告＋0 放行）；entity-drift-gate＝漂移 1、
 異常 2、用法錯 64；docs-sync refresh
 的 stack 不在走 exit 1——判讀看是哪支工具的哪個碼、勿一概當失敗。
@@ -228,7 +248,7 @@ schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取
   跳過邏輯住工具內＝ADR 0057 決定 3，docker 不可用／容器未在跑皆由工具具名跳過 rc 0 承擔；
   該檔**不在** `HOOK_TEST_LOOP_EXEMPT`、照入 `for t in` 自測迴圈）；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
-- **lint 條款**：全 26 條（範圍 Lint03~Lint27；23 號已拆除、編號不重用）。severity 三分：
+- **lint 條款**：全 28 條（範圍 Lint03~Lint29；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
   逐條機制→工具源碼與 `python3 tools/docs-sync.py test` 自測敘述；創世期具名豁免
@@ -248,22 +268,33 @@ schema-gate＝差異 1、環境不可用 2、用法錯 64；wire-schema＝抽取
 - **兩級門檻語意**（★**2026-08-17 改為雙錨**，ADR 0044、user 親決）：pre-commit 全鏈牆鐘
   超 **45s**＝警戒（列示放行、劣化趨勢訊號）、超 **90s**＝硬擋（狀態型：`--no-verify` 只延後、
   下次 commit 仍提醒）。★**兩條線各自對準不同的東西**：警戒錨在「最壞**合法**情形」
-  （收刀簿記型實測 41.2s 進位）⇒ 它一亮就代表**出現了比已量測過的更慢的形**；硬擋錨在
-  「病態」（掛住的工具／無窮迴圈／環境壞掉），取最壞合法值的約 **2.2 倍**（90/41.2）。
+  （41.2s 進位——★該值是**合成推估**、非實測〔ADR 0044 量測事實表逐字；kind 分類下為
+  `synthetic`、不入引信採計面〕，訂正出處＝ADR 0070 決定⑥）⇒ 它一亮就代表**出現了比已量測
+  過的更慢的形**；硬擋錨在「病態」（掛住的工具／無窮迴圈／環境壞掉），取最壞合法值的約
+  **2.2 倍**（90/41.2）。
   ★**舊制 WARN=20s 已成假警報**：004 期間**每一顆** pin bump commit 都越線而放行＝警戒線
   恆亮，只訓練人忽略它（同 `obs.rs` 對「假警報養成無人看告警」的立場）。
   ★**配套引信（缺此則本次調整退化成單純放寬）**：「收刀簿記型 commit 的實測值」列為
-  **每刀收尾的例行量測**、記入本節資料點序列；**連續兩刀 ≥60s**（新警戒與新硬擋的中點）
+  **每刀收尾的例行量測**、append `perf` 事件（人讀 `docs/generated/reference/perf.md`、
+  引信機器判＝STATE.md 效能引信行；承載處訂正＝ADR 0070）；**連續兩刀 ≥60s**（新警戒與新硬擋的中點）
   即強制觸發①優化慢路徑 ②再立 ADR 調門檻 ③縮減 pre-commit 名冊之一，**不得**以
   「還沒破硬擋」續推。★數字權威＝
   `.githooks/pre-commit` 常數 `PRECOMMIT_WARN_SEC`／`PRECOMMIT_FAIL_SEC`（本節僅引用；
   調整走 ADR、不得就地改數字）。機器閘只有這一道**全鏈 90s**；本節其餘數字全屬觀測基準
   與預算分攤、無機器強制。
+- **資料點序列的家**（ADR 0070）：每一筆效能量測＝`docs/ops/events.jsonl` 一筆 `perf` 事件
+  （欄 date／kind／wall_s／rc／commit／notes，kind 值集與驗形＝ADR 0070；判讀散文整段住 notes）；
+  全序列人讀 `docs/generated/reference/perf.md`、引信判讀＝`docs/generated/STATE.md`「效能引信」行
+  （機器判、只採 close_bookkeeping）。本節不再承載資料點；寫錯的更正形依欄分兩形（ADR 0070
+  決定⑩）：`wall_s`／`kind`／`notes` 等非機器驗證欄＝append 新 perf 列、notes 註明取代哪一筆；
+  受 Lint18 實證的 `commit` 欄＝append 一筆 `erratum`（`field: "perf.commit"`）——既有列一律不動。
 - **量測法**（K3-162 紅線、rev4 實證；出處＝docs/brainstorms/000-doc-architecture.md）：
   `time.perf_counter` 直接包被測**整命令**（subprocess）、每命令連跑 ≥3 次取**中位數**；
   合計＝逐支中位數加總。★**禁整鏈前後差量歸因單閘**——WSL2 全鏈牆鐘變異可達 ±1.5s、
-  rev4 曾量出負值；整鏈計時只用於「有無數量級劣化」粗判。可複製命令形（輸出＝runs 三值
-  ＋median；argv 換成被測整命令即可逐支複測）：
+  rev4 曾量出負值；整鏈計時只用於「有無數量級劣化」粗判。★**先剖析再歸因**（L-062 之
+  晉升落點）：要優化任一支治理工具前，先 `cProfile` 分「I/O 稅 vs 邏輯」再決定改什麼——
+  drvfs 上憑直覺列的優化面會落空（量化證據與可複用手法住 L-062）。可複製命令形（輸出＝runs
+  三值＋median；argv 換成被測整命令即可逐支複測）：
 
 ```bash
 python3 - <<'EOF'
@@ -279,7 +310,7 @@ EOF
 ```
 
 - **本批終態實測**（★**2026-08-18 重量測**（治理批 B-080 納冊後 pre-commit 迴圈名冊 12 支；
-  **2026-08-25 起 13 支**——見情境 B 表 † 註）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
+  **2026-08-25 起 13 支、2026-08-30 起 14 支**——見情境 B 表 †／‡ 註）、WSL2 drvfs/9p、每命令 3 次取中位數；量測面＝
   python 工具——betterleaks 樣式掃描為原生二進位、不在本表量測面；**條件觸發段**另列於
   兩表之後）。**單跑上限推導＝該列中位數 ×3
   進位整秒、下限 1s**：×3 沿 pre-commit 既有餘裕先例（45s 對 rev4 WSL2 健康值 15.7s
@@ -295,8 +326,8 @@ EOF
   | `python3 tools/docs-sync.py lint` | 12.251s | 37s |
   | **基礎鏈合計** | **13.695s** | **42s**（＝合計中位數 ×3；逐列上限加總同為 42s、以本值為權威） |
 
-  情境 B＝理論最壞 staged（pre-commit 名冊 13 支工具本體全 staged、條件自測全中）＝
-  基礎鏈＋13 支 test（★名冊＝test 名冊（TOOLS_PY 16 支中帶 test 介面的 15 支；
+  情境 B＝理論最壞 staged（pre-commit 名冊 14 支工具本體全 staged、條件自測全中）＝
+  基礎鏈＋14 支 test（★名冊＝test 名冊（TOOLS_PY 17 支中帶 test 介面的 16 支；
   fork-delta-lint 無 test 介面、天然不入迴圈而走條件觸發段）減 `HOOK_TEST_LOOP_EXEMPT`
   具名豁免 2 支（view-render-guard／seed-view-gate——其 self-test 隨 check 連帶跑））：
 
@@ -315,15 +346,18 @@ EOF
   | `python3 deploy/backup-db.py test` | 17 | 1.649s | 5s |
   | `python3 tools/wf-watchdog.py test` | 30 | 0.158s | 1s |
   | `python3 tools/rust-fmt-gate.py test` † | 11 | 0.125s | 1s |
-  | **13 支 test 合計** | **977＋具名段** | **23.412s** | — |
+  | `python3 tools/walkthrough-baseline.py test` ‡ | 24 | 0.095s | 1s |
+  | **14 支 test 合計** | **1001＋具名段** | **23.507s** | — |
 
   （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
   （†rust-fmt-gate＝**2026-08-25** 維護批 A（B-112／ADR 0057）新入名冊、該列為當日單獨量測，
-  其餘各列沿 08-18 值。★同日 `docs-sync test` 案數已 524→**527**（本批 U1~U5 新案）但中位數
+  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **598**（2026-08-30；08-25 時 527）但中位數
   未重測，故該列與合計之案數仍記 08-18 值——讀本表時注意其時點混成。）
+  （‡walkthrough-baseline＝**2026-08-30** 維護批（B-147）新入名冊、該列為當日單獨量測（三跑中位）、
+  其餘各列沿舊值；合計列照加總更新、**未**重測情境 B、故不 append `full_chain` 事件——混成時點的合計不是一次量測。）
 
-  **情境 B 合計＝37.107s**（13.695＋23.412）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
-  為準：37.107s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
+  **情境 B 合計＝37.202s**（13.695＋23.507）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
+  為準：37.202s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
 
   **條件觸發段**（gitlink／特定檔 staged 才跑，**不入上兩表**；★**前四列**沿 2026-08-16
   量測值（同法）、其後各批未重測；seed-view-gate 一列為 006-authz-governance 刀入冊當日量測、rust-fmt-gate
@@ -341,147 +375,19 @@ EOF
   ★`tools/route-artifact-gate.py check` **不在 pre-commit**（其 check 需 dev stack 在跑），
   故不列本表；其本身耗時亦屬量級可觀（同日單跑約 15s，且**連續背靠背跑第三趟時實得
   rc=2「外掛產出未在 90s 內靜止」**——沙盒內跑 vite 外掛、drvfs 爭用下會逾時，單跑重驗即綠）。
-- **★2026-08-16 收刀簿記型 commit 的合成推估＝41.2s**（★該值即 **2026-08-17 新警戒線 45s 的錨**——ADR 0044 取它進位；舊制下它距 45s 硬擋僅 3.8s，正是本次調門檻的觸發事實）（同日
-  中位數逐段相加：基礎鏈 9.907＋`docs-sync test` 16.272＋`fork-delta-lint` 6.163＋
-  `wire-schema check` 8.431＋`entity-drift-gate check` 0.179＋`view-render-guard check` 0.224）。
-  對照同日 004 U-I 收刀 commit 的 **hook 自報 38s**（實測值、單次牆鐘），兩者同量級。
-  ⇒ 恆跑段（基礎鏈）**當時**約 9.9s（2026-08-18 已 13.695s、見上表），其餘全部來自
-  條件觸發段與 `docs-sync test` 的疊加。
-  ★**當批（～08-16）**成長面在 `docs-sync test`（隨案數：469→**496**）與 `lint`／
-  `fork-delta-lint`（隨 repo／base-web 規模），非任何單一新工具；★2026-08-18 批歸因**相反**
-  ——主力＝`docs-sync lint` 單項、`docs-sync test` 中位反降（16.272→15.415），詳上一批對照段。
-  ★**該處置已於 2026-08-17 執行完畢**：走 ADR 0044（user 親決），兩門檻改為
-  WARN=45／FAIL=90（推導見「兩級門檻語意」）。連帶配套＝**本值自此列為每刀收尾的例行量測**，
-  資料點續記本節；**連續兩刀 ≥60s** 即強制觸發「優化慢路徑／再立 ADR/縮減名冊」三者之一。
-
-- **★2026-08-25 例行量測（刀 B 前置維護批收尾；同法、WSL2 drvfs、dev stack 六容器在跑）**
-  ——★前一筆（維護批 A）為**合成推估 47.4s、未實測**，本次依本節量測法重量、勿再沿用推估值。
-  三個主導項各連跑 **5 次**（變異緊、非負載抖動）：
-
-  | 段 | 2026-08-25 中位數 | 對照（時點） | 變化 |
-  |---|---|---|---|
-  | `docs-sync lint` | **17.337s** | 12.251s（08-18） | +41% |
-  | `docs-sync test` | **19.824s**（案數 528） | 15.415s（08-18、524 案） | +29% |
-  | `fork-delta-lint` | **10.152s** | 6.163s（08-16） | +65% |
-  | `docs-sync check` | 2.063s | 1.317s（08-18） | +57% |
-  | `rust-fmt-gate check` | 2.836s | 2.783s（08-25 入冊當日） | 持平 |
-  | `secret-value-guard check`／`view-render-guard check`／`seed-view-gate check`／`entity-drift-gate check` | 0.188／0.210／0.595／0.173s | 同量級 | 持平 |
-  | 其餘 12 支 test（docs-sync 以外） | 合計 9.688s | — | 持平 |
-
-  **合成推估（沿 2026-08-16 之同一公式）＝59.8s**：基礎鏈 19.588（0.188＋2.063＋17.337）
-  ＋`docs-sync test` 19.824＋`fork-delta-lint` 10.152＋`wire-schema check` 8.431（★**沿 08-16
-  值未重測**——本次工作樹乾淨、該命令走跳過分支只得 0.186s，非真路徑值）＋
-  `entity-drift-gate check` 0.173＋`view-render-guard check` 0.210＋`seed-view-gate check` 0.595
-  ＋`rust-fmt-gate check` 2.836。⇒ 47.4→59.8s，**貼著 ADR 0044 引信線（60s）但未達**。
-  ★**歸因**：`docs-sync.py` 單一工具佔 37.2s／59.8s＝**62%**（lint＋test）；三個主導項的成長
-  合計約 +13.5s，其餘全部持平 ⇒ 成長面是 lint 條款數×repo 規模與自測案數，非任何新工具。
-  ★**同批的實測反證（重要，勿只讀合成值）**：本批四顆 commit（含三顆 pin bump 收單型）
-  **無一顆觸發 hook 的 >45s 警告** ⇒ 真實牆鐘皆 <45s。原因＝自測迴圈只對**已 staged 的工具**
-  跑 `test`，而 pin bump 型 commit 通常零工具 staged ⇒ `docs-sync test`（19.8s）根本不進鏈。
-  合成公式把它算進去，故**合成值系統性高於真實值**——兩者都留、但引信判讀應以 hook 自報的
-  實測牆鐘為準（本節「整鏈計時只用於數量級粗判」之同一取態）。
-  ★**同日補：兩顆 commit 的 hook 自報牆鐘實測**（`time.perf_counter` 直接包 `git commit`
-  整命令、單次；★這才是 ADR 0044 引信所指的「收刀簿記型 commit 的實測值」）：
-  **收刀簿記型（events＋NOTES＋docs/generated，零 gitlink、零工具 staged）＝16.68s**；
-  **文件型（RUNBOOK＋BACKLOG＋generated）＝26.10s**。兩者皆遠低於警戒 45s，也遠低於同日
-  合成值 59.8s ⇒ **合成公式對真實情形高估約 3.6 倍**（差額幾乎全來自 `docs-sync test` 19.8s
-  與 `fork-delta-lint` 10.2s——前者只在該工具 staged 時進鏈、後者只在 base-web gitlink／憲法
-  staged 時進鏈，收刀簿記型兩者皆不觸發）。★**引信判讀結論**：以實測為準則本刀 16.68s、
-  距 60s 引信線甚遠；合成值僅作「若最壞情形全中」的上界參考，**不得**單獨用來判引信。
-  ★**下一刀必做**：①`wire-schema check --staged-gate` 於 base-web gitlink 真 staged 時重測
-  （現值已是 08-16 的、且它是合成值裡第二大項）②pin bump 型 commit（gitlink staged、條件段
-  全中但無自測迴圈）亦補一次牆鐘實測——本批三顆皆未越警戒但未逐顆計時 ③若 `docs-sync lint`
-  續增，處置面＝該工具的慢路徑（見 BACKLOG）。
-- **★2026-08-18 治理批收尾合成推估＝44.107s**（資料點軌：41.2〔08-16〕→**44.107**；同法
-  逐段相加＝基礎鏈 13.695＋`docs-sync test` 15.415＋條件觸發四列**沿用 2026-08-16 中位**
-  6.163＋8.431＋0.179＋0.224——★半新半舊推估：本批未動 base-web／schema 面、四列條件段無
-  重測理由，讀值時注意其時點混成）。距警戒 45s 餘 **0.893s**——下一刀動 base-web 面時宜
-  連四列條件段一併重測後再讀本值；引信（連續兩刀 ≥60s）本刀未觸發。
-- **★2026-08-25 維護批 A（B-112）名冊變動後之增量重估＝47.380s**（資料點軌：41.2〔08-16〕→
-  44.107〔08-18〕→**47.380**〔08-25〕；★本值為**重估、非收刀實測**——本刀非收刀）。算式＝
-  08-18 之 44.107 ＋本批新入的 `rust-fmt-gate check` **2.783s** ＋該軌一直漏記的
-  `seed-view-gate check` **0.49s**（該列於 006-authz-governance 刀入冊、晚於 08-18 資料點，從未併入本序列）。
-  `rust-fmt-gate test` 0.125s 屬情境 B 面、不入本推估（收刀簿記型 commit 不 stage 工具本體）。
-  ⇒ **已越警戒 45s**（越線＝列示放行、不擋；距硬擋 90s 仍遠）——即 ADR 0044 所謂「出現了比
-  已量測過的更慢的形」，成因明確＝新增一道容器內守門，非慢路徑劣化。引信（連續兩刀 ≥60s）
-  **未觸發**：47.380 < 60，且本刀非收刀。★半新半舊推估（僅新列於 08-25 實測、其餘沿舊），
-  **下一刀收尾必須依本節量測法實測全鏈**再讀。★`rust-fmt-gate check` 現值量於**存量尚未格式化**
-  之時（687 段 diff、rc 1）；存量一次格式化 commit（§12.3）落地後段數歸零，但成本**不等比下降**
-  （rustfmt 仍須全樹解析）——屆時重測改值。
-- **★2026-08-25 B-097 維護批：hook 自報 55s ＝ 首筆「真實越線」實測**（前此越線皆為合成推估）。
-  該顆＝pin bump 型外層 commit（staged `base-web` gitlink ＋ ADR ＋ BACKLOG ＋ `docs/generated`）
-  ⇒ `fork-delta-lint`（10.2s）與 `view-render-guard`／`seed-view-gate` 皆進鏈，而 `docs-sync test`
-  （19.8s、僅工具本體 staged 時跑）未進鏈——此即與同日簿記型 **16.68s** 的主要差額來源。
-  ⇒ **B-130 觸發器「hook 開始自報 >45s 警告時」自此達成**；ADR 0044 引信（連續兩刀 ≥60s）
-  **仍未觸發**（55 < 60）。★本值取自 hook 自報行、非依本節逐支中位數法量測，兩者不可混用作成長率。
-- **★2026-08-25 B-130 提速批：全鏈 43.46s → 13.09s（3.3×）**（ADR 0061；同一支 bench、同條件三跑取最佳，
-  ★非本節逐支中位數法——該法需乾淨環境，本值供**前後對比**用、不可與上方序列混算成長率）。
-  分項：`docs-sync lint` 25.34→**15.92**／`docs-sync check` 4.79→**3.44**／`fork-delta-lint` 17.04→**3.93**（4.3×）。
-  真 hook 最重情境（staged 三支工具＝觸發 529 案自測）實跑 **24.1s rc=0**，瓶頸已是自測本身。
-  ★**歸因紀律（本節新增、L-062）**：動手前先 cProfile 分「I/O 稅 vs 邏輯」——本批三個憑直覺列的
-  處置面全數證偽（lint 的檔案系統原語佔 64%、邏輯僅 7%；fork-delta 的 select.poll 佔 99%）。
-  ★**合成公式的第二處誤導已結清**：`wire-schema check --staged-gate` 真路徑僅 **0.43s**（走 `no-typings`
-  短路），而合成值沿用 08-16 的 8.431s（未短路路徑）——B-130 所列「先決事實」自此不再是待辦。
-- **★2026-08-30 007-user-password-admin 之 U10 收尾：兩個量測面各一筆**（★兩值**不可混算**——
-  hook 自報牆鐘與逐支中位數是不同量測面，本節既有紀律）。
-  - **牆鐘實測（真 commit、`time.perf_counter` 直接包 `git commit` 整命令、單次）＝13.89s rc=0**
-    （U10 治理收尾 commit `b5b6912`；staged＝4 支新 ADR＋活書＋附屬文件＋BACKLOG／LESSONS／NOTES／
-    tasks＋`docs/generated`，**零 gitlink、零工具本體** ⇒ `fork-delta-lint`／`view-render-guard`／
-    `seed-view-gate`／`docs-sync test` 皆未進鏈）。對照同型的 2026-08-18 之**文件型 26.10s** ⇒
-    **B-130 的提速在真實 commit 面兌現**（−47%）。距警戒 45s 餘 3.2 倍。
-  - **逐支中位數（情境 A 基礎鏈、乾淨環境、每支 3 跑取中位）**：`secret-value-guard check` **0.138s**／
-    `docs-sync check` **1.153s**／`docs-sync lint` **13.326s** ⇒ **基礎鏈合計 14.617s**。
-    對照 2026-08-18 同法同情境的 13.695s ⇒ **+6.7%**（主項＝`lint` 12.251→13.326、+8.8%）。
-    ★**這個 +8.8% 要正著讀**：其間 repo 掃描面增加了 005／006／007 **三刀**的全部產出
-    （ADR 0053～0068、LESSONS 分檔 47→70 條、三份 spec 目錄、活書四節擴充），而基礎鏈只漲不到一成
-    ——B-130 的 I/O 稅處置正是在吸收這段成長。★**勿與 B-130 那筆的 25.34→15.92 混算**：該筆是
-    「同一支 bench、同條件三跑取最佳」，量測面與本序列不同（該筆自己也載明不可混算）。
-  - ★**誠實界線**：本刀這兩筆**都不是收刀簿記型**（那顆＝events append＋NOTES＋generate，尚未發生）
-    ⇒ **ADR 0044 引信所指的本刀資料點，須於收刀簿記那顆 commit 補記**；引信（連續兩刀 ≥60s）
-    以現有值判**未觸發**。
-  - **★同日第三筆：pin bump 型＝19.41s rc=0**（`33ee6b7`；staged `rust-api` gitlink＋憲法＋活書＋specs＋
-    generated ⇒ `fork-delta-lint`〔憲法 staged 即觸發〕／`wire-schema --staged-gate`／`view-render-guard`／
-    `seed-view-gate` 進鏈，`docs-sync test` 未進）。對照同日文件型 13.89s ⇒ 條件段淨增 **5.5s**（與 B-130 後
-    `fork-delta-lint` 3.93s＋其餘次秒級之和吻合）；距警戒餘 2.3 倍。★結清「下一刀必做」②，惟本顆 staged 者為
-    rust-api 而非 base-web gitlink、`fork-delta-lint` 係經憲法觸發。★**本節撞頂＝B-149**。
-  - **★★同日第四筆：merge commit ＝4.55s rc=0**（`5e8b32f`；staged **兩個** gitlink）——**推翻本序列
-    先前的期待**：舊記載說「收刀 merge 那顆是尚未量過的最重情境」，實測卻比 pin bump 型（19.41s）短 4 倍。
-    根因＝**merge commit 不跑 `pre-commit`**（git 對 merge 走 `pre-merge-commit`，而本 repo `.githooks/`
-    只裝 `pre-commit`／`pre-push`，實地確認）。⇒ 最重情境不在 merge 那顆，真實上界仍是情境 B。
-    ★**副作用**：收刀 merge 不受任何 lint 把關，分支最後一顆的綠燈即收刀全部憑據（merge 前每顆都過閘，
-    但別誤以為 merge 又驗了一次）。
-  - ★**既有「下一刀必做」三項結算**：①`wire-schema check --staged-gate` 重測＝**已由 B-130 那筆結清**
-    （真路徑 0.43s、走 `no-typings` 短路）②pin bump 型牆鐘＝**已補**（同日第三筆 19.41s）。★收刀 `merge --no-ff` 那顆宜再測——staged **兩個** gitlink、本序列未量過
-    ③`docs-sync lint` 慢路徑處置＝B-130 已處置、本刀無新增條款。
-- **史料批次**（同法量測，供成長率比較；★**2026-08-30 依 B-149 候選②壓縮**——逐項分析全文查 git）：
-  2026-08-16＝基礎鏈 **9.907s**／11 支 test 24.593s（938 案）／情境 B 34.499s；
-  2026-08-08＝基礎鏈 7.041／test 19.735（893 案）／情境 B 26.776。⇒ 08-16→08-18 基礎鏈 **+38%**、
-  成長主力是 `docs-sync lint` 單項（8.388→12.251，B-090 分檔制掃描面＋Lint26/27 兩新條款）。
-- **歷史對照**（皆全鏈牆鐘粗判值、與上表逐支中位數非同一量測面）：001 收刀＝無 gitlink
-  無 tools staged **1.016s**／staged `tools/docs-sync.py`（428 案自測）**27s**（出處＝
-  docs/brainstorms/b8b-acceptance-evidence.md）；本維護批中途量測點（單元② commit
-  1779d17 後／單元③ commit 6a6378e 後，基礎鏈＋docs-sync／schema-gate／backup-db 三支
-  test 合計粗判）＝**20.9s**／**17.6s**。可比面趨勢（本節立意所在）：基礎鏈同情境自
-  001 收刀約 1s→2026-08-08 約 7s→2026-08-16 約 9.9s（主因＝lint 條款成長至全 24 條
-  ＋ repo 規模）→**2026-08-18 約 13.7s**（主因＝lint 8.388→12.251：B-090 分檔制掃描面
-  ＋Lint26/27）。★**比較對象自 2026-08-17 起改為新警戒 45s**（ADR 0044）：基礎鏈 13.695s
-  距其**餘約 3.3 倍**；舊制記法「距 20s 警戒餘約 2 倍」已隨門檻改值作廢、勿再據以比較。
-- **一致性核**（★兩次翻面、逐字留痕以免下一位覆核者重推一遍）：最大單支上限
-  （`docs-sync test` **47s**）＋基礎鏈實測 **13.695s** ≈**60.7s**。
-  - 2026-08-08 舊句：「36s＋7.041s ≈43s、仍在全鏈 45s 內 ⇒ 常見情境（單支工具 staged）下
-    **觀測上限先於機器硬擋喊人**」。
-  - 2026-08-16 一度**反轉**：59s 已越當時的全鏈 45s 硬擋 ⇒ 常見情境下改為「機器硬擋先喊」。
-  - **2026-08-17 起還原成立**（ADR 0044 把硬擋提到 **90s**）：59s < 90s ⇒ 「觀測上限先於
-    機器硬擋喊人」這條性質**恢復**，且餘裕比 2026-08-08 當時更寬（59/90 vs 43/45）。
-  - 2026-08-18 本批複核（B-080 納冊後現值）**仍成立**：60.7s < 90s（餘裕 60.7/90）。
-  ★真實值（`docs-sync test` 15.415s）距其單跑上限（47s）仍約 3 倍餘裕。逐支上限**加總**
-  （基礎鏈 42s＋13 支 78s＝120s）仍超 90s——單跑上限是逐支劣化偵測基準、非「全數同時到頂
-  仍過鏈閘」的保證；理論最壞情境的守門仍＝**全鏈硬擋那一道**。
+- **merge commit 不經 pre-commit**（本 repo `.githooks/` 只裝 pre-commit／pre-push、無
+  pre-merge-commit；2026-08-30 實地確認）——分支最後一顆的綠燈即收刀全部憑據；最重情境＝情境 B、
+  不在 merge 那顆。
+- **合成推估對真實值系統性高估**（逐段中位數相加把只在特定 staged 形才進鏈的 `docs-sync test`／
+  `fork-delta-lint` 一律算進去）；引信判讀一律以 `close_bookkeeping` 實測為準，合成值僅作最壞上界
+  參考、`synthetic`／`bench` 型永不採計。
 - **超上限處置**（對齊 pre-commit 硬擋訊息措辭）：先量哪一段吃掉時間、勿憑猜——rev4 的
   rev4:B-113 三個病因候選經實測全數證偽；兩條出路＝①優化慢路徑②立 ADR 調門檻並記錄
   劣化理由。
 - **維護紀律**：新工具入 pre-commit 名冊時，本表**須同步加列**（量測＋定上限）；名冊
-  變動而本表未動＝表已過期。
+  變動而本表未動＝表已過期。★重測情境 A／情境 B 時**同批 append 對應的 `baseline_chain`／
+  `full_chain` perf 事件**（ADR 0070）：本表記終態、序列記歷程，只更新本表而不 append＝
+  該兩型自此靜默斷代，本節所稱「供成長率比較」的用途隨之落空。
 
 ### 12.2 容器內 cargo build 基線（B-028）
 

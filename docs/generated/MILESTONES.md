@@ -1,5 +1,5 @@
 <!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
-# MILESTONES — 全事件表（最新）
+# MILESTONES — 事件表（最新）——perf 型另居 reference/perf.md
 
 | date | type | 標的 | summary | merge | adrs | arch |
 |---|---|---|---|---|---|---|
@@ -44,3 +44,4 @@
 | 2026-08-25 | misc | — | B-130 關帳（輕量軌、merge a3cd9f8、ADR 0061）：pre-commit 全鏈 43.46s→13.09s（3.3×）。★原列三處置面全數證偽——都假設成本在條款邏輯，實測是 drvfs I/O 稅（lint 的檔案系統原語佔 64%、邏輯僅 7%；fork-delta 的 select.poll 佔 99%）。A＝閘並行派發（機密面序列前導、fail-fast 改 run-all）；B＝_read 作用域快取＋EAFP＋git show 並行預取。守門三調整＋三變異紅證，529 案全綠。 | — | — | — |
 | 2026-08-25 | misc | — | B-126 關帳（輕量軌、merge 5cd4319、ADR 0062）：活書 as-built 下放首例——§8 fork-delta 接線段 45 行逐位元搬至附屬文件 FORK-DELTA-WIRING.md、§5 測試設施清冊 18 行下放 test_db 模組 doc；§5 85→70／§8 92→53、配額表整張不動（絆線零改動）；§9／§11 判為指針節、維持 5／3。docs-sync 掃描面擴至附屬文件（BOOK_ANNEXES、自測 529→533）。 | — | — | — |
 | 2026-08-30 | feature_close | 007-user-password-admin | 使用者與密碼治理縱切（本代第七刀、刀 B）：管理面十支＋自助兩支＝12 支端點，ROUTES 49→61 終值、POLICY 35→45 終態。六底座＝密碼政策單一驗證點／設密冷卻／改密舊密節流（第三個節流子系統）／no-escalation 掛滿八支寫端＋unlock 帳號維／斷權四路與三 reason 不互換／自助路由白名單帶回。前端 user 管理頁接真（七碼逐鈕 gating、解鎖 modal 雙維、回收桶）＋個人中心改密卡＋登入表單降必填。測試 829→998、wire-schema 75→89、憲法 1.8.0→1.9.1、ADR 0063～0069、零 migration。 | 5e8b32f288c2ad651acaf445c238a6d53f7ad49c | 0063、0064、0065、0066、0067、0068、0069 | §1、§5、§6、§8、§12 |
+| 2026-08-30 | misc | — | Lint28／Lint29 上線（B-146、B-148 關帳、維護批 U2）：Lint28＝活書 §1 建置狀態 ⊇ events feature_close 刀號集（單向對賬、缺即 ERROR 指名刀名與收刀日）；Lint29＝兩子庫 pin 指向樹之碼面（rust-api *.rs、base-web src/ *.ts／*.vue）裸 B-／L- 編號超出本代 next-id 即 ERROR（git grep 粗篩＋Lint25 判準複用、skip／warn 沿 Lint17／Lint18）；名冊三檔範圍字串同 commit bump 至 Lint03～Lint29；本筆即新名冊承載事件 | — | — | — |
