@@ -118,12 +118,14 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
   `model/facade/sys_pwd_custody.rs`（設密經手帳；只存時戳、零密碼材料，`touch` 與密碼欄 UPDATE
   同交易）／`throttle/change_pwd.rs`（**第三個**節流子系統：判定鍵 uid、兩態無軟區、fail-open、
   鍵前綴 `cpwd:` 與登入節流分離、降級自成第十三源；ADR 0066）。密碼政策核心住 `model/password.rs`
-  ——單一驗證點、八鍵單快照讀、缺鍵 fail-default，三個設密入口（addUser／resetUserPassword／
+  ——單一驗證點、**七個設定鍵**單快照讀、缺鍵 fail-default，三個設密入口（addUser／resetUserPassword／
   changePassword）共用；雜湊**生成**恆於取鎖前算好再進鎖、**驗證**依島 I1 於鎖內執行（ADR 0068）。
-- **test_db 名冊本刀擴三支**：`UserCleanup`（補業務鍵腿＋操作稽核腿＋`sys_user_id_seq` 還原）／
-  `PwdCustodyCleanup`（custody 首寫的 RAII 清理）／`SessionRevokeCleanup`（鍵＝uid 而非單一 sid——
-  撤銷測一次產生 N 個 sid 且 N 於起手時點未知，既有兩守衛結構性涵蓋不到）；逐支「為何非有不可」
-  同前住模組 doc、本書不複述（ADR 0062）。
+- **test_db 名冊本刀新立三支**：`SeedUserRestoreCleanup`（seed 帳號被改欄後的還原，本刀的寫端測大量
+  改動 seed 三帳號）／`PwdCustodyCleanup`（custody 首寫的 RAII 清理）／`SessionRevokeCleanup`（鍵＝uid
+  而非單一 sid——
+  撤銷測一次產生 N 個 sid 且 N 於起手時點未知，既有兩守衛結構性涵蓋不到）；另**既有** `UserCleanup`
+  本刀補三腿（業務鍵腿＋操作稽核腿＋`sys_user_id_seq` 還原）。逐支「為何非有不可」同前住模組 doc、
+  本書不複述（ADR 0062）。
 - **觀測面**：`/metrics` Prometheus exposition；序列一律 boot 時 pre-register 顯式 0
   （防「事件未發生＝序列缺席」使 `rate()` 失去基線——`obs.rs` 檔頭鐵律）。auth 刀新增
   三序列：`denylist_hit_total`（source＝redis／pg 恰二）、`throttle_degraded_total`
@@ -146,7 +148,7 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
 
 ## §6 Runtime
 
-不變式凍結面住 constitution §I.7（八座行為島＋fail-* 方向）；本節只寫 as-built 執行形
+不變式凍結面住 constitution §I.7（**九座**行為島 A～I＋fail-* 方向）；本節只寫 as-built 執行形
 ——模組落點、常數實值、欄與鍵名（§I.7 進場規則明文把這一類留在活書）。凍結條文一律
 以「主題＋落點＋指島」形給指針，不複述 MUST 文字（複述＝同一事實兩個人寫的家，
 Amendment 改憲法而活書靜默過期）。
@@ -161,7 +163,7 @@ Amendment 改憲法而活書靜默過期）。
   三層判定序（①對端閘②CDN 位置錨③受信轉發 walk）＋兩層覆蓋（通道回退、邊緣驗證升等），
   凍結面＝constitution §I.7 島 F。對端的權威源＝
   `into_make_service_with_connect_info::<SocketAddr>()`（缺席即退回讀**可偽造**的標頭並發
-  告警；無機器守＝ops/BACKLOG B-075）。
+  告警；機器守＝`server/tests/serve_connect_info_lint.rs`，見 §8 API 慣例）。
 - **態語意**：錨還原產出**七態**，而 `ip_confidence` 欄值域為**八態**——第八態
   `chain_rejected` 是三層矩陣**之前**的短路（鏈跳數逾 `trust::MAX_XFF_TOKENS`＝**32**），
   與其餘七態**不同軸**（ADR 0043）。字面的唯一產出點＝`trust::Confidence::as_str`：
@@ -288,7 +290,8 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
     推進）→帳號存在→兩次一致→**舊密驗證**→新≠舊→**政策**→**冷卻**→UPDATE＋custody touch＋
     撤其他 active（**保留當前 sid**）。
   ★**政策恆排在冷卻之前**：兩者同時成立時，先讓使用者知道密碼哪裡不合格，比先叫他等幾十秒有用。
-  ★門檻的家不同：政策八鍵與冷卻 interval 住 `system_settings`，改密節流門檻是碼內常數
+  ★門檻的家不同：政策**七鍵**與冷卻 interval 住 `system_settings`（★權威＝`password::PASSWORD_POLICY_KEYS`；
+  「八」是**違規碼**數、其中 `maxBytes` 是碼內常數不是設定鍵——兩者不可互推），改密節流門檻是碼內常數
   （判準＝ADR 0066 決定三）。
   ★**登入路徑 MUST NOT 驗政策**（島 I5 明文）：seed 帳號密碼短於政策下限，驗了即結構性自鎖；
   有源碼掃描守。
@@ -319,7 +322,8 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 - **memo 欄家族**：user_memo／role_memo／menu_memo／wbip_memo（text 可空、可多行）＝
   R_SUPER 備註——顯示於管理列表、不顯示於其它被取用處（下拉／引用／對外 API 一律不帶）；
   role_desc（使用者可見「角色描述」）與 role_memo 職責不同、並存不合併（語意權威＝
-  `specs/001-schema-baseline/data-model.md` §5；UI 兌現由 ops/BACKLOG B-003 承載）。
+  `specs/001-schema-baseline/data-model.md` §5；四張管理列表的 UI 兌現**已於 007-user-password-admin 收齊**
+  ——`sys_user` 是最後一張，該刀同批關帳）。
 - **ORM 關聯與行為層紀律**（002 拍板、spec FR-022）：①關聯宣告只映真 DB FK——無 DB FK
   之邏輯關聯不建 Relation、需要即手寫 join（關聯真相單一來源＝DB FK）；
   ②`ActiveModelBehavior` 恆空實作——ORM 行為層不承載六審計欄自動化、審計欄由

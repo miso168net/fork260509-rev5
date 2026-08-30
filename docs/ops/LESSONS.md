@@ -1,4 +1,4 @@
-<!-- next: L-072 -->
+<!-- next: L-073 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -84,3 +84,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-069｜可見性放寬把既有名冊閘的射程打穿、全樹零紅點](LESSONS/L-069-visibility-widening-punches-through-a-roster-gate.md) — 改可見性前先 grep 函式體內有無被 token 掃描閘守著的呼叫；有就同批補一道消費者名冊閘、兩閘 doc 互相指路
 - [L-070｜shell cwd 跨呼叫持久化，在傘狀 repo 裡把路徑錯誤偽裝成「檔案不見了」](LESSONS/L-070-shell-cwd-persists-across-calls-in-an-umbrella-repo.md) — 子庫一律 `git -C`、非 git 指令用絕對路徑；路徑類錯誤先 `pwd` 自證位置再談對象
 - [L-071｜教訓晉升到下一刀的一次性文件＝半衰期只有一刀（L-055 六天後原樣復發）](LESSONS/L-071-a-lesson-promoted-into-the-next-one-shot-doc-has-a-one-blade-half-life.md) — 走查前取全表基準、後逐值比對（不變式取代清單）；清理面與閘的射程無關；寫 promoted_to 先問「這位置的讀者是不是下一個踩坑的人」
+- [L-072｜刪 BACKLOG 條目沒掃引用，當場造出指涉斷鏈](LESSONS/L-072-deleting-a-backlog-entry-without-sweeping-its-references.md) — 刪列後雙向掃現在式文件家族；判準＝「這句在說曾經，還是在說現在還沒做」（歷史記述正當、待辦式引用才是斷鏈）

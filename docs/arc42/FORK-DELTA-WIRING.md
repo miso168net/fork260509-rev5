@@ -49,7 +49,9 @@ stack、刻意不掛 pre-commit、單元邊界手動跑）。
   會話政策／記事／四審計欄）、搜尋卡逐欄顯式只送四欄、抽屜新增與編輯（編輯態帳號名 disabled）、
   單刪批刪、回收桶 toggle 切兩資料源（回收桶模式隱搜尋卡、無刪除時間欄）、操作下拉三項
   （踢除／重設密碼／隨機密碼）、頁首解鎖 modal（雙維、標的欄依維度換鍵與換標籤）、七枚按鈕碼
-  逐鈕 gating；`page:` 樹 `manage.user.*` 兩語各 37 鍵，表格 `scroll-x`＝Σ 欄寬同批改為 2002。
+  逐鈕 gating；`page:` 樹 `manage.user.*` 兩語**鍵集相等**（★鍵集之機器真源＝`typings/app.d.ts` 之
+  `App.I18n.Schema.page.manage.user` 型節、由 `pnpm typecheck` 強制；**本節不手抄計數**——沿同檔
+  I18N-WIRING (ii) 之先例），表格 `scroll-x`＝Σ 欄寬同批改為 2002。
   ★**已知落差**：搜尋卡的手機／信箱兩欄填了不會濾（後端過濾面恰四欄），而 `user-search.vue`
   明文零改動、任何 diff 即紅 ⇒ 本刀**結構性無法自修**、立帳 B-143（rev4 那兩欄是真的會濾的，
   收窄過濾面是 rev5 拍板，留下的是接線層落差）。

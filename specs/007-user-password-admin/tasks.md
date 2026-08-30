@@ -923,6 +923,40 @@ fork-delta-lint＋view-render-guard＋CDP 走查（quickstart §6）。
   憑證列」。`TRUNCATE` 四表（**seq 刻意不復位**）後 **998 passed／0 failed**、三閘續綠。
   007 的 quickstart 原本**零清理契約**（L-055 的晉升位是「後續刀沿抄」而沿抄沒發生）——已補入 §6 步驟 7。
 
+★**final holistic review as-built（三透鏡 Workflow＋主線處置、2026-08-30）**
+
+- **編排**：`wf_73e9edb2-dae`（3 支平行、`agents_error=0`、零 `blocked`、16.6 分鐘）。三透鏡＝規格符合性／
+  碼品質／文件治理一致性；**無 fix 迴圈**（review agent 只讀、findings 回主線）。agent 明文禁跑 cargo
+  （三支平行 vs rust serial 硬規則），量測值由 CONTEXT 給。
+- **產出 15 筆**（major 5／minor 8／nit 2）——**零碼行為缺陷**，全屬碼註／文件失準與指涉斷鏈。
+  主線逐筆自 grep 複驗，**15 筆全數成立、零駁回**。
+- **碼註側處置**（`rust-api`，六檔純註解、`cargo fmt --check` rc=0、全量複跑 **998／0**）：
+  `spec FR-046`→`FR-026` **七處**（FR-046 實為 TDD 紀律條，與密碼三重不洩無關；004 的四處指涉正確、不動）／
+  `change_pwd.rs` 檔頭 `FR-041`→`FR-030`／`user_center.rs` 檔頭 FR 區間訂正／`role.rs` 的機器數指令輸出
+  `→ 42`→`→ 45`（★該處正是全樹指定的「這個數字的單一真源」，卻是唯一還帶著過期值的）／兩處**裸形**（未帶前綴）的 LESSONS
+  編號補上 `rev4:` 前綴（★描述本項時無法原樣引用該錯誤形——Lint25 會當場紅，同 ADR 0012 本文之
+  「規則示例 mention」張力）／`enforce.rs` 六處「B-024 待接手」措辭改**終態式**並指向 ADR 0063 款三（該檔 `B-024`
+  提及數自 8 降為 **0**）／`id_and_name_audit_json` fn doc 的假述改寫（原稱「共用 `audit_json` 必然夾帶
+  argon2 PHC」，而 `audit_json` 是十五鍵白名單、型別上無 password 欄且有負向斷言守著）。
+- **文件側處置**：憲法 **Amendment log 補 1.9.1**（★版本行早已 bump 而日誌空白＝變更史缺一條，PATCH 級
+  amendment 歷來都有日誌條目）／活書 §6「八座行為島」→**九座**／活書兩處「八鍵」→**七個設定鍵**／
+  §6 的 `B-075` 與 §8 的 `B-003` **兩條指涉斷鏈**（後者是本刀 T073 刪列時自己造的）／§5 的 test_db 三支
+  改正（本刀新立者為 `SeedUserRestoreCleanup`／`PwdCustodyCleanup`／`SessionRevokeCleanup`，`UserCleanup`
+  是既有加腿）／`FORK-DELTA-WIRING.md` 移除手抄鍵數、改指真源型節（沿同檔 I18N-WIRING (ii) 先例）／
+  `quickstart.md` §7 收刀閘三值更新／`msg-keys.md` 「既有 21 葉鍵」→**19**（＋就地勘誤註）。
+- **★主線加碼三筆（agent 未報、複驗時查出）**：①**spec FR-026 自身失準**——「消費八鍵」的八是**違規碼**數，
+  `PASSWORD_POLICY_KEYS` 恰 7 個，第八個違規碼 `maxBytes` 是碼內常數不是設定鍵（已補勘誤註；agent 只報了
+  活書側）②**NOTES「其餘在案候選」清單仍列 B-127～B-129**（本刀剛關帳；agent 的掃描面是活書、沒涵蓋 NOTES）
+  ③**斷鏈的分類判準**——首次機器枚舉得「B-024 有 103 處引用、B-003 有 35 處」，實際該改的恰兩處：
+  ADR body／brainstorm／spec／events／NOTES 流水帳皆為**歷史記述**（正當），只有現在式文件把它當
+  「**仍待辦、由它承載**」才是斷鏈。
+- **新帳兩條**：**L-072**（刪 BACKLOG 條目沒掃引用＝當場造斷鏈；防法含上述分類判準與**雙向**掃描——
+  只掃「我刪的編號」會漏掉別人早先刪的〔B-075〕，只掃「文件引用的編號」會漏掉我剛造的〔B-003〕）／
+  **B-148**（碼註中的跨代 ID 引用無機器閘；★**射程缺口的當場實證**：該條目自己在草擬時寫了一個裸形編號，
+  `docs-sync lint` 即刻紅在 `BACKLOG.md`——**同一字面寫在 BACKLOG 會紅、寫在 `.rs` 碼註不會**）。
+- **收尾自驗**：`cargo fmt --all --check` rc=0｜全量 **998 passed／0 failed**｜`docs-sync.py lint` **0 錯誤**
+  ／2 警告（皆 CLAUDE.md 既有）｜活書各節行數全在配額內（§1 18/40｜§5 87/90｜§6 149/160｜§8 74/130｜§12 21/30）。
+
 ★**T071～T073 as-built（主線、2026-08-30）**
 
 - **T071**：ADR 0064～0067 四支 draft→accepted 一次落地（body 皆零碼改動、記的是 as-built 與判準）。

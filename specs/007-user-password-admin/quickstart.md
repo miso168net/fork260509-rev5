@@ -120,5 +120,7 @@ python3 tools/docs-sync.py lint                                              # 0
 
 ## 7. 收刀閘
 
-活書 §5／§6／§8 as-built＋附屬文件接線段＋§12 六詞；憲法 v1.9.0；ADR 五支 accepted；BACKLOG 十三條 backlog_done；
+活書 §1／§5／§6／§8 as-built＋附屬文件接線段＋§12 六詞；憲法 **v1.9.1**（★U4 期間再 bump 一次＝ADR 0068
+島 I5 條文澄清）；ADR **六支** accepted（0063～0068）；BACKLOG **十一條** backlog_done（★較 FR-044 原列多
+B-020——其通用化半邊由 ADR 0066 決定四判 won't-fix；B-025 只結①不刪列）；
 `docs-sync.py generate`；RUNBOOK §12.1 量測一筆；pre-commit 全鏈綠。

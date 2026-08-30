@@ -301,6 +301,13 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **FR-005**: 寫端操作稽核 MUST 與業務寫入同一交易；稽核詞彙 MUST 新增小寫三值 `kick`／`reset_password`／
   `change_password`（其餘沿 `add`／`update`／`delete`／`restore`／`unlock`）；payload 只含 `{id,user_name}`、
   MUST NOT 含密碼明文或雜湊；請求上下文缺席 MUST 拒寫 5000。
+  > ★**2026-08-30 勘誤（收刀前 final holistic；改文件不改碼）**：「payload 只含 `{id,user_name}`」的射程係
+  > **本刀新增的三值** `kick`／`reset_password`／`change_password`（brainstorm G10 原句即掛在該三值之後，
+  > spec 抄寫時脫落了限定、data-model §1.5 再複製一次）。as-built 這一側才對——`add`／`update`／`delete`／
+  > `restore`／`updateUserSessionPolicy` 五支落的是 `audit_json` 十五欄白名單（部分再加 roles），沿 role／menu
+  > 兩域既有慣例，且 `delete`／`update` 的 before/after 快照是 `sys_user_role` 硬刪後的**唯一留痕**，改成兩欄
+  > 反而毀掉稽核價值。★安全面的 MUST NOT 未被違反：`audit_json` 型別上無 `password`／`session_id` 欄，
+  > 機器釘＝`audit_json_is_a_whitelist_without_password_or_session_id`（含 `$argon2` 字面不出現的負向斷言）。
 - **FR-006**: 分頁列表（getUserList／getDeletedUsers）MUST 採共用分頁信封；現役列表穩定排序 `id ASC`、回收桶
   `deleted_at DESC, id DESC`；治理清單 MUST 帶參（不依賴後端預設頁大小）。
 - **FR-007**: 共用 handler 件（audit_operator／json_or_default／tristate／blank_to_none／db_status_to_wire／
@@ -368,6 +375,12 @@ alice 會話政策 single→alice 兩處登入、第二處頂掉第一處（7777
 - **FR-026**: 密碼政策 MUST 以單一驗證點承載並消費八鍵（單快照讀、缺鍵 fail-default）：字元數 min／max、位元組
   ≤512、四類字元要求、禁含帳號名（大小寫不敏感相等）；MUST 收集全部違規一次回；密碼三重不洩（回應／稽核／
   日誌）；addUser 初始密碼／resetUserPassword／changePassword 三入口 MUST 共用；**登入路徑 MUST NOT 驗政策**。
+  > ★**2026-08-30 勘誤（收刀前 final holistic；改文件不改碼）**：「消費**八**鍵」中的八係**違規碼**數而非
+  > 設定鍵數——`password::PASSWORD_POLICY_KEYS` 恰 **7** 個（min_length／max_length／require_digit／
+  > require_lowercase／require_uppercase／require_special／forbid_username），第八個違規碼 `maxBytes`（≤512）
+  > 是**碼內常數、不是設定鍵**（見 FR-027 的違規碼八枚清單）。★`password_change_min_interval` 亦**不在**
+  > 本清單（碼註逐字：它是端點固有規則、判定位不同，混進來會讓「政策違規」與「設得太頻繁」共用同一條
+  > 驗證路徑）。活書兩處同源失準已同批訂正為「七個設定鍵」。
 - **FR-027**: 違規明細 MUST 經攜參通道下發：`biz.user.passwordPolicy{violations:[code…]}`，違規碼逐字＝前端內部
   詞彙表八鍵尾段（minLength／maxLength／maxBytes／requireDigit／requireLowercase／requireUppercase／
   requireSpecial／forbidUsername）。

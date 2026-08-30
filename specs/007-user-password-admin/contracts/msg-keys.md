@@ -38,7 +38,10 @@
 
 `auth.session.kicked`（單一會話）文案不動。
 
-## 前端 `page.manage.user.*`（既有 21 葉鍵＋補至射程；兩語同位、zh-tw 不塞）
+## 前端 `page.manage.user.*`（既有 **19** 葉鍵＋補至射程；兩語同位、zh-tw 不塞）
+
+> ★**2026-08-30 勘誤（本刀收刀前 final holistic）**：原寫「既有 21 葉鍵」係落字之誤——同刀的 research R11
+> 與 tasks T004 之前端基線量測已機器複核為**兩語各 19**（U0 量測基準表逐字），本處未被同批掃到。
 
 新增候選：`userMemo`／`sessionPolicy`＋`sessionPolicyOption.{inherit,single,multi}`／`sessionPolicyHint`（僅超管可改）／
 `roles`／`showDeleted`／`restore`／`confirmRestore`／`restoreHint`（復原後需重新指派角色）／`restoreSuccess`／`kick`／

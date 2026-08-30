@@ -46,6 +46,9 @@
 
 - 每寫端同交易一列；`operation` 新三值 `kick／reset_password／change_password`；payload `{id,user_name}`（＋update 之欄變更
   摘要、不含密碼）；`entity_table='sys_user'`；unlock 沿既有 `login_throttle`。
+  > ★**2026-08-30 勘誤（收刀前 final holistic）**：`{id,user_name}` 的射程恰為上列**新三值**；`add`／`update`／
+  > `delete`／`restore`／`updateUserSessionPolicy` 五支落十五欄白名單 `audit_json`（部分加 roles）。同源失準
+  > 見 spec FR-005 之勘誤段（該段載完整論證與機器釘）。
 
 ### 1.6 `casbin_rule`／`sys_role`（唯讀）
 
