@@ -80,7 +80,7 @@ re-dump 落**隔離 tempdir**（★絕不落 `$HOME/backups-*`、絕不落 repo 
 對照現庫）、看完照工具印出的清理命令自清。退出碼＝0 PASS／1 FAIL／64 用法／127 docker 缺；
 docker 工具非零原樣透傳。
 
-手打四段（起容器／`pg_isready` 迴圈／restore＋dump／grep normalize＋cmp／只刪 drill 名）已由本命令
+手打四段（起容器＋`pg_isready` 迴圈／restore＋dump／grep normalize＋cmp／只刪 drill 名）已由本命令
 逐字機器化、自本節刪除——完成即刪、git 即史（原文在 2026-08-07 收單那批 commit 的本節）。
 
 ### 6.3 演練紀錄
@@ -175,11 +175,11 @@ prod＝`APP_TRUST_MODEL_PATH` 所指檔的部署變更紀錄＋啟動載入告�
 計一個 warning ⇒ `--max-warnings=0` 下 **rc=1**。該現象對**未改動**的既有檔同樣重現（＝既存現象、非某次改動所致）。
 `.ts` 面的實際檢查由 `oxlint` 承接（`package.json` 之 `lint` 已是 `oxlint` 打頭）。
 
-★★**`pnpm lint` 內含 `--fix`，會就地改寫「本來就不 lint-clean 的既有檔」**（B-144）：本刀 U6～U8 三度撞到
+★★**`pnpm lint` 內含 `--fix`，只要樹上存在非 lint-clean 的既有檔就會就地改寫**（B-144 實例、2026-08-31 已清償）：007 之 U6～U8 三度撞到
 `src/views/manage/ip-rule/index.vue` 被重排一段 HTML 註解。危害在**執行單元的空間邊界靠「工作樹只出現允許清單內的檔」
 判定**——這筆改寫會讓清單外的檔平白出現在 `git status`，很容易被誤當成自己的交付。
 處置：跑完 `pnpm lint` 後檢查 `git status`，清單外的檔一律**存原文→寫回**還原（★不用 `git checkout`，L-060），
-並在交付報告裡註明。根治面＝讓那些檔一次性回到 lint-clean（B-144 候選處置①）。
+並在交付報告裡註明。既知實例已於 2026-08-31 一次性回到 lint-clean（B-144 收單、base-web pin b827063）；候選之 pre-commit 斷言形判不可行（允許清單只住 workflow script 常數、子庫 pre-commit 零 python、攔截點錯）⇒ 現無在案根治面，本節「存原文→寫回」紀律即唯一防線（日後再現非 lint-clean 檔即復發形）。
 
 ★**編排 script 的前端驗證段照此表寫**：把「`.ts` 走 oxlint、`.vue` 走 `pnpm lint`、MUST NOT 用 eslint 判 `.ts`」
 與上述 `--fix` 還原紀律逐條烤進 agent prompt（本刀 U6／U7／U8 三支已照辦）。
@@ -394,7 +394,7 @@ EOF
   （‡walkthrough-baseline＝**2026-08-30** 維護批（B-147）新入名冊、該列為當日單獨量測（三跑中位）、
   其餘各列沿舊值；合計列照加總更新、**未**重測情境 B、故不 append `full_chain` 事件——混成時點的合計不是一次量測。）
   （§decrypt-secrets／backup-db 兩列＝**2026-08-31** 外層維護批 U4（B-030 parity 五面斷言＋B-023 `drill`）重量（三跑中位）、
-  其餘各列沿舊值；合計列照加總更新、**未**重測情境 B。上限依本節推導式重算：decrypt 列 2.395×3＝7.185→**8s** 不變（U4 時 2.371s／82 支；U4R 碼品質複審修補〔④⑤互比冗斷言刪除、補雙漂移釘死案〕後 83 支、三跑中位 2.395s）；backup-db 列 4.398×3＝13.194→**14s**（自 5s 兩段調升：U4 時 3.737×3＝11.211→12s〔drill 自測入冊後案數 17→42、中位數增為舊值 2.3 倍，舊上限僅餘 1.33 倍餘裕、已落入 drvfs 抖動可及範圍；U4R 規格審查修補〔restore／dump 的 run 注入縫＋docker run 失敗分支清理〕後 40→42 支、三跑中位 3.752→3.737s〕；U4R 碼品質審查修補〔pg_isready 重試路徑入測、docker run 撞名不刪他人資產、清理兩命令跑完、探測時 docker 不可得仍清理〕後 42→49 支、三跑中位 4.398s、推導值 13.194 越過 12s 故再依式進位 14s）。）
+  其餘各列沿舊值；合計列照加總更新、**未**重測情境 B。上限依本節推導式重算：decrypt 列 2.395×3＝7.185→**8s** 不變（U4 時 2.371s／82 支；U4R 碼品質複審修補〔④⑤互比冗斷言刪除、補雙漂移釘死案〕後 83 支、三跑中位 2.395s）；backup-db 列 4.398×3＝13.194→**14s**（自 5s 兩段調升：U4 時 3.737×3＝11.211→12s〔drill 自測入冊後案數 17→40、中位數增為舊值 2.3 倍，舊上限僅餘 1.33 倍餘裕、已落入 drvfs 抖動可及範圍；U4R 規格審查修補〔restore／dump 的 run 注入縫＋docker run 失敗分支清理〕後 40→42 支、三跑中位 3.752→3.737s〕；U4R 碼品質審查修補〔pg_isready 重試路徑入測、docker run 撞名不刪他人資產、清理兩命令跑完、探測時 docker 不可得仍清理〕後 42→49 支、三跑中位 4.398s、推導值 13.194 越過 12s 故再依式進位 14s）。）
 
   **情境 B 合計＝39.980s**（13.695＋26.285）。★門檻對照以 **2026-08-17 新制**（ADR 0044）
   為準：39.980s **未越警戒 45s**、遠未破硬擋 90s——合計面守門仍＝全鏈門檻、不另定上限。
@@ -843,5 +843,5 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&
 | 備份排程化（落點／保留策略／自動刪舊待拍板） | ops/BACKLOG **B-023**；dump／restore＝§6.1、還原演練自動化已收單＝§6.2 `drill`、機密與資料卷不入備份＝§6.5 |
 | 快取持久化模式（redis AOF） | 004 重評結論＝**維持現狀不開**（暴險受「狀態即權威」封頂：判定面不依賴快取、解鎖標記遺失可再解鎖自癒） |
 | IP 閘阻擋告警無量的上界（加了 deny 規則後 log 量由被擋方決定） | ops/BACKLOG **B-077** |
-| 三張稽核表（sys_access_log／sys_login_attempt／sys_operation_log）＋sys_casbin_policy_archive 為 append-only、現無 retention 政策與清理排程 | ops/BACKLOG **B-016** |
+| 三張稽核表（sys_access_log／sys_login_attempt／sys_operation_log）為 append-only；sys_casbin_policy_archive 有消費面（restore 即刪列、006）——四表皆無 retention 政策與清理排程 | ops/BACKLOG **B-016** |
 | 機密輪替與 prod 值 | §7、§15 |

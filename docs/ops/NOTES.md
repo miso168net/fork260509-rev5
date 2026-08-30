@@ -4,7 +4,7 @@
   `docs/generated/reference/perf.md`）與 `docs/generated/STATE.md` 尾 3 筆；逐批全文在
   `docs/ops/events.jsonl`——本檔不再鏡像（ADR 0070）。
 - **其餘在案候選**：B-008 餘兩張 view（＋audit 5 端點；豁免表到期即紅）；B-125／B-131／B-133；
-  兩筆待補：B-035 雙平台 DoD 之 macOS 側、setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀；帶 migration 的刀沿用
+  兩筆待補（皆無在案編號、留帳於 events）：雙平台 DoD 之 macOS 側（2026-08-07 B-035 收單時留）、setup-reaper 正向 ALTER ROLE 待建 reaper role 之刀；帶 migration 的刀沿用
   001 紀律（收刀前 refresh＋演進帳登記＋三閘綠，RUNBOOK §10）。★滯後卷另有數條（實數見 STATE.md 帳面統計；查全帳須併看 BACKLOG-DEFERRED.md）；
   B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
 - **★下一動作＝下一刀本體待拍板**（下一刀起手維護批已收官 merge f8da2e4）：候選 B-008 餘兩張 view＋audit 五端點

@@ -1920,10 +1920,13 @@ class TestSecretsRosterParity(unittest.TestCase):
                         msg=out)
 
     def test_compose_parser_takes_only_top_level_secret_names(self):
-        """compose 面取名：只收 `secrets:` 區塊內兩空白縮排的鍵；註解行、`file:` 子鍵、
-        下一個頂層鍵之後的內容一律不收。"""
+        """compose 面取名：只收 `secrets:` 區塊內兩空白縮排、行尾無值的鍵；註解行、`file:` 子鍵、
+        下一個頂層鍵之後的內容一律不收。★兩條形制子句各有負樣本釘死（fhr 查定前互相掩護）：
+        `driver_opts`（深縮排、無值）釘縮排寬度；`inline: overlay`（兩空白、帶行內值）釘行尾錨。"""
         text = ("services:\n  api:\n    secrets:\n      - not_top\n"
                 "secrets:\n  alpha:\n    file: ./x/alpha.txt\n"
+                "    driver_opts:\n      size: 1\n"
+                "  inline: overlay\n"
                 "  # 註解：beta 的來歷\n  beta:\n    file: ./x/beta.txt\n"
                 "volumes:\n  gamma:\n")
         self.assertEqual(compose_secret_names(text), ["alpha", "beta"])
