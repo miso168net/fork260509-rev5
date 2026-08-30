@@ -121,6 +121,31 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
   （封死：protected 端點授非 R_SUPER）／`biz.policy.notRestorable`（復原任一腿拒）→ 語意與掛點＝
   ADR 0054；封死謂詞＝`sys_casbin_policy.rs::protected_endpoint_set`；全量替換射程＝候選集（ADR 0056）。
 
+## 9b. 前端驗證指令分工（★誤用即假紅／假綠；B-128）
+
+在 `base-web/` 下跑。**四件各有其職，缺一不可互相替代**：
+
+| 面 | 指令 | 判準 |
+|---|---|---|
+| 型別 | `pnpm typecheck` | rc=0（`vue-tsc --noEmit --skipLibCheck`） |
+| `.vue` | `pnpm lint` | **0 errors**（既有 warning 見下方注意事項） |
+| `.ts` | `pnpm exec oxlint <file>` | 0 errors／0 warnings |
+| 標記與渲染 | 倉庫根跑 `python3 tools/fork-delta-lint.py`／`tools/view-render-guard.py` | 綠 |
+
+★★**`eslint` 對 `src/**/*.ts` 零覆蓋——拿它判 `.ts` 是假紅**：`pnpm exec eslint --print-config src/service/request/index.ts`
+回 `undefined`＝flat config 無匹配設定；實跑則以「File ignored because no matching configuration was supplied」
+計一個 warning ⇒ `--max-warnings=0` 下 **rc=1**。該現象對**未改動**的既有檔同樣重現（＝既存現象、非某次改動所致）。
+`.ts` 面的實際檢查由 `oxlint` 承接（`package.json` 之 `lint` 已是 `oxlint` 打頭）。
+
+★★**`pnpm lint` 內含 `--fix`，會就地改寫「本來就不 lint-clean 的既有檔」**（B-144）：本刀 U6～U8 三度撞到
+`src/views/manage/ip-rule/index.vue` 被重排一段 HTML 註解。危害在**執行單元的空間邊界靠「工作樹只出現允許清單內的檔」
+判定**——這筆改寫會讓清單外的檔平白出現在 `git status`，很容易被誤當成自己的交付。
+處置：跑完 `pnpm lint` 後檢查 `git status`，清單外的檔一律**存原文→寫回**還原（★不用 `git checkout`，L-060），
+並在交付報告裡註明。根治面＝讓那些檔一次性回到 lint-clean（B-144 候選處置①）。
+
+★**編排 script 的前端驗證段照此表寫**：把「`.ts` 走 oxlint、`.vue` 走 `pnpm lint`、MUST NOT 用 eslint 判 `.ts`」
+與上述 `--fix` 還原紀律逐條烤進 agent prompt（本刀 U6／U7／U8 三支已照辦）。
+
 ## 10. migration 操作
 
 ★**Day-1 登記紀律（隨刀常設）**：每支帶 migration 的刀**收刀前必跑**下列三步（契約＝
@@ -397,6 +422,31 @@ EOF
   處置面全數證偽（lint 的檔案系統原語佔 64%、邏輯僅 7%；fork-delta 的 select.poll 佔 99%）。
   ★**合成公式的第二處誤導已結清**：`wire-schema check --staged-gate` 真路徑僅 **0.43s**（走 `no-typings`
   短路），而合成值沿用 08-16 的 8.431s（未短路路徑）——B-130 所列「先決事實」自此不再是待辦。
+- **★2026-08-30 007-user-password-admin 之 U10 收尾：兩個量測面各一筆**（★兩值**不可混算**——
+  hook 自報牆鐘與逐支中位數是不同量測面，本節既有紀律）。
+  - **牆鐘實測（真 commit、`time.perf_counter` 直接包 `git commit` 整命令、單次）＝13.89s rc=0**
+    （U10 治理收尾 commit `b5b6912`；staged＝4 支新 ADR＋活書＋附屬文件＋BACKLOG／LESSONS／NOTES／
+    tasks＋`docs/generated`，**零 gitlink、零工具本體** ⇒ `fork-delta-lint`／`view-render-guard`／
+    `seed-view-gate`／`docs-sync test` 皆未進鏈）。對照同型的 2026-08-18 之**文件型 26.10s** ⇒
+    **B-130 的提速在真實 commit 面兌現**（−47%）。距警戒 45s 餘 3.2 倍。
+  - **逐支中位數（情境 A 基礎鏈、乾淨環境、每支 3 跑取中位）**：`secret-value-guard check` **0.138s**／
+    `docs-sync check` **1.153s**／`docs-sync lint` **13.326s** ⇒ **基礎鏈合計 14.617s**。
+    對照 2026-08-18 同法同情境的 13.695s ⇒ **+6.7%**（主項＝`lint` 12.251→13.326、+8.8%）。
+    ★**這個 +8.8% 要正著讀**：其間 repo 掃描面增加了 005／006／007 **三刀**的全部產出
+    （ADR 0053～0068、LESSONS 分檔 47→70 條、三份 spec 目錄、活書四節擴充），而基礎鏈只漲不到一成
+    ——B-130 的 I/O 稅處置正是在吸收這段成長。★**勿與 B-130 那筆的 25.34→15.92 混算**：該筆是
+    「同一支 bench、同條件三跑取最佳」，量測面與本序列不同（該筆自己也載明不可混算）。
+  - ★**誠實界線**：本刀這兩筆**都不是收刀簿記型**（那顆＝events append＋NOTES＋generate，尚未發生）
+    ⇒ **ADR 0044 引信所指的本刀資料點，須於收刀簿記那顆 commit 補記**；引信（連續兩刀 ≥60s）
+    以現有值判**未觸發**。
+  - **★同日第三筆：pin bump 型＝19.41s rc=0**（`33ee6b7`；staged `rust-api` gitlink＋憲法＋活書＋specs＋
+    generated ⇒ `fork-delta-lint`〔憲法 staged 即觸發〕／`wire-schema --staged-gate`／`view-render-guard`／
+    `seed-view-gate` 進鏈，`docs-sync test` 未進）。對照同日文件型 13.89s ⇒ 條件段淨增 **5.5s**（與 B-130 後
+    `fork-delta-lint` 3.93s＋其餘次秒級之和吻合）；距警戒餘 2.3 倍。★結清「下一刀必做」②，惟本顆 staged 者為
+    rust-api 而非 base-web gitlink、`fork-delta-lint` 係經憲法觸發。★**本節撞頂＝B-149**。
+  - ★**既有「下一刀必做」三項結算**：①`wire-schema check --staged-gate` 重測＝**已由 B-130 那筆結清**
+    （真路徑 0.43s、走 `no-typings` 短路）②pin bump 型牆鐘＝**已補**（同日第三筆 19.41s）。★收刀 `merge --no-ff` 那顆宜再測——staged **兩個** gitlink、本序列未量過
+    ③`docs-sync lint` 慢路徑處置＝B-130 已處置、本刀無新增條款。
 - **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
   （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
   test 合計 **24.593s**（自測案數合計 938）；情境 B 合計 **34.499s**。⇒ 兩日內**基礎鏈

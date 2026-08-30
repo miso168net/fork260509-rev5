@@ -1,4 +1,4 @@
-<!-- next: L-063 -->
+<!-- next: L-073 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -75,3 +75,13 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-060｜暫改真檔驗紅後，用 git checkout 還原＝連同該檔其它未 commit 改動一起丟](LESSONS/L-060-restore-temp-mutation-without-git-checkout.md) — 存原文→寫回，還原後以 git diff --name-only 證零殘留；禁令要連替代作法一起寫
 - [L-061｜base-web 的 pnpm install 會覆寫外層 .githooks-submodule，機密掃描整段消失且失效是靜默的](LESSONS/L-061-pnpm-install-overwrites-outer-githooks.md) — 跑過 pnpm install／typecheck 的單元，收尾第一件事是 bootstrap 體檢或六步 hooks 複驗
 - [L-062｜drvfs 上治理工具的耗時是 I/O 稅不是邏輯（587×、9p 並發有效 6.33×）——憑直覺列的優化清單會全數落空](LESSONS/L-062-drvfs-io-tax-dominates-hook-time.md)
+- [L-063｜開新 ★軌道用途時當場做的「新列變異自證」結構性 vacuous（尚無標記可比、回綠像有效）](LESSONS/L-063-new-track-purpose-mutation-test-is-vacuous-before-markers.md) — Amendment 只宣稱「機制已驗（拿已有標記的既有列反證）」，新列真自證排進第一個落標記的實作單元；通則＝變異前先確認被守面已有實例
+- [L-064｜AppError::Biz/BizData 的 match 臂寫成 `(..)` 會被 Lint24 判成無法靜態解析的構造點，而 cargo 全綠時看不見](LESSONS/L-064-lint24-bizdata-match-arm-must-be-two-underscores.md) — 臂一律寫 `(_, _)`；rust 單元收尾的自驗必須含 `docs-sync.py lint`，cargo 綠與 lint 綠是兩件事
+- [L-065｜對破壞性守門做變異測試會真的破壞 seed 列，而刪除式清理守衛結構上救不了](LESSONS/L-065-destructive-guard-mutation-really-destroys-seed.md) — mutate 型測試改掛快照還原式守衛（SeedUserRestoreCleanup）；判別問句＝這支測失敗時庫裡是多出東西還是變掉東西
+- [L-066｜「應該被拒」的負向樣本也要帶清理鍵前綴，否則守門被改壞那一發的殘列圈不到](LESSONS/L-066-negative-samples-need-cleanup-key-prefixes.md) — 用「帶前綴但仍違規」的構造（uniq_key 加違規尾綴）；判別問句＝這個樣本沒被拒會在庫裡留下什麼
+- [L-067｜Lint25 的「執行單元輪次」形連本代的刀號＋輪次寫法都判紅，而改寫成刀名全形會踩另一個形](LESSONS/L-067-lint25-unit-round-shape-traps-current-generation-too.md) — ops 帳本一律寫「本刀 U2」；判準是「長得像不像那幾個 regex」而非「是不是跨代引用」
+- [L-068｜agent 保險絲低於 script 的結構最壞值時會在健康的 run 上開火，且必定開在最後一支](LESSONS/L-068-agent-fuse-below-structural-worst-case-fires-on-healthy-runs.md) — 由同檔常數推導＋自我斷言（WORST = 實作支數 + cycle 數 × (2·MAX_FIX_ROUNDS+1)）、不得手挑；通則＝安全邊界要從它所守的東西推導
+- [L-069｜可見性放寬把既有名冊閘的射程打穿、全樹零紅點](LESSONS/L-069-visibility-widening-punches-through-a-roster-gate.md) — 改可見性前先 grep 函式體內有無被 token 掃描閘守著的呼叫；有就同批補一道消費者名冊閘、兩閘 doc 互相指路
+- [L-070｜shell cwd 跨呼叫持久化，在傘狀 repo 裡把路徑錯誤偽裝成「檔案不見了」](LESSONS/L-070-shell-cwd-persists-across-calls-in-an-umbrella-repo.md) — 子庫一律 `git -C`、非 git 指令用絕對路徑；路徑類錯誤先 `pwd` 自證位置再談對象
+- [L-071｜教訓晉升到下一刀的一次性文件＝半衰期只有一刀（L-055 六天後原樣復發）](LESSONS/L-071-a-lesson-promoted-into-the-next-one-shot-doc-has-a-one-blade-half-life.md) — 走查前取全表基準、後逐值比對（不變式取代清單）；清理面與閘的射程無關；寫 promoted_to 先問「這位置的讀者是不是下一個踩坑的人」
+- [L-072｜刪 BACKLOG 條目沒掃引用，當場造出指涉斷鏈](LESSONS/L-072-deleting-a-backlog-entry-without-sweeping-its-references.md) — 刪列後雙向掃現在式文件家族；判準＝「這句在說曾經，還是在說現在還沒做」（歷史記述正當、待辦式引用才是斷鏈）
