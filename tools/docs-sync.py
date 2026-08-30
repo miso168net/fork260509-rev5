@@ -5,10 +5,12 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint27（Lint04/Lint05/Lint06 收刀完整性閘：
+  lint            Lint03～Lint27（Lint03 事件帳逐列 schema：feature_close／review／misc／
+                  erratum／perf 五型；Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
-                  Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證；
+                  Lint17 pin↔worktree HEAD 互證；Lint18 events 帳本 SHA 逐列向 git 實證
+                  （merge／pins.*／perf.commit）；
                   Lint19 三件活手冊的 tools 命令形 vs 掃源真表＋舊名禁令；
                   Lint20 空集合守衛八組；Lint21 名冊腳本 index exec bit＝100755；
                   Lint22 條款範圍字串名冊 vs 掃源上界；
@@ -115,9 +117,18 @@ RE_SECTION = re.compile(r"^§\d{1,2}$")
 RE_ADR_ID = re.compile(r"^\d{4}$")
 RE_BID = re.compile(r"^B-\d{3,}$")
 
-# erratum 可更正的欄枚舉：merge 驗於外層、pins.* 依 PIN_KEYS 映射驗於各 submodule——
-# 與 Lint18 的驗證面同一份真值，故自 PIN_KEYS 導出、不落第二份字面名冊。
-ERRATUM_FIELDS = ("merge",) + tuple(f"pins.{key}" for key, _sub in PIN_KEYS)
+# erratum 可更正的欄枚舉＝**凡受 Lint18 機器 SHA 實證的欄**：merge 與 perf.commit 驗於外層、
+# pins.* 依 PIN_KEYS 映射驗於各 submodule——與 Lint18 的驗證面同一份真值，故 pins 側自
+# PIN_KEYS 導出、不落第二份字面名冊。
+# ★perf.commit 於 B-149 碼品質輪納入（ADR 0070 決定⑩）：perf 列的一般更正形＝append 一筆新
+#   列，而該形的理由（perf 沒有「被它欄引用」的連鎖）只對**不受機器驗證**的欄成立；
+#   commit 欄受 Lint18 實證，新列不會讓舊列的紅消失（逐列掃 perf_commits）
+#   ⇒ 不納入即成帳本裡唯一「ERROR 級 SHA 實證＋零出口」的欄，違 B-042 硬語意⑥「出口真的
+#   走得通」。★wall_s／kind／notes／rc／date 等非實證欄的更正形不變（append 新列）。
+#   ★對 ADR 0037 屬**值域擴充、非翻案**：調閘形與六條硬語意全數沿用，0037 寫下 {merge,
+#   pins.*} 時 perf.commit 尚不存在，而其值域判準本就是「Lint18 的驗證面同一份真值」。
+PERF_COMMIT_FIELD = "perf.commit"
+ERRATUM_FIELDS = ("merge", PERF_COMMIT_FIELD) + tuple(f"pins.{key}" for key, _sub in PIN_KEYS)
 
 EVENT_SCHEMAS = {
     "feature_close": {
@@ -141,7 +152,32 @@ EVENT_SCHEMAS = {
         "required": ["type", "date", "target_line", "field", "corrected", "reason"],
         "optional": ["notes"],
     },
+    # perf＝pre-commit 效能資料點（ADR 0070；RUNBOOK §12.1 資料點序列事件源化）：一筆一個
+    # 量測值，判讀散文整段住 notes（不設長度上限、可含換行）。commit 有給即由 Lint18 向外層
+    # git 實證；kind 值域＝PERF_KINDS。人讀 docs/generated/reference/perf.md、引信機器判
+    # ＝STATE.md 效能引信行（gen_state 只採 close_bookkeeping）。
+    "perf": {
+        "required": ["type", "date", "kind", "wall_s", "notes"],
+        "optional": ["commit", "rc"],
+    },
 }
+
+# perf 事件 kind 值集（ADR 0070 決定①）。四種 commit 實測依 staged 內容分類；synthetic／bench
+# 不是本節標準量測法的實測值、引信永不採計、不可與序列混算。
+PERF_KINDS = (
+    "close_bookkeeping",   # 收刀簿記型 commit 實測：events＋NOTES＋generated 那顆、零 gitlink 零工具本體
+    "doc_only",            # 文件型 commit 實測
+    "pin_bump",            # pin bump 型 commit 實測
+    "merge",               # merge commit 實測
+    "baseline_chain",      # 情境 A 基礎鏈逐支中位數合計
+    "full_chain",          # 情境 B 合計
+    "synthetic",           # 合成推估、非實測——★引信永不採計
+    "bench",               # 非標準量測法的對比量測（同一支 bench 前後對比、全鏈牆鐘粗判等）
+)
+# 效能引信閾值（秒）＝ADR 0044 配套段「連續兩刀 ≥60s」——取新警戒 45 與新硬擋 90 的中點。
+# 機器判住 gen_state（perf_fuse）：只採 kind == close_bookkeeping、依 date 序取最後兩筆。
+# ★改值須走 ADR（同 pre-commit 兩門檻常數之紀律）；自測釘 60 字面。
+PERF_FUSE_SEC = 60
 
 
 def _id_list_ok(v, pattern):
@@ -235,6 +271,23 @@ def _check_event(e):
         r = e["reason"]
         if not (isinstance(r, str) and r.strip() and "\n" not in r and "\r" not in r):
             errs.append("reason 須為非空單行字串（一句話、不得換行）")
+    elif etype == "perf":
+        if e["kind"] not in PERF_KINDS:
+            errs.append(f"kind 須為 {'/'.join(PERF_KINDS)} 之一：{e['kind']!r}")
+        w = e["wall_s"]
+        # bool 是 int 子類、須另擋（同 erratum target_line 之形）
+        if not (isinstance(w, (int, float)) and not isinstance(w, bool) and w > 0):
+            errs.append(f"wall_s 須為正數（秒、int 或 float）：{w!r}")
+        if "rc" in e:
+            rc = e["rc"]
+            if not (isinstance(rc, int) and not isinstance(rc, bool) and rc >= 0):
+                errs.append(f"rc 須為非負整數（被測命令退出碼）：{rc!r}")
+        if "commit" in e and not (isinstance(e["commit"], str)
+                                  and RE_SHA.fullmatch(e["commit"])):
+            errs.append(f"commit 須為 40 位 hex SHA（外層 commit、Lint18 實證）：{e['commit']!r}")
+        nt = e["notes"]
+        if not (isinstance(nt, str) and nt.strip()):
+            errs.append("notes 須為非空字串（判讀散文與量法住此；不設長度上限、可含換行）")
     return errs
 
 
@@ -914,9 +967,11 @@ def cred_diff_hits(diff_text):
 # ---------------------------------------------------------------------------
 
 GEN_HEADER = "<!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->"
-REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens")
+REFERENCE_TABLES = ("routes", "ports", "schema", "accounts", "screens", "perf")
 # stub 轉真的表：STATE 對賬行改列真來源描述（其餘表維持 gen_reference_stub）
 REFERENCE_LIVE = {
+    "perf": "真表（來源＝docs/ops/events.jsonl 的 perf 事件、由 generate 重算；"
+            "ADR 0070 效能資料點序列、引信機器判見上方效能引信行）",
     "routes": "真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）",
     "ports": "真表（來源＝compose 三檔的 ports: 段、由 generate 重算）",
     "schema": "真表（來源＝reference-src 的 schema-snapshot.json＋archetype-map.json、"
@@ -926,6 +981,8 @@ REFERENCE_LIVE = {
     "screens": "真表（來源＝base-web/src/router/elegant/routes.ts 的 generatedRoutes const、"
                "由 generate 重算；全巢狀 route flatten）",
 }
+# perf 全序列表（ADR 0070 決定②）：來源＝events.jsonl 的 perf 事件、零預算、人讀面
+PERF_MD = f"{GENERATED_DIR}/reference/perf.md"
 # ports 對照表來源（base 層設計鐵律禁 host ports、映射只住 dev/example）
 COMPOSE_FILES = ("docker-compose.yml", "docker-compose.dev.yml", "docker-compose.example.yml")
 # backend 拒因字典鏈（rev4:B-007／rev4:FR-014）常數——生成器本體見下方「backend 拒因字典鏈」節
@@ -962,7 +1019,7 @@ MILESTONE_TABLE_HEAD = ("| date | type | 標的 | summary | merge | adrs | arch 
 
 
 def gen_milestones(events):
-    """MILESTONES ← 全 events 表格化、★按大小分卷（rev5 差分，§3.2 條 11）。回 {rel: content}。
+    """MILESTONES ← 全 events（perf 型除外）表格化、★按大小分卷（rev5 差分，§3.2 條 11）。回 {rel: content}。
 
     ★rev4 按**年**分卷：33 天內 47 筆事件即達 28,883 tokens，卻因同屬 2026 年而始終單卷
     ——時間軸與體積無關，分卷條件結構上永不觸發（§2.6 列為兩個架構級缺陷之一）。
@@ -973,6 +1030,9 @@ def gen_milestones(events):
     不得以字串序劫走主卷位置。
     """
     main_rel = f"{GENERATED_DIR}/MILESTONES.md"
+    # ★perf 型濾除（ADR 0070 決定④）：perf 是量測序列、有自己的表（reference/perf.md）；
+    #   混入本表會把最近事件擠掉（回填即十餘筆），且分卷邊界不該被量測筆數推移。
+    events = [e for e in events if e.get("type") != "perf"]
 
     def _sort_key(e):
         d = str(e.get("date", ""))
@@ -980,10 +1040,12 @@ def gen_milestones(events):
 
     ordered = sorted(events, key=_sort_key)
     if not ordered:
-        return {main_rel: f"{GEN_HEADER}\n# MILESTONES — 全事件表\n\n（尚無事件）\n"}
+        return {main_rel: f"{GEN_HEADER}\n# MILESTONES — 事件表——perf 型另居 reference/perf.md"
+                          "\n\n（尚無事件）\n"}
 
     # 卷頭固定開銷（標題與表頭），逐卷都要計入體積
-    overhead = token_count(f"{GEN_HEADER}\n# MILESTONES — 全事件表（）\n\n{MILESTONE_TABLE_HEAD}\n")
+    overhead = token_count(f"{GEN_HEADER}\n# MILESTONES — 事件表（）——perf 型另居 reference/perf.md"
+                           f"\n\n{MILESTONE_TABLE_HEAD}\n")
     vols, cur, cur_tok = [], [], 0
     for e in ordered:
         row = _event_row(e)
@@ -1009,7 +1071,7 @@ def gen_milestones(events):
             rel = f"{GENERATED_DIR}/MILESTONES-{a}-{b}.md"
             label = f"{a}–{b}"
         rows = "\n".join(_event_row(e) for e in evs)
-        out[rel] = (f"{GEN_HEADER}\n# MILESTONES — 全事件表（{label}）\n\n"
+        out[rel] = (f"{GEN_HEADER}\n# MILESTONES — 事件表（{label}）——perf 型另居 reference/perf.md\n\n"
                     f"{MILESTONE_TABLE_HEAD}\n{rows}\n")
     return out
 
@@ -1040,8 +1102,56 @@ def _fmt_pin(pin):
     return f"未定（{why}）" if why else "未定"
 
 
+def _perf_wall(e):
+    """perf 事件 wall_s 的寬鬆數值化（generate 走寬鬆解析、壞值歸 Lint03）；非數值＝None。
+
+    ★bool 腿是**契約級 fail-safe、不是行為守門**（B-149 碼品質輪誠實化）：現行
+    PERF_FUSE_SEC=60 之下它對輸出**不可觀察**——`wall_s: true` 帶腿得 None→0、拔腿得
+    `float(True)`＝1.0，兩者對 `>= 60` 同為 False、產出逐字相同（實測拔腿後全套照樣全綠）。
+    仍保留的理由有二：①與 `_check_event` 的 wall_s 守衛同尺——兩把尺分歧＝同一個壞值在兩處
+    被當成不同東西，正是本檔 erratum corrected 那條註解點名的靜默缺口形；②防未來新增消費者
+    （平均／最大值／圖表）把 True 當「1.0 秒」算進帳面。契約由 TestGenState 的
+    test_perf_wall_bool_guard_is_contract_only 白箱釘住（拔腿即紅）。
+    ★勿據本腿推論「引信擋得住 bool」——擋 bool 入帳的是 Lint03。
+    """
+    w = e.get("wall_s")
+    if isinstance(w, bool) or not isinstance(w, (int, float)):
+        return None
+    return float(w)
+
+
+def perf_fuse(events):
+    """效能引信機器判（ADR 0044 配套段、ADR 0070 決定③）。回 (狀態字串, 最近兩筆 [(date, wall_s)])。
+
+    只採 type == perf 且 kind == close_bookkeeping 的事件（引信逐字錨在收刀簿記型；synthetic／
+    bench 永不採計、其餘實測型亦不採計），依 date 排序（同日依檔內序——sorted 穩定），取最後
+    兩筆：兩筆皆 wall_s ≥ PERF_FUSE_SEC＝「已觸發」，否則「未觸發」；不足兩筆＝「資料不足（N 筆）」。
+
+    ★已知態（ADR 0070 決定⑩）：`wall_s` 等非機器驗證欄的更正形＝append 一筆新列、既有列不動
+    （受 Lint18 實證的 `commit` 欄走 erratum、不佔本窗）⇒ 被取代的舊列仍留在本窗內，同一刀
+    遂佔掉兩筆窗、判準退化成〔錯值, 更正值〕而非「連續兩刀」，方向為假
+    陰性。此處**刻意不做去重**（去重只能靠選填的 commit 欄、只收得掉一半情形卻讓判準看起來
+    更可靠）：更正 close_bookkeeping 列時須人工複核 STATE 效能引信行。
+    """
+    cb = [e for e in events
+          if e.get("type") == "perf" and e.get("kind") == "close_bookkeeping"]
+
+    def _k(e):
+        d = str(e.get("date", ""))
+        return (0, d) if RE_DATE.fullmatch(d) else (1, "")
+
+    last = sorted(cb, key=_k)[-2:]
+    if len(cb) < 2:
+        status = f"資料不足（{len(cb)} 筆）"
+    elif all((_perf_wall(e) or 0) >= PERF_FUSE_SEC for e in last):
+        status = "已觸發"
+    else:
+        status = "未觸發"
+    return status, [(e.get("date"), e.get("wall_s")) for e in last]
+
+
 def gen_state(ctx):
-    """STATE ← events 尾 3 筆＋pins＋constitution 版本＋統計＋對賬結果。"""
+    """STATE ← events 尾 3 筆（perf 型除外）＋pins＋constitution 版本＋統計＋效能引信＋對賬結果。"""
     events = ctx.get("events", [])
     adr_metas = ctx.get("adr_metas", [])
     status_count = {}
@@ -1054,7 +1164,8 @@ def gen_state(ctx):
         type_count[e.get("type", "?")] = type_count.get(e.get("type", "?"), 0) + 1
     ev_stat = ("、".join(f"{k} {v}" for k, v in sorted(type_count.items()))
                if type_count else "0")
-    tail = list(reversed(events[-3:]))
+    # perf 型不入最近事件（ADR 0070 決定④）：量測序列住 reference/perf.md；型別統計仍照算
+    tail = list(reversed([e for e in events if e.get("type") != "perf"][-3:]))
     if tail:
         tail_lines = "\n".join(
             f"- {e.get('date')}｜{e.get('type')}｜"
@@ -1065,6 +1176,8 @@ def gen_state(ctx):
         tail_lines = "（尚無事件）"
     bn = ctx.get("backlog_next")
     ln = ctx.get("lessons_next")
+    fuse_status, fuse_last = perf_fuse(events)
+    fuse_recent = ("、".join(f"{d} {w}s" for d, w in fuse_last) if fuse_last else "—")
     ref_lines = "\n".join(
         f"- reference/{name}：" + REFERENCE_LIVE.get(
             name, "stub（來源未就緒；extractor 隨對應子系統首刀落地，見 ops/BACKLOG）")
@@ -1087,6 +1200,9 @@ def gen_state(ctx):
 
 ## 最近事件（尾 3 筆、新在前）
 {tail_lines}
+
+## 效能引信（ADR 0044）
+- 狀態：{fuse_status}｜最近兩筆 close_bookkeeping：{fuse_recent}｜判準＝連續兩筆 wall_s ≥ {PERF_FUSE_SEC}s（只採收刀簿記型實測；全序列→reference/perf）
 
 ## reference 對賬
 {ref_lines}
@@ -1169,6 +1285,9 @@ LINT02_SOURCES = {
     f"{GENERATED_DIR}/reference/screens.md":
         "screens 正典表與 routes.ts 重算結果不一致——"
         "base-web/src/router/elegant/routes.ts 的 generatedRoutes 改動後未跑 tools/docs-sync.py generate",
+    PERF_MD:
+        "perf 全序列表與 events 重算結果不一致——docs/ops/events.jsonl 的 perf 事件"
+        " append 後未跑 tools/docs-sync.py generate",
     MSG_DICT_MD:
         "backend 拒因字典與 locale 重算結果不一致——base-web/src/locales/langs/"
         "{zh-tw,en-us}.ts 的 backend.* 改動後未跑 tools/docs-sync.py generate",
@@ -1434,6 +1553,41 @@ def backlog_paths(root):
     """BACKLOG 全卷：主檔＋滯後卷（BACKLOG-*.md；滯後≠完成、條目仍屬開放待辦）。
     配號 next-id 只在主檔（texts[0]）；滯後卷收 user 拍板滯後之整行搬移條目。"""
     return _volume_paths(root, BACKLOG, "BACKLOG-")
+
+
+def _perf_cell(v):
+    """perf 表格內文：沿 _md_cell 的 | escape，另把換行折成 <br>（notes 可含換行、表列須單行）。"""
+    return _md_cell(v).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
+
+
+def gen_reference_perf(events):
+    """reference/perf ← events.jsonl 的 perf 事件全序列表（ADR 0070 決定②）。
+
+    依（date，檔內序）排序（sorted 穩定＝同日保檔內序；date 畸形者排最後，同 MILESTONES）；
+    commit 印短 7；缺 rc／commit 畫 —；notes 的 | escape、換行折 <br>——一筆長 notes 不得撐壞表。
+    引信機器判不在此表（住 STATE 效能引信行、perf_fuse）；本表只是人讀的全序列。
+    """
+    head = (f"{GEN_HEADER}\n# reference/perf — pre-commit 效能資料點全序列\n\n"
+            f"來源＝{EVENTS} 的 perf 事件（generate 重算；欄位與 kind 值集＝ADR 0070、量測法＝"
+            "RUNBOOK §12.1、引信判讀＝STATE.md 效能引信行）。synthetic／bench 非標準量測法實測、"
+            "不可與序列混算。\n\n")
+    perfs = [e for e in events if e.get("type") == "perf"]
+    if not perfs:
+        return head + "（尚無 perf 事件）\n"
+
+    def _k(e):
+        d = str(e.get("date", ""))
+        return (0, d) if RE_DATE.fullmatch(d) else (1, "")
+
+    rows = []
+    for e in sorted(perfs, key=_k):
+        c = e.get("commit")
+        short = c[:7] if isinstance(c, str) and c else None
+        rows.append(f"| {_perf_cell(e.get('date'))} | {_perf_cell(e.get('kind'))} "
+                    f"| {_perf_cell(e.get('wall_s'))} | {_perf_cell(e.get('rc'))} "
+                    f"| {_perf_cell(short)} | {_perf_cell(e.get('notes'))} |")
+    return (head + "| date | kind | wall_s | rc | commit | notes |\n"
+            "|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n")
 
 
 def gen_reference_stub(name):
@@ -2514,6 +2668,8 @@ def compute_generated(root, exemptions=None):
         f"{GENERATED_DIR}/DECISIONS-INDEX.md": gen_decisions_index(metas),
     }
     files.update(gen_milestones(events))
+    # perf 全序列表：來源＝同一份 events、恆存在，無 Day 1 豁免（ADR 0070）
+    files[PERF_MD] = gen_reference_perf(events)
     for name in REFERENCE_TABLES:
         if name in REFERENCE_LIVE:
             continue
@@ -3175,6 +3331,8 @@ def _erratum_view(rows, line_count):
 
     輸入＝Lint18 已解析之 (行號, 事件) 列表＋帳本總行數；回 (view, checks, findings)：
     - view＝{(target_line, field): corrected}——同 target×欄多筆時 append 序後者勝（④）；
+      欄存在性依欄名分派：merge→target 有 merge 欄；perf.commit→target 為 perf 型且有
+      commit 欄；pins.*→target 的 pins dict 有該鍵；
     - checks＝[(erratum 行號, field, corrected), …]——**每筆**通過脫靶檢查者皆入列（含被
       後筆蓋掉者），corrected 自驗（②）由呼叫端併入既有 cat-file 批次；
     - findings＝脫靶 ERROR（③：target_line 超界／指向非事件列、指定欄不存在於 target 列）
@@ -3217,8 +3375,19 @@ def _erratum_view(rows, line_count):
                                f"erratum 不得指向 erratum 列（行 {tl}）——更正的更正＝"
                                "再 append 一筆、target_line 指向原始列"))
             continue
+        # ★三欄各有各的存在性判準，不得共用一條：pins 那條的 `fld.split(".", 1)[1]` 若吃到
+        #   perf.commit 會去 target 列的 pins 裡找 "commit"（恆不存在）＝合法更正被誤報脫靶。
         if fld == "merge":
             present = "merge" in tgt
+        elif fld == PERF_COMMIT_FIELD:
+            # ★型別半條＝**契約級 defense-in-depth、非現行行為守門**（B-149 碼品質輪誠實化）：
+            #   `commit` 鍵在 EVENT_SCHEMAS 裡目前為 perf 型專屬，故一份 Lint03 綠的帳本裡
+            #   `"commit" in tgt` 已蘊含 type == "perf"——實測只拔型別半條、全套照樣全綠。
+            #   仍保留的理由＝它守的是硬語意③（脫靶必 ERROR、絕不靜默 no-op）：日後若有第二
+            #   個型別也帶 commit 欄，少了本半條，指向該列的 perf.commit erratum 會被判在靶、
+            #   進了 view 卻永不被 perf 逐列掃消費＝靜默零效。契約由
+            #   test_perf_commit_erratum_offtarget_on_non_perf_row 白箱釘住（拔腿即紅）。
+            present = tgt.get("type") == "perf" and "commit" in tgt
         else:
             pins = tgt.get("pins")
             present = isinstance(pins, dict) and fld.split(".", 1)[1] in pins
@@ -3233,7 +3402,7 @@ def _erratum_view(rows, line_count):
 
 
 def _erratum_remedy(n, field):
-    """三處 ERROR 訊息共用的「已進 git 史」補救支（B-042 硬語意⑥）：附具體可執行的
+    """五處 ERROR 訊息共用的「已進 git 史」補救支（B-042 硬語意⑥）：附具體可執行的
     erratum 形——欄名逐字、target_line 帶該列行號，照抄 append 即可讓紅消（出口真的走得通）。"""
     return ("已進 git 史→依 ADR 0012 決定 5（events.jsonl 既有列絕不編輯）append 新事件"
             "更正、不得回改舊列——具體形＝append "
@@ -3245,7 +3414,7 @@ def _erratum_remedy(n, field):
 def _erratum_corrected_remedy():
     """四處「erratum corrected 自驗失敗」ERROR 共用的補救支（B-042 碼品質輪補齊）。
 
-    與史值三處（`_erratum_remedy`）同構分兩支，差別在第二支說的是實話：**已入史的
+    與史值五處（`_erratum_remedy`）同構分兩支，差別在第二支說的是實話：**已入史的
     erratum 列在現行設計下無可執行出口**——回改本列違 ADR 0012 決定 5；append erratum
     指向本列被硬語意⑤（不得指向 erratum 列）擋；指向原始列只把 target 列救回（硬語意④
     後者勝），本列自身的自驗紅仍在（checks 收錄每一筆 erratum、含被蓋掉者）。
@@ -3262,19 +3431,29 @@ def _erratum_corrected_remedy():
             "勿自行回改已入史列")
 
 
+def _outer_truth(field):
+    """外層兩欄的「正確值怎麼取」提示——merge 與 perf.commit 取法不同、訊息不得共用一句
+    （共用即把 perf 列的操作者指去 `git log --merges`，量測對象那顆根本不在該清單裡）。"""
+    if field == PERF_COMMIT_FIELD:
+        return "被量測那顆 commit 的 40 位 SHA（`git rev-parse <短 SHA>`）"
+    return "該刀 merge 回 default 的 commit SHA（`git log --merges --format=%H -1`）"
+
+
 def lint_events_sha(root, cache=None):
     """Lint18：events 帳本逐列 SHA 向 git 實證（rev4:contracts G3／data-model §4 判定表）。
 
     merge 驗於外層（不可解／非 commit＝ERROR）；pins 依 PIN_KEYS 映射驗於各 submodule
     worktree（不可解＝WARN——upstream rebase 卷史後合法失聯；可解而非 commit＝ERROR；
     worktree 缺席＝該庫整批跳過）。含 pins 之列另做鍵集斷言（防查空集合恆綠）。
+    perf 型的 commit 欄（ADR 0070、選填）驗於外層、形同 merge 腿（不可解／非 commit＝ERROR），
+    **同受 erratum 更正視圖覆蓋**（B-149 碼品質輪訂正；理由見 ERRATUM_FIELDS 註）。
 
     ★erratum 更正視圖（B-042 調閘形、六條硬語意）：①逐列實證前先掃全帳 erratum 列建視圖，
     target 列的指定欄以 corrected 取代後才驗——已入史壞列因此有可執行出口；②每筆 erratum
     的 corrected 自身也向對應 repo 實證（merge→外層、pins.*→各 submodule），不可解／非
     commit＝該 erratum 列 ERROR——沒有任何東西被「豁免」；③脫靶（超界／非事件列／欄不
     存在）＝ERROR、絕不靜默 no-op；④同 target×欄多筆＝append 序後者勝、但每筆各自過②；
-    ⑤erratum 指向 erratum 列＝ERROR；⑥三處 ERROR 訊息的「已進史」補救支附具體 erratum 形。
+    ⑤erratum 指向 erratum 列＝ERROR；⑥五處 ERROR 訊息的「已進史」補救支附具體 erratum 形。
     corrected 自驗與視圖覆蓋後的逐列實證共用同一批 cat-file 併發管線（G3 200ms 契約）。
     """
     out, rows = [], []
@@ -3296,6 +3475,15 @@ def lint_events_sha(root, cache=None):
         m = view.get((n, "merge"), e.get("merge"))
         if isinstance(m, str):
             merges.append((n, m))
+    # perf.commit（ADR 0070）：量的是外層 commit，故與 merge 同批向外層實證；欄選填、缺即不驗。
+    # ★與 merge 同樣先過更正視圖：已入史的壞值靠 erratum 更正（理由見 ERRATUM_FIELDS 註）。
+    perf_commits = []
+    for n, e in rows:
+        if e.get("type") != "perf":
+            continue
+        c = view.get((n, PERF_COMMIT_FIELD), e.get("commit"))
+        if isinstance(c, str):
+            perf_commits.append((n, c))
 
     keys = {key for key, _sub in PIN_KEYS}
     per_key = {key: [] for key in keys}
@@ -3317,7 +3505,9 @@ def lint_events_sha(root, cache=None):
                 per_key[key].append((n, v))
 
     # erratum corrected 自驗（②）依 field 分派到對應 repo 的批次
-    err_merge = [(n, c) for n, f_, c in err_checks if f_ == "merge"]
+    # 外層批＝merge 與 perf.commit 兩欄（同一個 repo、同一發 cat-file）
+    err_outer = [(n, f_, c) for n, f_, c in err_checks
+                 if f_ in ("merge", PERF_COMMIT_FIELD)]
     err_pins = {key: [(n, c) for n, f_, c in err_checks if f_ == f"pins.{key}"]
                 for key in keys}
 
@@ -3330,7 +3520,8 @@ def lint_events_sha(root, cache=None):
     pending = [(key, sub) for key, sub in PIN_KEYS if per_key[key] or err_pins[key]]
     results = run_git_concurrently(
         [functools.partial(git_object_types,
-                           [s for _n, s in merges] + [c for _n, c in err_merge], root)]
+                           [s for _n, s in merges] + [c for _n, _f, c in err_outer]
+                           + [c for _n, c in perf_commits], root)]
         + [functools.partial(git_object_types,
                              [s for _n, s in per_key[key]] + [c for _n, c in err_pins[key]],
                              os.path.join(root, sub)) for key, sub in pending]
@@ -3357,22 +3548,36 @@ def lint_events_sha(root, cache=None):
                                " SHA（`git log --merges --format=%H -1`）——補救分兩支（同"
                                "「不可解」）：該列尚未進 git 史（工作樹／staged）→以真實"
                                " merge commit SHA 覆寫該列；" + _erratum_remedy(n, "merge")))
+    for n, sha in perf_commits:
+        t = mtypes.get(sha)
+        if t is None:
+            out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
+                               f"perf commit {sha[:12]} 在外層不可解析——perf 事件的 commit 須對得上"
+                               "外層 git 物件（抄錯／造假即紅）；正確值＝被量測那顆 commit 的"
+                               " 40 位 SHA（`git rev-parse <短 SHA>`）——補救分兩支：該列尚未進"
+                               " git 史（工作樹／staged）→以真實 commit SHA 覆寫該列；"
+                               + _erratum_remedy(n, PERF_COMMIT_FIELD)))
+        elif t != "commit":
+            out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
+                               f"perf commit {sha[:12]} 解得物件型別 {t}、非 commit——多半是抄到"
+                               " tree／blob 的 SHA；正確值＝被量測那顆 commit 的 40 位 SHA"
+                               "（`git rev-parse <短 SHA>`）——補救分兩支（同「不可解」）：該列"
+                               "尚未進 git 史（工作樹／staged）→以真實 commit SHA 覆寫該列；"
+                               + _erratum_remedy(n, PERF_COMMIT_FIELD)))
     out.extend(keyset)
     out.extend(err_findings)
 
-    for n, c in err_merge:
+    for n, fld, c in err_outer:
         t = mtypes.get(c)
         if t is None:
             out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
                                f"erratum corrected {c[:12]} 在外層不可解析——更正本身也被驗、"
-                               "不可解＝零豁免；正確值＝該刀 merge 回 default 的 commit"
-                               " SHA（`git log --merges --format=%H -1`）"
+                               f"不可解＝零豁免；正確值＝{_outer_truth(fld)}"
                                + _erratum_corrected_remedy()))
         elif t != "commit":
             out.append(finding(ERROR, "Lint18", f"{EVENTS}:行 {n}",
                                f"erratum corrected {c[:12]} 在外層解得物件型別 {t}、非"
-                               " commit——更正本身也被驗；正確值＝該刀 merge 回 default 的"
-                               " commit SHA（`git log --merges --format=%H -1`）"
+                               f" commit——更正本身也被驗；正確值＝{_outer_truth(fld)}"
                                + _erratum_corrected_remedy()))
 
     for key, sub in PIN_KEYS:
@@ -4882,6 +5087,12 @@ VALID_ERRATUM = {
     "type": "erratum", "date": "2026-08-11", "target_line": 1, "field": "merge",
     "corrected": "a1b2c3d4" * 5, "reason": "簿記誤植假 SHA、依 ADR 0012 決定 5 更正",
 }
+# perf 型（ADR 0070）：commit 為合成 40-hex、只驗格式；向外層 git 實證屬 Lint18。
+VALID_PERF = {
+    "type": "perf", "date": "2026-08-30", "kind": "close_bookkeeping", "wall_s": 9.97,
+    "rc": 0, "commit": "0123abcd" * 5,
+    "notes": "收刀簿記型（events＋NOTES＋generated、零 gitlink 零工具本體）；\n量法＝perf_counter 包 git commit 整命令、單次。",
+}
 
 
 def _jl(*objs):
@@ -5563,6 +5774,31 @@ class TestGenMilestones(unittest.TestCase):
     def test_empty_events_single_main_volume(self):
         self.assertEqual(list(gen_milestones([])), ["docs/generated/MILESTONES.md"])
 
+    # -- perf 型濾除（ADR 0070 決定④）------------------------------------------------
+    def test_perf_events_are_filtered_out(self):
+        """perf 是量測序列、有自己的表（reference/perf.md）；混入會把最近事件擠掉。
+        濾除後產出須與「根本沒有 perf」逐字相同（卷數／排序皆不受影響）。"""
+        with_perf = gen_milestones([VALID_MISC, VALID_PERF, VALID_CLOSE,
+                                    dict(VALID_PERF, date="2026-01-01")])
+        without = gen_milestones([VALID_MISC, VALID_CLOSE])
+        self.assertEqual(with_perf, without)
+        text = with_perf["docs/generated/MILESTONES.md"]
+        self.assertNotIn("| perf |", text)
+        self.assertNotIn("close_bookkeeping", text)
+
+    def test_only_perf_events_is_treated_as_no_events(self):
+        files = gen_milestones([VALID_PERF, VALID_PERF])
+        self.assertEqual(list(files), ["docs/generated/MILESTONES.md"])
+        self.assertIn("（尚無事件）", files["docs/generated/MILESTONES.md"])
+
+    def test_perf_filter_does_not_move_sealed_volume_boundary(self):
+        """分卷邊界只看非 perf 事件：塞進大量 perf 不得讓已封存卷推移。"""
+        base = self._bulk(120)
+        before = gen_milestones(base)
+        perfs = [dict(VALID_PERF, date="2026-03-01") for _ in range(50)]
+        after = gen_milestones(base[:60] + perfs + base[60:])
+        self.assertEqual(before, after)
+
 
 class TestGenDecisionsIndex(unittest.TestCase):
     def test_empty(self):
@@ -5603,6 +5839,160 @@ class TestGenState(unittest.TestCase):
 
     def test_within_budget(self):
         self.assertLessEqual(token_count(gen_state(self.CTX)), 4000)
+
+    # -- perf 型：尾 3 筆濾除＋效能引信機器判（ADR 0070 決定③④）-----------------------
+    @staticmethod
+    def _perf(wall_s, date="2026-08-30", kind="close_bookkeeping"):
+        return dict(VALID_PERF, wall_s=wall_s, date=date, kind=kind)
+
+    def _state(self, perfs):
+        ctx = dict(self.CTX, events=[VALID_MISC, VALID_MISC, VALID_CLOSE] + perfs)
+        return gen_state(ctx)
+
+    @staticmethod
+    def _fuse_block(text):
+        """取「效能引信」小節全文（下一個 ## 之前）。"""
+        m = re.search(r"^## 效能引信[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+        return m.group(1) if m else ""
+
+    @staticmethod
+    def _recent_block(text):
+        m = re.search(r"^## 最近事件[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+        return m.group(1) if m else ""
+
+    def test_tail_three_excludes_perf_but_stats_count_it(self):
+        text = self._state([self._perf(9.97), self._perf(10.5), self._perf(11.2)])
+        recent = self._recent_block(text)
+        self.assertIn("901-fake-system-settings", recent)
+        self.assertEqual(recent.count("bootstrap 完成"), 2)
+        self.assertNotIn("perf", recent)
+        self.assertIn("perf 3", text)            # 型別統計照算
+
+    def test_fuse_insufficient_data(self):
+        self.assertIn("資料不足（0 筆）", self._fuse_block(self._state([])))
+        self.assertIn("資料不足（1 筆）", self._fuse_block(self._state([self._perf(99)])))
+
+    def test_fuse_not_triggered_unless_both_of_last_two_reach_threshold(self):
+        """★邊界逐字釘死（不取自 PERF_FUSE_SEC）：60 觸發、59.99 不觸發。"""
+        self.assertIn("未觸發", self._fuse_block(self._state([self._perf(59.99), self._perf(60)])))
+        self.assertIn("未觸發", self._fuse_block(self._state([self._perf(60), self._perf(59.99)])))
+        self.assertIn("已觸發", self._fuse_block(self._state([self._perf(60), self._perf(60)])))
+
+    def test_fuse_uses_only_last_two(self):
+        # 前兩筆皆 ≥60、末筆 <60 ⇒ 未觸發；前一筆 <60、末兩筆 ≥60 ⇒ 已觸發
+        self.assertIn("未觸發", self._fuse_block(self._state(
+            [self._perf(70, "2026-08-01"), self._perf(80, "2026-08-02"), self._perf(9, "2026-08-03")])))
+        self.assertIn("已觸發", self._fuse_block(self._state(
+            [self._perf(9, "2026-08-01"), self._perf(70, "2026-08-02"), self._perf(80, "2026-08-03")])))
+
+    def test_fuse_ignores_synthetic_bench_and_other_kinds(self):
+        """synthetic／bench 永不採計；pin_bump／doc_only／merge／chain 亦不採計（引信錨在收刀簿記型）。"""
+        others = [self._perf(99, kind=k) for k in
+                  ("synthetic", "bench", "pin_bump", "doc_only", "merge", "baseline_chain", "full_chain")]
+        self.assertIn("資料不足（0 筆）", self._fuse_block(self._state(others)))
+        block = self._fuse_block(self._state(others + [self._perf(9.97), self._perf(16.68)]))
+        self.assertIn("未觸發", block)
+        self.assertNotIn("99", block)
+
+    def test_fuse_orders_by_date_then_file_order(self):
+        # 檔內序：08-30(10) 先於兩筆 08-25(70、80)——依 date 排序後最後兩筆＝80、10 ⇒ 未觸發
+        self.assertIn("未觸發", self._fuse_block(self._state(
+            [self._perf(10, "2026-08-30"), self._perf(70, "2026-08-25"), self._perf(80, "2026-08-25")])))
+        # 同日依檔內序：08-25(10) 08-25(70) 08-25(80) ⇒ 已觸發
+        self.assertIn("已觸發", self._fuse_block(self._state(
+            [self._perf(10, "2026-08-25"), self._perf(70, "2026-08-25"), self._perf(80, "2026-08-25")])))
+
+    def test_fuse_line_lists_last_two_values_and_dates(self):
+        text = self._state([self._perf(16.68, "2026-08-25"), self._perf(9.97, "2026-08-30")])
+        block = self._fuse_block(text)
+        for needle in ("2026-08-25", "16.68", "2026-08-30", "9.97"):
+            self.assertIn(needle, block)
+        self.assertIn("## 效能引信（ADR 0044）", text)      # 小節標題帶引信出處
+
+    def test_fuse_threshold_constant_pinned(self):
+        """閾值＝ADR 0044 新警戒 45 與新硬擋 90 的中點；改值須走 ADR、本釘子同步改。"""
+        self.assertEqual(PERF_FUSE_SEC, 60)
+
+    def test_perf_wall_bool_guard_is_contract_only(self):
+        """`_perf_wall` 的 bool 腿＝契約級 fail-safe，白箱直呼釘住（B-149 碼品質輪）。
+
+        ★本案刻意走白箱、且誠實標註射程：該腿對現行輸出不可觀察（PERF_FUSE_SEC=60 下
+        None→0 與 float(True)＝1.0 對 `>= 60` 同為 False），黑箱（STATE 產出）零分辨力
+        ——實測拔腿後全套照樣全綠（本釘子加入前＝569 案零紅）。釘的是**函式契約**
+        （非數值＝None），理由見 `_perf_wall`
+        docstring。★勿把本案讀成「引信擋得住 bool」：擋 bool 入帳的是 Lint03
+        （TestLintEvents.test_perf_wall_s_positive_number_not_bool）。
+        """
+        for bad in (True, False, "9.97", None, [9.97]):
+            self.assertIsNone(_perf_wall({"wall_s": bad}), msg=repr(bad))
+        self.assertIsNone(_perf_wall({}))                      # 缺欄
+        self.assertEqual(_perf_wall({"wall_s": 9}), 9.0)       # int 收、轉 float
+        self.assertEqual(_perf_wall({"wall_s": 9.97}), 9.97)
+
+    def test_within_budget_with_perf_backfill(self):
+        perfs = [self._perf(10 + i, f"2026-08-{1 + i:02d}", kind=PERF_KINDS[i % len(PERF_KINDS)])
+                 for i in range(25)]
+        self.assertLessEqual(token_count(self._state(perfs)), 4000)
+
+
+class TestGenReferencePerf(unittest.TestCase):
+    """reference/perf 全序列表（ADR 0070 決定②）：來源＝events.jsonl 的 perf 事件。"""
+
+    def test_empty(self):
+        text = gen_reference_perf([])
+        self.assertTrue(text.startswith(GEN_HEADER))
+        self.assertIn("# reference/perf", text)
+        self.assertIn("（尚無 perf 事件）", text)
+
+    def test_non_perf_events_ignored(self):
+        self.assertIn("（尚無 perf 事件）", gen_reference_perf([VALID_MISC, VALID_CLOSE]))
+
+    def test_rows_sorted_by_date_then_file_order(self):
+        a = dict(VALID_PERF, date="2026-08-30", notes="甲")
+        b = dict(VALID_PERF, date="2026-08-25", notes="乙", kind="doc_only")
+        c = dict(VALID_PERF, date="2026-08-25", notes="丙", kind="pin_bump")
+        text = gen_reference_perf([a, VALID_MISC, b, c])
+        self.assertLess(text.index("乙"), text.index("丙"))
+        self.assertLess(text.index("丙"), text.index("甲"))
+        self.assertNotIn("bootstrap 完成", text)
+        rows = [ln for ln in text.splitlines() if ln.startswith("| 2026-")]
+        self.assertEqual(len(rows), 3)
+
+    def test_columns_and_cell_escaping(self):
+        """表欄 date｜kind｜wall_s｜rc｜commit（短 7）｜notes；notes 的 | 須 escape、換行折 <br>
+        ——一筆長 notes 不得把 markdown 表撐壞；缺 rc／commit 畫 —。"""
+        e = dict(VALID_PERF, notes="a|b\n第二行", commit="0123abcd" * 5, rc=0)
+        text = gen_reference_perf([e])
+        self.assertIn("| date | kind | wall_s | rc | commit | notes |", text)
+        row = [ln for ln in text.splitlines() if ln.startswith("| 2026-08-30")][0]
+        self.assertIn("a\\|b<br>第二行", row)
+        self.assertIn("| 0123abc |", row)
+        self.assertNotIn("0123abcd0123abcd", row)
+        self.assertEqual(row.count("\n"), 0)
+        # CR 正規化兩腿（CRLF／裸 CR 皆折 <br>）：主線於 U1 確認輪補釘——拔掉任一腿本案即紅
+        crlf = dict(VALID_PERF, notes="甲\r\n乙\r丙")
+        row3 = [ln for ln in gen_reference_perf([crlf]).splitlines()
+                if ln.startswith("| 2026-08-30")][0]
+        self.assertIn("甲<br>乙<br>丙", row3)
+        bare = dict(VALID_PERF, kind="synthetic"); bare.pop("commit"); bare.pop("rc")
+        row2 = [ln for ln in gen_reference_perf([bare]).splitlines() if ln.startswith("| 2026-08-30")][0]
+        self.assertIn("| — | — |", row2)
+        self.assertIn("| synthetic |", row2)
+
+    def test_perf_registered_as_live_reference_table(self):
+        """三處接線（既知地雷②）：REFERENCE_TABLES／REFERENCE_LIVE／LINT02_SOURCES；STATE 對賬行不印 stub。"""
+        self.assertIn("perf", REFERENCE_TABLES)
+        self.assertIn("perf", REFERENCE_LIVE)
+        self.assertIn("events.jsonl", REFERENCE_LIVE["perf"])
+        self.assertIn(PERF_MD, LINT02_SOURCES)
+        line = [ln for ln in gen_state(TestGenState.CTX).splitlines()
+                if ln.startswith("- reference/perf：")]
+        self.assertEqual(len(line), 1, msg=str(line))
+        self.assertNotIn("stub", line[0])
+
+    def test_compute_generated_wires_perf(self):
+        """★接線層：真表若沒進 compute_generated，check 就對不到賬、perf.md 靜默不產。"""
+        self.assertIn(PERF_MD, compute_generated(ROOT))
 
 
 class TestBackfill(unittest.TestCase):
@@ -6639,7 +7029,7 @@ class TestLintEvents(unittest.TestCase):
             f = lint_events(_jl(e))
             self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
             self.assertIn("field", f[0]["msg"])
-        for ok in ("merge", "pins.web", "pins.api"):
+        for ok in ("merge", "perf.commit", "pins.web", "pins.api"):
             e = dict(VALID_ERRATUM); e["field"] = ok
             self.assertEqual(lint_events(_jl(e)), [], msg=ok)
 
@@ -6693,6 +7083,73 @@ class TestLintEvents(unittest.TestCase):
         self.assertIn("erratum 1", text)
         files = gen_milestones([VALID_MISC, VALID_ERRATUM])
         self.assertIn("erratum", files["docs/generated/MILESTONES.md"])
+
+    # -- perf 型格式面（ADR 0070；commit 向 git 實證歸 Lint18） ------------------------
+    def test_perf_valid_passes(self):
+        """正向：全欄合法（含多行 notes——notes 不受 summary 的禁換行紀律）零錯。"""
+        self.assertEqual(lint_events(_jl(VALID_PERF)), [])
+
+    def test_perf_optional_fields_may_be_absent(self):
+        """commit／rc 皆選填：合成推估（synthetic）與逐支中位數（baseline_chain）無 commit 可掛。"""
+        e = dict(VALID_PERF, kind="synthetic"); e.pop("commit"); e.pop("rc")
+        self.assertEqual(lint_events(_jl(e)), [])
+
+    def test_perf_missing_required_field_rejected(self):
+        for k in ("date", "kind", "wall_s", "notes"):
+            e = dict(VALID_PERF); e.pop(k)
+            f = lint_events(_jl(e))
+            self.assertEqual(len(f), 1, msg=f"{k}｜{f}")
+            self.assertIn(k, f[0]["msg"])
+
+    def test_perf_unknown_field_rejected(self):
+        e = dict(VALID_PERF, summary="不該有")
+        f = lint_events(_jl(e))
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertIn("summary", f[0]["msg"])
+
+    def test_perf_kind_enum(self):
+        """kind 值域＝PERF_KINDS（八值逐一放行）；值域外／大小寫不同／非字串一律紅。"""
+        for ok in ("close_bookkeeping", "doc_only", "pin_bump", "merge",
+                   "baseline_chain", "full_chain", "synthetic", "bench"):
+            self.assertEqual(lint_events(_jl(dict(VALID_PERF, kind=ok))), [], msg=ok)
+        for bad in ("closing", "Close_Bookkeeping", "", 3, None):
+            f = lint_events(_jl(dict(VALID_PERF, kind=bad)))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("kind", f[0]["msg"])
+
+    def test_perf_wall_s_positive_number_not_bool(self):
+        for ok in (9.97, 41, 0.127):
+            self.assertEqual(lint_events(_jl(dict(VALID_PERF, wall_s=ok))), [], msg=repr(ok))
+        for bad in (0, -1.5, True, "9.97", None):
+            f = lint_events(_jl(dict(VALID_PERF, wall_s=bad)))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("wall_s", f[0]["msg"])
+
+    def test_perf_rc_nonneg_int_not_bool(self):
+        for ok in (0, 1, 2):
+            self.assertEqual(lint_events(_jl(dict(VALID_PERF, rc=ok))), [], msg=repr(ok))
+        for bad in (-1, 1.0, True, "0"):
+            f = lint_events(_jl(dict(VALID_PERF, rc=bad)))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("rc", f[0]["msg"])
+
+    def test_perf_commit_must_be_40_hex(self):
+        for bad in ("941ed04", "0" * 41, "G" * 40, 12345, ""):
+            f = lint_events(_jl(dict(VALID_PERF, commit=bad)))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("commit", f[0]["msg"])
+
+    def test_perf_notes_nonempty_string(self):
+        for bad in ("", "   ", 3, None):
+            f = lint_events(_jl(dict(VALID_PERF, notes=bad)))
+            self.assertEqual(len(f), 1, msg=f"{bad!r}｜{f}")
+            self.assertIn("notes", f[0]["msg"])
+
+    def test_perf_is_not_in_backlog_done_channel(self):
+        """perf 不是消化 BACKLOG 的通道——即使夾帶 backlog_done 亦屬未知欄位、且不入完成集。"""
+        f = lint_events(_jl(dict(VALID_PERF, backlog_done=["B-903"])))
+        self.assertEqual(len(f), 1, msg=str(f))
+        self.assertEqual(_backlog_done_ids([VALID_PERF, VALID_CLOSE]), {"B-903"})
 
 
 class TestLintCloseExistence(unittest.TestCase):
@@ -8392,8 +8849,8 @@ class TestEventsShaProof(unittest.TestCase):
 
         本案機器驗證去處第一支（該列尚未進 git 史→以真實 SHA 覆寫該列）：紅→照做→綠。
         ★第二支（已進 git 史→append 更正事件）的可執行性由 TestErratumCorrectionView
-        承接（B-042 調閘形：erratum 更正視圖、三處訊息之出口逐處紅→照做→綠）；
-        兩支去處文案於三筆訊息一致。
+        承接（B-042 調閘形：erratum 更正視圖、五處訊息之出口逐處紅→照做→綠）；
+        兩支去處文案於五筆訊息一致。
         """
         with tempfile.TemporaryDirectory() as d:
             outer, pins = self._fixture(d)
@@ -8680,6 +9137,66 @@ class TestEventsShaProof(unittest.TestCase):
                 hits = [c for c in probes if c == os.path.join(d, sub)]
                 self.assertEqual(len(hits), 1, msg=f"{sub}｜{probes}")
 
+    # -- perf.commit 向外層實證（ADR 0070 決定①；形同 merge 那條腿） -------------------
+    def test_perf_commit_resolvable_is_green(self):
+        """★perf 列的 commit 必須是**另一顆**外層 commit、不得與 merge 那列共用同一顆：
+        共用時該 SHA 早由 merge 那條腿送進外層 cat-file 批次，於是「perf 腿整段沒接上」
+        本案照樣綠——正向路徑零鑑別力（實測突變：拔掉批次裡的 perf 腿，本類別 27 案僅
+        1 案轉紅，接線全靠反例案的訊息斷言單腿撐著）。故此處另起一顆空 commit 專供 perf 列。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            _git(d, "commit", "-q", "--allow-empty", "-m", "perf 量測對象")
+            measured = _git(d, "rev-parse", "HEAD").strip()
+            self.assertNotEqual(measured, outer)
+            rows = [dict(VALID_CLOSE, merge=outer, pins=pins),
+                    dict(VALID_PERF, commit=measured)]
+            _wfile(d, EVENTS, _jl(*rows))
+            self.assertEqual(lint_events_sha(d), [])
+
+    def test_perf_without_commit_is_not_verified(self):
+        """commit 選填：synthetic／baseline_chain 無 commit 可掛，缺欄＝不驗、零 finding。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            e = dict(VALID_PERF, kind="synthetic"); e.pop("commit")
+            _wfile(d, EVENTS, _jl(dict(VALID_CLOSE, merge=outer, pins=pins), e))
+            self.assertEqual(lint_events_sha(d), [])
+
+    def test_perf_commit_unresolvable_is_error_at_the_right_line(self):
+        """假 SHA＝ERROR（抄錯／造假），且須指到壞值那列（fixture 兩列、壞值落第 2 列）。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            rows = [dict(VALID_CLOSE, merge=outer, pins=pins),
+                    dict(VALID_PERF, commit="0" * 39 + "1")]
+            _wfile(d, EVENTS, _jl(*rows))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+            self.assertIn("perf", f[0]["msg"])
+            self.assertIn("commit", f[0]["msg"])
+
+    def test_perf_commit_resolvable_but_not_commit_is_error(self):
+        """可解但非 commit（blob）＝ERROR，訊息指名物件型別。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            blob = _git(d, "rev-parse", "HEAD:README.md").strip()
+            _wfile(d, EVENTS, _jl(dict(VALID_CLOSE, merge=outer, pins=pins),
+                                  dict(VALID_PERF, commit=blob)))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("blob", f[0]["msg"])
+            self.assertIn("perf", f[0]["msg"])
+
+    def test_perf_commit_verified_against_outer_not_submodule(self):
+        """★實證面＝外層 repo：子庫 HEAD 的 SHA 在外層不可解、必紅——perf 量的是外層 commit。"""
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            _wfile(d, EVENTS, _jl(dict(VALID_CLOSE, merge=outer, pins=pins),
+                                  dict(VALID_PERF, commit=pins["web"])))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+
 
 class TestErratumCorrectionView(unittest.TestCase):
     """B-042 調閘形：Lint18 erratum 更正視圖（六條硬語意）——已入史壞列的可執行出口。
@@ -8718,8 +9235,9 @@ class TestErratumCorrectionView(unittest.TestCase):
     def test_erratum_with_real_commit_clears_the_error(self):
         """八臂②：＋erratum（corrected＝fixture 真 commit）→零 findings——紅訊息附的
         出口真的走得通（B-042 開帳訴求本體）。兩子案＝merge 面兩筆 ERROR 逐處實證：
-        前段「不可解」（偽造 SHA）、後段「可解非 commit」（blob）；pins 面＝八臂⑤——
-        硬語意⑥的三處去處第二支至此各有自己的紅→照做→綠釘子。"""
+        前段「不可解」（偽造 SHA）、後段「可解非 commit」（blob）；pins 面＝八臂⑤、
+        perf.commit 面＝test_perf_commit_erratum_clears_the_error——硬語意⑥的五處去處第二支
+        至此各有自己的紅→照做→綠釘子。"""
         with tempfile.TemporaryDirectory() as d:
             outer, pins = self._fixture(d)
             bad = dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins)
@@ -8818,6 +9336,106 @@ class TestErratumCorrectionView(unittest.TestCase):
             self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
             self.assertIn("不存在指定欄 merge", f[0]["msg"])
 
+    def test_perf_commit_erratum_clears_the_error(self):
+        """★B-149 碼品質輪補：perf.commit 的已入史壞值同樣要有走得通的出口。
+
+        修前此欄是帳本裡唯一「ERROR 級 SHA 實證＋零出口」的欄：ERROR 訊息教的「append
+        一筆新 perf 事件、notes 註明取代哪一列」對它無效（`lint_events_sha` 逐列掃
+        perf_commits、舊列的紅原地不動），而 erratum 又不收此欄（枚舉外＝Lint03 紅；
+        改填 merge 則被「target 列不存在指定欄」擋）⇒ 壞值一旦以 `--no-verify` 落地、
+        或外層改史讓原本合法的 SHA 失聯，lint 自此恆紅、pre-commit 恆擋、無合規操作可解。
+        兩子案＝perf 腿兩筆 ERROR 逐處實證：不可解（偽造 SHA）／可解非 commit（blob）。
+        """
+        for face in ("不可解", "非 commit"):
+            with tempfile.TemporaryDirectory() as d:
+                outer, pins = self._fixture(d)
+                _git(d, "commit", "-q", "--allow-empty", "-m", "被量測那顆")
+                measured = _git(d, "rev-parse", "HEAD").strip()
+                bad_sha = ("0" * 39 + "1" if face == "不可解"
+                           else _git(d, "rev-parse", "HEAD:README.md").strip())
+                good = dict(VALID_CLOSE, merge=outer, pins=pins)
+                bad = dict(VALID_PERF, commit=bad_sha)
+                self._rows(d, good, bad)
+                self.assertEqual([x["level"] for x in lint_events_sha(d)], [ERROR],
+                                 msg=f"前提：{face} 須先紅，否則本案無判別力")
+                self._rows(d, good, bad, self._erratum(2, PERF_COMMIT_FIELD, measured))
+                self.assertEqual(lint_events_sha(d), [],
+                                 msg=f"{face}：照紅訊息 append erratum 後須轉綠——清不掉即出口失效")
+
+    def test_perf_commit_erratum_corrected_is_self_verified(self):
+        """硬語意② perf 半邊：指向 perf 列的 erratum，其 corrected 自身也向**外層**實證。
+
+        ★這條腿在 target 列那側查不到：視圖套用後 corrected 即成 perf 列的值、隨 perf 腿
+        一起被驗，故「err_outer 漏掉 perf.commit」在單筆情形看起來仍綠；真正的缺口在硬語意
+        ④（同 target×欄多筆、後者勝）——被蓋掉的那筆若填了壞值就再也沒人驗。本案以單筆造紅
+        釘住該批次接線，並釘住訊息的「正確值」提示走 perf 那支（`git rev-parse`）而非
+        merge 那支（`git log --merges`）：指錯地方＝把操作者送去一份根本不含量測對象的清單。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, dict(VALID_PERF, commit="0" * 39 + "1"),
+                       self._erratum(1, PERF_COMMIT_FIELD, "0" * 39 + "2"))
+            f = lint_events_sha(d)
+            hits = [x for x in f if x["where"] == f"{EVENTS}:行 2"
+                    and x["level"] == ERROR and "erratum corrected" in x["msg"]]
+            self.assertEqual(len(hits), 1, msg=str(f))
+            self.assertIn("不可解", hits[0]["msg"])
+            self.assertIn("git rev-parse", hits[0]["msg"], msg=hits[0]["msg"])
+
+    def test_perf_commit_erratum_offtarget_when_field_absent(self):
+        """硬語意③ perf 半邊：erratum 指 perf.commit、而 target 列沒有該欄＝ERROR。
+
+        兩子案＝該欄選填（synthetic／baseline_chain 天然無 commit）與 target 根本不是
+        perf 型。★釘住兩發變異：①present 檢查退化為恆真＝憑空替該列造出 commit 值去驗
+        （corrected 填真 commit 即全帳零 finding、操作者以為更正生效實則零效）②誤讓
+        perf.commit 落進 pins 那條 `fld.split(".", 1)[1]` 分支＝去 pins dict 找 "commit"、
+        合法更正反被誤報脫靶（出口又斷一次）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            no_commit = dict(VALID_PERF, kind="synthetic"); no_commit.pop("commit")
+            self._rows(d, no_commit, self._erratum(1, PERF_COMMIT_FIELD, outer))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertEqual(f[0]["where"], f"{EVENTS}:行 2")
+            self.assertIn("不存在指定欄 perf.commit", f[0]["msg"])
+        with tempfile.TemporaryDirectory() as d:
+            outer, pins = self._fixture(d)
+            self._rows(d, VALID_MISC, self._erratum(1, PERF_COMMIT_FIELD, outer))
+            f = lint_events_sha(d)
+            self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
+            self.assertIn("不存在指定欄 perf.commit", f[0]["msg"])
+
+    def test_perf_commit_erratum_offtarget_on_non_perf_row(self):
+        """★`_erratum_view` 型別半條的白箱釘子（B-149 碼品質輪）：非 perf 型卻帶 `commit`
+        鍵的列，指向它的 `perf.commit` erratum 須判脫靶 ERROR、絕不入更正視圖。
+
+        ★誠實標註射程：該半條對**現行**輸出不可觀察——`commit` 鍵於 EVENT_SCHEMAS 為 perf
+        型專屬，故 Lint03 綠的帳本裡 `"commit" in tgt` 已蘊含 type == "perf"（實測只拔型別
+        半條、全套照樣全綠）。要分辨就得餵一列 Lint03 會紅的帳（misc 硬塞 commit 鍵），黑箱
+        （lint_events_sha）零分辨力，只能白箱直呼本函式。釘的是**硬語意③**：日後若有第二個
+        型別帶 commit 欄，少了本半條＝該 erratum 被判在靶、進了視圖卻永不被 perf 逐列掃消費
+        ＝靜默零效（正是③明禁的形）。★勿把本案讀成「Lint18 擋得住 misc 帶 commit」——擋那個
+        的是 Lint03 的未知欄位檢查。
+        """
+        cor, other = "1" * 40, "0" * 40
+        rows = [(1, dict(VALID_MISC, commit=other)),
+                (2, self._erratum(1, PERF_COMMIT_FIELD, cor))]
+        view, checks, out = _erratum_view(rows, 2)
+        self.assertEqual(view, {}, msg="非 perf 型不得入更正視圖")
+        self.assertEqual(checks, [], msg="脫靶者不得進 corrected 自驗批次")
+        self.assertEqual([x["level"] for x in out], [ERROR], msg=str(out))
+        self.assertEqual(out[0]["where"], f"{EVENTS}:行 2")
+        self.assertIn("不存在指定欄 perf.commit", out[0]["msg"])
+        # 對照組：同一筆 erratum 指向真 perf 列即在靶——證明上半段的紅出自型別半條，
+        # 而非 fixture 或欄名分派本身壞掉（缺此對照，本案退化為恆紅）。
+        ok = [(1, dict(VALID_PERF, commit=other)),
+              (2, self._erratum(1, PERF_COMMIT_FIELD, cor))]
+        view2, checks2, out2 = _erratum_view(ok, 2)
+        self.assertEqual(out2, [], msg=str(out2))
+        self.assertEqual(view2, {(1, PERF_COMMIT_FIELD): cor})
+        self.assertEqual(checks2, [(2, PERF_COMMIT_FIELD, cor)])
+
     def test_erratum_pointing_at_erratum_is_error(self):
         """八臂⑥：erratum 指向 erratum 列＝ERROR（硬語意⑤）——更正的更正＝再 append
         一筆指向原始列，不得形成更正鏈。"""
@@ -8909,8 +9527,9 @@ class TestErratumCorrectionView(unittest.TestCase):
                                 and "erratum corrected" in x["msg"] for x in f), msg=str(f))
 
     def test_remedy_messages_carry_concrete_erratum_form(self):
-        """硬語意⑥：三處 ERROR（merge 不可解／merge 非 commit／pins 非 commit）教的
-        erratum 形**照抄即綠**——端到端釘死（B-042 訴求本體：出口真的走得通）。
+        """硬語意⑥：五處 ERROR（merge 不可解／merge 非 commit／pins 非 commit／
+        perf.commit 不可解／perf.commit 非 commit）教的 erratum 形**照抄即綠**——端到端
+        釘死（B-042 訴求本體：出口真的走得通；perf 兩處＝B-149 碼品質輪補上）。
 
         ★不比對字串片段：那等於在測試裡手抄一份 EVENT_SCHEMAS 副本、與 schema 各走各的。
         實測片段比對法對兩發變異全綠存活——模板拿掉 `"date":"YYYY-MM-DD",`（照抄者吃
@@ -8925,12 +9544,16 @@ class TestErratumCorrectionView(unittest.TestCase):
             blob = _git(d, "rev-parse", "HEAD:README.md").strip()
             api_blob = _git(os.path.join(d, "rust-api"),
                             "rev-parse", "HEAD:app.ts").strip()
+            _git(d, "commit", "-q", "--allow-empty", "-m", "被量測那顆")
+            measured = _git(d, "rev-parse", "HEAD").strip()
             good = dict(VALID_CLOSE, merge=outer, pins=pins)
             for bad, field, fix in (
                     (dict(VALID_CLOSE, merge="0" * 39 + "1", pins=pins), "merge", outer),
                     (dict(VALID_CLOSE, merge=blob, pins=pins), "merge", outer),
                     (dict(VALID_CLOSE, merge=outer, pins=dict(pins, api=api_blob)),
-                     "pins.api", pins["api"])):
+                     "pins.api", pins["api"]),
+                    (dict(VALID_PERF, commit="0" * 39 + "1"), PERF_COMMIT_FIELD, measured),
+                    (dict(VALID_PERF, commit=blob), PERF_COMMIT_FIELD, measured)):
                 self._rows(d, good, bad)
                 f = lint_events_sha(d)
                 self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
@@ -8950,7 +9573,7 @@ class TestErratumCorrectionView(unittest.TestCase):
                                  msg="照抄後紅須真的消（Lint18）——清不掉即出口失效")
 
     def test_corrected_error_messages_carry_two_branch_remedy(self):
-        """★四處「erratum corrected 自驗失敗」ERROR 的補救支：與史值三處同構分兩支，且第
+        """★四處「erratum corrected 自驗失敗」ERROR 的補救支：與史值五處同構分兩支，且第
         二支說實話——已入史的 erratum 列在現行設計下無出口、導向升級主線由拍板層處置。
 
         缺這條釘子時四筆一律只有「corrected 須填該刀…的真 commit SHA」單句：對已入史的列

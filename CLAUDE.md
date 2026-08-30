@@ -29,7 +29,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 
 ## 2. feature 工作流
 
-階段 0 brainstorm → SDD 5 步 → TDD 實作（Workflow 編排）→ finishing → 收刀簿記三步。
+階段 0 brainstorm → SDD 5 步 → TDD 實作（Workflow 編排）→ finishing → 收刀簿記三步＋perf 第四步。
 
 - **階段 0 brainstorm**（superpowers:brainstorming）：產出存 `docs/brainstorms/<NNN>-<feature-name>.md`
   （此行即覆蓋 skill 預設路徑）。期間拍板→ADR draft。rev4 承襲候選——K1／K2 清單
@@ -98,7 +98,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　　可察**（同 pin／generate 次序陷阱；成因與危害見 L-018）。
 ★單元一支接一支連續跑完、**不停下來等 user 首肯**；唯三種情形停：①拍板級問題（§5 判準）
 　②到了需要 push/merge 的時點③觸及 §6 硬禁令。
-全單元完成 → final holistic review → finishing-a-development-branch（push/merge 需 user 同意）→ 收刀簿記三步（events append＋NOTES＋tools/docs-sync.py generate）。
+全單元完成 → final holistic review → finishing-a-development-branch（push/merge 需 user 同意）→ 收刀簿記三步（events append＋NOTES＋tools/docs-sync.py generate）→ ★第四步（不在簿記那顆內、易漏）：該簿記 commit 落地後量其牆鐘、append 一筆 close_bookkeeping perf 事件（隨下一顆 commit 入帳；量測法＝RUNBOOK §12.1、承載處＝ADR 0070、出處＝ADR 0044 引信）。
   ```
 
   ★wf-watchdog 的 runaway 判準＝數**不重複 agent key**（非 journal 行數）——勿以行數直覺判保險絲。
@@ -113,6 +113,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - **收刀**：`merge --no-ff` 回 default（保留 feature branch 不清理）→
   ①`docs/ops/events.jsonl` append feature_close ②NOTES 改下一步 ③`tools/docs-sync.py generate`
   → 一筆簿記 commit、lint 全綠放行。簿記一律排在 merge 之後（merge SHA 與最終 pin 才確定）。
+  ④簿記 commit 落地後量該顆牆鐘（量測法＝RUNBOOK §12.1）、append 一筆 `close_bookkeeping` perf
+  事件（ADR 0044 引信之每刀例行量測、承載處＝ADR 0070；隨下一顆 commit 入帳）。
 - **review 輪**（不定期）：報告存 `docs/reviews/YYYYMMDD-<scope>.md`（front-matter 必含
   `findings_total`）；findings 三分流：修／轉 B-NNN／won't-fix ADR；＋append 一筆 review 事件。
 

@@ -1,5 +1,5 @@
 <!-- 機器生成：tools/docs-sync.py generate——嚴禁手改；差異由 pre-commit check 攔下 -->
-# MILESTONES — 全事件表（最新）
+# MILESTONES — 事件表（最新）——perf 型另居 reference/perf.md
 
 | date | type | 標的 | summary | merge | adrs | arch |
 |---|---|---|---|---|---|---|

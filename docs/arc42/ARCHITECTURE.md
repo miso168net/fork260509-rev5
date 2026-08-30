@@ -398,7 +398,7 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
 - **短名／長名**：目錄與口語用短名（base-web／rust-api）；git 分支用長名（rev5-admin-*）。
 - **pin**：外層 repo 記錄的 submodule commit SHA；單元邊界即時 bump。
 - **活書**：本檔——現在式 as-built 敘事，人寫、lint 守約。
-- **事件源**：docs/ops/events.jsonl——收刀／review／里程碑的 append 型單一事實源。
+- **事件源**：docs/ops/events.jsonl——收刀／review／里程碑／勘誤／效能資料點（perf）的 append 型單一事實源；perf 型不入 MILESTONES、人讀 reference/perf。
 - **傘狀 repo**：本 repo；只記文件、spec、gitlink pin，不含子體實碼。
 - **停用／軟刪**：停用＝`status` 轉 `'2'`（列仍在、可再啟用）；軟刪＝`deleted_at` 落值（自現役面
   消失、可經回收桶復原、status 保留零回灌）。兩者皆撤標的全部 active 票。
