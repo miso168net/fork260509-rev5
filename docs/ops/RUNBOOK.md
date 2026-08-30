@@ -439,10 +439,13 @@ EOF
   - ★**誠實界線**：本刀這兩筆**都不是收刀簿記型**（那顆＝events append＋NOTES＋generate，尚未發生）
     ⇒ **ADR 0044 引信所指的本刀資料點，須於收刀簿記那顆 commit 補記**；引信（連續兩刀 ≥60s）
     以現有值判**未觸發**。
+  - **★同日第三筆：pin bump 型＝19.41s rc=0**（`33ee6b7`；staged `rust-api` gitlink＋憲法＋活書＋specs＋
+    generated ⇒ `fork-delta-lint`〔憲法 staged 即觸發〕／`wire-schema --staged-gate`／`view-render-guard`／
+    `seed-view-gate` 進鏈，`docs-sync test` 未進）。對照同日文件型 13.89s ⇒ 條件段淨增 **5.5s**（與 B-130 後
+    `fork-delta-lint` 3.93s＋其餘次秒級之和吻合）；距警戒餘 2.3 倍。★結清「下一刀必做」②，惟本顆 staged 者為
+    rust-api 而非 base-web gitlink、`fork-delta-lint` 係經憲法觸發。★**本節撞頂＝B-149**。
   - ★**既有「下一刀必做」三項結算**：①`wire-schema check --staged-gate` 重測＝**已由 B-130 那筆結清**
-    （真路徑 0.43s、走 `no-typings` 短路）②pin bump 型 commit 的牆鐘實測＝**本刀仍未做**——本刀
-    U1～U9 各有一顆 pin bump 外層 commit 而當時未計時（執行疏漏），U10 又是零 gitlink 改動故無機會；
-    ⇒ **續掛至收刀的 `merge --no-ff` 那顆**（它 staged 兩個 gitlink，恰是①②要的最重情境）
+    （真路徑 0.43s、走 `no-typings` 短路）②pin bump 型牆鐘＝**已補**（同日第三筆 19.41s）。★收刀 `merge --no-ff` 那顆宜再測——staged **兩個** gitlink、本序列未量過
     ③`docs-sync lint` 慢路徑處置＝B-130 已處置、本刀無新增條款。
 - **上一批對照**（2026-08-16、同法量測，供成長率比較）：基礎鏈合計 **9.907s**
   （secret-value-guard 0.218／docs-sync check 1.300／docs-sync lint 8.388）；當時名冊 11 支
