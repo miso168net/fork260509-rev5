@@ -111,7 +111,28 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 ## 9. 維運端點與 DB 直連
 
-（本章隨對應刀補實文；創世期無內容。）
+**稽核欄複驗紀律**（B-078；讀者＝要寫稽核報表／對賬腳本／機器閘的人）：稽核列的轉發鏈欄 `x_forwarded_for` 由
+`trust::rightmost_window_str` **逐字保留**鏈欄原文（不可解析欄是鑑識痕跡、刻意不正規化），而 `real_ip` 是
+`trust::to_canonical(..).to_string()` 的**壓縮小寫**形 ⇒ 鏈欄寫 IPv6 非正規化字面（如 `2001:DB8::9`、`2001:0db8::9`）時
+`real_ip` 落 `2001:db8::9`，`x_forwarded_for LIKE '%'||real_ip||'%'` 這類**字串包含式複驗得假陰性**——在 F8 的兩個成立條件下（真實來源由鏈推導、
+窗 ≤ `XFF_MAX_CHARS` 字元）該跳仍在窗內、以同一份取窗＋正規化重推得同一結論；帶埠 `1.2.3.4:5678`、帶區域 `fe80::5%wlan0`、方括號包裹形不受影響。
+★**紀律**：複驗 MUST 走**重推**＝以該列 `peer_ip`（傳輸層對端欄、可 NULL）與當時生效的信任模型設定（TOML 載入之 `TrustModel`）
+呼叫 `trust::resolve_client_ip(&tm, peer_ip, Some(x_forwarded_for))`（`normalize_xff` 是它的內部步驟、模組私有、**非外部入口**），
+回傳位址經 `trust::to_canonical` 折疊後與 `real_ip` 比相等；★**只比位址、不比 `ip_confidence`**（`chain_rejected` 由原鏈跳數定案、
+欄已截至 `MAX_XFF_TOKENS` 欄、不可由欄重推）。★**不可重推之列（至少五類、報表必先排除，否則把合法列報成缺口＝假陽性）**：
+①`peer_ip` 為 NULL；②`peer_ip` 落在信任模型 `[tunnel]` 來源集且 `ip_confidence` 為 `fallback`／`chain_rejected`——production 固定序
+在 `resolve_client_ip` 之後還有通道覆蓋層 `trust::apply_tunnel_fallback`，命中時真實來源改取**未入庫**的訪客位址標頭、信心仍為回退態，
+列上無從辨別當時有無該標頭，故此類**整批排除**；③鏈欄字元數恰達 `XFF_MAX_CHARS`（1024）——入庫前淨化已切掉窗的**左**端、
+欄不再是當時的判定輸入（可複現反例見 `request_context.rs` 之 `sanitize_x_forwarded_for` rustdoc）；④**跨越信任模型設定變更的列**——判定
+全繫於當時 `TrustModel` 的六個集合（`is_trusted`），而列不記任何設定版本（`sys_login_attempt` 11 欄無快照欄、`trust::Evidence` 明載不入 DB），
+且生效模型還隨 `load_trust_model` 三層降級態（缺路徑退扁平環境變數／非 UTF-8 退全空）漂移 ⇒ 用今日設定重推昨日的列會把合法來源整批報成缺口。
+報表 MUST 以設定變更時點切分區間、每區間用該區間生效的模型重推（時點來源＝設定檔變更史：dev＝`deploy/trust-model.dev.toml` 的 git 史、
+prod＝`APP_TRUST_MODEL_PATH` 所指檔的部署變更紀錄＋啟動載入告警）；切不出時點的區間標「不可判」交人工判讀、不得憑今日設定出結論；⑤`ip_confidence` 為 NULL 的 003 期以前歷史列——該批列的 `real_ip` 非由本代信任模型推導（004 之前無 trust 模型；append-only、不遷移，`model/facade/sys_login_attempt.rs` 的節流計數亦以它為已知陷阱），任何版本重推皆對不上、整批排除。★現無 rust 之外的重推入口
+（唯一落點＝rust 側測試／小工具，屬 B-078 殘餘）；憲法 F8 講的複驗性就是重推；
+`LIKE` 字串判別只限手動走查一眼看（specs/004 之 quickstart §1b），**不得搬進正式報表／對賬腳本／機器閘**——搬了即把
+合法的 IPv6 來源系統性報成「稽核欄不含真實來源」，憑空製造一批假的鑑識缺口告警。★「先把鏈欄逐欄正規化再字串比對」這條看似更穩的路**同樣不行**——
+那會丟掉逐字鑑識痕跡、與 `rightmost_window_str` 刻意不正規化的設計相抵（重推是在記憶體裡正規化、欄本身一字不動，故此棄案理由不反噬所選方案）。
+殘餘工項→ops/BACKLOG **B-078**。
 
 ## 9a. 授權治理面速查（006；僅指針）
 
@@ -803,4 +824,5 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml logs rust-api 2>&
 | 備份自動化第二段（排程化／機密與資料卷配對備份／還原演練自動化） | ops/BACKLOG **B-023**；第一段已收單＝§6 |
 | 快取持久化模式（redis AOF） | 004 重評結論＝**維持現狀不開**（暴險受「狀態即權威」封頂：判定面不依賴快取、解鎖標記遺失可再解鎖自癒） |
 | IP 閘阻擋告警無量的上界（加了 deny 規則後 log 量由被擋方決定） | ops/BACKLOG **B-077** |
+| 三張稽核表（sys_access_log／sys_login_attempt／sys_operation_log）＋sys_casbin_policy_archive 為 append-only、現無 retention 政策與清理排程 | ops/BACKLOG **B-016** |
 | 機密輪替與 prod 值 | §7、§15 |

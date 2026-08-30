@@ -68,7 +68,7 @@ pc_join() {
     [ -s "$PC_TMP/$_pc_l.out" ] && cat "$PC_TMP/$_pc_l.out"
     _pc_rc=$(cat "$PC_TMP/$_pc_l.rc" 2>/dev/null || echo 1)
     if [ "$_pc_rc" -ne 0 ]; then
-      echo "[pre-commit] ✗ 閘「$_pc_l」失敗（exit $_pc_rc）——處置見其上方輸出" >&2
+      echo "[pre-commit] ✗ 閘「${_pc_l}」失敗（exit ${_pc_rc}）——處置見其上方輸出" >&2
       _pc_fail=1
     fi
   done

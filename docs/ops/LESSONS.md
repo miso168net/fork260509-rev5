@@ -74,7 +74,7 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-059｜兩視圖守門 lint 須逐 byte 對齊；「rustfmt 保證一欄一行」因本 repo 的 use_small_heuristics=Max 而不成立](LESSONS/L-059-two-view-lint-must-share-byte-coordinates.md) — 常值逐 byte 換白的結構視圖＋按精確 (起,迄) 圈界取屬性字面，另配視圖對齊的前提自證測
 - [L-060｜暫改真檔驗紅後，用 git checkout 還原＝連同該檔其它未 commit 改動一起丟](LESSONS/L-060-restore-temp-mutation-without-git-checkout.md) — 存原文→寫回，還原後以 git diff --name-only 證零殘留；禁令要連替代作法一起寫
 - [L-061｜base-web 的 pnpm install 會覆寫外層 .githooks-submodule，機密掃描整段消失且失效是靜默的](LESSONS/L-061-pnpm-install-overwrites-outer-githooks.md) — 跑過 pnpm install／typecheck 的單元，收尾第一件事是 bootstrap 體檢或六步 hooks 複驗
-- [L-062｜drvfs 上治理工具的耗時是 I/O 稅不是邏輯（587×、9p 並發有效 6.33×）——憑直覺列的優化清單會全數落空](LESSONS/L-062-drvfs-io-tax-dominates-hook-time.md)
+- [L-062｜drvfs 上治理工具的耗時是 I/O 稅不是邏輯（587×、9p 並發有效 6.33×）——憑直覺列的優化清單會全數落空](LESSONS/L-062-drvfs-io-tax-dominates-hook-time.md) — 優化治理工具前先 cProfile 分 I/O 稅 vs 邏輯（手法＝並行派發／作用域快取／EAFP）；symlink 到 drvfs 的路徑不是原生副本、當 performance-sensitive path 零收益
 - [L-063｜開新 ★軌道用途時當場做的「新列變異自證」結構性 vacuous（尚無標記可比、回綠像有效）](LESSONS/L-063-new-track-purpose-mutation-test-is-vacuous-before-markers.md) — Amendment 只宣稱「機制已驗（拿已有標記的既有列反證）」，新列真自證排進第一個落標記的實作單元；通則＝變異前先確認被守面已有實例
 - [L-064｜AppError::Biz/BizData 的 match 臂寫成 `(..)` 會被 Lint24 判成無法靜態解析的構造點，而 cargo 全綠時看不見](LESSONS/L-064-lint24-bizdata-match-arm-must-be-two-underscores.md) — 臂一律寫 `(_, _)`；rust 單元收尾的自驗必須含 `docs-sync.py lint`，cargo 綠與 lint 綠是兩件事
 - [L-065｜對破壞性守門做變異測試會真的破壞 seed 列，而刪除式清理守衛結構上救不了](LESSONS/L-065-destructive-guard-mutation-really-destroys-seed.md) — mutate 型測試改掛快照還原式守衛（SeedUserRestoreCleanup）；判別問句＝這支測失敗時庫裡是多出東西還是變掉東西
