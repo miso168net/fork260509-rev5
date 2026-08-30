@@ -12,7 +12,7 @@
 - ADR：71（accepted 69、superseded 2）
 - BACKLOG 待辦：34（next：B-155）｜滯後：8
 - LESSONS：74 筆（next：L-075）
-- events：79 筆（feature_close 7、misc 41、perf 31）
+- events：81 筆（feature_close 7、misc 41、perf 33）
 
 ## 最近事件（尾 3 筆、新在前）
 - 2026-08-31｜misc｜外層維護批收單（merge 59db57e）：U1＝B-150 Lint19 佔位續值＋B-151 Lint29 加 rust-api *.toml＋B-030(a) zh-cn 鍵集腿；U2＝B-091 關帳 11 條佔位盤完＋RUNBOOK §9 複驗走重推＋§16.4 retention 列；U3＝B-144 關帳（base-web pin 前進）；U4＝B-030(b) 五面 parity＋B-023 半件 drill（真跑相等）＋§6 縮編；B-120／B-078 改述、L-073／L-074 立帳、B-152～B-154 開立；fhr 13 筆處置畢
@@ -20,7 +20,7 @@
 - 2026-08-31｜misc｜外層維護批 U3：B-144 關帳＝base-web ip-rule/index.vue 之 scroll-x 註解改為 eslint --fix 產出的 multiline 形（全樹唯一違反 vue/html-comment-content-newline 者、rev5 新增檔零原行；pnpm lint 自此不再改寫允許清單外既有檔）；候選②「pre-commit 加清單外檔斷言」判不可行（允許清單只在 workflow script 常數、子庫 pre-commit 零 python、攔截點錯）；pnpm typecheck 綠、pin 前進一顆
 
 ## 效能引信（ADR 0044）
-- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-30 9.97s、2026-08-30 12.24s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
+- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-30 12.24s、2026-08-31 10.94s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
 
 ## reference 對賬
 - reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）
