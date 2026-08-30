@@ -12,7 +12,7 @@
 - ADR：71（accepted 69、superseded 2）
 - BACKLOG 待辦：35（next：B-152）｜滯後：8
 - LESSONS：72 筆（next：L-073）
-- events：72 筆（feature_close 7、misc 36、perf 29）
+- events：74 筆（feature_close 7、misc 36、perf 31）
 
 ## 最近事件（尾 3 筆、新在前）
 - 2026-08-30｜misc｜下一刀起手維護批收單（輕量軌、merge f8da2e4）：B-149 效能資料點事件源化（ADR 0070；RUNBOOK 900→806、NOTES 40→16）／B-146＋B-148＝Lint28／Lint29 上線（條款 26→28）／B-147＝tools/walkthrough-baseline.py＋RUNBOOK §9c 走查還原契約／B-124①＝won't-fix ADR 0071；docs-sync 自測 533→599、TOOLS_PY 16→17、perf 事件回填 28；final holistic 13 筆全處置、B-150／B-151 開立
@@ -20,7 +20,7 @@
 - 2026-08-30｜feature_close｜007-user-password-admin｜使用者與密碼治理縱切（本代第七刀、刀 B）：管理面十支＋自助兩支＝12 支端點，ROUTES 49→61 終值、POLICY 35→45 終態。六底座＝密碼政策單一驗證點／設密冷卻／改密舊密節流（第三個節流子系統）／no-escalation 掛滿八支寫端＋unlock 帳號維／斷權四路與三 reason 不互換／自助路由白名單帶回。前端 user 管理頁接真（七碼逐鈕 gating、解鎖 modal 雙維、回收桶）＋個人中心改密卡＋登入表單降必填。測試 829→998、wire-schema 75→89、憲法 1.8.0→1.9.1、ADR 0063～0069、零 migration。
 
 ## 效能引信（ADR 0044）
-- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-25 16.68s、2026-08-30 9.97s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
+- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-30 9.97s、2026-08-30 12.24s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
 
 ## reference 對賬
 - reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）
