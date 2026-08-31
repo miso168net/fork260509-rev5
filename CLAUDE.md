@@ -71,7 +71,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
 　　★review agent **不得共用該 status 欄**：「agent 受阻」與「審查有 blocker」是兩件事，
 　　共用一欄則 script 把後者當前者、當場 return 而 fix 迴圈整個不跑（L-011 變形①實暴）。
-　　★**⑥的升級不得寫成 `blocked`**：「我做不下去了」與「我做完了但有清單外待辦」對 script
+　　★**⑥的升級不得一律寫成 `blocked`**：「我做不下去了」與「我做完了但有清單外待辦」對 script
 　　的正確反應相反（前者立即 return、後者**照常跑完審查**再連同升級項回）。故 status 分
 　　`blocked`／`done_with_escalation` 兩值，只有前者觸發立即 return（L-035 實暴：五條全交付
 　　的單元因兩行文件失真而整個審查階段零輪次）。徵狀＝完成通知 agent_count=1。

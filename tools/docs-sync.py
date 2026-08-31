@@ -5102,9 +5102,7 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
         # workspace 都必然存在 ⇒ 該庫守衛結構性恆綠，`*.rs`（該庫主要碼面）整片失覆蓋也偵測
         # 不到。訊息只列空掉的樣式，指名脫節的是哪一格。
         if trc == 0:
-            names = [n for n in tout.split("\0") if n]
-            empty = [pat for pat in SUBMODULE_ID_SCAN[sub]
-                     if not any(fnmatch.fnmatchcase(n, pat) for n in names)]
+            empty = _empty_scan_pathspecs(tout, SUBMODULE_ID_SCAN[sub])
             if empty:
                 out.append(finding(ERROR, "Lint29", sub,
                                    f"掃描面為空：pin {sha[:12]} 的樹內零檔匹配 pathspec "
@@ -5160,11 +5158,16 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
 # 繫於後接字元位元組值，「跑過一次沒事」不能排除）。
 RE_BASH_VAR_GLUE = re.compile(r"(?<!\\)\$[A-Za-z_][A-Za-z0-9_]*(?=[^\x00-\x7f])")
 
+# Lint30 shebang 白名單（bash 家族；判定取直譯器 token、非子串——見 bash_face_files docstring）
+_BASH_INTERPS = frozenset({"sh", "bash", "dash", "ksh", "zsh"})
+
 
 def bash_face_files(root, tracked):
-    """Lint30 掃描面：外層 tracked 之 bash 檔——`*.sh` 全收＋無副檔名檔以首行 shebang 含
-    sh 判定（.githooks/* hook 形；bash／sh 皆含該子串）。自 tracked 現算、不建手工名冊
-    （名冊會漂移）；子庫＝gitlink、read 不到自然出列。"""
+    """Lint30 掃描面：外層 tracked 之 bash 檔——`*.sh` 全收＋無副檔名檔以首行 shebang 之
+    直譯器 token 判定（白名單 sh／bash／dash／ksh／zsh、`env` 形取其後首字；.githooks/*
+    hook 形）。★fhr 碼透鏡實暴：早期子串式（sh in 首行）會把 pwsh／fish 乃至路徑含 sh 的
+    任意直譯器收進 bash 面——Lint30 屬 ERROR 級、誤收＝結構性誤擋 commit。自 tracked
+    現算、不建手工名冊（名冊會漂移）；子庫＝gitlink、read 不到自然出列。"""
     out = []
     for rel in tracked:
         if rel.endswith(".sh"):
@@ -5177,7 +5180,13 @@ def bash_face_files(root, tracked):
         except UnicodeDecodeError:
             continue                      # 二進位／非 UTF-8＝不在 bash 語料
         first = (text or "").split("\n", 1)[0]
-        if first.startswith("#!") and "sh" in first:
+        if not first.startswith("#!"):
+            continue
+        parts = first[2:].strip().split()
+        interp = parts[0].rsplit("/", 1)[-1] if parts else ""
+        if interp == "env" and len(parts) > 1:
+            interp = parts[1].rsplit("/", 1)[-1]
+        if interp in _BASH_INTERPS:
             out.append(rel)
     return out
 
@@ -5187,6 +5196,8 @@ def lint_bash_var_glue(root, tracked):
 
     整行註解（lstrip 起手 #；shebang 行天然含）不掃——註解內同形不執行、報之徒增噪音；
     行中尾隨註解照掃（判「是否註解」需完整 shell 解析、寧可多抓由 ERROR 顯性裁決）。
+    ★已知偽陰性（fhr 碼透鏡實暴後登記）：unquoted heredoc 內 `#` 起手的行實會參數展開、
+    本條款仍按整行註解跳過——判 heredoc 狀態同需完整 shell 解析，取捨與偽陽性側同。
     ★同一取捨的另一半（碼品質透鏡實暴後登記）：單引號字面、quoted heredoc（<<'EOF'）與
     單引號包住的 awk／sed 程式片段不做參數展開、L-001 黏字風險不存在，本條款照掃＝結構性
     偽陽性（判引號狀態同需完整 shell 解析）；且此類命中照 `${VAR}` 包裹**不是等價變換**
@@ -5453,6 +5464,14 @@ def _cmd_check_uncached():
     return 1 if findings else 0
 
 
+def _empty_scan_pathspecs(tout, patterns):
+    """掃描面存在性共用純函式（Lint29 消費端＋errata 子庫腿共用；改本函式＝同時改兩者的
+    「面空即 fail-loud」語意）：輸入 ls-tree -z 全樹檔名輸出與樣式集，回**零檔匹配**的
+    樣式清單（空清單＝面存在）。★逐 pathspec 判定、不取 OR——立案理由見 Lint29 消費端註解。"""
+    names = [n for n in tout.split("\0") if n]
+    return [p for p in patterns if not any(fnmatch.fnmatchcase(n, p) for n in names)]
+
+
 def _errata_sub_grep(subdir, tree, keyword, pathspecs):
     """errata 子庫腿的一發 `git grep -n -z -i -F`（固定字串、大小寫不敏感＝與外層
     errata_scan 的子串語意一致）；回 (rc, stdout, stderr)——git 開不起來時 rc＝None。
@@ -5471,7 +5490,8 @@ def _errata_sub_grep(subdir, tree, keyword, pathspecs):
 
 def errata_submodule_scan(root, keyword):
     """errata 子庫碼面腿（L-038 防法③）：對 PIN_KEYS 兩子庫、以外層 gitlink pin 掃
-    SUBMODULE_ID_SCAN 樣式集（＝Lint29 同一掃描面單源；誠實邊界＝非子庫全檔）。
+    SUBMODULE_ID_SCAN 樣式集（＝Lint29 同一掃描面單源；誠實邊界＝非子庫全檔；掃描面
+    存在性亦與 Lint29 共用 _empty_scan_pathspecs 逐 pathspec 判定、面空＝fails）。
 
     回 (hits, fails, warns)：hits＝[(<子庫>/<檔>, 行號str, 行文)]；fails 與 warns 皆為
     [(<子庫>, 說明)] 結構化二元組——呼叫端以 sub 欄判哪庫未執行、不比對訊息字面（碼品質
@@ -5504,6 +5524,19 @@ def errata_submodule_scan(root, keyword):
             head = ((stderr or "").strip().splitlines() or [""])[0]
             fails.append((sub, f"{sub} 碼面掃描未執行（git grep 退出碼 {rc}"
                           + (f"：{head}" if head else "") + "）——不得視同零命中"))
+            continue
+        # 掃描面存在性（與 Lint29 共用 _empty_scan_pathspecs；fhr 碼透鏡實暴：缺此腿＝
+        # 樣式集與子庫版面脫節時渲染成「0 處」rc 0——正是總結行註解明文禁止的形）
+        trc2, tout2, terr2 = _code_id_tree_files(os.path.join(root, sub), sha)
+        if trc2 != 0:
+            head2 = ((terr2 or "").strip().splitlines() or [""])[0]
+            fails.append((sub, f"{sub} 碼面掃描面存在性未證（git ls-tree 退出碼 {trc2}"
+                          + (f"：{head2}" if head2 else "") + "）——不得視同零命中"))
+            continue
+        empty = _empty_scan_pathspecs(tout2, SUBMODULE_ID_SCAN[sub])
+        if empty:
+            fails.append((sub, f"{sub} 碼面掃描面為空：pin 樹內零檔匹配 pathspec "
+                          + "／".join(empty) + "——樣式集與子庫版面脫節、不得視同零命中"))
             continue
         prefix = sha + ":"
         for rec in stdout.split("\n"):
@@ -5604,6 +5637,15 @@ def _day1_pending(*rels):
     ★skip 訊息一律帶「解除謂詞＋所屬 B 步」——B8a 殘紅盤點要求每筆跳過可追去處。
     """
     return all(os.path.exists(os.path.join(ROOT, r)) for r in rels)
+
+
+def _worktrees_alive(*subs):
+    """errata CLI 冒煙的掃描面謂詞：兩子庫 worktree 皆「開得起來」（rev-parse 成功）才跑。
+
+    ★fhr 碼透鏡實暴：不可用「.git 路徑存在」判——該判準對斷裂 worktree 為真
+    （submodule_head docstring 立案），斷裂態下照跑、cmd_errata fail-loud 非零，
+    把「掃描面不在」誤報成「工具壞了」。判準與 submodule_head 單源。"""
+    return all(submodule_head(ROOT, s)[0] is not None for s in subs)
 
 
 class TestLintAdrs(unittest.TestCase):
@@ -8561,8 +8603,8 @@ class TestGitIntegration(unittest.TestCase):
             self.assertEqual(list(head), ["0001-x.md"])
             self.assertEqual(head["0001-x.md"], ADR_OK_A)
 
-    @unittest.skipUnless(_day1_pending("rust-api/.git", "base-web/.git"),
-                         "掃描面不在：解除＝兩子庫 worktree 皆在位（唯讀看碼模式或尚未跑 bash tools/bootstrap.sh）——errata 子庫腿於 worktree 缺席時 fail-loud 非零屬正確行為、非 CLI 崩潰")
+    @unittest.skipUnless(_worktrees_alive("rust-api", "base-web"),
+                         "掃描面不在：解除＝兩子庫 worktree 皆開得起來（rev-parse 判準、非 .git 路徑存在——後者對斷裂 worktree 為真、照跑會把掃描面缺席誤報成工具壞；唯讀看碼模式或尚未跑 bash tools/bootstrap.sh 時跳過）——errata 子庫腿於 worktree 缺席時 fail-loud 非零屬正確行為、非 CLI 崩潰")
     def test_cli_errata_smoke(self):
         """回歸：cmd_errata 曾漏傳 root 而 TypeError 崩潰（CLI 包裝層無測試覆蓋）。"""
         r = subprocess.run([sys.executable, os.path.abspath(__file__), "errata", "next-id"],
@@ -11966,7 +12008,7 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
 
 class TestLintBashVarGlue(unittest.TestCase):
     """Lint30 bash 面「$VAR 後緊接非 ASCII」閘（L-001 防法②機器化）：掃描面自 tracked 現算
-    （`*.sh` 全收＋首行 shebang 含 sh 的無副檔名檔）、整行註解不掃、`\\$` 轉義不中。
+    （`*.sh` 全收＋首行 shebang 直譯器 token 屬 bash 家族白名單的無副檔名檔）、整行註解不掃、`\\$` 轉義不中。
 
     fixture＝tempdir 假外層（_init_outer＋git add 入 index）、真 repo 唯讀。
     """
@@ -12049,6 +12091,25 @@ class TestLintBashVarGlue(unittest.TestCase):
         self.assertTrue(any(x["code"] == "Lint30" and x["level"] == ERROR for x in f),
                         msg=str([x for x in f if x["code"] == "Lint30"]))
 
+    def test_inline_trailing_comment_still_scanned(self):
+        """★兩向釘位（fhr 碼透鏡實暴：此取捨零測可釘、放寬成「含 # 即跳過」全套照綠）：
+        行中尾隨註解照掃——只有整行註解（lstrip 起手 #）豁免。"""
+        _wfile(self.root, "tools/e.sh", "#!/bin/bash\nfoo=$BAR中文  # 尾註\n")
+        _git(self.root, "add", "-A")
+        f = self._lint()
+        self.assertEqual([x["where"] for x in f], ["tools/e.sh:行 2"], msg=str(f))
+
+    def test_non_sh_interpreter_not_in_face(self):
+        """★白名單負向（fhr 碼透鏡實暴：子串式把 pwsh／fish／路徑含 sh 的任意直譯器全收
+        進 bash 面＝ERROR 級結構性誤擋）：非 sh 家族 shebang 的無副檔名檔不入面、零 finding。"""
+        _wfile(self.root, "hooks/pw", "#!/usr/bin/env pwsh\n$HOME目錄\n")
+        _wfile(self.root, "hooks/fishy", "#!/usr/bin/env fish\necho $HOME目錄\n")
+        _wfile(self.root, "hooks/pyish", "#!/opt/shared/bin/python3\ns = \"$HOME目錄\"\n")
+        _git(self.root, "add", "-A")
+        face = bash_face_files(self.root, tracked_files(self.root))
+        self.assertEqual([r for r in face if r.startswith("hooks/")], [], msg=str(face))
+        self.assertEqual(self._lint(), [])
+
     def test_real_repo_bash_face_clean(self):
         """★現況驗收：真 repo bash 面零命中（L-001 之 4 行 7 處復發已於 2026-08-31 主線
         直修）——上線即綠；掃描面至少含 *.sh 代表與無副檔名 hook 代表（面空＝假綠）。"""
@@ -12077,7 +12138,8 @@ class TestErrataSubmoduleScan(unittest.TestCase):
         """命中列出且帶子庫前綴（大小寫不敏感）；樣式外檔（*.md）不掃＝誠實邊界；
         index 無 gitlink 的另一庫＝fail-loud 指名（掃描未執行≠零命中）。"""
         _sub_with_files(self.root, "rust-api",
-                        {"src/a.rs": "// 舊詞 FooBar 在此\n", "README.md": "foobar\n"})
+                        {"src/a.rs": "// 舊詞 FooBar 在此\n", "README.md": "foobar\n",
+                         "Cargo.toml": "# 樣式面佔位\n"})
         hits, fails, warns = errata_submodule_scan(self.root, "foobar")
         self.assertEqual([(w, lno) for w, lno, _ in hits],
                          [("rust-api/src/a.rs", "1")], msg=str(hits))
@@ -12088,16 +12150,20 @@ class TestErrataSubmoduleScan(unittest.TestCase):
 
     def test_zero_hit_clean(self):
         """rc 1（零命中）屬正常：兩庫皆在位且乾淨→hits／fails 皆空。"""
-        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
-        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n",
+                                                 "Cargo.toml": "# 樣式面佔位\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n",
+                                                 "src/x.vue": "<!-- 佔位 -->\n"})
         self.assertEqual(errata_submodule_scan(self.root, "不存在詞xq"), ([], [], []))
 
     def test_dash_keyword_not_eaten_as_option(self):
         """★紅案釘位：起手為「-」且恰為合法短選項的關鍵詞（-i）不得被 git grep 吃成
         選項——被吃時 pin SHA 反成 pattern、於工作樹靜默零命中 rc 1（掃描未執行卻讀成
         乾淨、且外層純子串腿對同詞免疫＝兩腿語意不對等）；`-e` 標記形下應正常命中。"""
-        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 選項 -I 字面在此\n"})
-        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 選項 -I 字面在此\n",
+                                                 "Cargo.toml": "# 樣式面佔位\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n",
+                                                 "src/x.vue": "<!-- 佔位 -->\n"})
         hits, fails, warns = errata_submodule_scan(self.root, "-i")
         self.assertEqual((fails, warns), ([], []), msg=str(fails + warns))
         self.assertEqual([(w, lno) for w, lno, _ in hits],
@@ -12130,13 +12196,37 @@ class TestErrataSubmoduleScan(unittest.TestCase):
         upstream rebase 卷史同族——合法狀態）＝入 warns 不入 fails、呼叫端不非零。
         缺此腿＝該合法狀態下 CLI 冒煙紅、經 pre-commit／bootstrap 卡死全部 commit。"""
         _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
-        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n",
+                                                 "src/x.vue": "<!-- 佔位 -->\n"})
         _stage_gitlink(self.root, "rust-api", "1" * 40)   # 覆蓋為該庫不可解之合成 pin
         hits, fails, warns = errata_submodule_scan(self.root, "任意詞")
         self.assertEqual((hits, fails), ([], []), msg=str((hits, fails)))
         self.assertEqual([sub for sub, _msg in warns], ["rust-api"], msg=str(warns))
         self.assertIn("不可解", warns[0][1])
         self.assertIn("未執行", warns[0][1])
+
+    def test_regex_metachar_keyword_is_literal(self):
+        """★-F 釘位（fhr 碼透鏡實暴：拿掉 -F 全套照綠、兩腿語意分岔且含 `[` 關鍵詞會
+        fail-loud）：關鍵詞按固定字串比對＝與外層子串語意一致，metachar 不得誤中、不得進 fails。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// axrs 只有這形\n",
+                                                 "Cargo.toml": "# 樣式面佔位\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n",
+                                                 "src/x.vue": "<!-- 佔位 -->\n"})
+        self.assertEqual(errata_submodule_scan(self.root, "a.rs"), ([], [], []))
+        hits, fails, warns = errata_submodule_scan(self.root, "L-0[")
+        self.assertEqual((hits, fails, warns), ([], [], []), msg=str((hits, fails, warns)))
+
+    def test_pathspec_empty_fail_loud(self):
+        """★掃描面存在性（fhr 碼透鏡實暴：缺此腿＝樣式集與版面脫節時渲染成「0 處」rc 0、
+        正是總結行禁止形）：pin 樹零檔匹配任一 pathspec＝該庫 fail-loud 指名空樣式。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n",
+                                                 "src/x.vue": "<!-- 佔位 -->\n"})
+        hits, fails, warns = errata_submodule_scan(self.root, "任意詞")
+        self.assertEqual((hits, warns), ([], []), msg=str((hits, warns)))
+        self.assertEqual([sub for sub, _msg in fails], ["rust-api"], msg=str(fails))
+        self.assertIn("掃描面為空", fails[0][1])
+        self.assertIn("*.toml", fails[0][1])
 
     def test_cmd_errata_fail_loud_nonzero_and_summary(self):
         """★接線層：子庫腿任一致命失敗＝cmd_errata 整體 return 1、總結行對失敗庫記
