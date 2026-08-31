@@ -5,7 +5,7 @@
 子命令：
   generate        重算 docs/generated/ 全部（含 ADR superseded_by 對稱回填）
   check           重算到暫存與現況 diff、不一致 exit 1（= lint Lint01 本體＋Lint02 對賬）
-  lint            Lint03～Lint29（Lint03 事件帳逐列 schema：feature_close／review／misc／
+  lint            Lint03～Lint30（Lint03 事件帳逐列 schema：feature_close／review／misc／
                   erratum／perf 五型；Lint04/Lint05/Lint06 收刀完整性閘：
                   事件存在性／review 分流／arch_impact 雙向；
                   Lint16 憑證內容掃描：外層 tracked 全量＋pin bump 時 submodule 增量；
@@ -19,10 +19,11 @@
                   Lint26 LESSONS 分檔對賬：檔名↔正文 ID／索引↔檔雙向／promoted_to 必填；
                   Lint27 README 目錄樹 vs tools/／deploy/ 腳本檔集對賬：兩向紅、只報不改；
                   Lint28 活書 §1 建置狀態 ⊇ events feature_close 刀號集：單向對賬、缺即紅；
-                  Lint29 子庫碼面（pin 指向樹）裸 B-／L- 編號超出本代 next-id 即紅）
+                  Lint29 子庫碼面（pin 指向樹）裸 B-／L- 編號超出本代 next-id 即紅；
+                  Lint30 bash 面（外層 tracked *.sh＋shebang 檔）$VAR 後緊接非 ASCII 即紅）
                   輸出末行＝「lint：X 錯誤／Y 警告／Z 條款跳過」，Z>0 時次行列跳過明細。
   refresh         自實庫撈快照寫 docs/ops/reference-src/（唯一需 docker 的子命令）
-  errata <詞>     全 repo 同語意枚舉報告
+  errata <詞>     全 repo 同語意枚舉報告（外層 tracked 全檔＋兩子庫 pin 樹碼面）
   test            跑自帶測試（unittest）
 
 token 計數：UTF-8 bytes ÷ 3 保守近似（測試鎖定算法）。
@@ -782,6 +783,13 @@ DICT_PATTERNS = (
     (re.compile(r"(?i)(?:routes?|路由|端點|endpoints?)\D{0,8}?\d+"
                 r"|\d+\s*(?:條|個|支)?\s*(?:routes?|路由|端點|endpoints?)"), "route 計數實值",
      "快變字面值不入活文件→ docs/generated/reference/routes.md"),
+    # L-043：預告三詞＝「會過期的斷言」的語言指紋（預告落空不會編譯紅、不會測試紅）。
+    # ★詞界取捨：中文無 \b 可用，「昨日後悔」一類含「日後」子串的措辭會誤中——語料小
+    #   （活書家族＋CLAUDE.md）且警告級放行列示、誤傷由人工判讀改寫；負向後顧排除前置
+    #   漢字反會漏真預告（中文預告句前置字多為漢字、排除即排除大宗真命中），故取子串形。
+    (re.compile(r"屆時|日後|將由"), "預告語言指紋",
+     "活書零未來式——預告必標成預告＋附回填義務（as-built 待回填形）；未來式住 ops/"
+     "（BACKLOG／NOTES）"),
 )
 
 
@@ -4975,6 +4983,8 @@ def lint_id_namespace(root, tracked, exemptions=None):
 # ★git 預設 pathspec 的 `*` 亦匹配 `/`（fnmatch 無 FNM_PATHNAME）：`src/*.ts` 即涵蓋 src/ 下
 #   任意深度；`src/**/*.ts` 形反而漏掉 src/ 直屬子檔（2026-08-30 實測 base-web：117 vs 116 檔）。
 # ★取捨登記（B-151；為何是這幾個樣式、為何不是更多）住 lint_submodule_code_ids docstring。
+# ★消費者有二：lint_submodule_code_ids（Lint29）與 errata_submodule_scan（勘誤子庫腿、
+#   L-038 防法③）——改本樣式集＝同時改兩者的子庫射程、不另立第二份名冊。
 SUBMODULE_ID_SCAN = {
     "rust-api": ("*.rs", "*.toml"),
     "base-web": ("src/*.ts", "src/*.vue"),
@@ -5101,6 +5111,16 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
                                    f"{'／'.join(empty)}——SUBMODULE_ID_SCAN 與子庫版面脫節、"
                                    "不得視同乾淨（fail-loud）；改常數或還原版面後重跑"))
                 continue
+        else:
+            # B-153：ls-tree 失敗（含 rc None）＝掃描面存在性未證——比照 git grep 側 fail-loud、
+            # 該庫本輪不往下判；缺此腿＝上方「掃描面為空」守衛靜默下線（立案實證：注入恆回
+            # rc 128 後零筆報掃描面未建立＝生產面無聲綠）。
+            head = ((_terr or "").strip().splitlines() or [""])[0]
+            out.append(finding(ERROR, "Lint29", sub,
+                               f"git ls-tree 退出碼 {trc}" + (f"：{head}" if head else "")
+                               + "——掃描面未建立、不得視同乾淨（fail-loud）；修復子庫 git "
+                               "後重跑"))
+            continue
         prefix = sha + ":"
         unparsed = 0
         for rec in stdout.split("\n"):
@@ -5128,6 +5148,79 @@ def lint_submodule_code_ids(root, cache=None, reg=None):
                                f"git grep -z 有 {unparsed} 筆記錄不帶「<sha>:」前綴或解析不出"
                                "「<path>\\0<行號>\\0<內容>」三欄（輸出形有變）——該批行未受檢、"
                                "掃描面不完整，不得視同乾淨（fail-loud）"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Lint30 bash 面變數黏字閘（L-001 防法②機器化）
+# ---------------------------------------------------------------------------
+
+# 判定形＝L-001 防法②原式：`$` 前不得是 `\` 轉義、變數名後緊接非 ASCII 即中——macOS
+# bash 3.2 於 UTF-8 locale 會把全形字首位元組黏進變數名（unbound variable、選擇性觸發：
+# 繫於後接字元位元組值，「跑過一次沒事」不能排除）。
+RE_BASH_VAR_GLUE = re.compile(r"(?<!\\)\$[A-Za-z_][A-Za-z0-9_]*(?=[^\x00-\x7f])")
+
+
+def bash_face_files(root, tracked):
+    """Lint30 掃描面：外層 tracked 之 bash 檔——`*.sh` 全收＋無副檔名檔以首行 shebang 含
+    sh 判定（.githooks/* hook 形；bash／sh 皆含該子串）。自 tracked 現算、不建手工名冊
+    （名冊會漂移）；子庫＝gitlink、read 不到自然出列。"""
+    out = []
+    for rel in tracked:
+        if rel.endswith(".sh"):
+            out.append(rel)
+            continue
+        if "." in rel.rsplit("/", 1)[-1]:
+            continue
+        try:
+            text = _read(root, rel)
+        except UnicodeDecodeError:
+            continue                      # 二進位／非 UTF-8＝不在 bash 語料
+        first = (text or "").split("\n", 1)[0]
+        if first.startswith("#!") and "sh" in first:
+            out.append(rel)
+    return out
+
+
+def lint_bash_var_glue(root, tracked):
+    """Lint30：bash 面「$VAR 後緊接非 ASCII」即紅（L-001 防法②）。
+
+    整行註解（lstrip 起手 #；shebang 行天然含）不掃——註解內同形不執行、報之徒增噪音；
+    行中尾隨註解照掃（判「是否註解」需完整 shell 解析、寧可多抓由 ERROR 顯性裁決）。
+    ★同一取捨的另一半（碼品質透鏡實暴後登記）：單引號字面、quoted heredoc（<<'EOF'）與
+    單引號包住的 awk／sed 程式片段不做參數展開、L-001 黏字風險不存在，本條款照掃＝結構性
+    偽陽性（判引號狀態同需完整 shell 解析）；且此類命中照 `${VAR}` 包裹**不是等價變換**
+    （字面輸出會多出大括號），故訊息的修法句採有條件形、由人判脈絡後再動手。
+    """
+    out = []
+    for rel in bash_face_files(root, tracked):
+        try:
+            text = _read(root, rel)
+        except UnicodeDecodeError:
+            text = None                   # 與讀不出同置——處置分腿見下
+        if text is None:
+            # 兩腿處置刻意不同：`*.sh` 腿無條件收檔、不經讀檔判定——該檔按定義已在
+            # 掃描面內，讀不出／解不出＝「掃描面已建立但該檔未受檢」，比照 Lint29
+            # 存在性守衛 fail-loud；shebang 腿的入面判定本身靠成功讀檔，落到這裡＝
+            # 入面後才變得不可讀的邊角（二進位／非 UTF-8＝不在 bash 語料），維持靜默出列。
+            if rel.endswith(".sh"):
+                out.append(finding(ERROR, "Lint30", rel,
+                                   "tracked *.sh 讀不出或非 UTF-8 可解——掃描面已建立但該檔"
+                                   "未受檢、不得視同乾淨（fail-loud）；轉存 UTF-8 或還原"
+                                   "檔案後重跑"))
+            continue
+        for n, line in enumerate(text.splitlines(), start=1):
+            if line.lstrip().startswith("#"):
+                continue
+            for m in RE_BASH_VAR_GLUE.finditer(line):
+                out.append(finding(ERROR, "Lint30", f"{rel}:行 {n}",
+                                   f"「{m.group(0)}」後緊接非 ASCII——UTF-8 locale 下 bash 會把"
+                                   "後接字元首位元組黏進變數名（unbound variable、選擇性觸發）；"
+                                   f"若該處確為參數展開，改括號形包裹：{m.group(0)} → "
+                                   f"${{{m.group(0)[1:]}}}；單引號字面／quoted heredoc 等"
+                                   "不展開脈絡屬誤中（照包會改變輸出）、改寫該行措辭繞開；"
+                                   "防法出處：docs/ops/LESSONS/"
+                                   "L-001-bash-fullwidth-glues-varname.md"))
     return out
 
 
@@ -5167,12 +5260,12 @@ def run_lint(root, exemptions=None):
 
 
 def _run_lint_uncached(root, exemptions=None):
-    """組裝 Lint03～Lint29 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
+    """組裝 Lint03～Lint30 全套：Lint04/Lint05/Lint06 收刀完整性閘、Lint16 憑證掃描、
     Lint17 pin 互證、Lint18 帳本 SHA 實證、Lint19 命令形真表比對、Lint20 空集合守衛、
     Lint21 exec bit 守衛、Lint22 範圍字串守衛、
     Lint24 前後端 msg key 契約閘、Lint25 跨代裸編號閘、Lint26 LESSONS 分檔對賬閘、
     Lint27 README 目錄樹 vs 腳本檔集對賬閘、Lint28 活書 §1 建置狀態對賬閘、
-    Lint29 子庫碼面編號閘。
+    Lint29 子庫碼面編號閘、Lint30 bash 面變數黏字閘。
     回 findings（含 SKIP 級：條款不適用而未執行，由 lint_summary 彙整成跳過明細）。
     git 不可用＝fail-closed 單發 ERROR。"""
     if not git_available(root):
@@ -5229,6 +5322,7 @@ def _run_lint_uncached(root, exemptions=None):
     findings += lint_i18n_contract(root, exemptions=exemptions)
     findings += lint_id_namespace(root, tracked)
     findings += lint_submodule_code_ids(root, probe)
+    findings += lint_bash_var_glue(root, tracked)
     return findings
 
 
@@ -5359,7 +5453,76 @@ def _cmd_check_uncached():
     return 1 if findings else 0
 
 
+def _errata_sub_grep(subdir, tree, keyword, pathspecs):
+    """errata 子庫腿的一發 `git grep -n -z -i -F`（固定字串、大小寫不敏感＝與外層
+    errata_scan 的子串語意一致）；回 (rc, stdout, stderr)——git 開不起來時 rc＝None。
+    輸出形（-z）＝`<tree>:<path>\\0<行號>\\0<內容>\\n`（同 _code_id_grep、以 SHA 前綴切）。
+    ★keyword 一律經 `-e` 傳入：起手為「-」且恰為合法短選項的關鍵詞（-i／-v／-w…）
+    否則被 git grep 吃成第二個選項、pin SHA 反成 pattern＝靜默零命中 rc 1——掃描未
+    執行卻被讀成乾淨，正是本腿 fail-loud 條款要杜絕的形。"""
+    try:
+        r = subprocess.run(["git", "-c", "core.quotepath=off", "grep", "-n", "-z", "-I",
+                            "-i", "-F", "-e", keyword, tree, "--", *pathspecs], cwd=subdir,
+                           capture_output=True, encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return None, "", exc.__class__.__name__
+    return r.returncode, r.stdout, r.stderr
+
+
+def errata_submodule_scan(root, keyword):
+    """errata 子庫碼面腿（L-038 防法③）：對 PIN_KEYS 兩子庫、以外層 gitlink pin 掃
+    SUBMODULE_ID_SCAN 樣式集（＝Lint29 同一掃描面單源；誠實邊界＝非子庫全檔）。
+
+    回 (hits, fails, warns)：hits＝[(<子庫>/<檔>, 行號str, 行文)]；fails 與 warns 皆為
+    [(<子庫>, 說明)] 結構化二元組——呼叫端以 sub 欄判哪庫未執行、不比對訊息字面（碼品質
+    透鏡實暴：前綴字串契約零自測可釘、改措辭即讓總結行把「掃描沒跑」渲染成 0 處）。
+    fails＝致命（任一＝掃描未執行、呼叫端整體非零——不得視同零命中、fail-loud）；
+    warns＝worktree 在位但 pin 在該庫不可解（他機推進新 pin 外層先帶到、或 upstream
+    rebase 卷史——合法狀態；沿 Lint29 同款 WARN 逃生口降級、不計非零，否則 CLI 冒煙
+    自測於該狀態轉紅、經 pre-commit／bootstrap 卡死全部 commit），總結行仍須記
+    「未執行」。rc 1（零命中）屬正常。
+    """
+    hits, fails, warns = [], [], []
+    for _key, sub in PIN_KEYS:
+        sha, why = index_gitlink(root, sub)
+        if sha is None:
+            fails.append((sub, f"{sub} 碼面掃描未執行（{why}）——不得視同零命中"))
+            continue
+        rc, stdout, stderr = _errata_sub_grep(os.path.join(root, sub), sha, keyword,
+                                              SUBMODULE_ID_SCAN[sub])
+        if rc not in (0, 1):
+            # 沿 Lint29 消費端同款降級判定：rc 非 None、worktree 在位（submodule_head
+            # 可查——worktree 缺席／斷裂時 git_object_types 必回空 dict、會把「庫開不
+            # 起來」誤判成「pin 失聯」）且 pin 於該庫不可解＝合法失聯、不觸發非零。
+            _head, broken = submodule_head(root, sub)
+            if (rc is not None and not broken
+                    and sha not in git_object_types([sha], os.path.join(root, sub))):
+                warns.append((sub, f"{sub} pin {sha[:12]} 在該庫不可解（upstream rebase "
+                              "卷史後合法失聯）——碼面掃描未執行；回該庫 fetch 該 SHA "
+                              "後重跑"))
+                continue
+            head = ((stderr or "").strip().splitlines() or [""])[0]
+            fails.append((sub, f"{sub} 碼面掃描未執行（git grep 退出碼 {rc}"
+                          + (f"：{head}" if head else "") + "）——不得視同零命中"))
+            continue
+        prefix = sha + ":"
+        for rec in stdout.split("\n"):
+            if not rec:
+                continue                              # split 尾端空字串＝唯一合法無前綴形
+            if not rec.startswith(prefix) or rec.count("\0") < 2:
+                fails.append((sub, f"{sub} 碼面掃描輸出形不可解（記錄不帶 pin 前綴或"
+                              "非三欄）——該批行未受檢、不得視同零命中"))
+                break
+            path, lno, content = rec[len(prefix):].split("\0", 2)
+            hits.append((f"{sub}/{path}", lno, content))
+    return hits, fails, warns
+
+
 def cmd_errata(keyword):
+    """errata：外層 tracked 全檔（大小寫不敏感子串）＋兩子庫 pin 樹碼面（L-038 防法③）
+    同語意枚舉。誠實邊界＝子庫面只掃 SUBMODULE_ID_SCAN 樣式集、非子庫全檔；任一子庫
+    掃描未執行＝fail-loud return 1（不得視同零命中）——唯 pin 於該庫合法失聯（warns）
+    降級不計非零、總結行仍記「未執行」。"""
     texts = {}
     for rel in tracked_files(ROOT):
         try:
@@ -5371,8 +5534,22 @@ def cmd_errata(keyword):
     hits = errata_scan(texts, keyword)
     for rel, n, line in hits:
         print(f"{rel}:行 {n}｜{line.strip()}")
-    print(f"errata「{keyword}」：{len(hits)} 處命中（逐處處置、勿只修被點名那一處）")
-    return 0
+    sub_hits, fails, warns = errata_submodule_scan(ROOT, keyword)
+    for where, lno, content in sub_hits:
+        print(f"{where}:行 {lno}｜{content.strip()}")
+    for _sub, msg in fails + warns:
+        print(msg)
+    # ★總結行對未執行庫（致命 fails 與合法失聯 warns 皆是）記「未執行」——掃描沒跑不得
+    #   渲染成「0 處」（同 Lint29「掃描面未建立、不得視同乾淨」的立案理由）；判定取結構化
+    #   sub 欄、不比對訊息字面（碼品質透鏡實暴：前綴契約零自測可釘、改措辭即靜默落空）。
+    not_run = {sub for sub, _msg in fails} | {sub for sub, _msg in warns}
+    counts = "＋".join(
+        [f"外層 {len(hits)} 處"]
+        + [(f"{sub} 未執行" if sub in not_run else
+            f"{sub} {sum(1 for w, _, _ in sub_hits if w.startswith(sub + '/'))} 處")
+           for _key, sub in PIN_KEYS])
+    print(f"errata「{keyword}」：{counts}命中（逐處處置、勿只修被點名那一處）")
+    return 1 if fails else 0
 
 
 # ---------------------------------------------------------------------------
@@ -7164,6 +7341,27 @@ class TestLintDictionary(unittest.TestCase):
     def test_clean(self):
         self.assertEqual(lint_dictionary({"CLAUDE.md": "正常內容 §5 與 B-012。\n"}), [])
 
+    def test_forecast_words(self):
+        """★L-043：預告三詞（屆時／日後／將由）＝預告的語言指紋、警告級——各詞一紅案；
+        「｜出處：」行首豁免仍成立；乾淨綠案。
+
+        ★誤傷取捨（詞界）：中文無 \\b 可用，「昨日後悔」一類含「日後」子串的措辭會誤中——
+          語料僅活書家族＋CLAUDE.md、警告級放行列示、由人工判讀改寫；收窄 regex（如負向
+          後顧排除前置漢字）反會漏掉真預告——中文預告句的前置字多為漢字、排除漢字
+          前置等於排除大宗真命中——故取子串形、誤傷容忍，末段斷言即釘住此取捨。
+        """
+        for word in ("屆時", "日後", "將由"):
+            f = lint_dictionary({BOOK: f"該欄{word}補上。\n"})
+            self.assertEqual([(x["level"], x["code"]) for x in f],
+                             [(WARN, "Lint11")], msg=f"{word}：{f}")
+            self.assertIn("預告語言指紋", f[0]["msg"])
+            self.assertIn("ops/", f[0]["msg"])
+        self.assertEqual(lint_dictionary({BOOK: "｜出處：rev3 屆時補上\n"}), [])
+        self.assertEqual(lint_dictionary({BOOK: "現況描述、零預告。\n"}), [])
+        f = lint_dictionary({BOOK: "昨日後悔莫及。\n"})
+        self.assertEqual([(x["level"], x["code"]) for x in f], [(WARN, "Lint11")],
+                         msg=str(f))
+
 
 class TestBookFamilyTexts(unittest.TestCase):
     """附屬文件進 Lint10／Lint11 掃描面的機器證明（ADR 0062）。"""
@@ -8363,6 +8561,8 @@ class TestGitIntegration(unittest.TestCase):
             self.assertEqual(list(head), ["0001-x.md"])
             self.assertEqual(head["0001-x.md"], ADR_OK_A)
 
+    @unittest.skipUnless(_day1_pending("rust-api/.git", "base-web/.git"),
+                         "掃描面不在：解除＝兩子庫 worktree 皆在位（唯讀看碼模式或尚未跑 bash tools/bootstrap.sh）——errata 子庫腿於 worktree 缺席時 fail-loud 非零屬正確行為、非 CLI 崩潰")
     def test_cli_errata_smoke(self):
         """回歸：cmd_errata 曾漏傳 root 而 TypeError 崩潰（CLI 包裝層無測試覆蓋）。"""
         r = subprocess.run([sys.executable, os.path.abspath(__file__), "errata", "next-id"],
@@ -11130,12 +11330,12 @@ class TestRangeStringGuard(unittest.TestCase):
             "tools/docs-sync.py", "docs/ops/RUNBOOK.md", ".githooks/pre-commit"))
 
     def test_real_source_derivation_contains_own_code_and_bound_pinned(self):
-        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝29
-        （Lint29 子庫碼面編號閘為現行最大號）——上界前進時本測試逼著同刀更新
+        """★推導一致性（真源）：集合必含本條款自身碼（推導前提）、上界釘版＝30
+        （Lint30 bash 面變數黏字閘為現行最大號）——上界前進時本測試逼著同刀更新
         （釘版＝有意識動作、同 test_roster_is_pinned 慣例；非守衛真值側）。"""
         codes = derive_lint_codes(_read(ROOT, "tools/docs-sync.py"))
         self.assertIn(self._own(), codes)
-        self.assertEqual(max(codes), 29)
+        self.assertEqual(max(codes), 30)
 
     @unittest.skipUnless(_day1_pending(*RANGE_ROSTER),
                          "Day 1 未達：解除＝RANGE_ROSTER 三檔全在（docs/ops/RUNBOOK.md 隨 B5 骨架落地）")
@@ -11598,6 +11798,28 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         self.assertEqual([x["level"] for x in f], [ERROR], msg=str(f))
         self.assertIn("退出碼 2", f[0]["msg"])
 
+    def test_tree_files_failure_is_error(self):
+        """★ERROR（fail-loud、B-153）：git ls-tree 非零（含 None）＝掃描面存在性未證——比照
+        git grep 側報「掃描面未建立」並指名子庫，且該庫本輪不往下判。
+
+        ★本案專釘「`if trc == 0:` 的 else 腿」：修前該腿缺席、ls-tree 失敗＝「掃描面為空」
+          守衛靜默下線、條款照常往下判（B-153 立案實證：注入恆回 rc 128 後零筆報掃描面
+          未建立＝生產面無聲綠）。
+        """
+        _sub_with_files(self.root, "rust-api",
+                        {"Cargo.toml": "# 乾淨\n", "src/a.rs": "// 乾淨\n"})
+        original = globals()["_code_id_tree_files"]
+        globals()["_code_id_tree_files"] = lambda subdir, tree: (128, "", "fatal: 模擬失敗\n")
+        try:
+            f = self._of("rust-api")
+        finally:
+            globals()["_code_id_tree_files"] = original
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint29", "rust-api")], msg=str(f))
+        self.assertIn("掃描面未建立", f[0]["msg"])
+        self.assertIn("退出碼 128", f[0]["msg"])
+        self.assertIn("fatal: 模擬失敗", f[0]["msg"])
+
     def test_unparsable_record_is_error(self):
         """ERROR（fail-loud）：rc=0 但 -z 記錄解析不出「<path>\\0<行號>\\0<內容>」三欄
         （此處餵入「僅檔名後帶 NUL、行號後仍是冒號」的退化形）→掃描面不完整、不得視同乾淨。
@@ -11740,6 +11962,222 @@ class TestLintSubmoduleCodeIds(unittest.TestCase):
         不在」誤報成「工具壞了」（同 Lint20／Lint21／Lint22／Lint24 真 repo 案的既成慣例）。
         """
         self.assertEqual(lint_submodule_code_ids(ROOT), [])
+
+
+class TestLintBashVarGlue(unittest.TestCase):
+    """Lint30 bash 面「$VAR 後緊接非 ASCII」閘（L-001 防法②機器化）：掃描面自 tracked 現算
+    （`*.sh` 全收＋首行 shebang 含 sh 的無副檔名檔）、整行註解不掃、`\\$` 轉義不中。
+
+    fixture＝tempdir 假外層（_init_outer＋git add 入 index）、真 repo 唯讀。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        _init_outer(self.root)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _lint(self):
+        return lint_bash_var_glue(self.root, tracked_files(self.root))
+
+    def test_glued_var_red(self):
+        """紅案：`$VAR` 後緊接全形字→ERROR 指名檔:行、msg 載命中字面＋`${VAR}` 括號修法
+        ＋去處（L-001 條目檔）。"""
+        _wfile(self.root, "tools/a.sh", "#!/bin/bash\necho \"$HOME目錄\"\n")
+        _git(self.root, "add", "-A")
+        f = self._lint()
+        self.assertEqual([(x["level"], x["code"], x["where"]) for x in f],
+                         [(ERROR, "Lint30", "tools/a.sh:行 2")], msg=str(f))
+        self.assertIn("$HOME", f[0]["msg"])
+        self.assertIn("${HOME}", f[0]["msg"])
+        self.assertIn("L-001-bash-fullwidth-glues-varname.md", f[0]["msg"])
+
+    def test_shebang_file_scanned_red(self):
+        """紅案（掃描面第二腿）：無副檔名、首行 shebang 含 sh 的檔（hook 形）照掃。"""
+        _wfile(self.root, "hooks/guard", "#!/bin/sh\necho \"$RV5_DIR中文\"\n")
+        _git(self.root, "add", "-A")
+        f = self._lint()
+        self.assertEqual([x["where"] for x in f], ["hooks/guard:行 2"], msg=str(f))
+
+    def test_escaped_and_comment_not_hit(self):
+        """兩向之「不命中」半邊：`\\$` 轉義（$ 前是反斜線）與整行註解（lstrip 起手 #、
+        shebang 行天然含）皆不掃。"""
+        _wfile(self.root, "tools/b.sh",
+               "#!/bin/bash\necho \"\\$HOME目錄\"\n# $HOME目錄 註解行\n  # $X全形縮排註解\n")
+        _git(self.root, "add", "-A")
+        self.assertEqual(self._lint(), [])
+
+    def test_braced_and_ascii_green(self):
+        """邊界綠案：`${VAR}` 括號形後接全形不命中、`$VAR` 後接 ASCII 不命中；
+        非 bash 面（.py／無 shebang 之無副檔名檔）縱含同形亦不掃。"""
+        _wfile(self.root, "tools/c.sh",
+               "#!/bin/bash\necho \"${HOME}目錄\"\necho \"$HOME dir\"\necho \"$HOME\"\n")
+        _wfile(self.root, "tools/d.py", "s = '$HOME目錄'\n")
+        _wfile(self.root, "PLAIN", "無 shebang：$HOME目錄\n")
+        _git(self.root, "add", "-A")
+        self.assertEqual(self._lint(), [])
+
+    def test_unreadable_sh_fail_loud(self):
+        """★fail-loud：`*.sh` 腿無條件收檔——非 UTF-8 可解（UTF-16、BOM 0xFF 起手＝必然
+        解碼失敗）與讀不出（tracked 但工作樹缺檔）皆＝掃描面已建立但該檔未受檢，發
+        ERROR 指名；shebang 腿反之：入面判定靠成功讀檔、解不出＝不在 bash 語料，
+        維持靜默（零訊號）。"""
+        raw = "#!/bin/bash\necho \"$HOME目錄\"\n".encode("utf-16")
+        for rel in ("tools/gbk.sh", "hooks/gbkhook"):
+            p = os.path.join(self.root, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "wb") as fh:
+                fh.write(raw)
+        _wfile(self.root, "tools/gone.sh", "#!/bin/bash\necho ok\n")
+        _git(self.root, "add", "-A")
+        os.remove(os.path.join(self.root, "tools/gone.sh"))
+        f = self._lint()
+        self.assertEqual(sorted((x["level"], x["code"], x["where"]) for x in f),
+                         [(ERROR, "Lint30", "tools/gbk.sh"),
+                          (ERROR, "Lint30", "tools/gone.sh")], msg=str(f))
+        for x in f:
+            self.assertIn("未受檢", x["msg"])
+
+    def test_run_lint_wires_bash_var_glue(self):
+        """★接線層：lint_bash_var_glue 從 run_lint 掉線＝Lint30 整條靜默下線。
+        Lint30 findings 只可能來自本條款——信號純淨。"""
+        _wfile(self.root, "tools/a.sh", "#!/bin/bash\necho \"$HOME目錄\"\n")
+        _git(self.root, "add", "-A")
+        f = run_lint(self.root)
+        self.assertTrue(any(x["code"] == "Lint30" and x["level"] == ERROR for x in f),
+                        msg=str([x for x in f if x["code"] == "Lint30"]))
+
+    def test_real_repo_bash_face_clean(self):
+        """★現況驗收：真 repo bash 面零命中（L-001 之 4 行 7 處復發已於 2026-08-31 主線
+        直修）——上線即綠；掃描面至少含 *.sh 代表與無副檔名 hook 代表（面空＝假綠）。"""
+        tracked = tracked_files(ROOT)
+        face = bash_face_files(ROOT, tracked)
+        self.assertIn("tools/bootstrap.sh", face)
+        self.assertIn(".githooks/pre-commit", face)
+        self.assertEqual(lint_bash_var_glue(ROOT, tracked), [])
+
+
+class TestErrataSubmoduleScan(unittest.TestCase):
+    """errata 子庫碼面腿（L-038 防法③）：對 PIN_KEYS 兩子庫、以外層 gitlink pin 掃
+    SUBMODULE_ID_SCAN 樣式集（git grep -i -F＝與外層大小寫不敏感子串語意一致）；
+    任一子庫掃描未執行＝fail-loud（不得視同零命中、cmd_errata 整體非零）——唯 pin
+    合法失聯降級 warns 不計非零（沿 Lint29 同款逃生口）、總結行仍記「未執行」。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        _init_outer(self.root)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_keyword_hit_with_sub_prefix(self):
+        """命中列出且帶子庫前綴（大小寫不敏感）；樣式外檔（*.md）不掃＝誠實邊界；
+        index 無 gitlink 的另一庫＝fail-loud 指名（掃描未執行≠零命中）。"""
+        _sub_with_files(self.root, "rust-api",
+                        {"src/a.rs": "// 舊詞 FooBar 在此\n", "README.md": "foobar\n"})
+        hits, fails, warns = errata_submodule_scan(self.root, "foobar")
+        self.assertEqual([(w, lno) for w, lno, _ in hits],
+                         [("rust-api/src/a.rs", "1")], msg=str(hits))
+        self.assertIn("FooBar", hits[0][2])
+        self.assertEqual(warns, [], msg=str(warns))
+        self.assertEqual([sub for sub, _msg in fails], ["base-web"], msg=str(fails))
+        self.assertIn("不得視同零命中", fails[0][1])
+
+    def test_zero_hit_clean(self):
+        """rc 1（零命中）屬正常：兩庫皆在位且乾淨→hits／fails 皆空。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        self.assertEqual(errata_submodule_scan(self.root, "不存在詞xq"), ([], [], []))
+
+    def test_dash_keyword_not_eaten_as_option(self):
+        """★紅案釘位：起手為「-」且恰為合法短選項的關鍵詞（-i）不得被 git grep 吃成
+        選項——被吃時 pin SHA 反成 pattern、於工作樹靜默零命中 rc 1（掃描未執行卻讀成
+        乾淨、且外層純子串腿對同詞免疫＝兩腿語意不對等）；`-e` 標記形下應正常命中。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 選項 -I 字面在此\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        hits, fails, warns = errata_submodule_scan(self.root, "-i")
+        self.assertEqual((fails, warns), ([], []), msg=str(fails + warns))
+        self.assertEqual([(w, lno) for w, lno, _ in hits],
+                         [("rust-api/src/a.rs", "1")], msg=str(hits))
+
+    def test_grep_failure_fail_loud(self):
+        """★fail-loud：git grep 退出碼非 0／1 且 pin 於該庫可解（fixture 真 commit）＝
+        該庫記致命失敗（載退出碼）、不走失聯降級腿——與
+        test_pin_unreachable_downgraded_not_fatal 互為兩向。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        original = globals()["_errata_sub_grep"]
+        globals()["_errata_sub_grep"] = (
+            lambda subdir, tree, keyword, pathspecs: (128, "", "fatal: 模擬失敗\n"))
+        try:
+            hits, fails, warns = errata_submodule_scan(self.root, "任意詞")
+        finally:
+            globals()["_errata_sub_grep"] = original
+        self.assertEqual(hits, [])
+        self.assertEqual(warns, [], msg=str(warns))
+        self.assertEqual(sorted(sub for sub, _msg in fails), ["base-web", "rust-api"],
+                         msg=str(fails))
+        for _sub, msg in fails:
+            self.assertIn("退出碼 128", msg)
+            self.assertIn("不得視同零命中", msg)
+
+    def test_pin_unreachable_downgraded_not_fatal(self):
+        """★兩向之降級半邊（碼品質透鏡實暴後補）：子庫 worktree 在位但外層 pin 的
+        object 在該庫不可解（他機推進新 pin、外層 pull 先帶到而子庫尚未 fetch；
+        upstream rebase 卷史同族——合法狀態）＝入 warns 不入 fails、呼叫端不非零。
+        缺此腿＝該合法狀態下 CLI 冒煙紅、經 pre-commit／bootstrap 卡死全部 commit。"""
+        _sub_with_files(self.root, "rust-api", {"src/a.rs": "// 乾淨\n"})
+        _sub_with_files(self.root, "base-web", {"src/a.ts": "// 乾淨\n"})
+        _stage_gitlink(self.root, "rust-api", "1" * 40)   # 覆蓋為該庫不可解之合成 pin
+        hits, fails, warns = errata_submodule_scan(self.root, "任意詞")
+        self.assertEqual((hits, fails), ([], []), msg=str((hits, fails)))
+        self.assertEqual([sub for sub, _msg in warns], ["rust-api"], msg=str(warns))
+        self.assertIn("不可解", warns[0][1])
+        self.assertIn("未執行", warns[0][1])
+
+    def test_cmd_errata_fail_loud_nonzero_and_summary(self):
+        """★接線層：子庫腿任一致命失敗＝cmd_errata 整體 return 1、總結行對失敗庫記
+        「未執行」（不得渲染 0 處）；warns（pin 合法失聯）＝return 0 但總結行仍記
+        「未執行」；全常態＝return 0 且總結行外層＋兩子庫分計（三分計形）。
+        外層語料以空 tracked 樁隔離（真 repo I/O 不入本案）。"""
+        mod = sys.modules[__name__]
+        with mock.patch.object(mod, "tracked_files", lambda root: []):
+            with mock.patch.object(mod, "errata_submodule_scan",
+                                   lambda root, kw: ([], [("rust-api", "rust-api 碼面掃描"
+                                                          "未執行（模擬）——不得視同零命中")],
+                                                     [])):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = cmd_errata("關鍵詞甲")
+            self.assertEqual(rc, 1)
+            self.assertIn("不得視同零命中", buf.getvalue())
+            # ★總結行不得把「掃描沒跑」渲染成「0 處」——失敗庫必記「未執行」；判定取
+            #   結構化 sub 欄、與訊息措辭脫鉤（改措辭不得讓本斷言失守）
+            self.assertIn("外層 0 處＋base-web 0 處＋rust-api 未執行命中", buf.getvalue())
+            self.assertNotIn("rust-api 0 處", buf.getvalue())
+            with mock.patch.object(mod, "errata_submodule_scan",
+                                   lambda root, kw: ([("rust-api/src/a.rs", "1", "x")],
+                                                     [], [])):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = cmd_errata("關鍵詞乙")
+            self.assertEqual(rc, 0)
+            self.assertIn("外層 0 處＋base-web 0 處＋rust-api 1 處命中", buf.getvalue())
+            # ★warns 腿的 CLI 面釘位：pin 合法失聯＝不計非零、總結行仍記「未執行」
+            with mock.patch.object(mod, "errata_submodule_scan",
+                                   lambda root, kw: ([], [], [("rust-api", "rust-api pin "
+                                                              "失聯（模擬）——碼面掃描"
+                                                              "未執行")])):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = cmd_errata("關鍵詞丙")
+            self.assertEqual(rc, 0)
+            self.assertIn("外層 0 處＋base-web 0 處＋rust-api 未執行命中", buf.getvalue())
+            self.assertNotIn("rust-api 0 處", buf.getvalue())
+            self.assertIn("碼面掃描未執行", buf.getvalue())
 
 
 class TestI18nContractGate(unittest.TestCase):

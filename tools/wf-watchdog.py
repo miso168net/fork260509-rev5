@@ -13,6 +13,8 @@
     「目錄延遲建立、sleep 10 撲空鎖到舊目錄」的坑（2026-08-08 實證）由等待迴圈補上。
   ★resume 場景（resumeFromRunId）：resume 不會建新目錄、沿用原 runId／目錄（2026-08-08
     實證）——第二參數直接給原 runId（或原目錄路徑）即為正解。
+    ★續跑時 ARMED 行的冒煙位元組數＝前一輪殘留、不可據以判斷新 prompt 送達；查核改看
+    最新 agent-*.jsonl（mtime 是否剛剛＋grep 本輪新字串）、一次性查核不輪詢（L-023）。
   ★冒煙 token 不可取字面 test（會被當自測子命令）。
 
 行為：ARMED 一行（夾帶冒煙：最早 agent transcript＝implementer 首行 byte 數＋冒煙 token
