@@ -77,3 +77,4 @@
 | 0072 | accepted | 2026-08-31 | R_SUPER 字面兩宣告源並存係 by-design——facade 層 `sys_role::SUPER_ROLE_CODE` 為 model／handler 層唯一宣告源、auth 層 `no_escalation::ROLE_SUPER` 保留憲法同源直書 | — | — | — |
 | 0073 | accepted | 2026-08-31 | 四件跨 handler 共用件同住 `handler::user` 判為 by-design——共用件的家取語意層而非技術可行性，`common` 收攏名冊維持八件、兩支 err 不上提 | — | — | — |
 | 0074 | accepted | 2026-08-31 | 測試守衛 `test_db::UserCleanup` 兩建構子並存判為 won't-fix——`new`＝顯式 id 單名冊、`with_name_prefixes`＝雙名冊係刻意終態、不收成單一建構子 | — | — | — |
+| 0075 | accepted | 2026-08-31 | review 報告與 review 事件義務收斂為僅適用不定期獨立 review 輪——feature／維護批收刀之 final holistic review 以收單 commit＋findings 三分流承載 | — | — | — |

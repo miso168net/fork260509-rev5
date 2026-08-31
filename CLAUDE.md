@@ -37,7 +37,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   brainstorm 的直接輸入：沿用項照已驗證結論施工、翻案項用新設計。
 - **SDD 5 步**：`/speckit-specify`（input＝brainstorm 檔）→ `/speckit-clarify` → `/speckit-plan` →
   `/speckit-tasks` → `/speckit-analyze`；每步後 commit。plan 之 research 必列
-  「rev4 對應碼清單＋rev5 拍板差異點」（ADR 0019）。
+  「rev4 對應碼清單＋rev5 拍板差異點」（ADR 0019）。棄案論證寫完 MUST 回頭對所選方案跑
+  同一反例（L-037）。
   specify 必**手動**起手、不排進 brainstorm 流程內自動觸發——否則 feature-branch pre-hook 不會跑、
   spec 會落在 default branch 上。
 - **TDD 實作**：以 superpowers:executing-plans 讀 tasks 起手、批判審查分執行單元；
@@ -51,9 +52,12 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　implementer(TDD) → spec-compliance review → fix 迴圈 → code-quality review → fix 迴圈。
 　★fix 後次輪 review prompt 必附前輪已駁回 findings 清單（file×summary＋駁回理由）、明令勿沿用
 　被駁論據重報；同一 finding 再報須附新證據，否則直接計入⑤收斂判定。
+　★code-quality review prompt 烤進審查面：可見性放寬（私有→pub）先查函式體內有無被 token 掃描閘守著的呼叫、有則以 finding 要求同批補消費者名冊閘（由 fix 輪落地；L-069）。
 　每個 agent prompt 烤進不可違反項：★書面產物（report／blocker／程式碼註解／文件）一律 zh-TW、
 　rust 全程 serial、容器內 build/test、★rust 碼完工前容器內 `cargo fmt --all`（ADR 0057）、
 　review agent 只讀不寫 repo 檔、★絕不 push/merge、★變異紅證必附 skipped=0（探針勿自 repo 外載入 mutant、L-073）、
+　★變異前提＝被守面已有實例——零實例＝測空集合、紅證結構性 vacuous（L-063）、破壞性守門變異先有還原守衛（快照還原式、L-065）、負向樣本業務鍵也帶清理鍵前綴（守門被改壞那一發會真落庫、L-066）、
+　★凡改變某數字／集合／方向／名稱／單一權威＝`grep -rn` 枚舉全 repo 同語意命中逐處回報——允許清單內自改、清單外升級主線（其餘交付做得完＝done_with_escalation、整件做不下去才 blocked）、史述保留現在式改對（L-032）、
 　★實作先讀 rev4 對應碼（../fork260509-rev4/ 直讀、★該樹絕不寫入）高度參照但重打字消化不拷貝、註解一律重寫
 　（rev4 出處帶 rev4: 前綴）、rev5 拍板差異點不得帶回（ADR 0019）。
 ★workflow script 防呆六件套（缺一不發射）：
@@ -62,7 +66,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　②派發前斷言渲染後 prompt 非空、長度合理、開頭不含字面 "undefined"／"null"、★必含 "zh-TW"
 　　字面（語言強制令漏烤→零派發即 throw；另有 PreToolUse hook 機器擋）。
 　③一切邊界寫死在 script 常數、絕不取自 args：fix 迴圈用 for 上限 ≤3 輪；
-　　單元 agent 總數保險絲 ≤20 支，超限 throw（fail-loud 讓主線立刻收到完成通知）。
+　　單元 agent 總數保險絲 ≤20 支，超限 throw（fail-loud 讓主線立刻收到完成通知）；
+　　★保險絲值 MUST ≥ 結構最壞值、由同檔 script 常數推導＋自我斷言、不得手挑（L-068）。
 　④implementer／fix 一律 schema 回傳 {status, report}；status≠ok→立即 return 升級主線、不進 review。
 　　★review agent **不得共用該 status 欄**：「agent 受阻」與「審查有 blocker」是兩件事，
 　　共用一欄則 script 把後者當前者、當場 return 而 fix 迴圈整個不跑（L-011 變形①實暴）。
@@ -75,8 +80,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　　★fix 迴圈跑滿上限後必有**確認輪**（再 review 一次、空 blocker 即判收斂）：直接 return
 　　迴圈內的舊 blockers＝把最後一輪 fix 已修好的成果誤報成 unresolved（L-011 變形②實暴）。
 　⑥空間邊界：fix agent prompt 烤進允許檔案清單（＝該執行單元 tasks 涉檔＋review findings
-　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→status 回 blocked 附原因
-　　升級主線、絕不擅改；次輪清單只縮不擴。
+　　指涉檔的聯集、寫死 script 常數不取自 args）；清單外檔案需要動→絕不擅改、依④分值升級
+　　（整件做不下去＝blocked；其餘交付已完成＝done_with_escalation 附清單）；次輪清單只縮不擴。
 　　★清單另納會因本單元改動而連動的釘值測所在檔；清單答「碰得到什麼」而非 task 寫了什麼——對實碼查（值域／建構點／下游消費）、寧可多列（L-022／L-042／L-052）。
 ★主線看門狗（非終止型故障不會有完成通知）：★Workflow launch 與 Monitor 看門狗
 　**同一回合原子成對**發射、兩 call 間零其他動作——「發射後再掛」＝結構性漏掛（已實證）。
@@ -90,11 +95,15 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 　一支只跑該階段的 workflow**（新 runId、零快取糾纏），CONTEXT 寫清已完成階段結論與勿重報清單。
 　hook 兜底：PostToolUse(Workflow) 注入配對提醒、PreToolUse(Workflow) 擋缺 zh-TW 之 script。
 主線例行只在單元邊界醒（看門狗告警除外）。★單元收尾**六步序、次序不可反**：
-　①復核 agent 回報（逐項自 grep 驗證、不採信）②load-bearing 自驗（容器內看 rc＋三閘）
+　①復核 agent 回報（逐項自 grep 驗證、不採信；凡本單元改變的字面→`grep -rn`／`docs-sync.py errata`
+　　跨檔假述枚舉、改完復掃確認活面零命中，L-032）②load-bearing 自驗（容器內看 rc＋三閘；
+　　rust 單元另跑 `docs-sync.py lint`——cargo 綠與 lint 綠是兩件事、L-064）
 　★③落帳（＝「隨做隨記」的 TDD 期時點）：本單元發現的衍生工作→BACKLOG append、踩坑→
 　　LESSONS append、tasks.md 把該單元涵蓋的 T **全勾**——主動做、不等 user 問
 　④子庫 commit ⑤`git add <子庫>`→`docs-sync.py generate`→`git add docs/generated`
-　⑥一顆外層 commit → 啟下一支。
+　⑥一顆外層 commit → 啟下一支（★派發前對其 tasks 逐條問「它 import／呼叫／宣告的東西存在
+　　嗎」、不存在就往前追是誰該建——沒有任何 task 建＝派工單缺口；★agent 回 blocked 時先判
+　　允許清單有無缺口，L-022）。
 　★③必須早於⑤：STATE.md 的帳面統計與 pins 皆由 generate 現讀，反序即產出舊值**且無 diff
 　　可察**（同 pin／generate 次序陷阱；成因與危害見 L-018）。
 ★單元一支接一支連續跑完、**不停下來等 user 首肯**；唯三種情形停：①拍板級問題（§5 判準）
@@ -116,13 +125,17 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   → 一筆簿記 commit、lint 全綠放行。簿記一律排在 merge 之後（merge SHA 與最終 pin 才確定）。
   ④簿記 commit 落地後量該顆牆鐘（量測法＝RUNBOOK §12.1）、append 一筆 `close_bookkeeping` perf
   事件（ADR 0044 引信之每刀例行量測、承載處＝ADR 0070；隨下一顆 commit 入帳）。
-- **review 輪**（不定期）：報告存 `docs/reviews/YYYYMMDD-<scope>.md`（front-matter 必含
-  `findings_total`）；findings 三分流：修／轉 B-NNN／won't-fix ADR；＋append 一筆 review 事件。
+- **review 輪**：findings 一律三分流（修／轉 B-NNN／won't-fix ADR）；承載處二分——**不定期
+  獨立輪**落報告 `docs/reviews/YYYYMMDD-<scope>.md`（front-matter 必含 `findings_total`）＋一筆
+  review 事件；feature／維護批收刀之 final holistic review 不落報告不落事件、以收單 commit（訊息逐項列 findings 處置）承載（ADR 0075）。
 
 ## 3. git／submodule 操作手冊
 
 - **兩段式 commit**：①worktree 內 commit → ②立即回外層 `git add base-web`（或 `rust-api`）
   bump pin＋外層 commit。pin bump 在單元邊界即時做、不延到收刀。
+- 子庫 git 操作一律 `git -C <子庫>` 形、不 `cd` 進子庫——外層還原子庫檔＝靜默零還原（L-012）、
+  cwd 跨工具呼叫持久化會讓相對路徑錯位、路徑類錯誤先 `pwd` 自證（L-070）；破壞性驗證每項
+  還原後立即 `git -C <子庫> status --porcelain` 確認回基準態再進下一項（L-012）。
 - **session 健檢判讀**（SessionStart hook 自動注入）：pin 與 worktree HEAD 分歧**先判方向**——
   兩向處置相反、照錯邊會抹掉真 commit。①**worktree 在前**（本機剛在子庫 commit、pin 落後）→
   回外層 `git add <子庫>` bump pin。②**pin 在前**（他機推了子庫 commit、外層 pull 帶進新 pin）→
@@ -140,7 +153,7 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
   （`fork260509-soybean-admin-base` fetch upstream 至 `example` 新 tip；各機自行向 upstream
   pull 同步、基線不 push）＋`原行:` 註解更新為 upstream 現行版（憲法 §III rebase 同步紀律）
   ——基線不前進＝fork-delta-lint 比對失真。
-- worktree 內 push 一律顯式 `git push origin <長名>`。
+- 子庫 push 一律顯式 `git -C <子庫> push origin <長名>`。
 - 故障排除→查 `docs/ops/LESSONS.md`（rev5 空白起家；前代候選＝啟動書 §5 K3）。
 
 ## 4. 文件系統規則
@@ -159,8 +172,10 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 - **lint 運作模式**：pre-commit 一次跑完、秒級；被擋的是 Claude、同回合修復（錯誤訊息附去處）；
   純碼 commit 幾乎全 skip。user 僅介入：lint 抓到真決策、或 lint 調規拍板。
 - **勘誤**：`tools/docs-sync.py errata <關鍵詞>` 機器枚舉全 repo 同語意命中、逐處處置後才 commit——
-  禁止只修被點名那一處。
+  禁止只修被點名那一處；關鍵詞取概念同義集、非更正文字面；更正一律就地改寫、不只追加禁令；
+  改完以同義集復掃驗收（L-038）。
 - **ID 配號**（B-NNN／L-NNN）：取檔頭 next-id 後 bump；號碼永不回收；ADR 編號＝檔名、永不重用。
+  ops 帳本提及刀號／單元輪次先避開 Lint25 字形——純字形比對、刀號＋空白＋輪次、刀名全形皆咬；正解＝「本刀 U2」形（L-067）。
 - **constitution**：`.specify/memory/constitution.md` 唯一權威、不設鏡像快查表；
   amendment＝ADR＋版本 bump。
 
@@ -168,6 +183,8 @@ gotcha 長註記（→LESSONS）、repo 目錄樹全景（→README.md）。
 
 - 純工程「怎麼做」（優化手法、模組拆法、DTO 映射、命名、測試策略）自己拍、回報備查。
 - 拍板級才問：動 schema／加 migration、feature scope 邊界、破紀律例外、user 可見行為變更。
+- 施工清單中拍板級條目動工前先查拍板紀錄、查無紀錄＝先問；承諾過目的事項單獨兌現、
+  不以概括指示自行豁免（L-003）。
 - 問法：大白話、每選項串回 user 核心目標；trade-off 主張先 grep 實證；
   行為類拍板附具體渲染範例（前後對照）；正交維度拆開列選項、granular 攤開不打包。
 
