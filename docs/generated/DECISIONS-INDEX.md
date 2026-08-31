@@ -75,3 +75,4 @@
 | 0070 | accepted | 2026-08-30 | pre-commit 效能資料點序列事件源化——events.jsonl 新增 perf 型別（Lint03／Lint18 驗形）、generate 產 reference/perf.md、STATE 效能引信機器判；RUNBOOK §12.1 射程收束為門檻語意／量測法／終態表／指針、ADR 0044 配套段之「記入本節資料點序列」承載處改為 append perf 事件；NOTES 已收官段刪除留指針；收刀程序增第四步 | — | — | — |
 | 0071 | accepted | 2026-08-30 | 測試 helper `metric_value` 多份同形判為 won't-fix——各檔各持一份係取捨、不收攏至 `model::test_db`；份數不入名冊、以枚舉指令為準 | — | — | — |
 | 0072 | accepted | 2026-08-31 | R_SUPER 字面兩宣告源並存係 by-design——facade 層 `sys_role::SUPER_ROLE_CODE` 為 model／handler 層唯一宣告源、auth 層 `no_escalation::ROLE_SUPER` 保留憲法同源直書 | — | — | — |
+| 0073 | accepted | 2026-08-31 | 四件跨 handler 共用件同住 `handler::user` 判為 by-design——共用件的家取語意層而非技術可行性，`common` 收攏名冊維持八件、兩支 err 不上提 | — | — | — |
