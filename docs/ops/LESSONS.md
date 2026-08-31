@@ -44,7 +44,7 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-029｜帳面測試數是收刀當時快照、當「零回歸」判準跨批次必失真](LESSONS/L-029-test-count-snapshot-not-baseline.md) — DoD 與 agent prompt 不寫死測試數、改寫量測法（動工前後同一指令逐 target 比對）；引數字必附量測日期＋指令
 - [L-030｜射程／職責一搬動、敘述面沒跟著搬＝靜默失效](LESSONS/L-030-moved-duty-stale-narrative.md) — 搬動職責同一次編輯把接收方 task／DoD 也改掉；守門射程敘述與射程常數同批改；prompt 引實碼常數不引 docstring
 - [L-031｜走查在共用 dev 庫留下的 committed 列毒化下一次測試、證據自毀](LESSONS/L-031-walkthrough-rows-poison-tests.md) — 走查即清（每節 DoD 寫入清列指令）；收尾看 rc 必排在清列之後；「在收窄集內」不可推論成「留列無害」
-- [L-032｜執行單元允許檔清單天然擋住「修正被自己證偽的他處敘述」](LESSONS/L-032-file-boundary-blocks-cross-file-errata.md) — 凡改變數字／集合／方向／權威＝grep 枚舉全 repo 逐處回報，清單外 blocked 升級；史述保留、現在式改對
+- [L-032｜執行單元允許檔清單天然擋住「修正被自己證偽的他處敘述」](LESSONS/L-032-file-boundary-blocks-cross-file-errata.md) — 凡改變數字／集合／方向／權威＝grep 枚舉全 repo 逐處回報，清單外依④分值升級；史述保留、現在式改對
 - [L-033｜兩檔各存同一字面＝生產端改名靜默反轉行為、字面驅動守門擋不住](LESSONS/L-033-duplicated-literal-drift.md) — 一階＝生產端匯出具名常數兩邊消費；否則斷言消費生產端實際產物、測試本體零字面
 - [L-034｜建連逾時罩不到連線之後——半開連線讓長生串流零告警永遠掛著](LESSONS/L-034-connect-timeout-misses-half-open.md) — 長生訂閱／串流另開 TCP keepalive 或應用層心跳；「有逾時」與「有存活期偵測」分開問
 - [L-035｜blocked 語意重載＝交付完整的單元整個審查階段零輪次](LESSONS/L-035-blocked-overload-skips-review.md) — status 分 blocked／done_with_escalation 兩值、只有前者立即 return；徵狀＝完成通知 agent_count=1

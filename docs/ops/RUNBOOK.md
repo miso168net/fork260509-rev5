@@ -238,7 +238,7 @@ L-071（防法晉升到下一刀的一次性 quickstart＝一刀半衰期、六�
 | 命令 | 作用 | 需運行中 stack |
 |---|---|---|
 | `python3 tools/docs-sync.py generate` | 重算 docs/generated/ 全部（跑完必 git add） | 否 |
-| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint29） | 否 |
+| `python3 tools/docs-sync.py check` / `lint` | pre-commit 兩道（staged 過期／Lint03~Lint30） | 否 |
 | `python3 tools/docs-sync.py refresh` | 自實庫撈 schema/accounts 快照 | **是** |
 | `python3 tools/docs-sync.py errata <詞>` / `test` | 全 repo 同語意枚舉／自測 | 否 |
 | `python3 tools/schema-gate.py check` | 三閘全跑（gate1 結構／gate2 欄序＋seed／audit archetype；fixtures⊕演進帳合成、入口自證 self-test；不進 pre-commit、手動跑） | **是** |
@@ -286,7 +286,7 @@ walkthrough-baseline＝有差 1、環境或結構異常（docker 不可執行／
   跳過邏輯住工具內＝ADR 0057 決定 3，docker 不可用／容器未在跑皆由工具具名跳過 rc 0 承擔；
   該檔**不在** `HOOK_TEST_LOOP_EXEMPT`、照入 `for t in` 自測迴圈）；`bash tools/bootstrap.sh` 體檢則無條件
   全跑工具名冊全部 test。全鏈計時兩級門檻與效能預算＝§12.1（數字只住那一處）。
-- **lint 條款**：全 28 條（範圍 Lint03~Lint29；23 號已拆除、編號不重用）。severity 三分：
+- **lint 條款**：全 29 條（範圍 Lint03~Lint30；23 號已拆除、編號不重用）。severity 三分：
   ERROR＝exit 1 擋 commit、WARN＝放行列示、跳過＝條款不適用而未執行、落跳過明細
   （**跳過≠通過**）。摘要末行形＝`lint：X 錯誤／Y 警告／Z 條款跳過／共 N 條款`。
   逐條機制→工具源碼與 `python3 tools/docs-sync.py test` 自測敘述；創世期具名豁免
@@ -389,7 +389,7 @@ EOF
 
   （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
   （†rust-fmt-gate＝**2026-08-25** 維護批 A（B-112／ADR 0057）新入名冊、該列為當日單獨量測，
-  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **614**（2026-08-30 B-150／B-151 維護批後；該批前 599、08-25 時 527）但中位數
+  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **629**（2026-08-31 docs×tools 維護批 W1 後；2026-08-30 B-150／B-151 維護批後 614、該批前 599、08-25 時 527）但中位數
   未重測，故該列與合計之案數仍記 08-18 值——讀本表時注意其時點混成。）
   （‡walkthrough-baseline＝**2026-08-30** 維護批（B-147）新入名冊、該列為當日單獨量測（三跑中位）、
   其餘各列沿舊值；合計列照加總更新、**未**重測情境 B、故不 append `full_chain` 事件——混成時點的合計不是一次量測。）

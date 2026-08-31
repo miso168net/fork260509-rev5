@@ -249,7 +249,7 @@ login ──insert──▶ active ──rotate（舊列轉 rotated＋used_at �
   `login_throttle_max_fails`／`login_throttle_window_minutes`（seed **2／5／15**）；
   來源維＝`ip_captcha_after`／`ip_max_fails`／`ip_window_minutes`（seed **10／50／15**）。
   判定次序（密碼雜湊驗證之前）與「零稽核列、零計數桶」義務＝constitution §I.7 島 E。
-- ★★**兩維的方向差**（004 U-J／T046 拍板結論，**最容易被日後「順手統一」抹掉**）：
+- ★★**兩維的方向差**（004 U-J／T046 拍板結論，**最容易被後續維護「順手統一」抹掉**）：
   - **計數窗下界**：帳號維取 `GREATEST` **三源**（窗起點／窗內最近一次成功登入／解鎖標記）
     ⇒ reset-on-success 由查詢形免費兌現；來源維**恆兩源**（窗起點／解鎖標記）、
     **禁 reset-on-success**——第三源移植過來即反轉為破口：攻擊者持任一有效帳號在同一來源
