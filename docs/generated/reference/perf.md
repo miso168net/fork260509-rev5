@@ -39,3 +39,4 @@
 | 2026-08-31 | merge | 4.87 | 0 | 59db57e | 外層維護批收刀 merge --no-ff（staged 一個 gitlink base-web＋七顆分支 commit）；/usr/bin/time %e 包整命令；merge commit 不跑 pre-commit（RUNBOOK §12.1） |
 | 2026-08-31 | close_bookkeeping | 10.94 | 0 | 698da76 | 外層維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
 | 2026-08-31 | close_bookkeeping | 12.9 | 0 | 7e995f2 | rust 維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
+| 2026-08-31 | close_bookkeeping | 15.62 | 0 | 026c7a0 | docs×tools 維護批收刀簿記 commit（staged＝events.jsonl 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
