@@ -27,10 +27,10 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Purpose**: plan Constitution Check 之 GATE 條件——§III.2 加用途＋行為島候選親決＋BizData
 射程補充 ADR；全在外層 repo、不動子庫。
 
-- [ ] T001 起草憲法 Amendment ADR draft `docs/arc42/decisions/00NN-constitution-amendment-manage-page-uses-vii-viii.md`（編號取現況 next；內容＝§III.2 `BASE-WEB-MANAGE-PAGE-WIRING` 加用途 (vii) system-settings 頁進場＋(viii) audit 頁進場之表列逐字〔形照 (i)/(iv)：兩語 locale route:/page: 兩樹＋app.d.ts page 型節新增型圈界；view 新檔不入名冊；產物四檔沿 (i) 列〕）＋稽核域行為島條文草案（audit purge 域：30 天下限／單交易自記／自記豁免／四值白名單／§I.6 變體 B retention 釋義兌現；含「入憲 vs 不入憲」兩案並陳）
-- [ ] T002 [P] 起草 BizData 射程補充 ADR draft `docs/arc42/decisions/00NN-bizdata-scope-adds-purge-below-floor.md`（補充 ADR 0064 射程清單＋`biz.audit.purgeBelowFloor{minDays}`；provenance＝grilling 拍板③ 2026-09-01 user 親決第三攜參鍵；`rust-api/server/src/error.rs` doc 之「嚴限密碼二鍵」句同批改對計入 T014 涉檔）
-- [ ] T003 ★user 親決（三停①、主線停手問）：①行為島入不入憲（憲法 §IV 第 9 題；K1-11／K1-57 承襲輸入）②Amendment 表列核可③BizData 射程補充核可
-- [ ] T004 依親決落字：`.specify/memory/constitution.md` §III.2 表加兩列（＋若拍入島：§I.7 島 J 條文）＋version bump 1.9.1→1.10.0（MINOR）＋T001/T002 兩 ADR 轉 accepted＋獨立 commit `docs(constitution): amend …`＋`python3 tools/docs-sync.py generate`
+- [x] T001 起草憲法 Amendment ADR draft `docs/arc42/decisions/00NN-constitution-amendment-manage-page-uses-vii-viii.md`（編號取現況 next；內容＝§III.2 `BASE-WEB-MANAGE-PAGE-WIRING` 加用途 (vii) system-settings 頁進場＋(viii) audit 頁進場之表列逐字〔形照 (i)/(iv)：兩語 locale route:/page: 兩樹＋app.d.ts page 型節新增型圈界；view 新檔不入名冊；產物四檔沿 (i) 列〕）＋稽核域行為島條文草案（audit purge 域：30 天下限／單交易自記／自記豁免／四值白名單／§I.6 變體 B retention 釋義兌現；含「入憲 vs 不入憲」兩案並陳）
+- [x] T002 [P] 起草 BizData 射程補充 ADR draft `docs/arc42/decisions/00NN-bizdata-scope-adds-purge-below-floor.md`（補充 ADR 0064 射程清單＋`biz.audit.purgeBelowFloor{minDays}`；provenance＝grilling 拍板③ 2026-09-01 user 親決第三攜參鍵；`rust-api/server/src/error.rs` doc 之「嚴限密碼二鍵」句同批改對計入 T014 涉檔）
+- [x] T003 ★user 親決（三停①、主線停手問）：①行為島入不入憲（憲法 §IV 第 9 題；K1-11／K1-57 承襲輸入）②Amendment 表列核可③BizData 射程補充核可
+- [x] T004 依親決落字：`.specify/memory/constitution.md` §III.2 表加兩列（＋若拍入島：§I.7 島 J 條文）＋version bump 1.9.1→1.10.0（MINOR）＋U0 三支 ADR 轉 accepted：T001 之 ADR 0077（憲法 Amendment）＋T002 之 ADR 0078（BizData 射程補充）＋★本 task 內補立之 ADR 0079（`AuditOperation` 詞彙第九值 `purge`；T003 附帶親決題第四題取形 (a)＝U0 內補立，原 tasks 無任一支建之＝派工單缺口，依 ADR 0077 後果段於本單元補立）＋獨立 commit `docs(constitution): amend …`＋`python3 tools/docs-sync.py generate`＋★**L-063 防法②之記派**（ADR 0077 後果段承諾之承載；原 tasks 無任一支承載＝派工單缺口，形照 007-user-password-admin 之 T003 記派）：(vii)(viii) 兩新列此刻零標記可比、當場變異結構性 vacuous（改壞新列路徑回 rc=0＝看似有效實則一次未觸發），故**真**變異自證延後至第一個往該列落 `rev5-inline` 標記的實作單元——**(vii)→U4**（①②塊之標記守於 T024、③塊之重算冪等閘於 T025）、**(viii)→U5**（同形：T032／T033），紅綠證逐字補記各該 task；★**變異面取 ADR 0077 後果段列名之兩道實得機器守**（①②塊＝`tools/fork-delta-lint.py` 之 `find_unmarked_additions`「新增型圈界標記須存在」、③塊＝`python3 tools/route-artifact-gate.py check` 之重算冪等閘），★**不取「改壞 §III.2 該列範圍欄反引號路徑」形**——名冊三元組斷言射程僅修改型（`find_rogue_tracks` docstring 逐字「★射程僅修改型——新增型 `NAME+` 不入三元組判定」、self-test Y 釘住），本軌道三塊皆新增型圈界或生成檔 ⇒ 該形對本軌道結構性不適用（ADR 0077 後果段 caveat 已誠實揭露）；還原照 L-060（存原文→寫回＋`md5sum` 對照、不用 `git checkout`）
 
 **Checkpoint**: 憲法 vNext 落地——WIRING (vii)(viii) 授權生效、BizData 第三鍵有 ADR 承載。
 
@@ -72,9 +72,9 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Goal**: purge 端點＋原子性機器證＋B-125 關帳。
 
 **Independent Test**: 容器內測——四值白名單／30 天下限（BizData {minDays}）／單交易自記
-＋PURGE 豁免／fault-injection 整筆回滾全綠；`_with_db` 薄殼有兩個消費者。
+＋purge 豁免／fault-injection 整筆回滾全綠；`_with_db` 薄殼有兩個消費者。
 
-- [ ] T014 [US3] `rust-api/server/src/handler/audit.rs` 補 purge：守門固定序（①table 四值白名單→2222 `biz.audit.invalidTable` ②beforeDays≥`PURGE_MIN_DAYS`=30→2222 `biz.audit.purgeBelowFloor`＋`AppError::BizData(json!({"minDays":30}))` ③單交易水平線 DELETE＋同交易 PURGE 自記、op-log 版 `operation <> 'PURGE'` 豁免）＋`PurgeAuditLogReq` 寬鬆反序列化（畸形→None 恆不裸 400）＋`error.rs` doc 射程句改對（T002 ADR 承載）＋stub-DB 守門測（零 DB 副作用、固定序、{minDays} 明細——照 rev4 測 11~14 形、先紅後綠）
+- [ ] T014 [US3] `rust-api/server/src/handler/audit.rs` 補 purge：守門固定序（①table 四值白名單→2222 `biz.audit.invalidTable` ②beforeDays≥`PURGE_MIN_DAYS`=30→2222 `biz.audit.purgeBelowFloor`＋`AppError::BizData(json!({"minDays":30}))` ③單交易水平線 DELETE＋同交易 purge 自記、op-log 版 `operation <> 'purge'` 豁免）＋`PurgeAuditLogReq` 寬鬆反序列化（畸形→None 恆不裸 400）＋`error.rs` doc 射程句改對（T002 ADR 承載）＋★前置（開工前提＝ADR 0079 已 accepted、其決定 3 之次序約束）`rust-api/server/src/model/audit.rs` 詞彙第九值三處連動（ADR 0079 決定 2）：①`audit_operation_vocabulary!` 呼叫點**末位**加 `Purge => "purge"`（★小寫、非 rev4 大寫形）②`EXPECTED_LITERALS` 由 `[&str; 8]` 增為 `[&str; 9]`、新字面 `"purge"` 插末位（與 `ALL` 恰等比對含序、插錯位即紅）③測 `t013_user_password_family_adds_three_vocabulary_stays_eight` 之 `ALL.len()` 期望 8→9、**測名與斷言訊息連同改寫**（新定案出處＝ADR 0079）＋同檔 doc 註「八值／八個字面／現八字面／恰八值」假述面以 `grep -n "八" rust-api/server/src/model/audit.rs` 現算逐行判別後同批改對（排除 `ip_confidence` 來源信心八態＝他軸；史述照 L-032 保留），改完以同指令復掃驗收＋stub-DB 守門測（零 DB 副作用、固定序、{minDays} 明細——照 rev4 測 11~14 形、先紅後綠）
 - [ ] T015 [US3] msg 鍵三檔同 commit（Lint24 孤兒鍵紅約束）：`base-web/src/locales/langs/zh-tw.ts`（`biz.audit` 節插 `biz:` 內字母序 `auth` 前）＋`zh-cn.ts`＋`en-us.ts` backend 樹同鍵（譯文逐字＝contracts/msg-keys.md）＋`base-web/src/typings/app.d.ts` backend 型節補 `audit` 二鍵（I18N-WIRING (ii)(iii) 圈界標記）
 - [ ] T016 [US3] `rust-api/server/src/router.rs` 第 5 條 RouteDef（POST、case_key `purge-audit-log`）＋`ROUTES_COUNT` 65→66＋`rust-api/server/tests/contract.rs` 第 5 case
 - [ ] T017 [P] [US3] `rust-api/server/tests/wire_schema.rs` 補 purge definitions 裁判（`PurgeAuditTable` 枚舉集斷言接後端白名單常數＋Req/Res 形）
@@ -108,7 +108,7 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 16 鍵對照 rev4（42080）、改值即存回讀、非法值拒因可讀；typecheck＋四閘綠。
 
 - [ ] T023 [US1] 新檔 `base-web/src/views/manage/system-settings/index.vue`（單檔；資料驅動控件：二值 enum→NSwitch／number→NInputNumber `:update-value-on-input="false"`／其他→唯讀；四組固定序＋未列鍵排組尾；逐項即改即存、成功失敗皆 refetch、清空不送；labelKeyMap＋helpKeyMap 16 鍵 typed literal＋fallback description；`import { fetchGetSystemSettings, fetchUpdateSystemSetting } from '@/service/api/rev5-settings'` 直接路徑；rev4:system-settings/index.vue 藍本重打字、註解重寫）
-- [ ] T024 [US1] i18n＋型節（WIRING (vii) 新增型圈界）：`base-web/src/locales/langs/zh-cn.ts`＋`en-us.ts` 之 route: 樹 `'manage_system-settings'` 鍵＋page.manage.systemSettings 樹（4 titles＋items 16＋help 16；譯文以 rev4 兩語為底重打）＋`base-web/src/typings/app.d.ts` Schema.page.manage 補 systemSettings 型節（插位＝research R2 錨；兩語鍵集相等）
+- [ ] T024 [US1] i18n＋型節（WIRING (vii) 新增型圈界）：`base-web/src/locales/langs/zh-cn.ts`＋`en-us.ts` 之 route: 樹 `'manage_system-settings'` 鍵＋page.manage.systemSettings 樹（4 titles＋items 16＋help 16；譯文以 rev4 兩語為底重打）＋`base-web/src/typings/app.d.ts` Schema.page.manage 補 systemSettings 型節（插位＝research R2 錨；兩語鍵集相等）＋★**L-063 補做**（本 task ＝用途 (vii) 之第一個落 `rev5-inline` 標記處）：兩道實得機器守之真變異自證——①②塊之圈界標記守於本 task、③塊之重算冪等閘於 T025；變異面／不取之形／還原紀律逐字＝T004 記派段，紅綠證逐字補記本 task
 - [ ] T025 [US1] 產物四檔重算（`base-web` dev server 起動或 `pnpm gen-route`；`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts` 零手改）＋`python3 tools/route-artifact-gate.py` 冪等綠＋`pnpm typecheck` 綠
 - [ ] T026 [US1] `tools/seed-view-gate.py`：EXEMPT 摘 `view.manage_system-settings` 列＋self-test 案 I-a 鍵集釘改（恰餘 audit 一鍵）＋檔頭「恰兩列」敘述改；gate 綠
 - [ ] T027 [US1] 單元驗證：`python3 tools/view-render-guard.py` 綠＋`python3 tools/fork-delta-lint.py` 綠＋CDP 快查（側欄進頁煙測反轉＋改一鍵回讀）
@@ -128,7 +128,7 @@ dialog／purge 流程全通；四閘綠。
 - [ ] T029 [US2] 新檔 `base-web/src/views/manage/audit/modules/use-audit-search-date-range.ts`（dateRange→UTC ISO、reset 快照回填＋emit search）＋四搜尋卡 `audit-search-{operation,access,login,session}.vue`（NCollapse 預設展開；label 走分頁樹＋common、placeholder 走 form.*；login 之 success NSelect successOption 兩值；rev4 藍本重打字）
 - [ ] T030 [US2] 新檔 `base-web/src/views/manage/audit/index.vue`：NTabs 四分頁×四組 `useNaivePaginatedTable`（`api`＋`defaultTransform`＋columns）；欄集逐欄照 rev4＋★XFF 欄三分頁（純文字、`ellipsis: { tooltip: true }`；session 分頁不加；ADR 0076）；scroll-x＝Σ欄寬不變式帳註（multiline 形、B-144 慣例）；op-log 快照 `$dialog.info`＋`<pre>` 純文字 JSON；refresh 鈕不重置頁碼；login 分頁 throttleNote NAlert
 - [ ] T031 [US3] 新檔 `base-web/src/views/manage/audit/modules/audit-purge-modal.vue`（MIN_DAYS=30 前端護欄＋NAlert 警語＋NPopconfirm 二段確認＋emit 'submitted'＋開啟重置回 30）＋index.vue 每分頁 purge 入口（單例掛載、target 隨分頁）＋成功 toast 帶 {count} 刷新該分頁
-- [ ] T032 [US2] i18n＋型節（WIRING (viii) 新增型圈界）：兩語 route: 樹 `manage_audit` 鍵＋page.manage.audit 樹（57 葉×2、含 tab/common/operation/access/login/session/form/purge；譯文以 rev4 兩語為底重打）＋app.d.ts Schema.page.manage 補 audit 型節；兩語鍵集相等
+- [ ] T032 [US2] i18n＋型節（WIRING (viii) 新增型圈界）：兩語 route: 樹 `manage_audit` 鍵＋page.manage.audit 樹（57 葉×2、含 tab/common/operation/access/login/session/form/purge；譯文以 rev4 兩語為底重打）＋app.d.ts Schema.page.manage 補 audit 型節；兩語鍵集相等＋★**L-063 補做**（本 task ＝用途 (viii) 之第一個落 `rev5-inline` 標記處）：兩道實得機器守之真變異自證——①②塊之圈界標記守於本 task、③塊之重算冪等閘於 T033；變異面／不取之形／還原紀律逐字＝T004 記派段，紅綠證逐字補記本 task
 - [ ] T033 [US2] 產物四檔重算＋`route-artifact-gate` 冪等綠＋`pnpm typecheck` 綠＋`view-render-guard` 綠＋`fork-delta-lint` 綠
 - [ ] T034 [US2] `tools/seed-view-gate.py`：EXEMPT 摘 `view.manage_audit` 列（表歸零）＋I-a 釘改＋檔頭改；gate 綠
 
@@ -149,7 +149,7 @@ dialog／purge 流程全通；四閘綠。
 ## Dependencies
 
 ```
-T001~T004（U0）──先於──▶ T014（BizData 構造）、T015／T024／T032（WIRING 面）、T025／T033（產物四檔）
+T001~T004（U0）──先於──▶ T014（BizData 構造＋詞彙第九值）、T015／T024／T032（WIRING 面）、T025／T033（產物四檔）
 T005~T006（契約錨）──▶ T007~T013（US2 後端）──▶ T014~T020（US3 後端；同檔 audit.rs 續建）
 T014＋T015──▶ T021（Lint24 第三腿之三鍵終態）
 T023~T027（US1 前端）：僅依 T004；與 US2/US3 後端無相依（可提前、惟 rust/前端單元仍序跑）

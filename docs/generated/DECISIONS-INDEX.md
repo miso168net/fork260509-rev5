@@ -79,3 +79,6 @@
 | 0074 | accepted | 2026-08-31 | 測試守衛 `test_db::UserCleanup` 兩建構子並存判為 won't-fix——`new`＝顯式 id 單名冊、`with_name_prefixes`＝雙名冊係刻意終態、不收成單一建構子 | — | — | — |
 | 0075 | accepted | 2026-08-31 | review 報告與 review 事件義務收斂為僅適用不定期獨立 review 輪——feature／維護批收刀之 final holistic review 以收單 commit＋findings 三分流承載 | — | — | — |
 | 0076 | accepted | 2026-09-01 | audit 頁三分頁渲染 x_forwarded_for 欄——UI 對照 rev4 之唯一例外＋B-072 對帳關單形 | — | — | — |
+| 0077 | accepted | 2026-09-01 | 憲法 Amendment 1.10.0——§I.7 第十座行為島（島 J 稽核域 retention 與 reporting）＋§III.2 MANAGE-PAGE-WIRING 加用途 (vii)(viii)（system-settings 頁＋audit 頁進場）＋§I.6 變體 B 括號句改為島 J3 交叉指針 | — | — | — |
+| 0078 | accepted | 2026-09-01 | BizData 明細通道射程加第三鍵 biz.audit.purgeBelowFloor{minDays}——補充 ADR 0064 射程表、非翻案 | — | — | — |
+| 0079 | accepted | 2026-09-01 | AuditOperation 封閉詞彙集加第九值 purge（小寫動作名）——推翻「恰八值」定案、purge 自記列之詞彙前提 | — | — | — |

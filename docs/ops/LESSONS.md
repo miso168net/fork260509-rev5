@@ -1,4 +1,4 @@
-<!-- next: L-075 -->
+<!-- next: L-077 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -87,3 +87,5 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-072｜刪 BACKLOG 條目沒掃引用，當場造出指涉斷鏈](LESSONS/L-072-deleting-a-backlog-entry-without-sweeping-its-references.md) — 刪列後雙向掃現在式文件家族；判準＝「這句在說曾經，還是在說現在還沒做」（歷史記述正當、待辦式引用才是斷鏈）
 - [L-073｜變異探針從 repo 外載入 mutant，現況驗收案整批靜默 skip](LESSONS/L-073-mutation-probe-loaded-outside-repo-skips-live-cases.md) — 就地變異或改寫 ROOT；紅證必印 skipped=0
 - [L-074｜pg_isready 不帶 -h 對初始化期只聽 unix socket 的暫時 server 回綠，restore 撞上重啟](LESSONS/L-074-pg-isready-without-host-flag-greens-on-init-temp-server.md) — 就緒探測一律 `-h 127.0.0.1`（TCP 就緒＝最終 server）；手寫 postgres 等待迴圈前 grep 本 ID
+- [L-075｜允許清單裡的「限定式項」被越界時 agent 不觸發分值升級——它判「檔在清單內」就是沒越界](LESSONS/L-075-scoped-allowlist-entry-overrun-skips-escalation.md) — 限定式清單項附一句「本檔之限定外改動＝清單外、走 done_with_escalation」；主線復核看 `git diff` 實際改動面、不看 `escalations` 欄下結論
+- [L-076｜枚舉同語意命中時用 `grep -v` 過濾整行，會漏掉同行雙 token 的那筆，且漏掉的看起來像不存在](LESSONS/L-076-line-level-grep-filter-misses-dual-token-lines.md) — 逐行剝 token 再判、不整行過濾；枚舉筆數要有第二來源對賬

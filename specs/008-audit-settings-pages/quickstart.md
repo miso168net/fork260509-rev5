@@ -49,7 +49,7 @@ purge 自記改吞錯→原子性測紅→還原綠（L-063／L-065 紀律：還
      `X-Forwarded-For: <script>alert(1)</script>, 10.0.0.1` 的登入請求產生一列
      login_attempt → audit 頁該列 XFF 欄顯示字面文字、零 alert、零 DOM script 節點。
    - purge：輸入 29 → 拒因帶「30 天」字樣；輸入 3650 送出（二次確認）→
-     deletedCount=0 toast＋op-log 多一筆 PURGE 自記（走查清理面涵蓋）。
+     deletedCount=0 toast＋op-log 多一筆 purge 自記（走查清理面涵蓋）。
 3. 清理（§9c 判準形：被寫過的全部表與鍵還原；runtime-append 四表清列＋seq 復位）。
 4. `python3 tools/walkthrough-baseline.py diff tmp/walkthrough-baseline.json` → **rc 0**。
 5. 容器內全量測試再跑一輪（rc 0）。
@@ -58,5 +58,5 @@ purge 自記改吞錯→原子性測紅→還原綠（L-063／L-065 紀律：還
 ## 4. 收刀面速查
 
 seed-view-gate EXEMPT 零列；BACKLOG 六條關帳（B-008／B-072／B-078／B-125／B-139＋
-豁免表摘列已含）；U0 產物（憲法 vNext＋Amendment ADR＋BizData 射程補充 ADR）已
+豁免表摘列已含）；U0 產物（憲法 vNext＋Amendment ADR〔0077〕＋BizData 射程補充 ADR〔0078〕＋詞彙第九值 ADR〔0079〕）已
 accepted；merge --no-ff 前 user 同意（硬禁令）。

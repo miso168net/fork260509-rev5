@@ -62,7 +62,7 @@ sourceIp\|null（★單欄 varchar(45) 字串照回、非信任錨四欄組；�
 - table 白名單（wire 枚舉四值）：`operationLog`｜`accessLog`｜`loginAttempt`｜`sessionEvent`
 - 守門固定序：①白名單（違＝2222 `biz.audit.invalidTable`）→②beforeDays ≥ PURGE_MIN_DAYS=30
   （違＝2222 `biz.audit.purgeBelowFloor`＋BizData `{minDays:30}`）→③單交易：水平線
-  DELETE（op-log 版帶 `operation <> 'PURGE'` 豁免）＋同交易 PURGE 自記
+  DELETE（op-log 版帶 `operation <> 'purge'` 豁免）＋同交易 purge 自記
   （payload_after=`{table, before_days, deleted_count}`）
 - `PurgeAuditLogRes { deletedCount: number }`
 - 不變式：零部分成功（自記失敗→整筆回滾、fault-injection 釘住＝FR-C04）；
