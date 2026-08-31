@@ -27,12 +27,12 @@ seed 超管角色碼 `R_SUPER` 在生產碼曾有**三份**獨立字面宣告，
 
 ## 後果
 
-- 改超管角色碼＝改**兩處碼**（`sys_role::SUPER_ROLE_CODE`＋`no_escalation::ROLE_SUPER`）**＋憲法 I7 條文＋seed**。碼與 seed 之間有機器守：漏改 sys_role 側由其 seed 首角色列釘值測擋、漏改 auth 側由 `actor_scope_of_maps_seed_users_to_their_scopes` 真庫斷言擋、單獨動任一常數由各自釘值測擋——碼面「靠人記得」自三處縮為兩處且皆有機器守。★誠實記——已知代價：**憲法 I7 條文那一處零機器守、靠人記得**（全樹無任何條款把條文字面與碼／seed 對賬；碼與 seed 都改好、只漏改條文時全量測試仍綠）。
+- 改超管角色碼＝改**兩處碼**（`sys_role::SUPER_ROLE_CODE`＋`no_escalation::ROLE_SUPER`）**＋憲法具名條款三處（§I.2 demo menu 勾選句／§I.7 G6／§I.7 I7）＋seed**。碼與 seed 之間有機器守：漏改 sys_role 側由其 seed 首角色列釘值測擋、漏改 auth 側由 `actor_scope_of_maps_seed_users_to_their_scopes` 真庫斷言擋、單獨動任一常數由各自釘值測擋——碼面「靠人記得」自三處縮為兩處且皆有機器守。★誠實記——已知代價：**憲法三處具名條款零機器守、靠人記得**（全樹無任何條款把條文字面與碼／seed 對賬；碼與 seed 都改好、只漏改條文時全量測試仍綠；三處漏改其一＝憲法自相矛盾而零閘會紅）。
 - sys_user 側自此無宣告：其節首碼註與釘值測 doc 指向唯一宣告源與本 ADR；「全樹第 N 份」一類份數描述不再出現於任何一側碼註（份數是會腐的衍生事實，教訓同 ADR 0071 理由 4）。
 
 ## 翻案觸發器
 
 命中任一即立新 ADR `supersedes: ["0072"]`：
 
-1. **憲法 I7 改為不具名**（條文不再逐字寫 `R_SUPER`）——auth 側「與條文同源」的直書理據即消失，屆時應改引 model 層常數、收成一份；
+1. **憲法對 `R_SUPER` 的具名條款全數改為不具名**（§I.2 demo menu 勾選句／§I.7 G6／§I.7 I7 皆不再逐字寫 `R_SUPER`）——auth 側「與條文同源」的直書理據即消失，屆時應改引 model 層常數、收成一份；
 2. **auth 層拍板改為依賴 model 層常數**（放棄本 ADR 所立「不共用常數字面」的層偏好）——同樣收成一份，並同批檢視 `auth/no_escalation.rs` 其餘的層邊界自陳是否連動。
