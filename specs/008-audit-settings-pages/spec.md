@@ -54,6 +54,14 @@ grilling 四題親決〔2026-09-01、BACKLOG 兩卷 26 條逐條掃描、frontie
 - 自校②：Lint24 擴腿併驗兩語 runtime locale（zh-cn／en-us）之攜參鍵佔位符集與 zh-tw 一致
   （防單語漂移之 toast 靜默壞、B-139 同意圖）→ 已入 FR-H01。
 
+### Session 2026-09-01（`/speckit-analyze` 後微補；user 指示先行落帳——實作於別 session）
+
+- I1：FR-G01 補列 U0 第三產物（BizData 射程補充 ADR）——plan post-design 發現 ADR 0064
+  現嚴限密碼二鍵、本刀 `purgeBelowFloor{minDays}` 擴一鍵須 ADR 承載；實質已由 grilling
+  拍板③親決（第三攜參鍵）。
+- C1：`traceId` 恆「-」已知態補入 FR-B07（與 `region` 同組：rev5 無 GeoIP／trace 中介層、
+  值恆 NULL；欄照 rev4 渲染、CDP 對照驗形不驗值）。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管檢視並調整系統設定 (Priority: P1)
@@ -215,7 +223,8 @@ grilling 四題親決〔2026-09-01、BACKLOG 兩卷 26 條逐條掃描、frontie
 - **FR-B07**: 三個含 `xForwardedFor` 欄的源（操作／存取／登入）該欄 MUST 上 wire（原文、
   建構點已保證零 CR/LF＋≤1024 字元）；`peerIp`／`ipConfidence` 同 rev4 上 wire 但前端不渲染；
   操作日誌之 `region`（rev5 新有欄）同組——上 wire、前端不渲染（存取／登入分頁之 region 照
-  rev4 續渲染）。
+  rev4 續渲染）。★已知態：rev5 無 GeoIP／trace 中介層（寫入面既定取態），`region`／`traceId`
+  值恆 NULL——渲染欄照 rev4、畫面恆「-」，CDP 對照驗形不驗值。
 - **FR-B08**（B-078 確認句）: 讀端 MUST 零稽核欄複驗入口；來源 IP 過濾 MUST 為精確等值
   （IPv4 /32、IPv6 /128）比對、MUST NOT 以 LIKE 字串包含實作（路徑／帳名之模糊搜屬一般
   文字欄、非 IP 欄）。此句＝B-078 觸發臂之確認、收刀關帳依據。
@@ -281,7 +290,9 @@ grilling 四題親決〔2026-09-01、BACKLOG 兩卷 26 條逐條掃描、frontie
 - **FR-G01**: 本刀 U0 MUST 完成憲法 §III.2 `BASE-WEB-MANAGE-PAGE-WIRING` 加用途 (vii)
   system-settings 頁進場＋(viii) audit 頁進場（形照 (i)/(iv) 先例：兩語 locale 兩樹＋
   app.d.ts page 型節新增型圈界；view 新檔不入名冊；產物四檔沿 (i) 列）；不擴用途 (v)
-  （B-143 不納、拍板⑥）。
+  （B-143 不納、拍板⑥）。★U0 第三產物＝BizData 射程補充 ADR（補充 ADR 0064：
+  ＋`biz.audit.purgeBelowFloor{minDays}`——purge 拒因明細之通道授權；實質已由拍板③親決、
+  詳 research D4 與 plan Post-design 複核）；該 ADR MUST 先於 purge BizData 構造點落地。
 - **FR-G02**: 行為島候選＝audit purge 域（30 天下限／單交易自記／自記豁免／四值白名單）
   MUST 於修憲單元依憲法 §IV 第 9 題判定是否入憲、user 親決。
 - **FR-G03**: 收刀 MUST 關帳六條：B-008 刪列；`seed-view-gate` EXEMPT 摘恰兩列（不摘＝

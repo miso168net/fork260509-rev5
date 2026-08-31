@@ -61,7 +61,7 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 - [ ] T010 [US2] `rust-api/server/src/router.rs` 四條 RouteDef（path 逐字＝seed 凍結列、GET、Policy、case_key `get-operation-log` 等）＋`ROUTES_COUNT` 61→65＋逐刀 bump 帳註
 - [ ] T011 [P] [US2] `rust-api/server/tests/contract.rs` 四 case 登記＋verify fn（照 `verify_get_system_settings` 形：未認證 8888 信封＋HTTP 200）
 - [ ] T012 [P] [US2] `rust-api/server/tests/wire_schema.rs` 補 `Api.Audit` 讀面 definitions 裁判（四列型＋四 SearchParams；正反例成對、逐格指名；照 Api.IpRule 節形）
-- [ ] T013 [US2] handler 真 DB 測（同檔 endpoint_tests）：授權矩陣＋seed 端點維五列對賬＋enrich（含軟刪操作者名）＋PII 端到端負向自證（拆 mask 即紅）＋讀端零拒因（畸形分頁／時間顛倒回空頁）；容器全量 serial 綠＋`cargo fmt --all`
+- [ ] T013 [US2] handler 真 DB 測（同檔 endpoint_tests）：授權矩陣＋casbin seed 端點維五列**存在性**對賬（★五列自 001 恆在、斷言的是 seed 列非 route——本階段 route 僅四條屬預期、第 5 條隨 T016）＋enrich（含軟刪操作者名）＋PII 端到端負向自證（拆 mask 即紅）＋讀端零拒因（畸形分頁／時間顛倒回空頁）；容器全量 serial 綠＋`cargo fmt --all`
 
 **Checkpoint**: US2 後端可獨立驗收（curl＋全測綠）；access 讀空表＝已知態。
 
