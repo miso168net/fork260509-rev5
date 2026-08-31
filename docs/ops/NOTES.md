@@ -8,7 +8,7 @@
   001 紀律（收刀前 refresh＋演進帳登記＋三閘綠，RUNBOOK §10）。★滯後卷另有數條（實數見 STATE.md 帳面統計；查全帳須併看 BACKLOG-DEFERRED.md）；
   B-057 已裁關帳（ADR 0059＝維持現行、代價與翻案觸發器逐字入該 ADR）。
 - **★下一動作＝下一刀本體待拍板**：候選 B-008 餘兩張 view＋audit 五端點
-  （豁免表到期即紅）／B-125／B-133（rust 維護批已收官 merge 716c456、逐批全文在事件表）。
+  （豁免表到期即紅）／B-125／B-133（docs×tools 維護批已收官 merge f089c6e、逐批全文在事件表）。
   ★SDD 五步之 specify **手動**起手。
 - **效能現況**：全序列→`docs/generated/reference/perf.md`、引信判讀→`docs/generated/STATE.md`「效能引信」行（機器判、
   只採 close_bookkeeping）；merge commit 不跑 pre-commit 之事實住 RUNBOOK §12.1。
