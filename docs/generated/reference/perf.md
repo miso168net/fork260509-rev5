@@ -38,3 +38,4 @@
 | 2026-08-30 | close_bookkeeping | 12.24 | 0 | 1d0cdde | 下一刀起手維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated；零 gitlink、零工具本體 ⇒ 基礎鏈＋零條件段）；`time.perf_counter` 包 `git commit` 整命令、單次牆鐘 12.24s、rc 0。★ADR 0044 引信之每刀例行量測（ADR 0070 第四步首例、隨下一顆 commit 入帳）：對照前兩筆 close_bookkeeping 16.68s（08-25）／9.97s（08-30、007 收刀）⇒ 最近兩筆 9.97／12.24 皆 <60s、引信未觸發。本批新增 Lint28／Lint29 後基礎鏈 lint 中位 14.95s（同日 bench 筆）——簿記型牆鐘上升約 2s 與之相符。 |
 | 2026-08-31 | merge | 4.87 | 0 | 59db57e | 外層維護批收刀 merge --no-ff（staged 一個 gitlink base-web＋七顆分支 commit）；/usr/bin/time %e 包整命令；merge commit 不跑 pre-commit（RUNBOOK §12.1） |
 | 2026-08-31 | close_bookkeeping | 10.94 | 0 | 698da76 | 外層維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
+| 2026-08-31 | close_bookkeeping | 12.9 | 0 | 7e995f2 | rust 維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |

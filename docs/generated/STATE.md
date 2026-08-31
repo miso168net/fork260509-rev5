@@ -12,7 +12,7 @@
 - ADR：74（accepted 72、superseded 2）
 - BACKLOG 待辦：29（next：B-156）｜滯後：8
 - LESSONS：74 筆（next：L-075）
-- events：85 筆（feature_close 7、misc 45、perf 33）
+- events：86 筆（feature_close 7、misc 45、perf 34）
 
 ## 最近事件（尾 3 筆、新在前）
 - 2026-08-31｜misc｜rust 維護批收單（merge 716c456）：R1＝B-138 ilike_contains 收攏＋B-137 R_SUPER 兩份化（ADR 0072）；R2＝B-140 Identity 補 sid＋B-141 四件同住定案（ADR 0073）＋B-107 缺席腿 capture 守＋B-043 守門射程 3→20 檔；R3＝B-135 wont-fix（ADR 0074）；fhr 6 筆三分流（直修 4／轉 B-155／notes 訂正 2）；容器全量 serial 998→1000 綠
@@ -20,7 +20,7 @@
 - 2026-08-31｜misc｜rust 維護批 R2（輕量軌）：B-140 Identity 補 sid 欄（enforce_mw 注入帶入、自助改密改讀 identity.sid、刪 current_sid 小抄本、生產面 jwt::verify 2→1）＋B-141 四件共用件同住 handler::user＝ADR 0073＋B-107 缺席腿 target／degraded 補 capture 機器守（變異紅證）＋B-043 守門射程 3→20 檔（handler 全模組含 auth/）配目錄對賬測；全量 serial 測試 998→1000 綠
 
 ## 效能引信（ADR 0044）
-- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-30 12.24s、2026-08-31 10.94s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
+- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-31 10.94s、2026-08-31 12.9s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
 
 ## reference 對賬
 - reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）
