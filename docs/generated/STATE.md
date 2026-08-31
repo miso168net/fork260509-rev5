@@ -12,7 +12,7 @@
 - ADR：75（accepted 73、superseded 2）
 - BACKLOG 待辦：24（next：B-156）｜滯後：7
 - LESSONS：74 筆（next：L-075）
-- events：94 筆（feature_close 7、misc 52、perf 35）
+- events：95 筆（feature_close 7、misc 52、perf 36）
 
 ## 最近事件（尾 3 筆、新在前）
 - 2026-08-31｜misc｜微批收單（merge c008aea）：M1＝B-154 DRILL_IMAGE×compose postgres image parity 測（backup-db 自測 49→50）；M2＝B-098 收官——wire_schema.rs 補 Api.IpRule.* 七 definition 裁判 15 測（容器全量 1000→1015、fixture 未動）；fhr 雙透鏡 3 筆＝RUNBOOK §12 案數註兩處併本簿記顆修＋一則前批 629→633 順手訂正
@@ -20,7 +20,7 @@
 - 2026-08-31｜misc｜微批 M1（主線直改）：deploy/backup-db.py 補 DRILL_IMAGE×docker-compose.yml postgres image 字面 parity 測（第六面 parity；stdlib 正則、compose 恰一處斷言；此前唯一釘子屬套套邏輯、對 compose 面零覆蓋）——B-154 關帳；觸發器拉前＝user 2026-08-31 口令
 
 ## 效能引信（ADR 0044）
-- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-31 12.9s、2026-08-31 15.62s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
+- 狀態：未觸發｜最近兩筆 close_bookkeeping：2026-08-31 15.62s、2026-08-31 11.96s｜判準＝連續兩筆 wall_s ≥ 60s（只採收刀簿記型實測；全序列→reference/perf）
 
 ## reference 對賬
 - reference/routes：真表（來源＝rust-api/server/src/router.rs 的 ROUTES const、由 generate 重算）

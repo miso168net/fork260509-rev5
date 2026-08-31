@@ -40,3 +40,4 @@
 | 2026-08-31 | close_bookkeeping | 10.94 | 0 | 698da76 | 外層維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
 | 2026-08-31 | close_bookkeeping | 12.9 | 0 | 7e995f2 | rust 維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
 | 2026-08-31 | close_bookkeeping | 15.62 | 0 | 026c7a0 | docs×tools 維護批收刀簿記 commit（staged＝events.jsonl 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
+| 2026-08-31 | close_bookkeeping | 11.96 | 0 | 23859d5 | 微批收刀簿記 commit（staged＝events 收單＋NOTES＋RUNBOOK 註腳兩處＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
