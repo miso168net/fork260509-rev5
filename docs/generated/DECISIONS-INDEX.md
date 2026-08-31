@@ -78,3 +78,4 @@
 | 0073 | accepted | 2026-08-31 | 四件跨 handler 共用件同住 `handler::user` 判為 by-design——共用件的家取語意層而非技術可行性，`common` 收攏名冊維持八件、兩支 err 不上提 | — | — | — |
 | 0074 | accepted | 2026-08-31 | 測試守衛 `test_db::UserCleanup` 兩建構子並存判為 won't-fix——`new`＝顯式 id 單名冊、`with_name_prefixes`＝雙名冊係刻意終態、不收成單一建構子 | — | — | — |
 | 0075 | accepted | 2026-08-31 | review 報告與 review 事件義務收斂為僅適用不定期獨立 review 輪——feature／維護批收刀之 final holistic review 以收單 commit＋findings 三分流承載 | — | — | — |
+| 0076 | accepted | 2026-09-01 | audit 頁三分頁渲染 x_forwarded_for 欄——UI 對照 rev4 之唯一例外＋B-072 對帳關單形 | — | — | — |
