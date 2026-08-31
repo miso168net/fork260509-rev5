@@ -45,6 +45,15 @@ grilling 四題親決〔2026-09-01、BACKLOG 兩卷 26 條逐條掃描、frontie
 - 自拍工程項（回報備查、brainstorm §1）：四源四分頁照 rev4；wire 命名空間獨立 `Api.Audit`；
   DTO 欄名對齊 rev5 schema；i18n 兩語；peerIp／ipConfidence 不渲染（偏離最小化）。
 
+### Session 2026-09-01（`/speckit-clarify`：覆蓋掃描零提問、兩處自校回報備查）
+
+- 走查×purge 交互查核：RUNBOOK §9c 判準形六步已覆蓋（四稽核表＝runtime-append 標準清理面、
+  at-rest 空表下 purge 走查實刪 0 列）——無需開題；purge 實刪語意由容器內真 DB 測覆蓋（FR-I01）。
+- 自校①：rev5 操作日誌新有之 `region` 欄比照 peerIp／ipConfidence＝上 wire、前端不渲染
+  （偏離最小化原則唯一解；存取／登入分頁之 region 照 rev4 續渲染）→ 已入 FR-B07。
+- 自校②：Lint24 擴腿併驗兩語 runtime locale（zh-cn／en-us）之攜參鍵佔位符集與 zh-tw 一致
+  （防單語漂移之 toast 靜默壞、B-139 同意圖）→ 已入 FR-H01。
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 超管檢視並調整系統設定 (Priority: P1)
@@ -204,7 +213,9 @@ grilling 四題親決〔2026-09-01、BACKLOG 兩卷 26 條逐條掃描、frontie
 - **FR-B06**: 操作者／使用者名稱 MUST 以第二發批次查詢 enrich（不 join、無 N+1）；查無名稱
   時前端顯示 ID、再無則「-」。
 - **FR-B07**: 三個含 `xForwardedFor` 欄的源（操作／存取／登入）該欄 MUST 上 wire（原文、
-  建構點已保證零 CR/LF＋≤1024 字元）；`peerIp`／`ipConfidence` 同 rev4 上 wire 但前端不渲染。
+  建構點已保證零 CR/LF＋≤1024 字元）；`peerIp`／`ipConfidence` 同 rev4 上 wire 但前端不渲染；
+  操作日誌之 `region`（rev5 新有欄）同組——上 wire、前端不渲染（存取／登入分頁之 region 照
+  rev4 續渲染）。
 - **FR-B08**（B-078 確認句）: 讀端 MUST 零稽核欄複驗入口；來源 IP 過濾 MUST 為精確等值
   （IPv4 /32、IPv6 /128）比對、MUST NOT 以 LIKE 字串包含實作（路徑／帳名之模糊搜屬一般
   文字欄、非 IP 欄）。此句＝B-078 觸發臂之確認、收刀關帳依據。
@@ -280,7 +291,8 @@ grilling 四題親決〔2026-09-01、BACKLOG 兩卷 26 條逐條掃描、frontie
 #### H. 工具
 
 - **FR-H01**（B-139）: Lint24 MUST 擴一腿：解析 zh-tw 譯文全部攜參鍵的 `{ident}` 佔位符
-  集合、與後端 `BizData` 構造點頂層鍵集比對，不一致即紅、訊息指名鍵；自測含正反例
+  集合、與後端 `BizData` 構造點頂層鍵集比對，不一致即紅、訊息指名鍵；同腿併驗兩語 runtime
+  locale（zh-cn／en-us）該等鍵之佔位符集與 zh-tw 一致（防單語漂移）；自測含正反例
   （非 vacuous）。掃描面以 `BizData` 構造點集為錨（007 已建通道；本刀後攜參鍵恰三）。
 
 #### I. 測試與紀律
