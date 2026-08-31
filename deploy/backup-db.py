@@ -43,6 +43,7 @@ import glob
 import hashlib
 import io
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -741,6 +742,18 @@ class TestDrillGuards(unittest.TestCase):
         self.assertEqual(DRILL_CONTAINER, "rev5-admin-drill-pg")
         self.assertEqual(DRILL_VOLUME, "rev5-admin-drill-pg-data")
         self.assertEqual(DRILL_IMAGE, "postgres:18.4-alpine")
+
+    def test_drill_image_matches_compose_postgres_image(self):
+        """★B-154 第六面 parity（外層批 fhr 碼透鏡立案、2026-08-31 收單）：DRILL_IMAGE 與
+        docker-compose.yml 之 postgres `image:` 字面機器對賬——此前唯一釘子（上一支測）把
+        常數釘回自身字面＝只擋誤改常數、對 compose 面零覆蓋，兩面單獨改版彼此無感。
+        stdlib 正則取 `image: postgres:*`（compose 恰一處、恰一斷言防多 postgres 服務混入）、
+        斷言＝DRILL_IMAGE；自此任一面單獨改版即紅。"""
+        with open(os.path.join(ROOT, "docker-compose.yml"), encoding="utf-8") as fh:
+            text = fh.read()
+        imgs = re.findall(r"^\s*image:\s*(postgres:\S+)\s*$", text, flags=re.M)
+        self.assertEqual(len(imgs), 1, msg=str(imgs))
+        self.assertEqual(imgs[0], DRILL_IMAGE)
 
     def test_is_drill_asset_only_exact_names(self):
         self.assertTrue(is_drill_asset(DRILL_CONTAINER))
