@@ -55,11 +55,11 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Independent Test**: 容器內 `cargo test`——四端點授權矩陣（Super 0000／Admin 5003／未認證
 8888）＋DTO wire 形＋寬鬆守門＋enrich＋PII 負向自證全綠；curl 打 22079 四端點回 PageRes。
 
-- [ ] T007 [US2] 新檔 `rust-api/server/src/model/audit_query.rs`：共用查詢建構（時間 RFC3339 閉開 [from,to)、畸形＝未設、顛倒＝空頁；人員過濾 id 優先／名→含軟刪同名 IN；ILIKE 萬用字元字面化＋ESCAPE）＋`mask_pii_payload`（深度一層、`user_phone`／`user_email` 兩鍵、非字串原樣；rev4:audit_query.rs 藍本重打字）＋表驅動測三支（電話全路徑／信箱全路徑／邊界與非打碼鍵原樣）——先紅後綠
-- [ ] T008 [US2] facade 讀端：`rust-api/server/src/model/facade/{sys_operation_log,sys_login_attempt,session_event}.rs` 各加分頁讀 fn＋新檔 `facade/sys_access_log.rs`（mod.rs 名冊同批）；固定排序 `created_at DESC, id DESC`；分頁走 sea-orm paginate 慣例
-- [ ] T009 [US2] 新檔 `rust-api/server/src/handler/audit.rs`（四讀端）：query DTO 全 `Option<String>` 寬鬆（rev4:L-090）＋normalize_page（current≥1、size clamp [1,100] 預設 10）＋四 DTO（★rev5 欄名：op-log `realIp` 家族無 operator 前綴＋`region`；session_event 單欄 `sourceIp`）＋enrich 走 `common::resolve_operator_names`＋mask 呼叫恰二處（payloadBefore/After）＋同檔 mod tests：camelCase 收單／分頁欄垃圾不 400／success 嚴格值域／IP 守門／DTO 序列化形（照 rev4 測名族、先紅後綠）
-- [ ] T010 [US2] `rust-api/server/src/router.rs` 四條 RouteDef（path 逐字＝seed 凍結列、GET、Policy、case_key `get-operation-log` 等）＋`ROUTES_COUNT` 61→65＋逐刀 bump 帳註
-- [ ] T011 [P] [US2] `rust-api/server/tests/contract.rs` 四 case 登記＋verify fn（照 `verify_get_system_settings` 形：未認證 8888 信封＋HTTP 200）
+- [x] T007 [US2] 新檔 `rust-api/server/src/model/audit_query.rs`：共用查詢建構（時間 RFC3339 閉開 [from,to)、畸形＝未設、顛倒＝空頁；人員過濾 id 優先／名→含軟刪同名 IN；ILIKE 萬用字元字面化＋ESCAPE）＋`mask_pii_payload`（深度一層、`userPhone`／`userEmail` 兩鍵、非字串原樣；rev4:audit_query.rs 藍本重打字）（★鍵風格＝rev5 寫端 camelCase——`facade/sys_user::audit_json` 逐字落 `"userPhone"`／`"userEmail"`；rev4: 之 `user_phone`／`user_email` 屬差異點、不帶回〔ADR 0019〕。★照 snake_case 實作則打碼對生產 payload **恆不生效**）＋表驅動測三支（電話全路徑／信箱全路徑／邊界與非打碼鍵原樣）——先紅後綠
+- [x] T008 [US2] facade 讀端：`rust-api/server/src/model/facade/{sys_operation_log,sys_login_attempt,session_event}.rs` 各加分頁讀 fn＋新檔 `facade/sys_access_log.rs`（mod.rs 名冊同批）；固定排序 `created_at DESC, id DESC`；分頁走 sea-orm paginate 慣例
+- [x] T009 [US2] 新檔 `rust-api/server/src/handler/audit.rs`（四讀端）：query DTO 全 `Option<String>` 寬鬆（rev4:L-090）＋normalize_page（current≥1、size clamp [1,100] 預設 10）＋四 DTO（★rev5 欄名：op-log `realIp` 家族無 operator 前綴＋`region`；session_event 單欄 `sourceIp`）＋enrich 走 `common::resolve_operator_names`＋mask 呼叫恰二處（payloadBefore/After）＋同檔 mod tests：camelCase 收單／分頁欄垃圾不 400／success 嚴格值域／IP 守門／DTO 序列化形（照 rev4 測名族、先紅後綠）
+- [x] T010 [US2] `rust-api/server/src/router.rs` 四條 RouteDef（path 逐字＝seed 凍結列、GET、Policy、case_key `get-operation-log` 等）＋`ROUTES_COUNT` 61→65＋逐刀 bump 帳註
+- [x] T011 [P] [US2] `rust-api/server/tests/contract.rs` 四 case 登記＋verify fn（照 `verify_get_system_settings` 形：未認證 8888 信封＋HTTP 200）
 - [ ] T012 [P] [US2] `rust-api/server/tests/wire_schema.rs` 補 `Api.Audit` 讀面 definitions 裁判（四列型＋四 SearchParams；正反例成對、逐格指名；照 Api.IpRule 節形）
 - [ ] T013 [US2] handler 真 DB 測（同檔 endpoint_tests）：授權矩陣＋casbin seed 端點維五列**存在性**對賬（★五列自 001 恆在、斷言的是 seed 列非 route——本階段 route 僅四條屬預期、第 5 條隨 T016）＋enrich（含軟刪操作者名）＋PII 端到端負向自證（拆 mask 即紅）＋讀端零拒因（畸形分頁／時間顛倒回空頁）；容器全量 serial 綠＋`cargo fmt --all`
 

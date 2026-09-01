@@ -1,4 +1,4 @@
-<!-- next: L-079 -->
+<!-- next: L-081 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -91,3 +91,5 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-076｜枚舉同語意命中時用 `grep -v` 過濾整行，會漏掉同行雙 token 的那筆，且漏掉的看起來像不存在](LESSONS/L-076-line-level-grep-filter-misses-dual-token-lines.md) — 逐行剝 token 再判、不整行過濾；枚舉筆數要有第二來源對賬
 - [L-077｜「逐欄對賬 schema 真源」只驗欄名與存在性、漏驗可空性，型別失真整條穿過復核](LESSONS/L-077-column-parity-check-that-skips-nullability.md) — 對賬腳本化（真源與文件各拉 {欄名:可空性} dict 比對）；可空性一律以 migration／entity 為準；同檔同型欄寫法不一致本身就是失真訊號
 - [L-078｜fix 因「finding 在允許清單外」而正確零改動，被零改動偵測判成不收斂](LESSONS/L-078-zero-change-detector-misreads-correct-escalation.md) — cycle() 對 `done_with_escalation`＋零改動當場 return 升級，置於零改動偵測之前；零改動偵測只服務 status:ok 的真空轉
+- [L-079｜驗「呼叫處恰 N 處」只 grep `name(` 會漏掉函式指標形，0 命中被誤判成「根本沒呼叫」](LESSONS/L-079-counting-call-sites-misses-function-pointer-form.md) — 三形取聯集，或改名讓編譯器列出真實使用點；處數型驗收長期該由測試釘不由人 grep
+- [L-080｜連動面盤點只找數字釘，漏掉手抄檔案名冊——新增一個檔本身就是一次集合改變](LESSONS/L-080-adding-a-file-is-itself-a-set-change.md) — 數字釘與名冊釘兩路並行盤點；新增檔的單元把全量測試排在實作早期

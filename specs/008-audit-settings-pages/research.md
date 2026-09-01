@@ -71,8 +71,8 @@ dynamic 模式下選單由 seed 下發、零行為差）。
 - **D2 讀端佈局**：照 rev4 立 `model/audit_query.rs` 對應物（時間閉開／人員過濾／ILIKE
   字面化共用）＋各表 facade 加分頁讀 fn、`sys_access_log` 新建 facade 檔。Rationale＝
   rev4 驗證過的單一查詢建構點；Alt（handler 內散裝 SQL）棄——違 facade 慣例。
-- **D3 PII 打碼**：照 rev4 重寫 `mask_pii_payload`（深度一層、`user_phone`／`user_email`
-  兩鍵、非字串原樣）＋三支表驅動測＋端到端負向自證（拆呼叫即紅）。Alt（不打碼）棄——
+- **D3 PII 打碼**：照 rev4 重寫 `mask_pii_payload`（深度一層、`userPhone`／`userEmail`
+  兩鍵、非字串原樣）（★鍵風格＝rev5 寫端 camelCase——`facade/sys_user::audit_json` 逐字落 `"userPhone"`／`"userEmail"`；rev4: 之 `user_phone`／`user_email` 屬差異點、不帶回〔ADR 0019〕。★照 snake_case 實作則打碼對生產 payload **恆不生效**）＋三支表驅動測＋端到端負向自證（拆呼叫即紅）。Alt（不打碼）棄——
   rev4 拍板承襲、op-log payload 含 user 域 PII。
 - **D4 BizData 射程擴一鍵＝ADR 承載**：`biz.audit.purgeBelowFloor{minDays}` 入 BizData
   射程——實質已由 grilling 拍板③親決（第三攜參鍵）；形式＝**U0 立補充 ADR**（補充
