@@ -1,4 +1,4 @@
-<!-- next: L-081 -->
+<!-- next: L-082 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -93,3 +93,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-078｜fix 因「finding 在允許清單外」而正確零改動，被零改動偵測判成不收斂](LESSONS/L-078-zero-change-detector-misreads-correct-escalation.md) — cycle() 對 `done_with_escalation`＋零改動當場 return 升級，置於零改動偵測之前；零改動偵測只服務 status:ok 的真空轉
 - [L-079｜驗「呼叫處恰 N 處」只 grep `name(` 會漏掉函式指標形，0 命中被誤判成「根本沒呼叫」](LESSONS/L-079-counting-call-sites-misses-function-pointer-form.md) — 三形取聯集，或改名讓編譯器列出真實使用點；處數型驗收長期該由測試釘不由人 grep
 - [L-080｜連動面盤點只找數字釘，漏掉手抄檔案名冊——新增一個檔本身就是一次集合改變](LESSONS/L-080-adding-a-file-is-itself-a-set-change.md) — 數字釘與名冊釘兩路並行盤點；新增檔的單元把全量測試排在實作早期
+- [L-081｜寫進 agent prompt 的「事實接地」被當權威照做，寫錯即把錯誤規格化](LESSONS/L-081-prompt-facts-are-taken-as-authority-by-agents.md) — 每條事實附出處（檔:行／指令），該段明令「與碼衝突以碼為準並回報」
