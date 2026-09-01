@@ -1,4 +1,4 @@
-<!-- next: L-082 -->
+<!-- next: L-083 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -94,3 +94,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-079｜驗「呼叫處恰 N 處」只 grep `name(` 會漏掉函式指標形，0 命中被誤判成「根本沒呼叫」](LESSONS/L-079-counting-call-sites-misses-function-pointer-form.md) — 三形取聯集，或改名讓編譯器列出真實使用點；處數型驗收長期該由測試釘不由人 grep
 - [L-080｜連動面盤點只找數字釘，漏掉手抄檔案名冊——新增一個檔本身就是一次集合改變](LESSONS/L-080-adding-a-file-is-itself-a-set-change.md) — 數字釘與名冊釘兩路並行盤點；新增檔的單元把全量測試排在實作早期
 - [L-081｜寫進 agent prompt 的「事實接地」被當權威照做，寫錯即把錯誤規格化](LESSONS/L-081-prompt-facts-are-taken-as-authority-by-agents.md) — 每條事實附出處（檔:行／指令），該段明令「與碼衝突以碼為準並回報」
+- [L-082｜變異注入的形落在閘「刻意排除」的那一類，不紅——與恆綠閘外觀相同](LESSONS/L-082-mutation-must-target-the-gate-predicate.md) — 注入前先讀 detector 的排除條件；沒紅先加診斷印 scanned/hits 自證變異有進受檢面；閘的 doc 自陳該注入什麼形

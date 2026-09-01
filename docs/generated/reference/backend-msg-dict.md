@@ -10,6 +10,8 @@
 | auth.session.kickedByAdmin | 此工作階段已被管理員結束，請重新登入 | This session was ended by an administrator, please sign in again |
 | auth.session.reLogin | 請重新登入 | Please log in again |
 | auth.token.expired | 登入已逾時，正在重新取得授權 | Session expired, refreshing |
+| biz.audit.invalidTable | 清理目標不在允許清單內 | The purge target is not in the allowed list |
+| biz.audit.purgeBelowFloor | 清理保留天數不可低於 {minDays} 天 | Retention days cannot be below {minDays} days |
 | biz.auth.captchaRequired | 請完成圖形驗證碼後再試 | Please complete the captcha and try again |
 | biz.auth.locked | 嘗試次數過多，請稍後再試 | Too many attempts; please try again later |
 | biz.auth.notSupported | 該功能尚未開放 | This feature is not available yet |
