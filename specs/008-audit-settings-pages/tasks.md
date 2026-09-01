@@ -41,8 +41,8 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Purpose**: `Api.Audit` typings（wire 唯一權威、§III.1 ADAPT 軌零修憲）＋快照重抽，讓
 後端三層測試有裁判基準。
 
-- [ ] T005 新檔 `base-web/src/typings/api/rev5-audit.d.ts`（`Api.Audit` 全型：四列型＋四 SearchParams＋PurgeAuditTable 四值枚舉＋PurgeAuditLogReq/Res；欄集逐字＝data-model.md §1~§3、契約＝contracts/wire-audit.md；檔頭新增型標記）
-- [ ] T006 重抽 wire 快照：`python3 tools/wire-schema.py extract` → `rust-api/server/tests/fixtures/wire-schema.json`（definitions 增 Api.Audit 節）＋`rust-api/server/tests/wire_schema.rs` 檔頭 definitions 計數註更新＋容器全量 serial 仍綠（既有 1015 零紅）
+- [x] T005 新檔 `base-web/src/typings/api/rev5-audit.d.ts`（`Api.Audit` 全型：四列型＋四 SearchParams＋PurgeAuditTable 四值枚舉＋PurgeAuditLogReq/Res；欄集逐字＝data-model.md §1~§3、契約＝contracts/wire-audit.md；檔頭新增型標記）
+- [x] T006 重抽 wire 快照：`python3 tools/wire-schema.py extract` → `rust-api/server/tests/fixtures/wire-schema.json`（definitions 增 Api.Audit 節）＋`rust-api/server/tests/wire_schema.rs` 檔頭 definitions 計數註更新＋容器全量 serial 仍綠（既有 1015 零紅）
 
 **Checkpoint**: 裁判基準就位——後端 story 可開工。
 

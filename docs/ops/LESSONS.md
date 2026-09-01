@@ -1,4 +1,4 @@
-<!-- next: L-077 -->
+<!-- next: L-079 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -89,3 +89,5 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-074｜pg_isready 不帶 -h 對初始化期只聽 unix socket 的暫時 server 回綠，restore 撞上重啟](LESSONS/L-074-pg-isready-without-host-flag-greens-on-init-temp-server.md) — 就緒探測一律 `-h 127.0.0.1`（TCP 就緒＝最終 server）；手寫 postgres 等待迴圈前 grep 本 ID
 - [L-075｜允許清單裡的「限定式項」被越界時 agent 不觸發分值升級——它判「檔在清單內」就是沒越界](LESSONS/L-075-scoped-allowlist-entry-overrun-skips-escalation.md) — 限定式清單項附一句「本檔之限定外改動＝清單外、走 done_with_escalation」；主線復核看 `git diff` 實際改動面、不看 `escalations` 欄下結論
 - [L-076｜枚舉同語意命中時用 `grep -v` 過濾整行，會漏掉同行雙 token 的那筆，且漏掉的看起來像不存在](LESSONS/L-076-line-level-grep-filter-misses-dual-token-lines.md) — 逐行剝 token 再判、不整行過濾；枚舉筆數要有第二來源對賬
+- [L-077｜「逐欄對賬 schema 真源」只驗欄名與存在性、漏驗可空性，型別失真整條穿過復核](LESSONS/L-077-column-parity-check-that-skips-nullability.md) — 對賬腳本化（真源與文件各拉 {欄名:可空性} dict 比對）；可空性一律以 migration／entity 為準；同檔同型欄寫法不一致本身就是失真訊號
+- [L-078｜fix 因「finding 在允許清單外」而正確零改動，被零改動偵測判成不收斂](LESSONS/L-078-zero-change-detector-misreads-correct-escalation.md) — cycle() 對 `done_with_escalation`＋零改動當場 return 升級，置於零改動偵測之前；零改動偵測只服務 status:ok 的真空轉

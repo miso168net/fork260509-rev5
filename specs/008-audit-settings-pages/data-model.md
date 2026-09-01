@@ -18,7 +18,7 @@ menu 二列、system_settings 16 鍵皆 001/002 既在。本檔只定義**讀模
 | entityTable | string | entity_table | |
 | entityId | number\|null | entity_id | |
 | payloadBefore / payloadAfter | object\|null | payload_before/after | ★經 mask_pii_payload（D3）後上 wire |
-| realIp | string\|null | real_ip | INET→host 字串（rev4 op-log 為 operatorRealIp、不帶回） |
+| realIp | string | real_ip | INET **NOT NULL**→host 字串（無網段後綴；同 §1.2／§1.3 之 `realIp(string NN)`；rev4: 該欄名為 `operatorRealIp` 且**可空**＝rev5 差異點、不帶回） |
 | peerIp | string\|null | peer_ip | wire-only、UI 不渲染 |
 | xForwardedFor | string\|null | x_forwarded_for | UI 渲染（ADR 0076） |
 | ipConfidence | string\|null | ip_confidence | wire-only |
