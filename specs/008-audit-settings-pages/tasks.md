@@ -78,9 +78,9 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 - [x] T015 [US3] msg 鍵三檔同 commit（Lint24 孤兒鍵紅約束）：`base-web/src/locales/langs/zh-tw.ts`（`biz.audit` 節插 `biz:` 內字母序 `auth` 前）＋`zh-cn.ts`＋`en-us.ts` backend 樹同鍵（譯文逐字＝contracts/msg-keys.md）＋`base-web/src/typings/app.d.ts` backend 型節補 `audit` 二鍵（I18N-WIRING (ii)(iii) 圈界標記）
 - [x] T016 [US3] `rust-api/server/src/router.rs` 第 5 條 RouteDef（POST、case_key `purge-audit-log`）＋`ROUTES_COUNT` 65→66＋`rust-api/server/tests/contract.rs` 第 5 case
 - [x] T017 [P] [US3] `rust-api/server/tests/wire_schema.rs` 補 purge definitions 裁判（`PurgeAuditTable` 枚舉集斷言接後端白名單常數＋Req/Res 形）
-- [ ] T018 [US3] `rust-api/server/src/model/mod.rs` test_db：`real_app_and_state_with` 之 `_with_db` 薄殼（收 db、沿 `test_state`、不新增 AppState 建構字面）＋`LOCKABLE_TABLES` 擴 `"sys_operation_log"`（白名冊常數＋自測同批）
-- [ ] T019 [US3] purge 原子性 fault-injection 測（照 b056 七步形：`real_db_single_with_lock_timeout`→seed 可刪列→`TableLock::acquire("sys_operation_log")`→打 purge→先釋鎖後斷言→旁證另開連線：標的列仍在＋零自記＋錯誤回傳→前提字面斷言防恆綠；★破壞性驗證還原守衛先行、紅綠證留單元紀錄）＋真 DB purge 測（水平線刪舊留新＋自記 payload／零列照自記 deletedCount=0／併發新寫終態俱在——照 rev4 測 17~19）；容器全量 serial 綠
-- [ ] T020 [US3] `rust-api/server/src/handler/auth/logout.rs` TTL 同形補測（收尾段 commit 後讀 TTL、經 `_with_db`＋TableLock("system_settings")、照 b056 形）＋B-125 關帳：`docs/ops/BACKLOG.md` 刪列＋L-072 雙向掃（NOTES 等現在式家族）＋`docs/ops/NOTES.md` 同步
+- [x] T018 [US3] `rust-api/server/src/model/mod.rs` test_db：`real_app_and_state_with` 之 `_with_db` 薄殼（收 db、沿 `test_state`、不新增 AppState 建構字面）＋`LOCKABLE_TABLES` 擴 `"sys_operation_log"`（白名冊常數＋自測同批）
+- [x] T019 [US3] purge 原子性 fault-injection 測（照 b056 七步形：`real_db_single_with_lock_timeout`→seed 可刪列→`TableLock::acquire("sys_operation_log")`→打 purge→先釋鎖後斷言→旁證另開連線：標的列仍在＋零自記＋錯誤回傳→前提字面斷言防恆綠；★破壞性驗證還原守衛先行、紅綠證留單元紀錄）＋真 DB purge 測（水平線刪舊留新＋自記 payload／零列照自記 deletedCount=0／併發新寫終態俱在——照 rev4 測 17~19）；容器全量 serial 綠
+- [x] T020 [US3] `rust-api/server/src/handler/auth/logout.rs` TTL 同形補測（收尾段 commit 後讀 TTL、經 `_with_db`＋TableLock("system_settings")、照 b056 形）＋B-125 關帳：`docs/ops/BACKLOG.md` 刪列＋L-072 雙向掃（NOTES 等現在式家族）＋`docs/ops/NOTES.md` 同步
 
 **Checkpoint**: 五端點齊、ROUTES_COUNT=66、原子性有機器證、B-125 關。
 
