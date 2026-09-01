@@ -366,7 +366,7 @@ RE_BOOK_SECTION = re.compile(r"^## §(\d{1,2})\b")
 # 全鏈主成本＝drvfs（9p）**單次 I/O 延遲 × 存取次數**，非條款邏輯（2026-08-25 實測：同一批
 # 269 檔 stat+read 於 drvfs 2845ms、原生 ext4 4.8ms＝**587×**，每檔約 10.56ms）。而 run_lint
 # 一輪內 _read 被呼叫 971 次卻只碰 380 個唯一檔案（重複率 2.56×）⇒ 同輪內的重複讀是純粹的稅。
-# ★快取**限作用域、預設停用**（非行程級常駐）：generate 寫檔後會再讀、自測 528 案各自建臨時
+# ★快取**限作用域、預設停用**（非行程級常駐）：generate 寫檔後會再讀、自測 654 案各自建臨時
 #   repo 並就地改檔，常駐快取會讓兩者讀到過期內容——那是把效能修成正確性缺陷。只有「唯讀且
 #   單輪內檔案不變」的路徑（run_lint／cmd_check）才以 _read_cache_scope() 顯式開啟。
 # ★巢狀安全：作用域以 prev 還原而非清空，故 run_lint 被自測逐案呼叫時每案各持一份、互不汙染。
@@ -4239,11 +4239,28 @@ def lint_range_strings(root):
 
 # 掃描面＝rust-api/server/src 底下全部 .rs 生產碼（#[cfg(test)] 區間以大括號配對整段排除、
 # 行首 // 註解排除）；前端側復用 parse_locale_backend 解析 zh-tw backend 樹；第二腿再讀 zh-cn
-# backend 樹、鍵集須＝zh-tw 鍵集（B-030 子項；只比鍵集不比值、缺檔 fail-closed）。
+# backend 樹、鍵集須＝zh-tw 鍵集（B-030 子項；只比鍵集不比值、缺檔 fail-closed）；第三腿
+# （B-139）再讀 en-us backend 樹、比三語攜參鍵佔位符集與 BizData json!({…}) 頂層鍵集
+# （check_i18n_placeholders；缺檔 fail-closed）。
 I18N_RS_SRC_DIR = "rust-api/server/src"
 I18N_ERROR_RS = "rust-api/server/src/error.rs"     # key() 固定鍵抽取標的（碼表單一來源檔）
 I18N_FRONTEND_LOCALE = "base-web/src/locales/langs/zh-tw.ts"
 I18N_FRONTEND_LOCALE_CN = "base-web/src/locales/langs/zh-cn.ts"   # 第二腿：鍵集對賬對象
+# 第三腿（B-139）en-us 路徑：復用 MSG_DICT_LOCALES 既有字面、勿新造第二份路徑字面——兩份
+# 字面改一處另一處靜默失聯；en-us 鍵集本身由 msg-dict 兩語鍵集斷言守、本腿只驗佔位符。
+I18N_FRONTEND_LOCALE_EN = dict(MSG_DICT_LOCALES)["en-US"]
+# 第三腿譯文佔位符形（vue-i18n 具名參數 {ident}；FR-H01 拍板之掃描形）：
+RE_I18N_PLACEHOLDER = re.compile(r"\{(\w+)\}")
+# 第三腿 BizData data 視窗（錨行後 kept 行數）：★收界的是 _rs_call_arg_region——**本次呼叫
+# 自身的 `)`**，不是 json! 物件的 `}`；下界由前者決定。實量三個生產構造點（user.rs 密碼二鍵
+# ＋audit.rs purgeBelowFloor）皆四行形：錨行 `AppError::BizData(`／+1 `Cow::Borrowed("…"),`
+# ／+2 `serde_json::json!({…}),`（物件在此行同行閉合）／+3 收界的 `)`⇒**需求下界＝3**
+# （實測：W≤2 時三處全報「引數區間未在資料視窗內閉合」、W=3 起零 ERROR）。
+# 取 8 的餘裕面＝rustfmt 把單行 json! 攤成多行（`{` 起、每鍵一行、`}),` 收，收界 `)` 落錨行
+# 後第 4+n 行）時的容量＝**≤4 鍵**（實測：W=8 下 n≤4 綠、n=5 起紅）。
+# 視窗不足＝ERROR fail-loud（顯性紅、永不靜默漏檢），故此數只影響「何時要求人來擴窗」、
+# 不影響守門有效性。
+I18N_BIZDATA_DATA_WINDOW = 8
 # 間接常數名冊（字面釘死；掃到 Biz(Cow::Borrowed(常數)) 形時查表）：
 # throttle/mod.rs 之 LOCKED_MSG_KEY／CAPTCHA_REQUIRED_MSG_KEY 兩筆。掃描時另抓
 # 「const 名: &str = "值";」宣告比對名冊值——源碼改值而名冊未跟＝ERROR（名冊漂移即恆綠洞）。
@@ -4276,8 +4293,11 @@ I18N_FRONTEND_INTERNAL_KEYS = frozenset((
     "biz.user.passwordViolation.forbidUsername",  # VIOLATION_FORBID_USERNAME
     "common.listSeparator",                       # 明細 join 分隔符（rev4:T024）
 ))
-# 構造點錨形（Biz 前綴可帶路徑限定如 crate::error::AppError::Biz）：
-RE_I18N_SITE = re.compile(r"AppError::(?:BizData|Biz)\s*\(")
+# 構造點錨形（Biz 前綴可帶路徑限定如 crate::error::AppError::Biz；群組收變體名——
+# 第三腿只對 BizData 取 data 頂層鍵）：
+RE_I18N_SITE = re.compile(r"AppError::(BizData|Biz)\s*\(")
+# 第三腿 data 引數錨形（json! 可帶 serde_json:: 路徑限定；後隨字元非 { ＝非物件字面）：
+RE_I18N_JSON_OPEN = re.compile(r"\bjson!\s*\(\s*")
 # 構造點內文四形（對錨形之後的視窗行匹配；順序＝樣式排除→字面→名冊常數→unresolved）：
 RE_I18N_ARM = re.compile(   # match 綁定臂樣式：Biz(key) =>／BizData(key, _) =>（含 if 守衛）
     r"^\s*(?:_|[a-z][A-Za-z0-9_]*)\s*(?:,\s*(?:_|[a-z][A-Za-z0-9_]*)\s*)?\)+\s*"
@@ -4374,21 +4394,155 @@ def rs_production_lines(text, rel):
     return kept, errs
 
 
+def _rs_call_arg_region(window):
+    """第三腿取值前置（B-139）：自構造點錨的 `(` 之後起做括號配對，圈出**本次呼叫自身**
+    的引數區間。回 (區間字串, None) 或 (None, 錯誤訊息)。
+
+    ★這是資料視窗「借鄰居」的結構性封死：只截於「下一個構造點錨」擋不住非構造點的鄰居
+    （helper fn／`let x = json!({…})`／區塊註解內的 json!）——本構造點的 data 若不是
+    json! 字面，窗會跨過去把鄰居的頂層鍵集當成本次 data 而零 ERROR（假綠）；借到的鍵集
+    碰巧與譯文不符時，則轉為一筆指著錯誤構造點的假紅。以本次呼叫的括號收界後，json! 只
+    可能來自本次引數，借用在結構上不可能發生。
+    掃描為字串／char 字面感知（字面內的括號不計數；rust lifetime `'a` 無閉引號、不誤判為
+    char）；區塊註解就地抹成等長空白——_rs_code_part 只截行尾 //，區塊註解內的括號會讓
+    配對錯亂、其 json! 亦不該入面。
+    區間在資料視窗內未閉合＝fail-loud（視窗不足或字面損壞），★絕不靜默退回整窗（退回即
+    恢復借鄰居的恆綠洞）。"""
+    out = []
+    depth, i, n = 1, 0, len(window)
+    while i < n:
+        ch = window[i]
+        if ch == '"':
+            j = i + 1
+            while j < n and window[j] != '"':
+                j += 2 if window[j] == "\\" else 1
+            if j >= n:
+                break   # 字串未閉＝區間未在視窗內閉合，落下方 fail-loud
+            out.append(window[i:j + 1])
+            i = j + 1
+            continue
+        if ch == "'":
+            cm = RE_I18N_CHAR.match(window, i)
+            if cm:
+                out.append(cm.group(0))
+                i = cm.end()
+                continue
+        if window[i:i + 2] == "/*":
+            j = window.find("*/", i + 2)
+            if j < 0:
+                break   # 區塊註解未閉＝同上 fail-loud
+            out.append(" " * (j + 2 - i))
+            i = j + 2
+            continue
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+            if depth == 0:
+                return "".join(out), None
+        out.append(ch)
+        i += 1
+    return None, ("BizData 構造點引數區間未在資料視窗內閉合（括號配對至窗尾仍未收）——"
+                  "視窗不足或字面損壞，fail-loud（絕不退回整窗取值＝借鄰居 json! 的恆綠洞）："
+                  "縮短建構式或擴 I18N_BIZDATA_DATA_WINDOW")
+
+
+def _bizdata_json_keys(window):
+    """第三腿取值（B-139）：自 BizData 資料視窗抽 json!({…}) 的頂層字面鍵集。
+
+    回 (frozenset 鍵集, None) 或 (None, 錯誤訊息)——非字面形一律 fail-loud、絕不靜默略過
+    （那正是恆綠洞）：①視窗內無 json!(（data 引數非 json! 呼叫、或建構式攤行超出視窗）
+    ②json!( 後首字元非 {（json!(變數)／json!([…]) 等頂層非物件字面）③頂層鍵位不是字串
+    字面（serde_json 的 json! 正式允許變數／表達式作鍵——官方範例即 features[0]: features[1]
+    形；靜默視同該鍵不存在＝後端多一鍵而本腿恆綠）④物件未在視窗內閉合（視窗不足——擴
+    I18N_BIZDATA_DATA_WINDOW）。
+    掃描器＝字串／char 字面感知的括號配對＋鍵位狀態機：頂層 { 之後與每個 depth 1 的 , 之後即
+    「鍵位」，該處只接受字串字面（或 } ＝空物件／尾逗號），其餘一律 ③；巢狀物件／陣列內的
+    鍵位（depth ≥2）不入頂層鍵集、亦不受 ③ 管轄（契約只及頂層鍵）。
+    ★深度計數**三類括號齊收**（`([{` ／ `)]}`，與 _rs_call_arg_region 對「什麼算巢狀」同義）：
+    小括號不入計數時，值位的多引數呼叫（`std::cmp::max(a, b)`／`format!("{}", v)`）其引數逗號
+    會被當成 depth 1 的鍵值對分隔、錯置 expect_key，下一個引數即落 ③——對合法 rust 的假紅，
+    且訊息指著值位而非真因（頂層鍵明明已是字面），照著修無從下手。"""
+    m = RE_I18N_JSON_OPEN.search(window)
+    if m is None:
+        return None, ("BizData 構造點於資料視窗內找不到 json!(——data 引數非 json! 字面、"
+                      "建構式攤行超出視窗、或 json! 落在本構造點引數區間之外"
+                      "（區間以本次呼叫的括號收界、不取鄰居的 json!）："
+                      "改寫為 json!({ \"鍵\": 值 }) 物件字面"
+                      "（頂層鍵 MUST 可靜態解析）或擴 I18N_BIZDATA_DATA_WINDOW")
+    s = window[m.end():]
+    if not s.startswith("{"):
+        return None, (f"BizData 之 json!({s[:30]}…) 頂層非物件字面——頂層鍵無法靜態解析，"
+                      "fail-loud（防恆綠洞）：改寫為 json!({ \"鍵\": 值 }) 字面")
+    depth, i, n, keys = 0, 0, len(s), set()
+    expect_key = False   # 鍵位旗標：頂層 { 之後、depth 1 的 , 之後
+    while i < n:
+        ch = s[i]
+        if ch.isspace():
+            i += 1
+            continue
+        if expect_key and ch not in '"}':
+            return None, (f"BizData 之 json!({{…}}) 頂層鍵位非字串字面（片段：{s[i:i + 30]}…）"
+                          "——json! 允許變數／表達式作鍵，靜默略過即該鍵憑空消失（恆綠洞）："
+                          "頂層鍵 MUST 改寫為字串字面 \"鍵名\": 值")
+        if ch == '"':
+            j, buf = i + 1, []
+            while j < n and s[j] != '"':
+                if s[j] == "\\":
+                    j += 1
+                    if j < n:
+                        buf.append(s[j])
+                else:
+                    buf.append(s[j])
+                j += 1
+            if j >= n:
+                break   # 字串未閉＝物件未在視窗內閉合、落到下方 fail-loud
+            k = j + 1
+            while k < n and s[k].isspace():
+                k += 1
+            if depth == 1 and k < n and s[k] == ":":
+                keys.add("".join(buf))
+            expect_key = False
+            i = j + 1
+            continue
+        if ch == "'":
+            cm = RE_I18N_CHAR.match(s, i)
+            if cm:
+                i = cm.end()   # char 字面整段跳過（小括號入計數後 '(' / ')' 才會歪掉深度；
+                continue       # rust lifetime `'a` 無閉引號、不中，行為同 _rs_call_arg_region
+        if ch in "([{":
+            depth += 1
+            expect_key = (ch == "{" and depth == 1)
+        elif ch in ")]}":
+            depth -= 1
+            expect_key = False
+            if depth == 0:
+                return frozenset(keys), None
+        elif ch == "," and depth == 1:
+            expect_key = True
+        i += 1
+    return None, ("BizData 之 json!({…}) 物件未在資料視窗內閉合——視窗不足或字面損壞，"
+                  "fail-loud：縮短建構式或擴 I18N_BIZDATA_DATA_WINDOW")
+
+
 def scan_backend_msg_keys(root):
     """Lint24 取值：掃 rust 生產碼收「後端實發 msg key 集」＝①Biz/BizData 構造點字面
     ②名冊常數間接形 ③error.rs key() 方法 match 臂固定鍵。
-    回 ({key: [(rel, 行號), ...]}, findings)——findings＝結構性錯誤（零 .rs 檔／cfg(test)
-    未配對／構造點無法靜態解析／名冊漂移／key() 方法缺席），非空時不可進差集比對。"""
+    回 ({key: [(rel, 行號), ...]}, {key: [(rel, 行號, frozenset(json! 頂層鍵)), ...]},
+    findings)——第二值＝第三腿（B-139）之 BizData data 頂層鍵集、僅收可解析構造點；
+    findings＝結構性錯誤（零 .rs 檔／cfg(test) 未配對／構造點無法靜態解析／BizData data
+    非物件字面／名冊漂移／key() 方法缺席），非空時不可進差集比對。"""
     src_dir = os.path.join(root, I18N_RS_SRC_DIR)
     files = sorted(
         os.path.join(dirpath, f)[len(os.path.join(root, "")):].replace(os.sep, "/")
         for dirpath, _dirs, names in os.walk(src_dir)
         for f in names if f.endswith(".rs"))
     if not files:
-        return {}, [finding(ERROR, "Lint24", I18N_RS_SRC_DIR,
-                            "掃描面零 .rs 檔（源樹缺席或空）——後端實發集無法建立，"
-                            "fail-closed（Lint20 家族）")]
-    backend, errs, const_decls, key_method_found = {}, [], {}, False
+        return {}, {}, [finding(ERROR, "Lint24", I18N_RS_SRC_DIR,
+                                "掃描面零 .rs 檔（源樹缺席或空）——後端實發集無法建立，"
+                                "fail-closed（Lint20 家族）")]
+    backend, backend_data, errs = {}, {}, []
+    const_decls, key_method_found = {}, False
     for rel in files:
         kept, region_errs = rs_production_lines(_read(root, rel) or "", rel)
         errs += region_errs
@@ -4410,21 +4564,45 @@ def scan_backend_msg_keys(root):
                         re.match(r"\s*_", window) and "=>" in window):
                     continue   # match 樣式（綁定臂／萬用臂——萬用臂須窗內見 => 才略過，
                     #            否則落 unresolved fail-loud；quality 審 minor ④）＝非構造點
+                key = None
                 lit = RE_I18N_LIT.match(window)
                 if lit:
-                    backend.setdefault(lit.group(1), []).append((rel, ln))
+                    key = lit.group(1)
+                else:
+                    cst = RE_I18N_CONST.match(window)
+                    if cst and cst.group(1) in I18N_CONST_ROSTER:
+                        key = I18N_CONST_ROSTER[cst.group(1)]
+                if key is None:
+                    errs.append(finding(ERROR, "Lint24", f"{rel}:{ln}",
+                                        f"AppError::Biz/BizData 構造點無法靜態解析"
+                                        f"（內文開頭：{window[:60]}）——非字面、非名冊常數一律 "
+                                        f"fail-loud（防恆綠洞）：改寫為 Cow::Borrowed(字面) "
+                                        f"或擴 I18N_CONST_ROSTER 名冊；若實為 match 臂形"
+                                        f"（本形未被樣式排除吃下）請擴 RE_I18N_ARM"))
                     continue
-                cst = RE_I18N_CONST.match(window)
-                if cst and cst.group(1) in I18N_CONST_ROSTER:
-                    backend.setdefault(
-                        I18N_CONST_ROSTER[cst.group(1)], []).append((rel, ln))
-                    continue
-                errs.append(finding(ERROR, "Lint24", f"{rel}:{ln}",
-                                    f"AppError::Biz/BizData 構造點無法靜態解析"
-                                    f"（內文開頭：{window[:60]}）——非字面、非名冊常數一律 "
-                                    f"fail-loud（防恆綠洞）：改寫為 Cow::Borrowed(字面) "
-                                    f"或擴 I18N_CONST_ROSTER 名冊；若實為 match 臂形"
-                                    f"（本形未被樣式排除吃下）請擴 RE_I18N_ARM"))
+                backend.setdefault(key, []).append((rel, ln))
+                if m.group(1) == "BizData":
+                    # 第三腿（B-139）：BizData 另抽 data 頂層鍵——資料視窗獨立於鍵視窗
+                    # （鍵匹配三形皆錨於窗首、不受窗尾長度影響；資料鍵可落更後行）。
+                    dwindow = code[m.end():]
+                    for _nln, nline in kept[idx + 1:idx + 1 + I18N_BIZDATA_DATA_WINDOW]:
+                        dwindow += " " + _rs_code_part(nline).strip()
+                    # ★資料視窗必以**本構造點自身的括號**收界（_rs_call_arg_region）：
+                    # 不收界＝本構造點的 data 若非 json!（例如 build_data()），會靜默借用
+                    # 鄰居的 json! 鍵集而零 ERROR——徵狀是綠、正是恆綠洞，且視窗愈長機率
+                    # 愈高。舊法「截於下一個構造點錨」只擋得住鄰居也是構造點的那一形，
+                    # 非構造點的鄰居（helper fn／let 綁定／區塊註解內的 json!）照樣被借走。
+                    # 收界後借用在結構上不可能發生；區間未閉合的代價是顯性紅（視窗不足）
+                    # 而非漏檢，方向正確。
+                    region, rerr = _rs_call_arg_region(dwindow)
+                    if rerr is not None:
+                        errs.append(finding(ERROR, "Lint24", f"{rel}:{ln}", rerr))
+                    else:
+                        dkeys, derr = _bizdata_json_keys(region)
+                        if derr is not None:
+                            errs.append(finding(ERROR, "Lint24", f"{rel}:{ln}", derr))
+                        else:
+                            backend_data.setdefault(key, []).append((rel, ln, dkeys))
         if rel == I18N_ERROR_RS:
             key_method_found, key_errs = _collect_key_method(kept, rel, backend)
             errs += key_errs
@@ -4444,7 +4622,7 @@ def scan_backend_msg_keys(root):
             errs.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
                                 f"名冊常數 {name} 於掃描面查無宣告——常數已改名／移出射程"
                                 f"＝名冊腐化：同步修 I18N_CONST_ROSTER"))
-    return backend, errs
+    return backend, backend_data, errs
 
 
 def _collect_key_method(kept, rel, backend):
@@ -4517,7 +4695,7 @@ def check_i18n_contract(backend, frontend, whitelist):
 def check_locale_key_parity(zh_tw, zh_cn):
     """Lint24 第二腿純判定（B-030 子項）：zh-cn backend 鍵集須＝zh-tw 鍵集，兩向差集各報一筆
     ERROR、逐鍵指名（zh-cn 缺＝zh-tw 有而 zh-cn 無；zh-cn 多＝反向）。★只比鍵集、不比值：
-    值層（佔位符 ↔ 後端 data 鍵名）對賬另見 BACKLOG B-139。"""
+    值層（佔位符 ↔ 後端 data 鍵名）對賬＝第三腿 check_i18n_placeholders（B-139 落地）。"""
     out = []
     missing = sorted(set(zh_tw) - set(zh_cn))
     extra = sorted(set(zh_cn) - set(zh_tw))
@@ -4533,10 +4711,96 @@ def check_locale_key_parity(zh_tw, zh_cn):
     return out
 
 
+def _ph_set(value):
+    """譯文值 → 佔位符名集（{ident} 形；第三腿共用）。"""
+    return frozenset(RE_I18N_PLACEHOLDER.findall(value))
+
+
+def check_i18n_placeholders(backend_data, tw, cn, en, internal_keys=frozenset()):
+    """Lint24 第三腿純判定（B-139／FR-H01）：攜參鍵佔位符 ↔ 後端 data 頂層鍵對賬。
+
+    backend_data＝{msg key: [(rel, 行號, frozenset(json! 頂層鍵)), ...]}（僅 BizData 構造點）；
+    ★**None ＝後端側無基準、①段整段不評**，空 dict ＝後端側健康且零 BizData 構造點（此時
+    zh-tw 任何攜參鍵都是「無人下發」＝紅）——兩者語意相反，不可混用。tw／cn／en＝三語
+    backend 樹之 {扁平鍵: 譯文值}（該語無基準時傳空 dict＝該語不評）；internal_keys＝前端
+    獨有內部詞彙表白名單（其佔位符由前端自填、後端永不下發該鍵，不入①段受檢面）。
+    佔位符＝譯文 `{ident}` 形。兩段判定：
+    ①受檢鍵集＝BizData 構造點鍵 ∪ zh-tw 帶佔位符之鍵（扣掉 internal_keys）——FR-H01 首句
+      逐字要求「zh-tw 譯文**全部**攜參鍵」入面，只走後端側鍵會漏掉「純 AppError::Biz 鍵
+      （無 data 通道）卻在三語譯文都寫了佔位符」這一形（vue-i18n 渲染成空字串、全樹零紅點）。
+      有構造點者逐點比佔位符集＝json! 頂層鍵集——★這一格防「三語一致卻集體錯」的實暴形
+      （B-139 明載三語互比不可替代它）；差集兩向逐名（後端多＝該值靜默不顯示、zh-tw 多＝
+      vue-i18n 渲染成空字串）。無構造點者＝後端從不下發該鍵之 data、另報一筆。
+    ②zh-cn／en-us 同鍵佔位符集 ＝ zh-tw（防單語漂移）；掃 zh-tw 全鍵集、非僅攜參鍵——
+      「zh-tw 無佔位符而他語有」同屬漂移、同紅。
+    純判定只收資料、不碰檔案 I/O（可測性同第二腿）。★鍵缺席之責任分界：key 不在 tw＝第一腿
+    （後端有前端無）已報；key 不在 cn＝第二腿已報；key 不在 en＝msg-dict 兩語鍵集斷言已報
+    ——本函式一律跳過、不重複報。"""
+    out = []
+    if backend_data is not None:
+        scanned = set(backend_data) | {k for k in tw
+                                       if k not in internal_keys and _ph_set(tw[k])}
+        for key in sorted(scanned):
+            if key not in tw:
+                continue
+            ph = _ph_set(tw[key])
+            sites = backend_data.get(key)
+            if not sites:
+                out.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
+                                   f"攜參鍵「{key}」zh-tw 譯文帶佔位符 "
+                                   + "、".join("{%s}" % x for x in sorted(ph))
+                                   + "，但後端零 BizData 構造點下發該鍵——data 永不到達、"
+                                   "vue-i18n 渲染成空字串（全樹零紅點的 toast 靜默壞；"
+                                   "B-139）：補 BizData 構造點下發同名頂層鍵，或自譯文拿掉"
+                                   "佔位符；確為前端自填之內部詞彙則入 "
+                                   "I18N_FRONTEND_INTERNAL_KEYS 白名單"))
+                continue
+            for rel, ln, dkeys in sites:
+                if ph == dkeys:
+                    continue
+                parts = []
+                missing = sorted(dkeys - ph)
+                extra = sorted(ph - dkeys)
+                if missing:
+                    parts.append("後端多 " + "、".join("{%s}" % x for x in missing)
+                                 + "（zh-tw 譯文無此佔位符＝該值靜默不顯示）")
+                if extra:
+                    parts.append("zh-tw 多 " + "、".join("{%s}" % x for x in extra)
+                                 + "（後端 data 不含該鍵＝vue-i18n 渲染成空字串）")
+                out.append(finding(ERROR, "Lint24", f"{rel}:{ln}",
+                                   f"攜參鍵「{key}」zh-tw 佔位符集≠後端 json! 頂層鍵集："
+                                   f"{'；'.join(parts)}——佔位符 MUST 逐字＝data 頂層鍵"
+                                   f"（B-139），同 commit 對齊譯文與構造點"))
+    for key in sorted(tw):
+        ph = _ph_set(tw[key])
+        for label, where, vals in (("zh-cn", I18N_FRONTEND_LOCALE_CN, cn),
+                                   ("en-us", I18N_FRONTEND_LOCALE_EN, en)):
+            if key not in vals:
+                continue
+            oph = _ph_set(vals[key])
+            if oph == ph:
+                continue
+            parts = []
+            if oph - ph:
+                parts.append(f"{label} 多 " + "、".join("{%s}" % x for x in sorted(oph - ph)))
+            if ph - oph:
+                parts.append(f"{label} 缺 " + "、".join("{%s}" % x for x in sorted(ph - oph)))
+            out.append(finding(ERROR, "Lint24", where,
+                               f"鍵「{key}」{label} 佔位符集≠zh-tw：{'；'.join(parts)}"
+                               f"——三語佔位符 MUST 逐字一致（防單語漂移＝toast 靜默壞；"
+                               f"B-139），同 commit 對齊 {label} 譯文"))
+    return out
+
+
 def i18n_contract_self_test():
     """防恆綠：紅樣本四型（後端多鍵／前端孤兒鍵／白名單腐化／白名單鍵不在字典）必紅且帶
     關鍵內容、綠樣本（含白名單內部鍵）必綠；失效即 ERROR（比照 Lint16/Lint21/Lint22 慣例）。
-    第二腿（zh-cn 鍵集對賬）另以「少一鍵必紅、同鍵集必綠」兩樣本自證。"""
+    第二腿（zh-cn 鍵集對賬）另以「少一鍵必紅、同鍵集必綠」兩樣本自證。
+    第三腿（佔位符對賬）另以「backend↔zh-tw 不符必紅（指名鍵＋兩側佔位符＋構造點）／
+    zh-cn 漂移必紅／en-us 漂移必紅／攜參鍵零構造點必紅／白名單鍵佔位符不入面必綠／
+    全對齊必綠」六樣本，加取值面「頂層鍵位非字面必紅（含混合形）／字串字面鍵必綠／值位多
+    引數呼叫必綠」三樣本、引數區間「借鄰居形必被括號收界擋在外／區間未閉合必 fail-loud」
+    兩樣本自證。"""
     out = []
     if not any(x["level"] == ERROR and "丙.丁" in x["msg"]
                for x in check_locale_key_parity({"甲.乙", "丙.丁"}, {"甲.乙"})):
@@ -4573,6 +4837,82 @@ def i18n_contract_self_test():
         out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
                            "契約閘 self-test 失效：綠樣本（全對齊＋白名單內部鍵）誤報——"
                            "判定過寬，修復 check_i18n_contract 後重跑"))
+    # 第三腿（B-139）：佔位符 ↔ data 頂層鍵——紅樣本三型＋綠樣本（紅訊息必帶鍵名、兩側
+    # 佔位符與構造點 file:line——防「紅了但訊息無用」）
+    site3 = {"甲.乙": [("樣本.rs", 7, frozenset(("minDays",)))]}
+    f = check_i18n_placeholders(site3, {"甲.乙": "低於 {floor} 天"}, {}, {})
+    if not any(x["level"] == ERROR and "甲.乙" in x["msg"] and "{minDays}" in x["msg"]
+               and "{floor}" in x["msg"] and "樣本.rs:7" in x["where"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（zh-tw 佔位符≠data 頂層鍵）未被攔下"
+                           "或未指名鍵／佔位符／構造點——第三腿已恆綠，修復 "
+                           "check_i18n_placeholders 後重跑"))
+    f = check_i18n_placeholders(None, {"甲.乙": "低於 {minDays} 天"},
+                                {"甲.乙": "低于 {days} 天"}, {})
+    if not any(x["level"] == ERROR and "甲.乙" in x["msg"] and "zh-cn" in x["msg"]
+               and "{days}" in x["msg"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（zh-cn 佔位符漂移）未被攔下——"
+                           "第三腿防單語漂移已恆綠，修復 check_i18n_placeholders 後重跑"))
+    f = check_i18n_placeholders(None, {"甲.乙": "低於 {minDays} 天"}, {},
+                                {"甲.乙": "below {days} days"})
+    if not any(x["level"] == ERROR and "甲.乙" in x["msg"] and "en-us" in x["msg"]
+               and "{days}" in x["msg"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（en-us 佔位符漂移）未被攔下——"
+                           "第三腿防單語漂移已恆綠，修復 check_i18n_placeholders 後重跑"))
+    if check_i18n_placeholders(site3, {"甲.乙": "低於 {minDays} 天"},
+                               {"甲.乙": "低于 {minDays} 天"},
+                               {"甲.乙": "below {minDays} days"}):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：綠樣本（三語佔位符與 data 頂層鍵全對齊）"
+                           "誤報——第三腿判定過寬，修復 check_i18n_placeholders 後重跑"))
+    # ①段受檢面＝後端鍵 ∪ zh-tw 攜參鍵（FR-H01 首句）：零構造點的攜參鍵必紅、白名單鍵除外
+    f = check_i18n_placeholders({}, {"甲.乙": "低於 {minDays} 天"}, {}, {})
+    if not any(x["level"] == ERROR and "甲.乙" in x["msg"] and "{minDays}" in x["msg"]
+               and "零 BizData 構造點" in x["msg"] for x in f):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：紅樣本（zh-tw 攜參鍵零 BizData 構造點）"
+                           "未被攔下——①段受檢面退回「只走後端側鍵」，修復 "
+                           "check_i18n_placeholders 後重跑"))
+    if check_i18n_placeholders({}, {"甲.乙": "低於 {minDays} 天"}, {}, {},
+                               frozenset(("甲.乙",))):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：綠樣本（白名單內部鍵之佔位符由前端自填）"
+                           "誤報——白名單未自①段受檢面扣除，修復 check_i18n_placeholders 後重跑"))
+    # 取值面：頂層鍵位非字串字面必 fail-loud（json! 允許變數／表達式作鍵；混合形最危險——
+    # 靜默少一鍵而全綠），字串字面鍵必解析得出
+    for _sample in ('json!({ some_var: 1 })', 'json!({ "a": 1, k: 2 })'):
+        _keys, _err = _bizdata_json_keys(_sample)
+        if _err is None or "頂層鍵位非字串字面" not in _err:
+            out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                               f"契約閘 self-test 失效：紅樣本（{_sample}）未 fail-loud"
+                               "——非字面頂層鍵被靜默視同不存在＝恆綠洞，修復 "
+                               "_bizdata_json_keys 後重跑"))
+    _keys, _err = _bizdata_json_keys('json!({ "a": 1, "b": 2 })')
+    if _err is not None or _keys != frozenset(("a", "b")):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：綠樣本（字串字面頂層鍵）未解析出鍵集"
+                           "——取值面判定過嚴，修復 _bizdata_json_keys 後重跑"))
+    _keys, _err = _bizdata_json_keys('json!({ "a": std::cmp::max(x, y) })')
+    if _err is not None or _keys != frozenset(("a",)):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：綠樣本（值位多引數呼叫）誤報——深度計數"
+                           "漏收小括號時，引數逗號會被當成頂層鍵值對分隔而假紅，"
+                           "修復 _bizdata_json_keys 後重跑"))
+    # 引數區間收界：借鄰居形（data 非 json!、窗內另有無關 json!）必不入面、未閉合必 fail-loud
+    _region, _err = _rs_call_arg_region(
+        'Cow::Borrowed("甲.乙"), build_data()) } fn helper() -> Value { json!({ "鄰": 1 })')
+    if _err is not None or _region is None or RE_I18N_JSON_OPEN.search(_region):
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：引數區間未以本構造點括號收界——鄰居的 "
+                           "json!（helper fn／let 綁定／區塊註解）會被當成本次 data，"
+                           "借鍵即恆綠洞，修復 _rs_call_arg_region 後重跑"))
+    _region, _err = _rs_call_arg_region('Cow::Borrowed("甲.乙"), json!({ "a": 1 }')
+    if _err is None or "未在資料視窗內閉合" not in _err:
+        out.append(finding(ERROR, "Lint24", "tools/docs-sync.py",
+                           "契約閘 self-test 失效：引數區間未閉合未 fail-loud——靜默退回整窗"
+                           "取值即恢復借鄰居，修復 _rs_call_arg_region 後重跑"))
     return out
 
 
@@ -4587,27 +4927,38 @@ def lint_i18n_contract(root, exemptions=None):
     後再讀 zh-cn（同 parse_locale_backend、只多讀一檔），鍵集須＝zh-tw 鍵集——兩向差集各報一筆
     ERROR 逐鍵指名（check_locale_key_parity）；zh-cn 缺檔＝ERROR 指名路徑、樹解析失敗＝ERROR
     （皆 fail-closed）。zh-tw 缺席或解析失敗時本腿不評（比對無基準、只報 zh-tw 那筆）。
-    ★誠實邊界：本腿**只比鍵集、不比值**——值層佔位符 ↔ 後端 data 鍵名的對賬另見 BACKLOG
-    B-139；en-us 由 msg-dict 兩語鍵集斷言（compute_msg_dict_rows、generate/check 路徑）間接守
-    （D9 拍板兩語、MSG_DICT_LOCALES 不含 zh-cn）；app.d.ts Schema 之 vue-tsc typecheck 仍為
-    型別側兜底（不在 pre-commit）。"""
+    ★第三腿（B-139／FR-H01、008-audit-settings-pages 起有機器守）：值層佔位符 ↔ 後端
+    data 頂層鍵對賬（check_i18n_placeholders）——①zh-tw 攜參鍵佔位符集＝BizData 構造點
+    json!({…}) 頂層鍵集（取值＝scan_backend_msg_keys 之資料視窗；非字面形 fail-loud）
+    ②zh-cn／en-us 同鍵佔位符集＝zh-tw（en-us 於本腿首度入讀面：缺檔／樹解析失敗皆 ERROR
+    fail-closed）。①段基準＝後端掃描健康（結構性錯誤時不評——比對無基準）；②段基準＝
+    各語樹解析成功（與後端側健康無關、同第二腿之獨立性）。
+    ★誠實邊界：第二腿只比鍵集；en-us **鍵集**由 msg-dict 兩語鍵集斷言（compute_msg_dict_rows、
+    generate/check 路徑）間接守（D9 拍板兩語、MSG_DICT_LOCALES 不含 zh-cn）、本腿只驗其
+    佔位符；app.d.ts Schema 之 vue-tsc typecheck 仍為型別側兜底（不在 pre-commit）。
+    第三腿①段的兩個已知邊界：（a）I18N_FRONTEND_INTERNAL_KEYS 白名單鍵不入受檢面——該九鍵
+    後端永不下發、佔位符由前端自填（pwd-policy.ts／request/index.ts 消費點），入面即假紅；
+    （b）**巢狀**鍵位非字面（json!({"a": {var: 1}}) 形）不 fail-loud——契約只及頂層鍵，巢狀
+    層不影響頂層鍵集。"""
     out = i18n_contract_self_test()
-    backend, errs = scan_backend_msg_keys(root)
+    backend, backend_data, errs = scan_backend_msg_keys(root)
     text = _read(root, I18N_FRONTEND_LOCALE)
     frontend = set()
     if text is None:
         errs.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
                             "前端 locale 檔缺席（讀不到）——字典側無法建立，fail-closed"
                             "（Lint20 家族）"))
-    parity = []
+    parity, third = [], []
     if text is not None:
         try:
-            frontend = set(parse_locale_backend(text, I18N_FRONTEND_LOCALE))
+            tw_map = parse_locale_backend(text, I18N_FRONTEND_LOCALE)
         except BackendDictError as ex:
             errs.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE,
                                 f"backend 樹解析失敗：{ex}——fail-loud"))
         else:
+            frontend = set(tw_map)
             # 第二腿：zh-cn 鍵集＝zh-tw 鍵集（基準＝剛解析成功的 zh-tw 樹；缺檔／解析失敗皆紅）
+            cn_map = None
             text_cn = _read(root, I18N_FRONTEND_LOCALE_CN)
             if text_cn is None:
                 parity.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_CN,
@@ -4615,11 +4966,34 @@ def lint_i18n_contract(root, exemptions=None):
                                       "fail-closed（Lint20 家族）"))
             else:
                 try:
-                    parity = check_locale_key_parity(
-                        frontend, set(parse_locale_backend(text_cn, I18N_FRONTEND_LOCALE_CN)))
+                    cn_map = parse_locale_backend(text_cn, I18N_FRONTEND_LOCALE_CN)
                 except BackendDictError as ex:
                     parity.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_CN,
                                           f"backend 樹解析失敗：{ex}——fail-loud"))
+                else:
+                    parity = check_locale_key_parity(frontend, set(cn_map))
+            # 第三腿（B-139）：en-us 於本腿首度入讀面——缺檔／解析失敗皆 fail-closed；
+            # zh-cn 樹沿用第二腿剛解析的那份（單源、不重讀）
+            en_map = None
+            text_en = _read(root, I18N_FRONTEND_LOCALE_EN)
+            if text_en is None:
+                third.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_EN,
+                                     "en-us locale 檔缺席（讀不到）——佔位符對賬無法建立，"
+                                     "fail-closed（Lint20 家族）"))
+            else:
+                try:
+                    en_map = parse_locale_backend(text_en, I18N_FRONTEND_LOCALE_EN)
+                except BackendDictError as ex:
+                    third.append(finding(ERROR, "Lint24", I18N_FRONTEND_LOCALE_EN,
+                                         f"backend 樹解析失敗：{ex}——fail-loud"))
+            # ①段基準＝後端掃描健康（errs 此刻只可能含後端結構性錯誤——tw 解析失敗走不到
+            # 這裡）；②段基準＝各語樹解析成功、與後端側健康無關（同第二腿之獨立性）。
+            # ★無基準時傳 **None**（非空 dict）：空 dict 的語意是「後端健康且零 BizData
+            # 構造點」，①段會據此把每個攜參鍵判成「無人下發」＝後端一出結構性錯誤就淹一片
+            # 假紅。兩者語意相反，此處只可傳 None。
+            third += check_i18n_placeholders(backend_data if not errs else None,
+                                             tw_map, cn_map or {}, en_map or {},
+                                             I18N_FRONTEND_INTERNAL_KEYS)
     if errs:
         # ★Day 1 具名豁免（§4.5.10 類三／B4 乙③）：判定點必須在此——兩個 early-return
         #   的 errs 已集齊、尚未 return 的這一刻。放進 check_i18n_contract 內是不可達的
@@ -4634,8 +5008,9 @@ def lint_i18n_contract(root, exemptions=None):
                 return out + [finding(SKIP, "Lint24", "lint24.day1",
                                       f"Day 1 具名豁免（{table['lint24.day1'][0]}）——"
                                       "任一側源到位即該側規則接管，兩側皆備即全檢")]
-        return out + errs + parity
-    return out + check_i18n_contract(backend, frontend, I18N_FRONTEND_INTERNAL_KEYS) + parity
+        return out + errs + parity + third
+    return (out + check_i18n_contract(backend, frontend, I18N_FRONTEND_INTERNAL_KEYS)
+            + parity + third)
 
 
 # ---------------------------------------------------------------------------
@@ -12284,10 +12659,12 @@ class TestI18nContractGate(unittest.TestCase):
         """注入測試名冊：本 class 語料所用的兩個常數。生產名冊為空表時（rev5 現況）
         機制本身仍須可測——測的是「掃到常數形就查表」這個行為，不是表裡有誰。
 
-        ★唯一例外＝對真 repo 跑的那支：它要驗的正是生產名冊與現況源樹相符，
-        注入語料名冊會把它變成「驗我剛塞進去的假設定」，恰好失去該測試的全部意義。
+        ★唯一例外＝對真 repo 掃後端的那兩支（全鏈契約綠／第三腿三鍵綠）：它們要驗的正是
+        生產名冊與現況源樹相符，注入語料名冊會把它們變成「驗我剛塞進去的假設定」，
+        恰好失去該等測試的全部意義。
         """
-        if self._testMethodName == "test_real_repo_contract_green":
+        if self._testMethodName in ("test_real_repo_contract_green",
+                                    "test_real_repo_placeholder_contract_three_keys_green"):
             return
         patcher = mock.patch.object(
             sys.modules[__name__], "I18N_CONST_ROSTER",
@@ -12352,15 +12729,17 @@ class TestI18nContractGate(unittest.TestCase):
                 + "        captchaRequired: '請過驗證碼'\n      }\n    }\n"
                 + "  },\n")
 
-    def _fixture(self, d, locale=None, handler=None, error_rs=None, locale_cn=None):
-        """★zh-cn 預設＝與 zh-tw 同一份樹（鍵集對賬腿上線後 fixture 須兩檔齊備、缺檔即紅）；
-        locale_cn 可另給以造兩向差集。"""
+    def _fixture(self, d, locale=None, handler=None, error_rs=None, locale_cn=None,
+                 locale_en=None):
+        """★zh-cn／en-us 預設＝與 zh-tw 同一份樹（第二腿上線後 zh-cn 須齊備；第三腿上線後
+        en-us 亦須齊備——三檔任一缺即紅）；locale_cn／locale_en 可另給以造差集。"""
+        base = self._locale() if locale is None else locale
         _wfile(d, I18N_ERROR_RS, self.ERROR_RS if error_rs is None else error_rs)
         _wfile(d, "rust-api/server/src/handler.rs",
                self.HANDLER_RS if handler is None else handler)
-        _wfile(d, I18N_FRONTEND_LOCALE, self._locale() if locale is None else locale)
-        _wfile(d, I18N_FRONTEND_LOCALE_CN,
-               (self._locale() if locale is None else locale) if locale_cn is None else locale_cn)
+        _wfile(d, I18N_FRONTEND_LOCALE, base)
+        _wfile(d, I18N_FRONTEND_LOCALE_CN, base if locale_cn is None else locale_cn)
+        _wfile(d, I18N_FRONTEND_LOCALE_EN, base if locale_en is None else locale_en)
 
     def test_healthy_green(self):
         """②健康綠：字面＋常數間接＋key() 固定鍵 vs 字典全對齊；白名單內部鍵
@@ -12483,6 +12862,394 @@ class TestI18nContractGate(unittest.TestCase):
         self.assertTrue(tw, msg="zh-tw backend 樹為空")
         self.assertEqual(tw, cn)
         self.assertEqual(check_locale_key_parity(tw, cn), [])
+
+    # -- 佔位符 ↔ 後端 json! 頂層鍵（B-139／FR-H01、第三腿） ----------------------------
+    # 攜參 BizData 語料：HANDLER_RS 之外另加一支 json!({ "minDays": … }) 構造點（fn p、
+    # 錨行＝handler.rs:16）；譯文以 extra 子樹掛 ph.floor 鍵、佔位符可逐案改造紅。
+    HANDLER_PH_RS = HANDLER_RS + (
+        "fn p() -> AppError {\n"
+        "    AppError::BizData(\n"
+        '        Cow::Borrowed("ph.floor"),\n'
+        '        serde_json::json!({ "minDays": MIN_DAYS }),\n'
+        "    )\n"
+        "}\n")
+
+    @staticmethod
+    def _ph_locale(text):
+        """帶佔位符鍵（ph.floor）的假 locale：text＝該鍵譯文值。"""
+        return TestI18nContractGate._locale(
+            extra="    ph: {\n      floor: '%s'\n    },\n" % text)
+
+    def test_placeholder_backend_vs_tw_mismatch_red_names_all(self):
+        """★第三腿紅案①（B-139 的那一格：三語一致卻集體錯）：zh-tw（三語同值）佔位符
+        {floor} ≠ 後端 json! 頂層鍵 {minDays} → 恰一筆 ERROR、指名鍵＋兩側佔位符＋構造點
+        file:line；三語互比（②段）此時全綠、不誤報。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._ph_locale("低於 {floor} 天"),
+                          handler=self.HANDLER_PH_RS)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual((f[0]["level"], f[0]["code"]), (ERROR, "Lint24"))
+            self.assertTrue(f[0]["where"].endswith("handler.rs:16"), msg=str(f))
+            for token in ("ph.floor", "{minDays}", "{floor}"):
+                self.assertIn(token, f[0]["msg"])
+
+    def test_placeholder_both_directions_named(self):
+        """★差集兩向都要報得出：後端 {minDays} 譯文沒有（後端多）＋譯文 {extra} 後端不下發
+        （zh-tw 多）——同一筆 finding 內兩向逐名。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._ph_locale("低於 {extra} 天"),
+                          handler=self.HANDLER_PH_RS)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("後端多", f[0]["msg"])
+            self.assertIn("{minDays}", f[0]["msg"])
+            self.assertIn("zh-tw 多", f[0]["msg"])
+            self.assertIn("{extra}", f[0]["msg"])
+
+    def test_placeholder_zh_cn_drift_red_names_key(self):
+        """★第三腿紅案②（防單語漂移）：zh-cn 同鍵佔位符 {days} ≠ zh-tw {minDays} → 恰一筆
+        ERROR 落 zh-cn 檔、指名鍵與兩側佔位符。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"),
+                          handler=self.HANDLER_PH_RS,
+                          locale_cn=self._ph_locale("低于 {days} 天"))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual((f[0]["level"], f[0]["where"]),
+                             (ERROR, I18N_FRONTEND_LOCALE_CN))
+            for token in ("ph.floor", "zh-cn", "{days}", "{minDays}"):
+                self.assertIn(token, f[0]["msg"])
+
+    def test_placeholder_en_us_drift_red_names_key(self):
+        """★第三腿紅案③：en-us 同鍵佔位符漂移 → ERROR 落 en-us 檔（②段兩語各自成面、
+        拿掉 en-us 那一元組即本案紅）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"),
+                          handler=self.HANDLER_PH_RS,
+                          locale_en=self._ph_locale("below {days} days"))
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual((f[0]["level"], f[0]["where"]),
+                             (ERROR, I18N_FRONTEND_LOCALE_EN))
+            for token in ("ph.floor", "en-us", "{days}", "{minDays}"):
+                self.assertIn(token, f[0]["msg"])
+
+    def test_placeholder_green_with_param_key(self):
+        """★第三腿綠案：攜參鍵三語佔位符與後端頂層鍵全數逐字一致 → 零 findings。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"),
+                          handler=self.HANDLER_PH_RS)
+            self.assertEqual(lint_i18n_contract(d), [])
+
+    def test_bizdata_nonliteral_data_red(self):
+        """★取值面 fail-loud（防恆綠洞）：BizData 第二引數非 json!({…}) 物件字面——
+        ①json!(變數)＝頂層非物件字面 ②非 json! 呼叫＝視窗內找不到 json!(——皆 ERROR、
+        絕不靜默略過。"""
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                '    AppError::BizData(Cow::Borrowed("biz.a.x"), serde_json::json!(map))\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("頂層非物件字面", f[0]["msg"])
+            self.assertTrue(f[0]["where"].endswith("handler.rs:16"), msg=str(f))
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                '    AppError::BizData(Cow::Borrowed("biz.a.x"), build_data())\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("找不到 json!(", f[0]["msg"])
+
+    def test_bizdata_json_object_beyond_window_red(self):
+        """★視窗不足＝顯性紅（永不靜默漏檢；視窗常數的設計前提）：json!({…}) 攤行超出
+        I18N_BIZDATA_DATA_WINDOW → ERROR 指名未閉合。"""
+        with tempfile.TemporaryDirectory() as d:
+            body = "".join('        "k%d": 1,\n' % i
+                           for i in range(I18N_BIZDATA_DATA_WINDOW + 2))
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                "    AppError::BizData(\n"
+                '        Cow::Borrowed("biz.a.x"),\n'
+                "        serde_json::json!({\n" + body +
+                "        }),\n"
+                "    )\n"
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("未在資料視窗內閉合", f[0]["msg"])
+
+    def test_bizdata_data_window_stops_at_next_construction_site(self):
+        """★資料視窗不得跨到下一個構造點的 json!（恆綠洞紅證·鄰居是構造點那一形）：
+        前一個 BizData 的 data 是 build_data()（非 json!），後一個 BizData 就在其下三行
+        且帶 json!({…})——不收界即靜默借用鄰居的鍵集而零 ERROR（徵狀是綠、視窗愈長機率
+        愈高）。以引數區間收界後：前者 fail-loud 指名自己的 file:line，後者照常解析。
+
+        突變自證：把 scan_backend_msg_keys 的 `_rs_call_arg_region(dwindow)` 收界拿掉
+        （dwindow 整窗直接餵 _bizdata_json_keys），本案由「恰一筆『找不到 json!(』」變成
+        兩筆假紅（借鍵成功、前者被安上後者的 {stolen}）——fail-loud 消失即恆綠洞成立。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                '    AppError::BizData(Cow::Borrowed("biz.a.x"), build_data())\n'
+                "}\n"
+                "fn r() -> AppError {\n"
+                '    AppError::BizData(Cow::Borrowed("biz.a.x"), '
+                'serde_json::json!({ "stolen": 1 }))\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual(f[0]["level"], ERROR)
+            self.assertIn("找不到 json!(", f[0]["msg"])
+            self.assertTrue(f[0]["where"].endswith("handler.rs:16"), msg=str(f))
+            _b, backend_data, _e = scan_backend_msg_keys(d)
+            self.assertEqual([ks for _rel, _ln, ks in backend_data["biz.a.x"]],
+                             [frozenset(("stolen",))], msg=str(backend_data))
+
+    def test_bizdata_data_window_bounded_by_own_call_parens(self):
+        """★資料視窗以**本構造點自身的括號**收界（恆綠洞紅證·結構性）：data 是
+        build_data()（非 json!），三行外另有一個與本構造點無關的 json!({…})（helper fn
+        內）——「截於下一個構造點錨」擋不住這一形（鄰居根本不是構造點），窗會跨過去把
+        helper 的鍵集當成本次 data 而零 ERROR（假綠）；借到的鍵集碰巧與譯文不符時，則
+        轉為一筆指著錯誤構造點的假紅。以引數區間收界後：恰一筆 fail-loud、指名自己的
+        file:line，且該鍵不入 backend_data。
+
+        突變自證：把 scan_backend_msg_keys 的 `_rs_call_arg_region(dwindow)` 收界拿掉
+        （dwindow 整窗直接餵 _bizdata_json_keys），本案由「恰一筆『找不到 json!(』」變成
+        一筆指著本構造點的「後端多 {unrelated}」假紅（借鍵成功）。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                '    AppError::BizData(Cow::Borrowed("biz.a.x"), build_data())\n'
+                "}\n"
+                "fn helper() -> Value {\n"
+                '    serde_json::json!({ "unrelated": 1 })\n'
+                "}\n")
+            self._fixture(d, handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual((f[0]["level"], f[0]["code"]), (ERROR, "Lint24"))
+            self.assertIn("找不到 json!(", f[0]["msg"])
+            self.assertTrue(f[0]["where"].endswith("handler.rs:16"), msg=str(f))
+            _b, backend_data, _e = scan_backend_msg_keys(d)
+            self.assertNotIn("biz.a.x", backend_data, msg=str(backend_data))
+
+    def test_bizdata_nonliteral_key_position_red(self):
+        """★頂層鍵位非字串字面＝fail-loud（serde_json 的 json! 正式允許變數／表達式作鍵）：
+        ①純非字面鍵 ②混合形（字面鍵＋非字面鍵——最危險，靜默時會**綠著少一鍵**）皆 ERROR、
+        指名該片段。巢狀層鍵位不受管轄（契約只及頂層鍵）＝③綠。
+
+        突變自證：拿掉 _bizdata_json_keys 的 expect_key 判定，①②轉為零 findings（鍵憑空
+        消失而全綠）。
+        """
+        for body, frag in (("{ some_var: 1 }", "some_var"),
+                           ('{ "minDays": 1, k: 2 }', "k:")):
+            with tempfile.TemporaryDirectory() as d:
+                handler = self.HANDLER_RS + (
+                    "fn q() -> AppError {\n"
+                    '    AppError::BizData(Cow::Borrowed("biz.a.x"), '
+                    "serde_json::json!(%s))\n" % body +
+                    "}\n")
+                self._fixture(d, handler=handler)
+                f = lint_i18n_contract(d)
+                self.assertEqual(len(f), 1, msg=str(f))
+                self.assertEqual(f[0]["level"], ERROR)
+                self.assertIn("頂層鍵位非字串字面", f[0]["msg"])
+                self.assertIn(frag, f[0]["msg"])
+                self.assertTrue(f[0]["where"].endswith("handler.rs:16"), msg=str(f))
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                '    AppError::BizData(Cow::Borrowed("biz.a.x"), '
+                'serde_json::json!({ "nest": { inner: 1 } }))\n'
+                "}\n")
+            self._fixture(d, handler=handler,
+                          locale=self._locale(extra="    nestkey: {\n      k: '＊'\n    },\n"))
+            _b, backend_data, errs = scan_backend_msg_keys(d)
+            self.assertEqual(errs, [], msg=str(errs))
+            self.assertEqual([ks for _rel, _ln, ks in backend_data["biz.a.x"]],
+                             [frozenset(("nest",))], msg=str(backend_data))
+
+    def test_bizdata_value_position_call_args_green(self):
+        """★值位的呼叫引數逗號不是頂層鍵值對分隔（假紅紅證）：json! 頂層值寫成多引數呼叫
+        （`std::cmp::max(a, b)`／`format!("{}", v)`）時，其引數逗號一度被當成 depth 1 的
+        鍵值對分隔、`expect_key` 被錯置起，下一個字元（第二引數）即落「頂層鍵位非字串
+        字面」——對合法 rust 的假紅，且訊息指著值位、照著修無從下手（頂層鍵明明已是字面）。
+        深度計數納入小括號後：引數逗號落在 depth ≥2、不觸發鍵位判定。
+
+        突變自證：把 _bizdata_json_keys 的深度計數改回只認 `{[` ／ `}]`（小括號不計數），
+        本案三形全轉為「頂層鍵位非字串字面」ERROR。
+        """
+        for value in ("std::cmp::max(MIN_DAYS, 1)", 'format!("{}", MIN_DAYS)',
+                      "opts.map(|x| (x, 1))"):
+            with tempfile.TemporaryDirectory() as d:
+                handler = self.HANDLER_RS + (
+                    "fn p() -> AppError {\n"
+                    "    AppError::BizData(\n"
+                    '        Cow::Borrowed("ph.floor"),\n'
+                    '        serde_json::json!({ "minDays": %s }),\n' % value +
+                    "    )\n"
+                    "}\n")
+                self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"),
+                              handler=handler)
+                self.assertEqual(lint_i18n_contract(d), [], msg=value)
+                _b, backend_data, errs = scan_backend_msg_keys(d)
+                self.assertEqual(errs, [], msg=value)
+                self.assertEqual([ks for _rel, _ln, ks in backend_data["ph.floor"]],
+                                 [frozenset(("minDays",))], msg=value)
+
+    def test_bizdata_char_literal_paren_not_counted(self):
+        """★char 字面內的小括號不入深度計數（小括號入計數後才成立的守面）：值位寫
+        `x.split('(')` 時，若 char 字面未整段跳過，那個 `'('` 會把深度墊高一層——後續的
+        頂層 `,` 落在 depth 2、第二個頂層鍵靜默不入鍵集（**恆綠洞方向**）。
+
+        突變自證：拿掉 _bizdata_json_keys 的 char 字面分支，本案轉為「物件未在資料視窗內
+        閉合」ERROR 且 minDays／unit 兩鍵只剩一鍵。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn p() -> AppError {\n"
+                "    AppError::BizData(\n"
+                '        Cow::Borrowed("ph.floor"),\n'
+                '        serde_json::json!({ "minDays": raw.split(\'(\'), "unit": U }),\n'
+                "    )\n"
+                "}\n")
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} {unit}"),
+                          handler=handler)
+            self.assertEqual(lint_i18n_contract(d), [])
+            _b, backend_data, errs = scan_backend_msg_keys(d)
+            self.assertEqual(errs, [])
+            self.assertEqual([ks for _rel, _ln, ks in backend_data["ph.floor"]],
+                             [frozenset(("minDays", "unit"))], msg=str(backend_data))
+
+    def test_placeholder_key_without_bizdata_site_red(self):
+        """★①段受檢面＝後端鍵 ∪ zh-tw 攜參鍵（FR-H01 首句）：ph.floor 只由 AppError::Biz
+        （無 data 通道）下發、三語譯文卻都寫了 {minDays}——第一腿全綠（鍵在後端實發集）、
+        ②段全綠（三語一致），只有①段抓得到。徵狀＝vue-i18n 渲染成空字串的 toast 靜默壞。
+
+        突變自證：把①段受檢面改回 `sorted(backend_data)`，本案轉零 findings。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            handler = self.HANDLER_RS + (
+                "fn q() -> AppError {\n"
+                '    AppError::Biz(Cow::Borrowed("ph.floor"))\n'
+                "}\n")
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"), handler=handler)
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertEqual((f[0]["level"], f[0]["where"]), (ERROR, I18N_FRONTEND_LOCALE))
+            for token in ("ph.floor", "{minDays}", "零 BizData 構造點"):
+                self.assertIn(token, f[0]["msg"])
+
+    def test_placeholder_whitelist_internal_key_not_in_scan_surface(self):
+        """★①段受檢面的誠實邊界：白名單內部鍵（passwordViolation.minLength）之佔位符由前端
+        自填（pwd-policy.ts 消費點、後端永不下發該鍵），入面即假紅——必須綠。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._locale().replace(
+                "minLength: '＊'", "minLength: '長度至少 {min} 字元'"))
+            self.assertEqual(lint_i18n_contract(d), [])
+
+    def test_placeholder_leg_not_evaluated_without_backend_basis(self):
+        """★①段基準＝後端掃描健康：後端側出結構性錯誤時傳 None（非空 dict）——空 dict 的
+        語意是「後端健康且零 BizData 構造點」，混用會把每個攜參鍵判成「無人下發」而淹一片
+        假紅。本案 ph.floor 有真構造點，後端另有一個無法靜態解析的構造點：只該報後者。
+
+        突變自證：把接線處的 None 改回 `{}`，本案多出一筆 ph.floor「零 BizData 構造點」假紅。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"),
+                          handler=self.HANDLER_PH_RS + "fn z() -> AppError {\n"
+                          "    AppError::Biz(some_var)\n}\n")
+            f = lint_i18n_contract(d)
+            self.assertEqual(len(f), 1, msg=str(f))
+            self.assertIn("無法靜態解析", f[0]["msg"])
+
+    def test_placeholder_leg_evaluated_even_when_backend_side_has_errors(self):
+        """★第三腿②段的獨立性（同第二腿先例）：後端側先出結構性錯誤時，①段（基準＝後端
+        掃描健康）不評，但 zh-cn 佔位符漂移（基準＝三語樹解析成功）仍須同時報出。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d,
+                          handler=self.HANDLER_PH_RS + "fn z() -> AppError {\n"
+                          "    AppError::Biz(some_var)\n}\n",
+                          locale=self._ph_locale("低於 {minDays} 天"),
+                          locale_cn=self._ph_locale("低于 {days} 天"))
+            f = lint_i18n_contract(d)
+            self.assertTrue(any(x["level"] == ERROR and "無法靜態解析" in x["msg"] for x in f),
+                            msg=str(f))
+            self.assertTrue(any(x["level"] == ERROR and x["where"] == I18N_FRONTEND_LOCALE_CN
+                                and "ph.floor" in x["msg"] and "{days}" in x["msg"]
+                                for x in f), msg=str(f))
+
+    def test_en_us_locale_missing_or_unparsable_red(self):
+        """★第三腿 fail-closed：en-us 檔缺席＝ERROR 指名路徑；en-us 樹解析失敗＝ERROR
+        fail-loud（皆不得靜默視同對齊）。"""
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d)
+            os.remove(os.path.join(d, I18N_FRONTEND_LOCALE_EN))
+            f = lint_i18n_contract(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(ERROR, I18N_FRONTEND_LOCALE_EN)], msg=str(f))
+            self.assertIn("缺席", f[0]["msg"])
+        with tempfile.TemporaryDirectory() as d:
+            self._fixture(d, locale_en="const local = { backend: {} };\nexport default local;\n")
+            f = lint_i18n_contract(d)
+            self.assertEqual([(x["level"], x["where"]) for x in f],
+                             [(ERROR, I18N_FRONTEND_LOCALE_EN)], msg=str(f))
+            self.assertIn("解析失敗", f[0]["msg"])
+
+    def test_run_lint_wires_placeholder_leg(self):
+        """★接線層：第三腿從 run_lint 掉線＝靜默下線。fixture 之 zh-cn 佔位符漂移，run_lint
+        必出帶該鍵名的 Lint24 ERROR。"""
+        with tempfile.TemporaryDirectory() as d:
+            _init_outer(d)
+            self._fixture(d, locale=self._ph_locale("低於 {minDays} 天"),
+                          handler=self.HANDLER_PH_RS,
+                          locale_cn=self._ph_locale("低于 {days} 天"))
+            f = run_lint(d, exemptions={})
+            self.assertTrue(any(x["code"] == "Lint24" and x["level"] == ERROR
+                                and "ph.floor" in x["msg"] and "{days}" in x["msg"]
+                                for x in f),
+                            msg=str([x for x in f if x["code"] == "Lint24"]))
+
+    @unittest.skipUnless(_day1_pending("rust-api/server/src",
+                                       "base-web/src/locales/langs/zh-tw.ts",
+                                       "base-web/src/locales/langs/zh-cn.ts",
+                                       "base-web/src/locales/langs/en-us.ts"),
+                         "掃描面不在：解除＝rust 源樹＋三語 locale 皆可讀")
+    def test_real_repo_placeholder_contract_three_keys_green(self):
+        """★現況驗收（真 repo 綠案、三鍵終態；L-063 變異前提＝受檢面非空自證）：BizData
+        攜參鍵恰三、data 頂層鍵集逐鍵釘死，三語佔位符與其全數逐字一致（純判定零 findings）。
+
+        ★en-us 掃描對象常數先逐字釘死（§4.5.4 測試側自持，同第二腿 real-repo 案之理由）。
+        """
+        self.assertEqual(I18N_FRONTEND_LOCALE_EN, "base-web/src/locales/langs/en-us.ts")
+        backend, backend_data, errs = scan_backend_msg_keys(ROOT)
+        self.assertEqual(errs, [])
+        expected = {
+            "biz.user.passwordPolicy": frozenset(("violations",)),
+            "biz.user.pwdSetTooFrequent": frozenset(("remainingSeconds",)),
+            "biz.audit.purgeBelowFloor": frozenset(("minDays",)),
+        }
+        self.assertEqual(set(backend_data), set(expected))
+        for key, dkeys in expected.items():
+            self.assertEqual([ks for _rel, _ln, ks in backend_data[key]], [dkeys], msg=key)
+        tw = parse_locale_backend(_read(ROOT, I18N_FRONTEND_LOCALE), I18N_FRONTEND_LOCALE)
+        cn = parse_locale_backend(_read(ROOT, I18N_FRONTEND_LOCALE_CN),
+                                  I18N_FRONTEND_LOCALE_CN)
+        en = parse_locale_backend(_read(ROOT, I18N_FRONTEND_LOCALE_EN),
+                                  I18N_FRONTEND_LOCALE_EN)
+        self.assertEqual(check_i18n_placeholders(backend_data, tw, cn, en,
+                                                 I18N_FRONTEND_INTERNAL_KEYS), [])
 
     def test_backend_key_missing_red_names_site_and_fix(self):
         """①後端多鍵紅：字典抽掉 biz.a.x → ERROR 指名構造點 file:line、附三語 locale
@@ -12764,6 +13531,34 @@ class TestI18nContractGate(unittest.TestCase):
             i18n_contract_self_test)
         self.assertTrue(any(x["level"] == ERROR and "綠樣本" in x["msg"] for x in f),
                         msg=str(f))
+
+    def _with_placeholder_checker(self, fake, fn):
+        original = globals()["check_i18n_placeholders"]
+        globals()["check_i18n_placeholders"] = fake
+        try:
+            return fn()
+        finally:
+            globals()["check_i18n_placeholders"] = original
+
+    def test_self_test_catches_dead_placeholder_checker(self):
+        """④突變面（第三腿）：check_i18n_placeholders 被改成永不報（恆綠）→self-test 逐紅
+        樣本（backend↔zh-tw／zh-cn 漂移／en-us 漂移／攜參鍵零構造點四型）報 ERROR。"""
+        f = self._with_placeholder_checker(
+            lambda backend_data, tw, cn, en, internal_keys=frozenset(): [],
+            i18n_contract_self_test)
+        self.assertEqual(len(f), 4, msg=str(f))
+        self.assertTrue(all(x["level"] == ERROR for x in f))
+        self.assertTrue(all("self-test 失效" in x["msg"] for x in f))
+
+    def test_self_test_catches_overbroad_placeholder_checker(self):
+        """④突變面（第三腿）：check_i18n_placeholders 被改成一律報紅→綠樣本誤報、
+        self-test 報 ERROR。"""
+        f = self._with_placeholder_checker(
+            lambda backend_data, tw, cn, en, internal_keys=frozenset():
+            [finding(ERROR, "Lint24", "樣本", "誤報")],
+            i18n_contract_self_test)
+        self.assertTrue(any(x["level"] == ERROR and "綠樣本" in x["msg"]
+                            and "第三腿" in x["msg"] for x in f), msg=str(f))
 
     def test_assembly_wires_self_test(self):
         """★組裝層：i18n_contract_self_test 從 lint_i18n_contract 掉線＝防恆綠靜默下線。"""

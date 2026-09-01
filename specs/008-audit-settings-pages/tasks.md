@@ -93,10 +93,10 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Independent Test**: `python3 tools/docs-sync.py lint` 綠＋自測紅綠樣本；變異（{minDays}
 改名→紅→還原綠）附證。
 
-- [ ] T021 [US4] `tools/docs-sync.py` Lint24 第三腿：`parse_locale_backend` 留值 dict＋`scan_backend_msg_keys` 擴 BizData 視窗抓 `json!({...})` 頂層字面鍵（非字面形 fail-loud）＋新純判定函式（zh-tw 攜參鍵 `\{(\w+)\}` 佔位符集＝後端頂層鍵集；併驗 zh-cn／en-us 同鍵佔位符集＝zh-tw）＋接線 `lint_i18n_contract`＋`i18n_contract_self_test` 防恆綠＋self-test 紅綠案（真 repo 三鍵綠案）＋docs-sync 自測計數帳更新
-- [ ] T022 [US4] 變異自證（zh-tw `{minDays}` 改名→Lint24 紅→還原綠；紅綠證留紀錄）＋B-139 關帳：BACKLOG 刪列＋L-072 雙向掃＋NOTES 同步
+- [x] T021 [US4] `tools/docs-sync.py` Lint24 第三腿：`parse_locale_backend` 留值 dict＋`scan_backend_msg_keys` 擴 BizData 視窗抓 `json!({...})` 頂層字面鍵（非字面形 fail-loud）＋新純判定函式（zh-tw 攜參鍵 `\{(\w+)\}` 佔位符集＝後端頂層鍵集；併驗 zh-cn／en-us 同鍵佔位符集＝zh-tw）＋接線 `lint_i18n_contract`＋`i18n_contract_self_test` 防恆綠＋self-test 紅綠案（真 repo 三鍵綠案）＋docs-sync 自測計數帳更新
+- [x] T022 [US4] 變異自證（zh-tw `{minDays}` 改名→Lint24 紅→還原綠；紅綠證留紀錄）＋B-139 關帳：BACKLOG 刪列＋L-072 雙向掃＋NOTES 同步
 
-**Checkpoint**: 30 條款、B-139 關。
+**Checkpoint**: 條款數維持 **29**（第三腿沿第二腿形掛在 Lint24 底下、不新增條款碼；原寫「30 條款」為規劃期誤記，實作後三處同數〔掃源推導／lint 摘要／events 末筆 lint-roster〕皆 29）、B-139 關。
 
 ---
 

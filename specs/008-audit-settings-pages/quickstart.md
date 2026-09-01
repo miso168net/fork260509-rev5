@@ -23,7 +23,7 @@ logout TTL 同形測、`mask_pii_payload` 表驅動＋端到端負向自證。
 ## 2. 治理閘（pre-commit 全跑；手動速查）
 
 ```bash
-python3 tools/docs-sync.py lint          # 29→30 條款；Lint24 第三腿（佔位符）自測綠
+python3 tools/docs-sync.py lint          # 條款數維持 29（第三腿掛 Lint24 底下）；Lint24 第三腿（佔位符）自測綠
 python3 tools/fork-delta-lint.py         # WIRING 圈界＋基線斷言
 python3 tools/view-render-guard.py       # 新頁自動入射程（7 禁字面）
 python3 tools/route-artifact-gate.py     # 產物四檔重算冪等
