@@ -107,13 +107,54 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Independent Test**: CDP 以 Super 登入 22080——側欄「系統設定」翻譯正常、點擊進頁、四組
 16 鍵對照 rev4（42080）、改值即存回讀、非法值拒因可讀；typecheck＋四閘綠。
 
-- [ ] T023 [US1] 新檔 `base-web/src/views/manage/system-settings/index.vue`（單檔；資料驅動控件：二值 enum→NSwitch／number→NInputNumber `:update-value-on-input="false"`／其他→唯讀；四組固定序＋未列鍵排組尾；逐項即改即存、成功失敗皆 refetch、清空不送；labelKeyMap＋helpKeyMap 16 鍵 typed literal＋fallback description；`import { fetchGetSystemSettings, fetchUpdateSystemSetting } from '@/service/api/rev5-settings'` 直接路徑；rev4:system-settings/index.vue 藍本重打字、註解重寫）
-- [ ] T024 [US1] i18n＋型節（WIRING (vii) 新增型圈界）：`base-web/src/locales/langs/zh-cn.ts`＋`en-us.ts` 之 route: 樹 `'manage_system-settings'` 鍵＋page.manage.systemSettings 樹（4 titles＋items 16＋help 16；譯文以 rev4 兩語為底重打）＋`base-web/src/typings/app.d.ts` Schema.page.manage 補 systemSettings 型節（插位＝research R2 錨；兩語鍵集相等）＋★**L-063 補做**（本 task ＝用途 (vii) 之第一個落 `rev5-inline` 標記處）：兩道實得機器守之真變異自證——①②塊之圈界標記守於本 task、③塊之重算冪等閘於 T025；變異面／不取之形／還原紀律逐字＝T004 記派段，紅綠證逐字補記本 task
-- [ ] T025 [US1] 產物四檔重算（`base-web` dev server 起動或 `pnpm gen-route`；`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts` 零手改）＋`python3 tools/route-artifact-gate.py` 冪等綠＋`pnpm typecheck` 綠
-- [ ] T026 [US1] `tools/seed-view-gate.py`：EXEMPT 摘 `view.manage_system-settings` 列＋self-test 案 I-a 鍵集釘改（恰餘 audit 一鍵）＋檔頭「恰兩列」敘述改；gate 綠
-- [ ] T027 [US1] 單元驗證：`python3 tools/view-render-guard.py` 綠＋`python3 tools/fork-delta-lint.py` 綠＋CDP 快查（側欄進頁煙測反轉＋改一鍵回讀）
+- [x] T023 [US1] 新檔 `base-web/src/views/manage/system-settings/index.vue`（單檔；資料驅動控件：二值 enum→NSwitch／number→NInputNumber `:update-value-on-input="false"`／其他→唯讀；四組固定序＋未列鍵排組尾；逐項即改即存、成功失敗皆 refetch、清空不送；labelKeyMap＋helpKeyMap 16 鍵 typed literal＋fallback description；`import { fetchGetSystemSettings, fetchUpdateSystemSetting } from '@/service/api/rev5-settings'` 直接路徑；rev4:system-settings/index.vue 藍本重打字、註解重寫）
+- [x] T024 [US1] i18n＋型節（WIRING (vii) 新增型圈界）：`base-web/src/locales/langs/zh-cn.ts`＋`en-us.ts` 之 route: 樹 `'manage_system-settings'` 鍵＋page.manage.systemSettings 樹（4 titles＋items 16＋help 16；譯文以 rev4 兩語為底重打）＋`base-web/src/typings/app.d.ts` Schema.page.manage 補 systemSettings 型節（插位＝research R2 錨；兩語鍵集相等）＋★**L-063 補做**（本 task ＝用途 (vii) 之第一個落 `rev5-inline` 標記處）：兩道實得機器守之真變異自證——①②塊之圈界標記守於本 task、③塊之重算冪等閘於 T025；變異面／不取之形／還原紀律逐字＝T004 記派段，紅綠證逐字補記本 task
+- [x] T025 [US1] 產物四檔重算（`base-web` dev server 起動或 `pnpm gen-route`；`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts` 零手改）＋`python3 tools/route-artifact-gate.py` 冪等綠＋`pnpm typecheck` 綠
+- [x] T026 [US1] `tools/seed-view-gate.py`：EXEMPT 摘 `view.manage_system-settings` 列＋self-test 案 I-a 鍵集釘改（恰餘 audit 一鍵）＋檔頭「恰兩列」敘述改；gate 綠
+- [x] T027 [US1] 單元驗證：`python3 tools/view-render-guard.py` 綠＋`python3 tools/fork-delta-lint.py` 綠＋CDP 快查（側欄進頁煙測反轉＋改一鍵回讀）
 
 **Checkpoint**: US1 可獨立交付（MVP 切片）；豁免表恰餘 audit 一列。
+
+★**U7 執行結果（workflow `wf_f3d6f629-428` 6 支＋審查補跑 `wf_2422cd0c-4f2` 2 支、2026-09-02 收尾）**
+
+- **量**：view 新檔 263 行（單檔）；兩語 i18n 各 `route:` 一鍵＋`page.manage.systemSettings` 樹
+  **36 葉**（4 titles＋16 items＋16 help、鍵集相等）；`app.d.ts` 型節一塊；產物四檔重算；
+  `tools/seed-view-gate.py` 豁免 2→**1 列**。`pnpm typecheck` rc=0｜六道閘全 rc=0｜
+  `docs-sync lint` 0 錯誤／共 29 條款｜容器內全量 serial 1108 passed／0 failed／2 ignored。
+- **CDP 走查（主線做）**：B-008 已知態**完整反轉**——側欄由原始 key `route.manage_system-settings`
+  變為譯文「系统设置」、點擊由零反應變為 `/home`→`/manage/system-settings` 導航成功；四組卡片齊、
+  6 NSwitch＋10 NInputNumber＝16 項、頁面零原始 key；改一鍵（`需含数字`）→ toast「更新成功」→
+  庫值真的變 `on` → 切回 → 庫值回 `off`。★側欄 `route.manage_audit` 仍為原始 key＝(viii)／U8 的活。
+  走查還原照 RUNBOOK §9c 六步：`walkthrough-baseline diff` rc=0、`schema-gate check` rc=0
+  （★審計欄殘留由後者抓出、baseline 結構性看不見——落 L-084）。
+- ★★**用途 (vii) 的變異自證（L-063 補做、本單元是 (vii) 的第一個落 `rev5-inline` 標記處；
+  T004 記派段承諾之兌現點）——兩發皆真的紅**：
+  - **第一發（T024·①②塊之圈界標記守）**＝`tools/fork-delta-lint.py` 之 `find_unmarked_additions`。
+    ★**守門粒度與 T004 記派段的預言不符、如實揭露**：該守的粒度是 **change-block**、不是單一標記對。
+    實驗①改壞 (vii) 塊自己的 START/END 兩枚 → **rc=0 存活**（成因＝該 fn docstring 自陳之「已知可
+    接受殘留①」：route 樹 (i)(iv)(vii) 三塊對基線是同一條連續純新增 run、鄰塊合法標記涵蓋全塊）；
+    實驗②再加改同塊 (vi) 共四枚 → **rc=0 仍存活**（difflib 實印：該區含一根被移除結構行 `};`，
+    flush() 依 `is_code` 把整塊歸修改型而結構性跳過）；**實驗③改壞該純新增 run 內全部六枚**
+    → **rc=1 真紅**，逐字「✗ 1 個新增碼區塊缺 rev5-inline 圈界標記（constitution §III 新增型圈界；
+    基線 example@8be6f9ba）：src/locales/langs/zh-cn.ts｜未圈界新增首行: 'manage_ip-rule': …」。
+    還原照 L-060（存原文→寫回→`cmp` 逐位相同＋md5 兩側一致：zh-cn.ts `08ebdfd9…`、
+    app.d.ts `42e83719…`）→ 復跑 rc=0 回綠；**未用 `git checkout`**。
+  - **第二發（T025·③塊之重算冪等閘）**＝`tools/route-artifact-gate.py`。手改 `routes.ts` 之
+    `manage_system-settings` 條目 i18nKey 尾字一個字母 → **rc=1 真紅**，逐字「✗ ③ 產物檔遭手改：
+    src/router/elegant/routes.ts → 以上游基線為種重算的結果與版控不符」並印出該行 -/+ diff。
+    還原同形（md5 `d298aa0c…` 兩側一致）→ 復跑 rc=0 回綠。
+  - ⇒ **L-063 對用途 (vii) 的清償完成**；★同紀律套用於 (viii)→T032／T033（U8），★但**不得沿用
+    第一發的變異形字面**——(viii) 的塊落在哪條 change-block 要當場實測，粒度結論不可跨塊推定。
+  - ★**T004 記派段明令不取之形（「改壞 §III.2 該列範圍欄反引號路徑」）本單元確實未取**：名冊三元組
+    斷言射程僅修改型（`find_rogue_tracks` docstring 逐字），本軌道三塊皆新增型或生成檔＝結構性不適用。
+- **以碼為準的派工單更正（L-081 防法②生效、三條）**：①主線 prompt 寫「產物四檔重算入口＝
+  `pnpm gen-route`」**為錯**——`sa gen-route` 是互動腳手架、零寫檔（`route-artifact-gate.py` 檔頭
+  逐字、L-053 專條），真重算者＝dev server 外掛＋該閘的沙盒重跑 ②T004 記派段預言的變異形與守門
+  實際粒度不符（詳上）③`SEED_EXPECTED` const 宣告在 `handler/system_settings.rs:497`。
+- **本單元新帳**：L-084（走查 UPDATE 型副作用對列數基準不可見）／L-081 補記（本刀三次事實接地
+  錯誤、新增防法④）。
+- **未竟**：碼品質審查輪因兩支 workflow 皆於 SpecReview 階段由 fix 正確升級主線而未跑（防呆⑥
+  運作、非故障）——由 U7c 單段補跑。
 
 ---
 

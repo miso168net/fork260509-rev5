@@ -123,7 +123,7 @@ fi
 # 變動（pin bump）或本工具本體 staged 時，比對 seed `SEED_SYS_MENU` 塊內 `view.*` 集 ⊆ base-web/src/views/**
 # 依 elegant-router 規則導出集（另斷言導出集恰等 imports.ts 產物鍵集）。seed 加一列指向不存在的 view、或
 # 搬走／改名一支 view 而忘了動 seed，兩向皆零紅——側欄長出點下去零反應的項（B-008 CDP 實測），只有機器
-# 對賬擋得住。具名豁免兩列（B-008 餘兩張 view）住工具常數、到期即紅。
+# 對賬擋得住。具名豁免一列（B-008 餘一張 view＝`view.manage_audit`）住工具常數、到期即紅。
 # ★純檔案掃描、毫秒級、不碰 docker／node；self-test 每次 check 連帶跑 ⇒ 不進上方 `for t in …` 迴圈
 #   ＝具名豁免（docs-sync 的 HOOK_TEST_LOOP_EXEMPT、同 view-render-guard）。
 if echo "$staged" | grep -qxF -e 'base-web' -e 'rust-api' -e 'tools/seed-view-gate.py'; then

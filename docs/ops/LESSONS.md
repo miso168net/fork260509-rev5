@@ -1,4 +1,4 @@
-<!-- next: L-084 -->
+<!-- next: L-085 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -96,3 +96,4 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-081｜寫進 agent prompt 的「事實接地」被當權威照做，寫錯即把錯誤規格化](LESSONS/L-081-prompt-facts-are-taken-as-authority-by-agents.md) — 每條事實附出處（檔:行／指令），該段明令「與碼衝突以碼為準並回報」
 - [L-082｜變異注入的形落在閘「刻意排除」的那一類，不紅——與恆綠閘外觀相同](LESSONS/L-082-mutation-must-target-the-gate-predicate.md) — 注入前先讀 detector 的排除條件；沒紅先加診斷印 scanned/hits 自證變異有進受檢面；閘的 doc 自陳該注入什麼形
 - [L-083｜BACKLOG 條目的技術前提會過時，triage 反覆重讀結論卻從不復核前提](LESSONS/L-083-a-backlog-entrys-technical-premise-goes-stale.md) — 動工／再 triage 前對碼復核「因為碼是 X」那一句；條目把技術前提與價值判斷分寫、前提帶出處；關帳時把「哪一句與實碼不符」寫進收單訊息
+- [L-084｜CDP 走查的 UPDATE 型副作用對「列數基準」結構性不可見——baseline diff 綠不等於環境已還原](LESSONS/L-084-walkthrough-update-side-effects-are-invisible-to-the-row-count-baseline.md) — 清理面包含被改列的**審計欄**（改回值 ≠ 改回痕）；baseline 與 schema-gate gate2 是互補兩道網、兩者都綠才算還原

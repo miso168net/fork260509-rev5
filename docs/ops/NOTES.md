@@ -12,8 +12,10 @@
   U1（`Api.Audit` 契約錨）／U2（讀面全鏈）／U3（讀面兩層裁判）／U4＋U4b（purge 端點全鏈）／
   **本刀 U5**（`_with_db` 薄殼＋`LOCKABLE_TABLES` 擴列＋purge 原子性 fault-injection＋水平線三測＋
   logout TTL 同形補測——**B-125 關帳**）／**本刀 U6**（Lint24 第三腿＝佔位符 × 後端 `json!` 頂層鍵
-  對賬＋三語併驗——**B-139 關帳**）。**下一支＝本刀 U7**（tasks.md T023~T027＝settings 頁＋i18n
-  ＋產物四檔＋seed-view-gate 摘一列），其後 U8（audit 頁七檔）／U9（CDP 三方對照＋關帳三條
-  ＋final holistic review、主線做）。brainstorm＝`docs/brainstorms/008-audit-settings-pages.md`。
+  對賬＋三語併驗——**B-139 關帳**）／**本刀 U7**（system-settings 頁進場：view 單檔＋兩語 i18n
+  ＋型節＋產物四檔＋seed-view-gate 摘一列＋用途 (vii) 之 L-063 變異自證；**B-008 settings 半邊
+  出列**、CDP 走查證已知態反轉）。**下一支＝本刀 U8**（tasks.md T028~T034＝audit 頁七檔＋i18n
+  ＋產物四檔＋seed-view-gate 歸零＋用途 (viii) 之 L-063 變異自證），其後 U9（CDP 三方對照
+  ＋關帳三條＋final holistic review、主線做）。brainstorm＝`docs/brainstorms/008-audit-settings-pages.md`。
 - **效能現況**：全序列→`docs/generated/reference/perf.md`、引信判讀→`docs/generated/STATE.md`「效能引信」行（機器判、
   只採 close_bookkeeping）；merge commit 不跑 pre-commit 之事實住 RUNBOOK §12.1。
