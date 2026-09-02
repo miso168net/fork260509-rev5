@@ -148,7 +148,7 @@ rust-api workspace members＝migration／entity／sea-orm-adapter／server：
 
 ## §6 Runtime
 
-不變式凍結面住 constitution §I.7（**九座**行為島 A～I＋fail-* 方向）；本節只寫 as-built 執行形
+不變式凍結面住 constitution §I.7（**十座**行為島 A～J＋fail-* 方向）；本節只寫 as-built 執行形
 ——模組落點、常數實值、欄與鍵名（§I.7 進場規則明文把這一類留在活書）。凍結條文一律
 以「主題＋落點＋指島」形給指針，不複述 MUST 文字（複述＝同一事實兩個人寫的家，
 Amendment 改憲法而活書靜默過期）。

@@ -1,4 +1,4 @@
-<!-- next: L-075 -->
+<!-- next: L-087 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -87,3 +87,15 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-072｜刪 BACKLOG 條目沒掃引用，當場造出指涉斷鏈](LESSONS/L-072-deleting-a-backlog-entry-without-sweeping-its-references.md) — 刪列後雙向掃現在式文件家族；判準＝「這句在說曾經，還是在說現在還沒做」（歷史記述正當、待辦式引用才是斷鏈）
 - [L-073｜變異探針從 repo 外載入 mutant，現況驗收案整批靜默 skip](LESSONS/L-073-mutation-probe-loaded-outside-repo-skips-live-cases.md) — 就地變異或改寫 ROOT；紅證必印 skipped=0
 - [L-074｜pg_isready 不帶 -h 對初始化期只聽 unix socket 的暫時 server 回綠，restore 撞上重啟](LESSONS/L-074-pg-isready-without-host-flag-greens-on-init-temp-server.md) — 就緒探測一律 `-h 127.0.0.1`（TCP 就緒＝最終 server）；手寫 postgres 等待迴圈前 grep 本 ID
+- [L-075｜允許清單裡的「限定式項」被越界時 agent 不觸發分值升級——它判「檔在清單內」就是沒越界](LESSONS/L-075-scoped-allowlist-entry-overrun-skips-escalation.md) — 限定式清單項附一句「本檔之限定外改動＝清單外、走 done_with_escalation」；主線復核看 `git diff` 實際改動面、不看 `escalations` 欄下結論
+- [L-076｜枚舉同語意命中時用 `grep -v` 過濾整行，會漏掉同行雙 token 的那筆，且漏掉的看起來像不存在](LESSONS/L-076-line-level-grep-filter-misses-dual-token-lines.md) — 逐行剝 token 再判、不整行過濾；枚舉筆數要有第二來源對賬
+- [L-077｜「逐欄對賬 schema 真源」只驗欄名與存在性、漏驗可空性，型別失真整條穿過復核](LESSONS/L-077-column-parity-check-that-skips-nullability.md) — 對賬腳本化（真源與文件各拉 {欄名:可空性} dict 比對）；可空性一律以 migration／entity 為準；同檔同型欄寫法不一致本身就是失真訊號
+- [L-078｜fix 因「finding 在允許清單外」而正確零改動，被零改動偵測判成不收斂](LESSONS/L-078-zero-change-detector-misreads-correct-escalation.md) — cycle() 對 `done_with_escalation`＋零改動當場 return 升級，置於零改動偵測之前；零改動偵測只服務 status:ok 的真空轉
+- [L-079｜驗「呼叫處恰 N 處」只 grep `name(` 會漏掉函式指標形，0 命中被誤判成「根本沒呼叫」](LESSONS/L-079-counting-call-sites-misses-function-pointer-form.md) — 三形取聯集，或改名讓編譯器列出真實使用點；處數型驗收長期該由測試釘不由人 grep
+- [L-080｜連動面盤點只找數字釘，漏掉手抄檔案名冊——新增一個檔本身就是一次集合改變](LESSONS/L-080-adding-a-file-is-itself-a-set-change.md) — 數字釘與名冊釘兩路並行盤點；新增檔的單元把全量測試排在實作早期
+- [L-081｜寫進 agent prompt 的「事實接地」被當權威照做，寫錯即把錯誤規格化](LESSONS/L-081-prompt-facts-are-taken-as-authority-by-agents.md) — 每條事實附出處（檔:行／指令），該段明令「與碼衝突以碼為準並回報」
+- [L-082｜變異注入的形落在閘「刻意排除」的那一類，不紅——與恆綠閘外觀相同](LESSONS/L-082-mutation-must-target-the-gate-predicate.md) — 注入前先讀 detector 的排除條件；沒紅先加診斷印 scanned/hits 自證變異有進受檢面；閘的 doc 自陳該注入什麼形
+- [L-083｜BACKLOG 條目的技術前提會過時，triage 反覆重讀結論卻從不復核前提](LESSONS/L-083-a-backlog-entrys-technical-premise-goes-stale.md) — 動工／再 triage 前對碼復核「因為碼是 X」那一句；條目把技術前提與價值判斷分寫、前提帶出處；關帳時把「哪一句與實碼不符」寫進收單訊息
+- [L-084｜CDP 走查的 UPDATE 型副作用對「列數基準」結構性不可見——baseline diff 綠不等於環境已還原](LESSONS/L-084-walkthrough-update-side-effects-are-invisible-to-the-row-count-baseline.md) — 清理面包含被改列的**審計欄**（改回值 ≠ 改回痕）；baseline 與 schema-gate gate2 是互補兩道網、兩者都綠才算還原
+- [L-085｜手拼 grep 做全 repo 枚舉＝重新發明一個更差的枚舉面，副檔名白名單漏掉無副檔名檔](LESSONS/L-085-hand-rolled-grep-reinvents-a-worse-enumeration-surface.md) — L-032／L-038 類枚舉一律先跑 `docs-sync.py errata`（掃 tracked 全檔）；非手拼不可時用路徑範圍限定、不用副檔名白名單
+- [L-086｜走查還原的 setval 目標值沿用上一次走查的指令＝把序列往回撥](LESSONS/L-086-restore-values-must-come-from-this-run-baseline.md) — 還原值 MUST 自本次 baseline 現讀、不得從舊指令複製；看 diff 差值的正負號（正＝殘留未清、負＝復位過頭）

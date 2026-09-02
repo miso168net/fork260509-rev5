@@ -128,7 +128,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 ## 9. 維運端點與 DB 直連
 
-**稽核欄複驗紀律**（B-078；讀者＝要寫稽核報表／對賬腳本／機器閘的人）：稽核列的轉發鏈欄 `x_forwarded_for` 由
+**稽核欄複驗紀律**（讀者＝要寫稽核報表／對賬腳本／機器閘的人；★本節即該紀律的**永久家**——原 BACKLOG 條目已於 2026-09-02 由 008-audit-settings-pages 確認後關帳刪列）：稽核列的轉發鏈欄 `x_forwarded_for` 由
 `trust::rightmost_window_str` **逐字保留**鏈欄原文（不可解析欄是鑑識痕跡、刻意不正規化），而 `real_ip` 是
 `trust::to_canonical(..).to_string()` 的**壓縮小寫**形 ⇒ 鏈欄寫 IPv6 非正規化字面（如 `2001:DB8::9`、`2001:0db8::9`）時
 `real_ip` 落 `2001:db8::9`，`x_forwarded_for LIKE '%'||real_ip||'%'` 這類**字串包含式複驗得假陰性**——在 F8 的兩個成立條件下（真實來源由鏈推導、
@@ -145,11 +145,11 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 且生效模型還隨 `load_trust_model` 三層降級態（缺路徑退扁平環境變數／非 UTF-8 退全空）漂移 ⇒ 用今日設定重推昨日的列會把合法來源整批報成缺口。
 報表 MUST 以設定變更時點切分區間、每區間用該區間生效的模型重推（時點來源＝設定檔變更史：dev＝`deploy/trust-model.dev.toml` 的 git 史、
 prod＝`APP_TRUST_MODEL_PATH` 所指檔的部署變更紀錄＋啟動載入告警）；切不出時點的區間標「不可判」交人工判讀、不得憑今日設定出結論；⑤`ip_confidence` 為 NULL 的 003 期以前歷史列——該批列的 `real_ip` 非由本代信任模型推導（004 之前無 trust 模型；append-only、不遷移，`model/facade/sys_login_attempt.rs` 的節流計數亦以它為已知陷阱），任何版本重推皆對不上、整批排除。★現無 rust 之外的重推入口
-（唯一落點＝rust 側測試／小工具，屬 B-078 殘餘）；憲法 F8 講的複驗性就是重推；
+（唯一落點＝rust 側測試／小工具）；憲法 F8 講的複驗性就是重推；
 `LIKE` 字串判別只限手動走查一眼看（specs/004 之 quickstart §1b），**不得搬進正式報表／對賬腳本／機器閘**——搬了即把
 合法的 IPv6 來源系統性報成「稽核欄不含真實來源」，憑空製造一批假的鑑識缺口告警。★「先把鏈欄逐欄正規化再字串比對」這條看似更穩的路**同樣不行**——
 那會丟掉逐字鑑識痕跡、與 `rightmost_window_str` 刻意不正規化的設計相抵（重推是在記憶體裡正規化、欄本身一字不動，故此棄案理由不反噬所選方案）。
-殘餘工項→ops/BACKLOG **B-078**。
+★**殘餘工項已無**：008-audit-settings-pages 之 audit 四支讀端**零複驗入口**，`realIp` 過濾＝**INET 精確等值**（`Column::RealIp.eq(v)`、/32｜/128 host network）**非 LIKE 字串包含**，並由 facade 與 handler **兩支**「等值非子串」測釘死（`203.0.113.7` 是 `203.0.113.70` 的子字串、LIKE 形當場多撈）。
 
 ## 9a. 授權治理面速查（006；僅指針）
 
@@ -248,7 +248,7 @@ L-071（防法晉升到下一刀的一次性 quickstart＝一刀半衰期、六�
 | `python3 tools/fork-delta-lint.py` | base-web 原行紀律（前置：fork 源倉在 example 分支） | 否 |
 | `python3 tools/secret-value-guard.py check --full-tree` | 機密現值 × 全 tracked 檔一次性盤點：staged 增量對既存明文結構性失明（rev4:L-190）、本旗標補盤點面——導入既有 repo 與定期體檢用；命中只印「檔:行｜機密名」絕不印值、有命中 exit 1。★不進 pre-commit（全樹非增量；增量面＝pre-commit 自動跑裸 check） | 否 |
 | `python3 tools/view-render-guard.py check` / `test` | 管理頁 `base-web/src/views/manage/**` 零原始 HTML 插值斷言（FR-038；禁用字面表逐行掃原文，條數以 `FORBIDDEN` 為準、成功訊息會印、**不解析註解與語法**——能藏在註解裡就能藏在字串常值裡再拼接）／自測。★pre-commit **條件觸發**：base-web pin bump 或本檔 staged 時自動跑（`base-web/src` 缺席＝具名跳過）；掃到零檔＝fail-loud rc=2 | 否 |
-| `python3 tools/seed-view-gate.py check` / `test` | seed `sys_menu.component` 之 `view.*` 集 ⊆ `base-web/src/views/**` 依 elegant-router 規則導出集對賬（B-088／FR-049；另斷言導出集恰等 `router/elegant/imports.ts` 產物鍵集＝結構自證；具名豁免兩列住工具常數、到期／幽靈皆紅；self-test 每次 check 連帶跑）／自測。pre-commit **條件觸發**：base-web 或 rust-api pin bump 或本檔 staged 時自動跑（`base-web/src` 或 `rust-api/migration` 缺席＝具名跳過）；三面任一空集＝fail-loud rc=2 | 否 |
+| `python3 tools/seed-view-gate.py check` / `test` | seed `sys_menu.component` 之 `view.*` 集 ⊆ `base-web/src/views/**` 依 elegant-router 規則導出集對賬（B-088／FR-049；另斷言導出集恰等 `router/elegant/imports.ts` 產物鍵集＝結構自證；具名豁免表住工具常數、**現為空表**（B-008 兩張 view 全數兌現後歸零；日後新開豁免＝拍板級、須連同改 self-test I-a 的空表斷言而於 diff 現形）、到期／幽靈皆紅；self-test 每次 check 連帶跑）／自測。pre-commit **條件觸發**：base-web 或 rust-api pin bump 或本檔 staged 時自動跑（`base-web/src` 或 `rust-api/migration` 缺席＝具名跳過）；三面任一空集＝fail-loud rc=2 | 否 |
 | `python3 tools/route-artifact-gate.py check` / `test` | 路由外掛產物四檔（`src/router/elegant/{imports,routes,transform}.ts`＋`src/typings/elegant-router.d.ts`）之**產出檔集對賬＋重算冪等＋零手改**三道——★憲法 §III.2 第五列「產物檔紀律」的**唯一**機器守（該四檔受 fork-delta 檢查全域豁免）。★**刻意不掛 pre-commit**：實跑外掛三趟、實測 15.2s，且依賴 dev stack 在跑，而 pre-commit MUST 在 stack 沒起時可用；落點＝**單元邊界／CI 手動跑** | check **是**、test 否 |
 | `python3 tools/entity-drift-gate.py check` / `test` | entity（rust-api/entity/src）vs schema 快照漂移比對（欄序歸 gate2、index/constraint 歸 gate1、default 不驗）／自測 | 否 |
 | `python3 tools/rust-fmt-gate.py check` / `test` | rust-api 容器內 `cargo fmt --all --check`（**唯讀**、設定＝`rust-api/rustfmt.toml`；B-112／ADR 0057）四態分流：docker 不可用或 compose 檔缺席＝具名跳過 rc 0／rust-api 容器未在跑＝具名跳過 rc 0／全綠 rc 0（印耗時）／未格式化 rc 1（印 `Diff in` 段數＋前 12 行摘要＋補救命令）／容器在跑但映像未含 rustfmt component＝**rc 2 fail-loud**（附重建映像命令、刻意不設豁免）。★檢查的是 rust-api **工作樹**、非 pin 指向的 commit（worktree 髒時多印一行警示、不影響 rc）。pre-commit **條件觸發**：rust-api pin bump 或本檔 staged 時自動跑（★跳過邏輯住工具內、hook 段零條件判斷）／自測（離線、subprocess 全樁） | check **條件**（容器在跑才實跑，否則具名跳過）、test 否 |
@@ -389,7 +389,7 @@ EOF
 
   （*route-artifact-gate 自測為具名段形、非 unittest 計數，案數不入合計。）
   （†rust-fmt-gate＝**2026-08-25** 維護批 A（B-112／ADR 0057）新入名冊、該列為當日單獨量測，
-  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **633**（2026-08-31 docs×tools 維護批收單後；W1 後 629、2026-08-30 B-150／B-151 維護批後 614、該批前 599、08-25 時 527）但中位數
+  其餘各列沿 08-18 值。★`docs-sync test` 案數其後續增至 **654**（2026-09-02 Lint24 第三腿（B-139）落地後；2026-08-31 docs×tools 維護批收單後 633、W1 後 629、2026-08-30 B-150／B-151 維護批後 614、該批前 599、08-25 時 527）但中位數
   未重測，故該列與合計之案數仍記 08-18 值——讀本表時注意其時點混成。）
   （‡walkthrough-baseline＝**2026-08-30** 維護批（B-147）新入名冊、該列為當日單獨量測（三跑中位）、
   其餘各列沿舊值；合計列照加總更新、**未**重測情境 B、故不 append `full_chain` 事件——混成時點的合計不是一次量測。）
