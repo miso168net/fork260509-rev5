@@ -1,4 +1,4 @@
-<!-- next: L-087 -->
+<!-- next: L-088 -->
 # LESSONS — 教訓索引
 
 一坑一檔住 `LESSONS/L-NNN-<slug>.md`（append-only；配號取檔頭 next-id 後 bump、號碼永不回收；
@@ -97,5 +97,6 @@ rev5 只記親歷坑；前代候選＝啟動書 §5 K3。★**動手前掃一遍
 - [L-082｜變異注入的形落在閘「刻意排除」的那一類，不紅——與恆綠閘外觀相同](LESSONS/L-082-mutation-must-target-the-gate-predicate.md) — 注入前先讀 detector 的排除條件；沒紅先加診斷印 scanned/hits 自證變異有進受檢面；閘的 doc 自陳該注入什麼形
 - [L-083｜BACKLOG 條目的技術前提會過時，triage 反覆重讀結論卻從不復核前提](LESSONS/L-083-a-backlog-entrys-technical-premise-goes-stale.md) — 動工／再 triage 前對碼復核「因為碼是 X」那一句；條目把技術前提與價值判斷分寫、前提帶出處；關帳時把「哪一句與實碼不符」寫進收單訊息
 - [L-084｜CDP 走查的 UPDATE 型副作用對「列數基準」結構性不可見——baseline diff 綠不等於環境已還原](LESSONS/L-084-walkthrough-update-side-effects-are-invisible-to-the-row-count-baseline.md) — 清理面包含被改列的**審計欄**（改回值 ≠ 改回痕）；baseline 與 schema-gate gate2 是互補兩道網、兩者都綠才算還原
-- [L-085｜手拼 grep 做全 repo 枚舉＝重新發明一個更差的枚舉面，副檔名白名單漏掉無副檔名檔](LESSONS/L-085-hand-rolled-grep-reinvents-a-worse-enumeration-surface.md) — L-032／L-038 類枚舉一律先跑 `docs-sync.py errata`（掃 tracked 全檔）；非手拼不可時用路徑範圍限定、不用副檔名白名單
+- [L-085｜有現成工件不用、自己拼一個射程更窄的——手拼 grep 漏掉無副檔名檔／CDP helper 重寫成退化版](LESSONS/L-085-hand-rolled-grep-reinvents-a-worse-enumeration-surface.md) — 枚舉先跑 `docs-sync.py errata`（掃 tracked 全檔）、非手拼不可時用路徑範圍限定；寫驅動件／量測件／編排骨架前先 `ls tmp/`（gitignored＝git 史與 grep 都找不到它）
 - [L-086｜走查還原的 setval 目標值沿用上一次走查的指令＝把序列往回撥](LESSONS/L-086-restore-values-must-come-from-this-run-baseline.md) — 還原值 MUST 自本次 baseline 現讀、不得從舊指令複製；看 diff 差值的正負號（正＝殘留未清、負＝復位過頭）
+- [L-087｜跨刀的可複用工件躺在 gitignored 的 tmp/，沒有任何機制會提醒你它存在——於是每刀重新發明一次](LESSONS/L-087-cross-blade-artifacts-live-unseen-in-gitignored-tmp.md) — 寫驅動件／量測件／編排骨架前先 `ls -R tmp/`；tmp-clean 列清單逐項判（那是跨刀資產庫、不是暫存垃圾）
