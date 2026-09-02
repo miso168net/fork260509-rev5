@@ -234,9 +234,41 @@ dialog／purge 流程全通；四閘綠。
 
 **Purpose**: 端到端驗收（quickstart §3）＋餘四條關帳＋holistic review。
 
-- [ ] T035 CDP 三方對照全套（quickstart.md §3 六步、次序不可反）：baseline snapshot→走查〔煙測反轉兩項／settings 對照／audit 四分頁逐欄對照（XFF 欄例外註記 ADR 0076；access 空表、region/traceId 恆「-」＝已知態驗形不驗值）／★XSS 注入驗證 SC-003（CDP Fetch 注入 `X-Forwarded-For: <script>…</script>` 產列→字面顯示零執行）／purge 29 拒（{minDays} 字樣）＋3650 成功（deletedCount=0＋自記）〕→§9c 清理→`walkthrough-baseline.py diff` rc 0→容器全量 serial 綠→`schema-gate.py check` 三閘綠
-- [ ] T036 B-078 確認句復核落帳（grep 證據：讀端 realIp 過濾＝等值 /32、/128、零 LIKE 對 IP 欄）＋關帳三條：`docs/ops/BACKLOG.md` 刪 B-008／B-072／B-078 列＋L-072 雙向掃（現在式家族待辦式引用同批改；反向核家族引用之 B-NNN 仍在兩卷）＋`docs/ops/NOTES.md` 同步
-- [ ] T037 final holistic review（spec 逐 FR 對照＋SC 八條逐條驗；findings 三分流：修／轉 B-NNN／won't-fix ADR；以收單 commit 訊息承載＝ADR 0075）
+- [x] T035 CDP 三方對照全套（quickstart.md §3 六步、次序不可反）：baseline snapshot→走查〔煙測反轉兩項／settings 對照／audit 四分頁逐欄對照（XFF 欄例外註記 ADR 0076；access 空表、region/traceId 恆「-」＝已知態驗形不驗值）／★XSS 注入驗證 SC-003（CDP Fetch 注入 `X-Forwarded-For: <script>…</script>` 產列→字面顯示零執行）／purge 29 拒（{minDays} 字樣）＋3650 成功（deletedCount=0＋自記）〕→§9c 清理→`walkthrough-baseline.py diff` rc 0→容器全量 serial 綠→`schema-gate.py check` 三閘綠
+- [x] T036 B-078 確認句復核落帳（grep 證據：讀端 realIp 過濾＝等值 /32、/128、零 LIKE 對 IP 欄）＋關帳三條：`docs/ops/BACKLOG.md` 刪 B-008／B-072／B-078 列＋L-072 雙向掃（現在式家族待辦式引用同批改；反向核家族引用之 B-NNN 仍在兩卷）＋`docs/ops/NOTES.md` 同步
+- [x] T037 final holistic review（spec 逐 FR 對照＋SC 八條逐條驗；findings 三分流：修／轉 B-NNN／won't-fix ADR；以收單 commit 訊息承載＝ADR 0075）
+
+★**U9 執行結果（★主線做、不派 workflow；2026-09-02）**
+
+- **T035 CDP 三方對照（quickstart §3 六步、次序不可反）**：22080 vs 42080 雙分頁。
+  · **煙測反轉兩項**：側欄「系统设置」「审计中心」皆譯文、點擊皆導航成功（基線已知態＝零反應＋原始 key）。
+  · **settings 對照**：rev4 四組卡片 × 16 項的**順序／型別／值逐項對應**（僅繁簡差異）。
+  · **audit 四分頁逐欄對照**：欄序完全一致，**唯一差異＝XFF 欄**且恰在 operation／access／login 三分頁、
+    皆插在「來源 IP」之後，**session 分頁零差異**——逐格符 ADR 0076。rev4 欄數 9/9/7/8 → rev5 10/10/8/8。
+  · **op-log 快照 dialog**：`<pre>` 純文字 JSON、**零 script 節點**；內容為 purge 自記三欄。
+  · **已知態三筆驗形**：access 分頁 0 列＋「无数据」／`region`／`traceId` 恆「-」／login 分頁 throttleNote
+    NAlert（「因登录节流短路而被拒的尝试不会记录于此表…」）。
+  · **§9c 六步全過**：`walkthrough-baseline diff` rc=0（★redis **精準刪走查那一鍵**、回基準 54 鍵，
+    不粗暴全清；序列值自**本次** baseline 現讀＝L-086）、`schema-gate check` rc=0、容器全量 1108 passed。
+- **T036 B-078 確認句復核＋關帳三條**：`Column::RealIp.eq(v)` ＝ INET 精確等值（/32｜/128），碼註逐字
+  「MUST NOT 改 LIKE 字串包含」，並由 facade 與 handler **兩支**「等值非子串」測釘死；四支讀端零複驗入口。
+  刪 B-008／B-072／B-078 三列。★**L-072 雙向掃抓到一條真死鏈**：`LESSONS/L-046` 的 `promoted_to`
+  指向即將不存在的 B-008 條目（那正是它防法的家），已改對——連同該已知態本身已被本刀消滅的事實。
+  RUNBOOK 的三處 B-078 引用（紀律標題／「殘餘」語句／「殘餘工項→BACKLOG B-078」死鏈指針）同批改對。
+- **T037 final holistic review — SC 八條逐條結論**：
+  | SC | 結論 |
+  |---|---|
+  | SC-001 側欄 3 次點擊抵達＋譯文 | ✔ 完全兌現（CDP 實證兩張頁） |
+  | SC-002 四分頁行為與 rev4 逐項一致 | ✔ **欄集與快照檢視逐欄對照通過**；「有資料時的搜尋／時間區間／分頁 UI 行為」因四表走查還原後為空而無法逐項對照，**以後端 handler 測承載**（時間閉開、反轉區間回空頁、realIp 等值非子串、enrich、分頁 clamp 皆逐項釘死）——**誠實記為以測承載、非 UI 逐項驗** |
+  | SC-003 XFF 含 script 字面零執行 | ✔ 完全兌現（字面顯示、innerHTML 逐字轉義 `&lt;script&gt;`、零 alert、零 script 節點） |
+  | SC-004 16 鍵可視可讀＋回讀＋非法值 | ✔ **部分**——16 鍵可視可讀 ✔、改動後 1 次回讀一致 ✔（UI→庫→UI 實證）、非法值拒因 toast 翻譯後 ✔、**「畫面回退」在 blur 路徑成立、Enter 路徑不成立 ⇒ 轉 B-164** |
+  | SC-005 清理低於 30 天被拒＋筆數一致 | ✔ 完全兌現（29→`2222`＋`{minDays:30}`、渲染「清理保留天数不可低于 30 天」；3650→`deletedCount=0`＋自記三欄；前端另有 MIN_DAYS 護欄先擋） |
+  | SC-006 佔位符漂移 pre-commit 攔下 | ✔ 完全兌現（U6 主線親跑變異：`{minDays}`→`{days}` 得 3 筆 ERROR、還原回綠） |
+  | SC-007 全閘綠 | ✔ 完全兌現（rust 全量 1108 passed／0 failed／2 ignored、七道閘 rc=0、seed-view-gate 豁免 **0**） |
+  | SC-008 BACKLOG 六條關帳 | ✔ 完全兌現（B-008／B-072／B-078／B-125／B-139＋豁免表歸零） |
+- **findings 三分流（ADR 0075：不落報告不落事件、以收單 commit 訊息承載）**：
+  **修**＝0；**轉 B-NNN**＝1（B-164）；**won't-fix ADR**＝0。
+  本刀期間另落 B-157～B-163 七條（各單元收尾時即記，非本輪新增）。
 
 ---
 

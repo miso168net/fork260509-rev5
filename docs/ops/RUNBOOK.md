@@ -128,7 +128,7 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 
 ## 9. 維運端點與 DB 直連
 
-**稽核欄複驗紀律**（B-078；讀者＝要寫稽核報表／對賬腳本／機器閘的人）：稽核列的轉發鏈欄 `x_forwarded_for` 由
+**稽核欄複驗紀律**（讀者＝要寫稽核報表／對賬腳本／機器閘的人；★本節即該紀律的**永久家**——原 BACKLOG 條目已於 2026-09-02 由 008-audit-settings-pages 確認後關帳刪列）：稽核列的轉發鏈欄 `x_forwarded_for` 由
 `trust::rightmost_window_str` **逐字保留**鏈欄原文（不可解析欄是鑑識痕跡、刻意不正規化），而 `real_ip` 是
 `trust::to_canonical(..).to_string()` 的**壓縮小寫**形 ⇒ 鏈欄寫 IPv6 非正規化字面（如 `2001:DB8::9`、`2001:0db8::9`）時
 `real_ip` 落 `2001:db8::9`，`x_forwarded_for LIKE '%'||real_ip||'%'` 這類**字串包含式複驗得假陰性**——在 F8 的兩個成立條件下（真實來源由鏈推導、
@@ -145,11 +145,11 @@ python3 deploy/backup-db.py restore "$HOME/backups-fork260509-rev5/<dump 檔名>
 且生效模型還隨 `load_trust_model` 三層降級態（缺路徑退扁平環境變數／非 UTF-8 退全空）漂移 ⇒ 用今日設定重推昨日的列會把合法來源整批報成缺口。
 報表 MUST 以設定變更時點切分區間、每區間用該區間生效的模型重推（時點來源＝設定檔變更史：dev＝`deploy/trust-model.dev.toml` 的 git 史、
 prod＝`APP_TRUST_MODEL_PATH` 所指檔的部署變更紀錄＋啟動載入告警）；切不出時點的區間標「不可判」交人工判讀、不得憑今日設定出結論；⑤`ip_confidence` 為 NULL 的 003 期以前歷史列——該批列的 `real_ip` 非由本代信任模型推導（004 之前無 trust 模型；append-only、不遷移，`model/facade/sys_login_attempt.rs` 的節流計數亦以它為已知陷阱），任何版本重推皆對不上、整批排除。★現無 rust 之外的重推入口
-（唯一落點＝rust 側測試／小工具，屬 B-078 殘餘）；憲法 F8 講的複驗性就是重推；
+（唯一落點＝rust 側測試／小工具）；憲法 F8 講的複驗性就是重推；
 `LIKE` 字串判別只限手動走查一眼看（specs/004 之 quickstart §1b），**不得搬進正式報表／對賬腳本／機器閘**——搬了即把
 合法的 IPv6 來源系統性報成「稽核欄不含真實來源」，憑空製造一批假的鑑識缺口告警。★「先把鏈欄逐欄正規化再字串比對」這條看似更穩的路**同樣不行**——
 那會丟掉逐字鑑識痕跡、與 `rightmost_window_str` 刻意不正規化的設計相抵（重推是在記憶體裡正規化、欄本身一字不動，故此棄案理由不反噬所選方案）。
-殘餘工項→ops/BACKLOG **B-078**。
+★**殘餘工項已無**：008-audit-settings-pages 之 audit 四支讀端**零複驗入口**，`realIp` 過濾＝**INET 精確等值**（`Column::RealIp.eq(v)`、/32｜/128 host network）**非 LIKE 字串包含**，並由 facade 與 handler **兩支**「等值非子串」測釘死（`203.0.113.7` 是 `203.0.113.70` 的子字串、LIKE 形當場多撈）。
 
 ## 9a. 授權治理面速查（006；僅指針）
 
