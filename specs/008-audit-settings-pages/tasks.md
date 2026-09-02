@@ -165,15 +165,68 @@ pin bump）與「絕不 push/merge」由 CLAUDE.md 承載、不入本清單。
 **Independent Test**: CDP 對照 rev4 四分頁逐欄（XFF 欄＝唯一例外）；搜尋／分頁／快照
 dialog／purge 流程全通；四閘綠。
 
-- [ ] T028 [P] [US2] 新檔 `base-web/src/service/api/rev5-audit.ts`（5 fetcher：四 GET query＋purge POST；不入 barrel、直接路徑 import request）
-- [ ] T029 [US2] 新檔 `base-web/src/views/manage/audit/modules/use-audit-search-date-range.ts`（dateRange→UTC ISO、reset 快照回填＋emit search）＋四搜尋卡 `audit-search-{operation,access,login,session}.vue`（NCollapse 預設展開；label 走分頁樹＋common、placeholder 走 form.*；login 之 success NSelect successOption 兩值；rev4 藍本重打字）
-- [ ] T030 [US2] 新檔 `base-web/src/views/manage/audit/index.vue`：NTabs 四分頁×四組 `useNaivePaginatedTable`（`api`＋`defaultTransform`＋columns）；欄集逐欄照 rev4＋★XFF 欄三分頁（純文字、`ellipsis: { tooltip: true }`；session 分頁不加；ADR 0076）；scroll-x＝Σ欄寬不變式帳註（multiline 形、B-144 慣例）；op-log 快照 `$dialog.info`＋`<pre>` 純文字 JSON；refresh 鈕不重置頁碼；login 分頁 throttleNote NAlert
-- [ ] T031 [US3] 新檔 `base-web/src/views/manage/audit/modules/audit-purge-modal.vue`（MIN_DAYS=30 前端護欄＋NAlert 警語＋NPopconfirm 二段確認＋emit 'submitted'＋開啟重置回 30）＋index.vue 每分頁 purge 入口（單例掛載、target 隨分頁）＋成功 toast 帶 {count} 刷新該分頁
-- [ ] T032 [US2] i18n＋型節（WIRING (viii) 新增型圈界）：兩語 route: 樹 `manage_audit` 鍵＋page.manage.audit 樹（57 葉×2、含 tab/common/operation/access/login/session/form/purge；譯文以 rev4 兩語為底重打）＋app.d.ts Schema.page.manage 補 audit 型節；兩語鍵集相等＋★**L-063 補做**（本 task ＝用途 (viii) 之第一個落 `rev5-inline` 標記處）：兩道實得機器守之真變異自證——①②塊之圈界標記守於本 task、③塊之重算冪等閘於 T033；變異面／不取之形／還原紀律逐字＝T004 記派段，紅綠證逐字補記本 task
-- [ ] T033 [US2] 產物四檔重算＋`route-artifact-gate` 冪等綠＋`pnpm typecheck` 綠＋`view-render-guard` 綠＋`fork-delta-lint` 綠
-- [ ] T034 [US2] `tools/seed-view-gate.py`：EXEMPT 摘 `view.manage_audit` 列（表歸零）＋I-a 釘改＋檔頭改；gate 綠
+- [x] T028 [P] [US2] 新檔 `base-web/src/service/api/rev5-audit.ts`（5 fetcher：四 GET query＋purge POST；不入 barrel、直接路徑 import request）
+- [x] T029 [US2] 新檔 `base-web/src/views/manage/audit/modules/use-audit-search-date-range.ts`（dateRange→UTC ISO、reset 快照回填＋emit search）＋四搜尋卡 `audit-search-{operation,access,login,session}.vue`（NCollapse 預設展開；label 走分頁樹＋common、placeholder 走 form.*；login 之 success NSelect successOption 兩值；rev4 藍本重打字）
+- [x] T030 [US2] 新檔 `base-web/src/views/manage/audit/index.vue`：NTabs 四分頁×四組 `useNaivePaginatedTable`（`api`＋`defaultTransform`＋columns）；欄集逐欄照 rev4＋★XFF 欄三分頁（純文字、`ellipsis: { tooltip: true }`；session 分頁不加；ADR 0076）；scroll-x＝Σ欄寬不變式帳註（multiline 形、B-144 慣例）；op-log 快照 `$dialog.info`＋`<pre>` 純文字 JSON；refresh 鈕不重置頁碼；login 分頁 throttleNote NAlert
+- [x] T031 [US3] 新檔 `base-web/src/views/manage/audit/modules/audit-purge-modal.vue`（MIN_DAYS=30 前端護欄＋NAlert 警語＋NPopconfirm 二段確認＋emit 'submitted'＋開啟重置回 30）＋index.vue 每分頁 purge 入口（單例掛載、target 隨分頁）＋成功 toast 帶 {count} 刷新該分頁
+- [x] T032 [US2] i18n＋型節（WIRING (viii) 新增型圈界）：兩語 route: 樹 `manage_audit` 鍵＋page.manage.audit 樹（**58** 葉×2〔原寫 57＝規劃期照 rev4 樹實測值；rev5 因 `common.xForwardedFor` 一枚〔ADR 0076〕而為 58，其餘 57 葉鍵集與 rev4 逐鍵相等〕、含 tab/common/operation/access/login/session/form/purge；譯文以 rev4 兩語為底重打）＋app.d.ts Schema.page.manage 補 audit 型節；兩語鍵集相等＋★**L-063 補做**（本 task ＝用途 (viii) 之第一個落 `rev5-inline` 標記處）：兩道實得機器守之真變異自證——①②塊之圈界標記守於本 task、③塊之重算冪等閘於 T033；變異面／不取之形／還原紀律逐字＝T004 記派段，紅綠證逐字補記本 task
+- [x] T033 [US2] 產物四檔重算＋`route-artifact-gate` 冪等綠＋`pnpm typecheck` 綠＋`view-render-guard` 綠＋`fork-delta-lint` 綠
+- [x] T034 [US2] `tools/seed-view-gate.py`：EXEMPT 摘 `view.manage_audit` 列（表歸零）＋I-a 釘改＋檔頭改；gate 綠
 
 **Checkpoint**: 兩頁全兌現、豁免表歸零。
+
+★**U8 執行結果（workflow `wf_11418d85-216`、10 支、三 implementer serial、2026-09-02 收尾）**
+
+- **量**：service 新檔 1 支（5 fetcher）＋view 新目錄 7 檔（index 617 行＋四搜尋卡＋purge modal 103 行
+  ＋daterange composable）；兩語 i18n 各 `route:` 一鍵＋`page.manage.audit` 樹 **58 葉**；`app.d.ts`
+  型節一塊；產物四檔由 dev server watcher 自動重算（零手改）；`tools/seed-view-gate.py` 豁免
+  **1 → 0（歸零）**。`pnpm typecheck` rc=0｜六道閘全綠｜`seed-view-gate` 輸出「豁免 0：無」。
+- **審查**：規格對照輪**第 1 輪即零 blocker**（14 項全過、全數自跑取證）；碼品質輪 1 blocker
+  ——`docs/ops/RUNBOOK.md` §12 工具表之 seed-view-gate 列的活書假述，屬清單外，fix agent 正確升級主線（防呆⑥）。
+- ★**「57 葉」的出處已釐清**（審查員機器核對）：rev4 `page.manage.audit` 樹實測恰 **57 葉**；
+  rev5 集合減 rev4 集合＝`{audit.common.xForwardedFor}`、反向差集為空 ⇒ rev5 **58 ＝ 57 ＋ XFF 一枚**
+  （ADR 0076）。四方鍵集（view 的 `$t` 實用鍵／zh-cn/en-us 塊／`app.d.ts` 型節）皆 58、三方 diff rc=0。
+- ★**審查員另證實 rev4 的 `scroll-x` 四張皆內部不一致**（帳註值 vs 實際 Σ：op 1440/1144、access
+  1320/1204、login 1040/904、session 1160/1044）——rev5 以**自算值**為準並逐分頁手算核對：
+  op **1304**／access **1364**／login **1064**／session **1044**，Σ 欄寬不變式成立。
+- ★★**用途 (viii) 的變異自證（L-063 補做、T004 記派段之 (viii) 兌現點）——11 輪先小後大，
+  U7 的 change-block 粒度結論當場重測成立，且揭出兩個 U7 未及的新事實**：
+  - **第一發（T032·①②塊）**＝`find_unmarked_additions`。變異形＝標的行 `[rev5-inline`→`[rev5-jnline`
+    令 `_block_has_marker` 不認；每輪照 L-060 快照→變異→跑閘→寫回→`cmp` 逐位相同。
+    · zh-cn **route** 塊：(viii) 自身 2 枚 → rc=0 存活（(i)(iv)(vii)(viii) 四塊對基線為**同一條連續
+      純新增 run**、鄰塊合法標記涵蓋全塊）；加 (vii) 共 4 枚 → 仍存活；該 run **全 8 枚** → **rc=1 真紅**。
+    · zh-cn **page** 塊（**新事實一**）：(viii) 2 枚 → rc=0；加 (vii) 共 4 枚 → **rc=0 意外存活** →
+      difflib 實印診斷：該 change-block 是 **149 行純新增大塊、除 (viii)(vii) 外還含 (vi) userCenter 塊**
+      ⇒ **六枚全壞**才 rc=1 真紅（紅訊直指本塊首實質行 `audit: {`）。en-us page 塊同形復現。
+    · ★★**`app.d.ts` 型節（新事實二、如實揭露不掩蓋）**：(viii) 2 枚 → 4 枚 → 連 (vi) 共 6 枚
+      **全壞恆 rc=0**。成因＝該塊對基線是 **added 147 ＋ removed 1 根結構行 `};`**，`flush()` 依
+      `is_code` 把整塊歸**修改型**而結構性跳過（該 fn docstring 自陳之「已知可接受殘留①」）
+      ⇒ **`app.d.ts` 的 (viii) 型節標記在現行 diff 拓樸下無 `find_unmarked_additions` 鑑別力**。
+      **已立 B-162**（與 B-159 新檔檔頭標記零機器守同族的相鄰缺口）。
+    · ★其中一輪因 (vi) 行號誤植而 assert 中斷於寫檔前、閘跑的是未變異檔 ⇒ 該輪作廢、以正確行號
+      重跑——**如實記錄於 report**（否則會把「沒紅」誤記成守門缺口）。
+  - **第二發（T033·③塊）**＝`route-artifact-gate` 重算冪等閘。手改 `routes.ts` 之 `manage_audit`
+    條目 title 尾字 → **rc=1 真紅**「✗ ③ 產物檔遭手改：…以上游基線為種重算的結果與版控不符」
+    ＋實印該行 -/+ diff；還原後回綠。
+  - ★T004 記派段明令不取之形（改壞 §III.2 範圍欄反引號路徑）**未取**——`find_rogue_tracks` 射程
+    僅修改型，本軌道三塊結構性不適用。
+  - ⇒ **L-063 對用途 (viii) 的清償完成**；連同 U7 的 (vii)，T004 記派段承諾之兩個兌現點全數落地。
+- **T034 歸零的 vacuous 處置（L-063）**：`EXEMPT = {}`；self-test I-a 第①段改 `assert EXEMPT == {}`
+  （★仍有鑑別力＝養第一列即紅）；**第②段的值字面迴圈保留**、其上方**新增碼註就地揭露**「空表下
+  零次迭代＝暫時 vacuous、鑑別力隨豁免恢復而恢復」——★**不假裝有守**。I-b／I-c／I-d 三根一字未動。
+- **跨檔假述改對（L-032；主線六步序①）三處**：`.githooks/pre-commit` 的 seed-view-gate 說明段／`docs/ops/RUNBOOK.md` §12 工具表之
+  seed-view-gate 列／`docs/ops/BACKLOG.md` 之 B-008 條目（audit 出列、兩張全數兌現；整條刪列歸 T036）。
+  ★**主線自跑枚舉時漏掉 `.githooks/pre-commit`**（用了副檔名白名單、該檔無副檔名），由 fix agent
+  的 escalation 補上——**已立 L-085**。
+- **本單元新帳**：B-162（`app.d.ts` 型節標記零鑑別力）／B-163（`seed-view-gate.py` 的「⑤未接」段
+  已過期、非本刀引入）／L-085（手拼 grep 重新發明更差的枚舉面）／**L-086**（走查還原的 `setval`
+  沿用上一次走查的指令＝把序列往回撥——本單元收單的 CDP 快查實暴、由 §9c 步驟 4 的負差值抓出）。
+- **收單 CDP 快查（主線做；完整三方對照歸 U9）**：側欄「审计中心」顯示譯文（B-008 最後一張的
+  已知態反轉）、點擊導航成功、四分頁齊（操作日志／访问日志／登录尝试／会话事件）、頁面零原始 key；
+  ★**XFF 欄分布逐分頁核對＝ADR 0076 逐字**：op-log 10 欄含「XFF 转发链」／access 10 欄有／
+  login 8 欄有／**session 8 欄無**；purge modal 開啟預設 30（MIN_DAYS 護欄）、target 隨分頁、
+  警語與二段確認齊——**未執行**（破壞性）。走查還原照 §9c 六步、`walkthrough-baseline diff` rc=0
+  ＋`schema-gate check` rc=0（本次無 UPDATE 型副作用、L-084 那格不適用）。
 
 ---
 

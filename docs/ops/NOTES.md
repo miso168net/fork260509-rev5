@@ -14,8 +14,11 @@
   logout TTL 同形補測——**B-125 關帳**）／**本刀 U6**（Lint24 第三腿＝佔位符 × 後端 `json!` 頂層鍵
   對賬＋三語併驗——**B-139 關帳**）／**本刀 U7**（system-settings 頁進場：view 單檔＋兩語 i18n
   ＋型節＋產物四檔＋seed-view-gate 摘一列＋用途 (vii) 之 L-063 變異自證；**B-008 settings 半邊
-  出列**、CDP 走查證已知態反轉）。**下一支＝本刀 U8**（tasks.md T028~T034＝audit 頁七檔＋i18n
-  ＋產物四檔＋seed-view-gate 歸零＋用途 (viii) 之 L-063 變異自證），其後 U9（CDP 三方對照
-  ＋關帳三條＋final holistic review、主線做）。brainstorm＝`docs/brainstorms/008-audit-settings-pages.md`。
+  出列**、CDP 走查證已知態反轉）／**本刀 U8**（audit 頁進場：service 5 fetcher＋view 七檔
+  ＋兩語 58 葉＋型節＋產物四檔＋**seed-view-gate 豁免表歸零**＋用途 (viii) 之 L-063 變異自證
+  〔11 輪、揭出 `app.d.ts` 型節標記零鑑別力＝B-162〕；**B-008 兩張 view 全數兌現**）。
+  **下一支＝本刀 U9**（tasks.md T035~T037＝CDP 三方對照〔22080 vs 42080，XFF 欄為唯一允許差異〕
+  ＋關帳三條＋final holistic review；★**主線做、不派 workflow**），其後收刀（push／merge 需
+  user 同意 → 簿記三步 → ★第四步 close_bookkeeping perf 事件）。brainstorm＝`docs/brainstorms/008-audit-settings-pages.md`。
 - **效能現況**：全序列→`docs/generated/reference/perf.md`、引信判讀→`docs/generated/STATE.md`「效能引信」行（機器判、
   只採 close_bookkeeping）；merge commit 不跑 pre-commit 之事實住 RUNBOOK §12.1。
