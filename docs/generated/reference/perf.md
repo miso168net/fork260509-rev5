@@ -41,3 +41,4 @@
 | 2026-08-31 | close_bookkeeping | 12.9 | 0 | 7e995f2 | rust 維護批收刀簿記 commit（staged＝events.jsonl misc 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
 | 2026-08-31 | close_bookkeeping | 15.62 | 0 | 026c7a0 | docs×tools 維護批收刀簿記 commit（staged＝events.jsonl 收單事件＋NOTES＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
 | 2026-08-31 | close_bookkeeping | 11.96 | 0 | 23859d5 | 微批收刀簿記 commit（staged＝events 收單＋NOTES＋RUNBOOK 註腳兩處＋docs/generated）；pre-commit 全鏈實跑；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
+| 2026-09-02 | close_bookkeeping | 11.59 | 0 | c98ca27 | 008-audit-settings-pages 收刀簿記 commit（staged＝events feature_close＋NOTES 下一步＋活書 §1 建置狀態＋docs/generated 12 檔）；pre-commit 全鏈實跑；★本顆先被 Lint03／Lint06／Lint28 擋過一次（summary 超 300、merge 短 SHA、arch_impact 節號錯、活書 §1 未補 008），同回合修復後之成功顆量測；量測法＝RUNBOOK §12.1、承載＝ADR 0070 第四步 |
